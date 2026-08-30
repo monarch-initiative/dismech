@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ependymoma · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Ependymoma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Ependymoma</h1>
+                
+                <p class="report-subtitle">Ependymoma: A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-07-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0016698" target="_blank" rel="noopener noreferrer">MONDO:0016698</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">54 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Ependymoma: A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Ependymoma
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0016698" target="_blank" rel="noopener noreferrer">MONDO:0016698</a>
+<strong>Category:</strong> Neoplasm / ependymal tumor of the central nervous system (WHO CNS5 molecularly defined groups)
+<strong>Investigation:</strong> 10 iterations · 27 confirmed findings · 3 supported hypotheses · 75 papers reviewed</p>
+<hr />
+<h2>Summary</h2>
+<p>Ependymoma is a rare glial neoplasm of ependymal/radial-glial lineage that arises along the neuraxis — in the supratentorial brain, the posterior fossa, or the spinal cord. Its defining biological feature is that, unlike most adult gliomas, it carries <strong>very few recurrent point mutations</strong>. Instead, it is driven by <strong>location-specific fusion oncogenes and epigenetic reprogramming</strong>. The 2021 WHO Classification of CNS Tumors (5th edition, "CNS5") formalized this by defining <strong>10 molecularly and anatomically distinct diagnostic entities</strong>, replacing a grade-based scheme that correlated poorly with survival (<a href="https://pubmed.ncbi.nlm.nih.gov/37743338/">PMID: 37743338</a>). Anatomic compartment plus molecular driver — not histologic grade — now determines diagnosis and prognosis.</p>
+<p>Two mechanisms dominate the intracranial disease. In <strong>supratentorial ependymoma</strong>, a <strong>ZFTA–RELA (formerly C11orf95–RELA) gene fusion</strong> — present in &gt;60% of cases — produces an oncoprotein that constitutively localizes to the nucleus, forms <strong>dynamic nuclear condensates</strong>, and drives aberrant <strong>NF-κB/transcriptional</strong> programs (<a href="https://pubmed.ncbi.nlm.nih.gov/33741710/">PMID: 33741710</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40866513/">PMID: 40866513</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42080900/">PMID: 42080900</a>). In <strong>posterior fossa group A (PFA)</strong> tumors, overexpression of <strong>EZHIP (CXorf67)</strong> mimics the H3K27M oncohistone, inhibits <strong>PRC2</strong>, and causes <strong>global loss of H3K27me3</strong> with de-repression of neurodevelopmental genes (<a href="https://pubmed.ncbi.nlm.nih.gov/30923826/">PMID: 30923826</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33049227/">PMID: 33049227</a>). Spinal ependymomas are frequently defined by <strong>NF2 loss</strong> (germline in NF2-related schwannomatosis, or somatic with 22q loss), except an aggressive <strong>MYCN-amplified</strong> class (<a href="https://pubmed.ncbi.nlm.nih.gov/34895332/">PMID: 34895332</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38265489/">PMID: 38265489</a>).</p>
+<p>Clinically, ependymoma is largely <strong>sporadic</strong> (high-dose ionizing radiation is the only established environmental risk factor; ~5%+ attributable to genetic predisposition, chiefly germline NF2). It presents with <strong>hydrocephalus/raised intracranial pressure</strong> (posterior fossa) or <strong>seizures/focal deficits</strong> (supratentorial). The cornerstone of treatment is <strong>maximal safe surgical resection followed by adjuvant focal radiotherapy</strong>; chemotherapy offers minimal curative benefit. <strong>Extent of resection</strong> and <strong>molecular subgroup</strong> are the strongest prognostic determinants: EPN-PFB has excellent survival (~100% 5-year OS) while PFA with <strong>chromosome 1q gain and/or 6q loss</strong> is the worst. Ten-year overall survival across all ependymoma ranges 50–75%. Emerging targeted (MERTK, EZHIP/PRC2) and locoregional CAR-T strategies remain experimental.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Disease Information and Classification (WHO CNS5)</h3>
+<p>The 2021 WHO CNS5 classification lists <strong>10 ependymoma diagnostic entities</strong> integrating histology, molecular alterations, DNA methylation profiling, and anatomic location (Finding F015). These are: (1) supratentorial subependymoma; (2) supratentorial ependymoma, ZFTA fusion-positive; (3) supratentorial ependymoma, YAP1 fusion-positive; (4) posterior fossa subependymoma; (5) posterior fossa group A (PFA) ependymoma; (6) posterior fossa group B (PFB) ependymoma; (7) spinal subependymoma; (8) spinal ependymoma; (9) spinal myxopapillary ependymoma; and (10) spinal ependymoma, MYCN-amplified (<a href="https://pubmed.ncbi.nlm.nih.gov/37743338/">PMID: 37743338</a>). Molecular information was first incorporated in the 2016 4th edition (RELA-fusion). The term <strong>"anaplastic ependymoma" was dropped</strong> in CNS5 because "the low correlation between tumor grade and survival prognosis remained a problem." Grading now spans CNS WHO grade 1 (subependymoma, myxopapillary) to grades 2–3.</p>
+<p><strong>Key identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0016698" target="_blank" rel="noopener noreferrer">MONDO:0016698</a>; MeSH D004806 (Ependymoma). ICD-O morphology codes 9391/3 (ependymoma), 9392/3 (formerly anaplastic), 9394/1 (myxopapillary), 9383/1 (subependymoma). The information in this report is derived from <strong>aggregated disease-level resources</strong> (registries such as CBTRUS/SEER, cooperative-group trials, molecular cohort studies) rather than individual patient EHR.</p>
+<p><strong>Synonyms:</strong> ependymal tumor; historical subtypes include anaplastic ependymoma (retired), RELA fusion-positive ependymoma (now ZFTA fusion-positive), myxopapillary ependymoma, subependymoma.</p>
+<h3>2. Etiology and Risk Factors</h3>
+<p>Ependymoma is <strong>largely sporadic with few established risk factors</strong> (Findings F011, F026). The authoritative epidemiologic review states: <em>"The causes of childhood CNS tumours are largely unknown; and although an estimated 5% or more may be explained by genetic predisposition, investigations of environmental aetiology have not been fruitful. Whilst high dose ionising radiation is an established risk factor for this group of tumours, reported associations with dietary N-nitroso compounds have not been consistent"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16142778/">PMID: 16142778</a>). Exposure to extremely-low-frequency electromagnetic fields (ELF-EMF) has not been associated with childhood CNS tumors. <strong>No infectious agent</strong> is causally implicated.</p>
+<ul>
+<li><strong>Genetic risk:</strong> The principal hereditary predisposition is <strong>germline NF2 loss</strong> (NF2-related schwannomatosis; see Section 9). ~5%+ of childhood CNS tumors are attributable to genetic predisposition.</li>
+<li><strong>Environmental risk:</strong> <strong>High-dose ionizing radiation</strong> is the only confirmed environmental risk factor.</li>
+<li><strong>Demographics:</strong> Ependymomas (with PNET) <em>"mainly occur in children less than 10 years"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16142778/">PMID: 16142778</a>); slight male predominance.</li>
+<li><strong>Protective factors and gene–environment interactions:</strong> No established genetic or environmental protective factors, and no documented gene–environment interactions specific to ependymoma. <em>(Information not available for this disease.)</em></li>
+</ul>
+<h3>3. Phenotypes (Clinical Presentation)</h3>
+<p>Presentation is <strong>location- and age-dependent</strong> (Findings F006, F021). Posterior fossa/intraventricular tumors obstruct CSF flow, producing <strong>hydrocephalus and raised intracranial pressure</strong>; supratentorial lesions present with <strong>seizures or focal deficits</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40556668/">PMID: 40556668</a>). Signs of raised ICP vary with age: <em>"Macrocrania and a bulging fontanel can be observed in infants and toddlers, whereas headache, papilledema and vomiting are present in the older children"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/8677342/">PMID: 8677342</a>). Leptomeningeal <strong>dissemination is present in up to 10% of cases at diagnosis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40556668/">PMID: 40556668</a>). Lateral posterior-fossa tumors cause lower cranial-nerve dysfunction (dysphagia/dysarthria), often transient. Spinal ependymomas present with back/neck pain, sensorimotor deficits, and sphincter dysfunction.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Frequency/onset</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hydrocephalus</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" rel="noopener noreferrer">HP:0000238</a></td>
+<td>Common in posterior fossa; infants/young children</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></td>
+<td>Common (raised ICP)</td>
+</tr>
+<tr>
+<td>Nausea/vomiting</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a>/<a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" rel="noopener noreferrer">HP:0002017</a></td>
+<td>Common with raised ICP</td>
+</tr>
+<tr>
+<td>Papilledema</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001085" target="_blank" rel="noopener noreferrer">HP:0001085</a></td>
+<td>Older children</td>
+</tr>
+<tr>
+<td>Ataxia</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a></td>
+<td>Posterior fossa</td>
+</tr>
+<tr>
+<td>Seizures</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>Supratentorial</td>
+</tr>
+<tr>
+<td>Nystagmus</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a></td>
+<td>Posterior fossa/brainstem</td>
+</tr>
+<tr>
+<td>Cranial nerve palsy</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001291" target="_blank" rel="noopener noreferrer">HP:0001291</a></td>
+<td>Lateral posterior fossa</td>
+</tr>
+<tr>
+<td>Macrocephaly</td>
+<td>Physical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" rel="noopener noreferrer">HP:0000256</a></td>
+<td>Infants/toddlers</td>
+</tr>
+<tr>
+<td>Back pain</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" rel="noopener noreferrer">HP:0003418</a></td>
+<td>Spinal</td>
+</tr>
+<tr>
+<td>Sphincter/bladder dysfunction</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000012" target="_blank" rel="noopener noreferrer">HP:0000012</a></td>
+<td>Spinal</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Median age at intracranial diagnosis is <strong>~5 years</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40556668/">PMID: 40556668</a>). Symptom progression is typically progressive; quality of life is heavily affected by neurocognitive sequelae of tumor, surgery, and craniospinal irradiation (processing speed and psychomotor abilities most affected — HIT-2000 data, <a href="https://pubmed.ncbi.nlm.nih.gov/38835160/">PMID: 38835160</a>).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p>Ependymoma is characterized by <strong>few point mutations</strong>; <strong>fusion genes and copy-number/epigenetic changes</strong> are the defining drivers, and they are location-specific (Findings F001, F009, F015).</p>
+<ul>
+<li><strong>Supratentorial:</strong> <strong>ZFTA–RELA (ZR)</strong> fusion is the most frequent driver (&gt;60% of ST-EPN). <em>"In supratentorial ependymoma, the most frequent driver alteration is a gene fusion between ZFTA and RELA (denoted ZR), leads to constitutive localization of ZR in the nucleus"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42080900/">PMID: 42080900</a>). ST-EPN divides into ZFTA-fused and <strong>YAP1-fused</strong> groups, <em>"with the majority harbouring ZFTA::RELA fusion"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42332758/">PMID: 42332758</a>). Genes: <strong>ZFTA</strong> (formerly C11orf95, 11q13), <strong>RELA</strong> (<a href="https://bioregistry.io/HGNC:9955" target="_blank" rel="noopener noreferrer">HGNC:9955</a>), <strong>YAP1</strong> (<a href="https://bioregistry.io/HGNC:16262" target="_blank" rel="noopener noreferrer">HGNC:16262</a>).</li>
+<li><strong>Posterior fossa:</strong> <strong>PFA</strong> driven by <strong>EZHIP/CXorf67</strong> overexpression → global H3K27me3 loss; <strong>PFB</strong> is epigenetically distinct with better prognosis. No recurrent driver gene mutation in PF-EPN (epigenetically driven).</li>
+<li><strong>Spinal:</strong> <strong>NF2</strong> alterations (<a href="https://bioregistry.io/HGNC:7773" target="_blank" rel="noopener noreferrer">HGNC:7773</a>, chromosome 22q12) in classic spinal ependymoma; <strong>MYCN (2p24) amplification</strong> defines the aggressive SP-MYCN class (<a href="https://pubmed.ncbi.nlm.nih.gov/34895332/">PMID: 34895332</a>).</li>
+<li><strong>Copy-number biomarkers (F008, F019):</strong> <strong>Chromosome 1q gain</strong> and <strong>CDKN2A/2B homozygous deletion</strong> are adverse; <strong>6q loss</strong> is adverse in PFA; gains of 9, 15q, 18 and loss of 6 are favorable. <em>"age at diagnosis, gain of 1q, and homozygous deletion of CDKN2A comprised the most powerful independent indicators of unfavorable prognosis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/20516456/">PMID: 20516456</a>).</li>
+<li><strong>Somatic vs germline:</strong> Nearly all driver events (ZFTA-RELA, EZHIP, MYCN, somatic NF2) are <strong>somatic</strong>; <strong>germline NF2</strong> underlies hereditary spinal disease.</li>
+<li><strong>Epigenetics:</strong> DNA methylation profiling is central to subgrouping; PFA is defined by a CpG-island methylator phenotype and global H3K27me3 loss.</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<p>Beyond <strong>high-dose ionizing radiation</strong> (established), there are no confirmed environmental, lifestyle, or infectious contributors (F011, F026). Dietary N-nitroso compound associations are inconsistent; ELF-EMF shows no association. No bacterial, viral, fungal, or parasitic agent is implicated. <em>(Largely not applicable for this disease.)</em></p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>Two divergent molecular mechanisms operate in the two major intracranial compartments (Hypothesis H002; Findings F001, F002, F017).</p>
+<p><strong>Supratentorial — ZFTA-RELA condensate/NF-κB axis:</strong> <em>"More than 60% of supratentorial ependymomas harbor a"</em> ZFTA-RELA fusion (<a href="https://pubmed.ncbi.nlm.nih.gov/33741710/">PMID: 33741710</a>). The fusion oncoprotein <em>"forms dynamic nuclear condensates that are required for oncogene expression and tumorigenesis. Mutagenesis studies of ZR reveal a key intrinsically disordered region (IDR) in RELA that governs condensate formation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40866513/">PMID: 40866513</a>). Condensate-disrupting mutations impaired genomic occupancy and recruitment of MED1, BRD4, and RNA Pol II; synthetic ZFTA fusions grafting IDRs from EWS/FUS restored condensate formation and tumor initiation in mice. CRISPR-Cas9 screens identified druggable ZR interactors — <em>"XPO1, CARM1, SMARCA4, and CDK1"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42080900/">PMID: 42080900</a>) — and <strong>MERTK</strong> as a systems-level vulnerability (<a href="https://pubmed.ncbi.nlm.nih.gov/41665993/">PMID: 41665993</a>). ZFTA-RELA tumors also produce <strong>itaconate</strong> to epigenetically drive fusion expression (<a href="https://pubmed.ncbi.nlm.nih.gov/41639460/">PMID: 41639460</a>).</p>
+<p><strong>Posterior fossa PFA — EZHIP/PRC2/H3K27me3 axis:</strong> PFA tumors are <em>"characterized by a lack of the repressive histone H3 lysine 27 trimethylation (H3K27me3) mark"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30923826/">PMID: 30923826</a>). Mechanistically, <em>"A small, highly conserved peptide sequence located in the C-terminal region of CXorf67 mimics the sequence of K27M mutated histones and binds to the SET domain ... of EZH2. This interaction blocks EZH2 methyltransferase activity and inhibits PRC2 function, causing de-repression of PRC2 target genes"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30923826/">PMID: 30923826</a>). EZHIP and H3K27M are <em>"competitive inhibitors of Polycomb Repressive Complex 2 (PRC2) lysine methyltransferase activity"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33049227/">PMID: 33049227</a>), impeding H3K27-methylation spreading. PFA shares hindbrain developmental pathway dysregulation with H3K27M diffuse midline glioma (<a href="https://pubmed.ncbi.nlm.nih.gov/36759899/">PMID: 36759899</a>).</p>
+<p><strong>Cellular origin and hierarchy (F010, F027):</strong> Radial glia are the proposed cell of origin (<em>"radial glia are cells of origin of ependymoma"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/17179988/">PMID: 17179988</a>). Single-cell RNA-seq shows <em>"Ependymomas are composed of a cellular hierarchy initiating from undifferentiated populations, which undergo impaired differentiation toward three lineages of neuronal-glial fate specification. While prognostically favorable groups of ependymoma predominantly harbor differentiated cells, aggressive groups are enriched for undifferentiated cell populations"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32663469/">PMID: 32663469</a>). Spinal ependymomas <em>"display the highest similarities to mature adult ependymal cells"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38265489/">PMID: 38265489</a>).</p>
+<p><strong>GO / CL / CHEBI suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0038061" target="_blank" rel="noopener noreferrer">GO:0038061</a> (NF-κB signaling), <a href="http://purl.obolibrary.org/obo/GO_0140718" target="_blank" rel="noopener noreferrer">GO:0140718</a> (facultative heterochromatin formation / PRC2), <a href="http://purl.obolibrary.org/obo/GO_0070734" target="_blank" rel="noopener noreferrer">GO:0070734</a> (histone H3-K27 methylation), <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" rel="noopener noreferrer">GO:0030154</a> (cell differentiation), <a href="http://purl.obolibrary.org/obo/GO_0016604" target="_blank" rel="noopener noreferrer">GO:0016604</a> (nuclear body / condensate); <a href="http://purl.obolibrary.org/obo/CL_0000031" target="_blank" rel="noopener noreferrer">CL:0000031</a> (neuroblast/radial glia), <a href="http://purl.obolibrary.org/obo/CL_0000065" target="_blank" rel="noopener noreferrer">CL:0000065</a> (ependymal cell); <a href="http://purl.obolibrary.org/obo/CHEBI_30016" target="_blank" rel="noopener noreferrer">CHEBI:30016</a> (itaconate).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p>Ependymoma is a <strong>central nervous system tumor</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" rel="noopener noreferrer">UBERON:0001017</a>) arising from cells lining the ventricular system and central canal.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Compartment</th>
+<th>UBERON</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Supratentorial brain / lateral ventricles</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> (cerebral hemisphere), <a href="http://purl.obolibrary.org/obo/UBERON_0002285" target="_blank" rel="noopener noreferrer">UBERON:0002285</a> (lateral ventricle)</td>
+<td>ZFTA/YAP1 fusions; seizures/focal deficits</td>
+</tr>
+<tr>
+<td>Posterior fossa / fourth ventricle</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002422" target="_blank" rel="noopener noreferrer">UBERON:0002422</a> (fourth ventricle), <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> (cerebellum)</td>
+<td>PFA/PFB; hydrocephalus; "plastic" extension through foramina of Luschka/Magendie</td>
+</tr>
+<tr>
+<td>Spinal cord / central canal</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a> (spinal cord), <a href="http://purl.obolibrary.org/obo/UBERON_0002291" target="_blank" rel="noopener noreferrer">UBERON:0002291</a> (central canal)</td>
+<td>NF2, MYCN, myxopapillary (conus/cauda equina/filum terminale)</td>
+</tr>
+<tr>
+<td>Leptomeninges (secondary)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a></td>
+<td>Dissemination in up to 10% at diagnosis</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Cell/tissue level:</strong> Nervous tissue; tumor cells resemble <strong>ependymal cells (<a href="http://purl.obolibrary.org/obo/CL_0000065" target="_blank" rel="noopener noreferrer">CL:0000065</a>)</strong> and derive from <strong>radial glia</strong>. <strong>Subcellular:</strong> nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>) is the site of ZR oncoprotein/condensate activity; PRC2 acts on nuclear chromatin. <strong>Lateralization:</strong> midline posterior fossa (PFA/PFB) or lateral (worse prognosis); spinal lesions along the neuraxis.</p>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Intracranial ependymoma predominantly <strong>pediatric</strong> (median ~5 years); PFA in infants/young children; PFB, myxopapillary, and subependymoma skew older/adult; spinal MYCN across ages (F002, F006).</li>
+<li><strong>Onset pattern:</strong> Typically <strong>subacute to chronic/insidious</strong>, culminating in a raised-ICP crisis.</li>
+<li><strong>Progression:</strong> Grade 1 subependymoma/myxopapillary are slow-growing; PFA and 1q-gain tumors are more aggressive. 1q gain/6q loss increase from 23% at presentation to 61% at first recurrence in PFA (<a href="https://pubmed.ncbi.nlm.nih.gov/37246777/">PMID: 37246777</a>).</li>
+<li><strong>Course:</strong> Recurrences are <strong>predominantly local</strong>; median time to local failure ~5.4 years in adults (<a href="https://pubmed.ncbi.nlm.nih.gov/42348066/">PMID: 42348066</a>). Disease is chronic/relapsing; myxopapillary can recur decades later, occasionally with extra-neural spread 37 years post-diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/40469371/">PMID: 40469371</a>).</li>
+<li><strong>Critical intervention window:</strong> Achieving gross total resection at initial surgery is the key opportunity for cure.</li>
+</ul>
+<h3>9. Inheritance and Population (Epidemiology)</h3>
+<p><strong>Epidemiology (F003, F018):</strong> In CBTRUS/SEER data (2008–2019), the age-adjusted incidence rate (AAAIR) was <strong>0.41/100,000</strong>, the highest among 12 selected rare CNS tumors, and ependymoma was the most prevalent of these (<em>"AAIR was 1.47 per 100,000 for these tumors combined, with highest incidence in ependymomas (AAIR = 0.41/100,000)"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/37980692/">PMID: 37980692</a>). Ependymomas comprise <strong>~23% of primary spinal cord tumors</strong> (overall spinal cord tumor incidence 0.74/100,000 person-years; <a href="https://pubmed.ncbi.nlm.nih.gov/18084720/">PMID: 18084720</a>), and are <em>"the most common intramedullary spinal cord tumors among adults"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37619838/">PMID: 37619838</a>). Ependymoma is &lt;10% of pediatric CNS neoplasms. <strong>Sex ratio:</strong> slight male predominance for intracranial disease (<a href="https://pubmed.ncbi.nlm.nih.gov/11554386/">PMID: 11554386</a>). <strong>Race:</strong> African American patients had lower incidence but 78% higher death risk (HR 1.78, 95% CI 1.30–2.44; <a href="https://pubmed.ncbi.nlm.nih.gov/33014396/">PMID: 33014396</a>).</p>
+<p><strong>Inheritance (F005, F020):</strong> Most ependymomas are <strong>not inherited</strong>. The principal hereditary predisposition is <strong>NF2-related schwannomatosis</strong> (formerly neurofibromatosis type 2), an <strong>autosomal dominant</strong> tumor-predisposition syndrome caused by germline mutations in <strong>NF2</strong> (22q12; merlin/schwannomin). <em>"Cranial and spinal meningiomas and spinal ependymomas are other common tumors"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23931824/">PMID: 23931824</a>). NF2-related SWN is <em>"the most common SWN syndrome, with increased risk for bilateral vestibular schwannomas, intradermal schwannomas, meningiomas, and less commonly, ependymoma"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39937237/">PMID: 39937237</a>). Mutation spectrum: <em>"Fifty to sixty percent of patients represent de novo mutations and as many as 33% of these are mosaic ... Truncating mutations (nonsense, frameshift insertions/deletions) are the most frequent germline events and cause the most severe disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23931824/">PMID: 23931824</a>). Bi-allelic NF2 loss (germline/sporadic mutation + 22q loss) defines a spinal ependymoma molecular subtype (<a href="https://pubmed.ncbi.nlm.nih.gov/38265489/">PMID: 38265489</a>). Penetrance is high with variable expressivity; germline mosaicism is common. No genetic anticipation, founder effect, or consanguinity role is specifically documented for ependymoma.</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Imaging (F016):</strong> MRI is primary. Posterior fossa ependymomas classically fill the fourth ventricle and show <em>"plastic"</em> extension through the foramina of Luschka and Magendie, are heterogeneous (calcification, cysts, hemorrhage) with variable enhancement. On DWI, <em>"Diffusion restriction and low ADC value was a feature of high-grade tumors"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32539423/">PMID: 32539423</a>) — ependymomas typically have higher ADC than medulloblastoma, aiding differential diagnosis. Machine-learning radiomics classified pediatric posterior fossa tumors with micro-averaged AUC 0.91 (accuracy 0.83) (<a href="https://pubmed.ncbi.nlm.nih.gov/32661052/">PMID: 32661052</a>). PFA vs PFB show distinct MRI features (<a href="https://pubmed.ncbi.nlm.nih.gov/37658900/">PMID: 37658900</a>). Spinal MRI and CSF cytology stage leptomeningeal dissemination.</p>
+<p><strong>Histopathology/IHC (F009, F023):</strong> Hallmarks are <strong>perivascular pseudorosettes</strong> and true <strong>ependymal rosettes</strong>. Tumor cells are <em>"positive for GFAP, S-100, and vimentin"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18095125/">PMID: 18095125</a>) with characteristic <strong>dot-like/paranuclear and ring-like EMA</strong> positivity (<em>"highlighted intracytoplasmic lumina in a few cells"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/16160486/">PMID: 16160486</a>), typically negative for synaptophysin/keratin. <strong>Surrogate IHC markers:</strong> <em>"high concordance rates between L1CAM and ZFTA-fusion and H3K27me3 loss or EZHIP overexpression was used for PFA-EPNs"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34812989/">PMID: 34812989</a>). PFA is defined by IHC <strong>loss of H3 K27me3</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41553163/">PMID: 41553163</a>; cIMPACT-NOW: nuclear EZHIP supports PFA, <a href="https://pubmed.ncbi.nlm.nih.gov/40887057/">PMID: 40887057</a>). A cost-effective diagnostic flow uses location + three biomarkers (L1CAM, H3K27me3, EZHIP) + <strong>Ki-67</strong> (≥7% cutoff, the only independent prognostic factor for OS/PFS in one cohort).</p>
+<p><strong>Molecular/genetic testing:</strong> DNA <strong>methylation array profiling</strong> is the gold standard for subgrouping; fusion detection (RNA/NGS) for ZFTA/YAP1; FISH/CMA for 1q gain, CDKN2A deletion, MYCN amplification, 22q/NF2. Histopathologic variant diagnosis is unreliable without methylation: integrated diagnosis changed in 35.6% of variant cases (<a href="https://pubmed.ncbi.nlm.nih.gov/31679042/">PMID: 31679042</a>).</p>
+<p><strong>Differential diagnosis:</strong> medulloblastoma, pilocytic astrocytoma, choroid plexus tumors, MN1/BEND2-altered astroblastoma, angiocentric glioma — distinguished by ADC, morphology, IHC, and methylation.</p>
+<h3>11. Outcome / Prognosis</h3>
+<p><strong>Survival (F003, F007, F019):</strong> Ten-year OS ranges <strong>50–75%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40556668/">PMID: 40556668</a>). Molecular subgroup dominates prognosis. In the E-HIT2000 pooled pediatric cohort (n=228):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Molecular group</th>
+<th>n</th>
+<th>5-yr PFS</th>
+<th>5-yr OS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EPN-PFA</td>
+<td>146</td>
+<td>45 ± 4%</td>
+<td>77 ± 4%</td>
+</tr>
+<tr>
+<td>EPN-PFB</td>
+<td>19</td>
+<td>90 ± 7%</td>
+<td>~100%</td>
+</tr>
+<tr>
+<td>EPN-ZFTA (supratentorial)</td>
+<td>59</td>
+<td>64 ± 7%</td>
+<td>86 ± 5%</td>
+</tr>
+<tr>
+<td>EPN-YAP1</td>
+<td>4</td>
+<td>50 ± 25%</td>
+<td>~100%</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Source: <a href="https://pubmed.ncbi.nlm.nih.gov/41026848/">PMID: 41026848</a>.</p>
+<p><strong>Prognostic factors:</strong> Extent of resection (<strong>GTR</strong> strongly favorable; subtotal resection HR 1.86 for mortality, <a href="https://pubmed.ncbi.nlm.nih.gov/33014396/">PMID: 33014396</a>); <strong>adult age</strong> (HR 1.97 vs children); <strong>chromosome 1q gain</strong> (independent adverse, <em>"gain of 1q25 ... independent prognostic marker for either recurrence-free survival (P &lt; 0.001) or overall survival (P = 0.003)"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/16609018/">PMID: 16609018</a>); <strong>6q loss</strong> and <strong>CDKN2A/2B loss</strong> (adverse); <strong>Ki-67 ≥7%</strong>; undifferentiated single-cell content. PFA without molecular risk factors + complete resection + radiotherapy achieved 5-yr PFS/OS 75%/92%; PFA with risk factors had poor prognosis regardless of treatment (<a href="https://pubmed.ncbi.nlm.nih.gov/41026848/">PMID: 41026848</a>). Adult intracranial ependymoma with GTR + adjuvant RT: 5/10-yr PFS 80%/64%, OS 92%/85% (<a href="https://pubmed.ncbi.nlm.nih.gov/42348066/">PMID: 42348066</a>).</p>
+<p><strong>Morbidity:</strong> Neurocognitive impairment (processing speed, psychomotor) from tumor, surgery, and CSI; endocrine deficits; hydrocephalus requiring shunting; lower cranial-nerve deficits (often transient). Recurrences are predominantly local; disease-specific mortality is driven by uncontrolled local/disseminated progression.</p>
+<h3>12. Treatment</h3>
+<p><strong>Standard of care (F007, F022):</strong> <em>"Maximal safe surgical resection is the cornerstone of treatment. Children over one year with grade 2 or 3 tumors typically receive adjuvant focal radiotherapy, while chemotherapy is used to delay irradiation in infants or after subtotal resection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40556668/">PMID: 40556668</a>). GTR significantly improves survival in ependymoma (SEER, <a href="https://pubmed.ncbi.nlm.nih.gov/41653291/">PMID: 41653291</a>; spinal meta-analysis, <a href="https://pubmed.ncbi.nlm.nih.gov/41988002/">PMID: 41988002</a>). For spinal myxopapillary ependymoma, <em>"GTR remains the cornerstone of treatment for optimal outcomes. In cases where GTR is not feasible, adjuvant radiotherapy is recommended"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41394446/">PMID: 41394446</a>). Craniospinal irradiation is reserved for disseminated disease.</p>
+<p><strong>MAXO suggestions:</strong> <a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> (surgical procedure / tumor resection), <a href="https://bioregistry.io/MAXO:0000009" target="_blank" rel="noopener noreferrer">MAXO:0000009</a> (radiation therapy), <a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> (chemotherapy).</p>
+<p><strong>Risk-adapted radiotherapy trial (F012):</strong> COG <strong>ACNS0121</strong> (356 patients, ages 1–21) stratified therapy by location/grade/resection. 5-year EFS: 61.4% (observation after GTR of classic supratentorial), 37.2% (subtotal resection), 68.5% (near-total/GTR + immediate conformal RT 59.4 Gy) (<a href="https://pubmed.ncbi.nlm.nih.gov/30811284/">PMID: 30811284</a>). 1q gain and methylation profiles were evaluated prospectively as modifiers.</p>
+<p><strong>Recurrent disease (F014):</strong> <em>"No standard therapies exist at relapse"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42032119/">PMID: 42032119</a>). Re-resection and re-irradiation are mainstays; proton re-irradiation near brainstem achieved 82% 2-year local control (<a href="https://pubmed.ncbi.nlm.nih.gov/41488407/">PMID: 41488407</a>). Systemic agents offer limited benefit: <em>"TMZ monotherapy achieved a DCR of 57% with 6- and 12-month PFS rates of 85.7% and 57.1%"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41788986/">PMID: 41788986</a>); TMZ-lapatinib DCR 33%; bevacizumab regimens variable.</p>
+<p><strong>Emerging targeted/immunotherapy (F024, H003):</strong> <strong>MERTK</strong> vulnerability in ZFTA-RELA tumors (<a href="https://pubmed.ncbi.nlm.nih.gov/41665993/">PMID: 41665993</a>); <strong>XPO1</strong> inhibitor selinexor extended survival in ZR PDX models (<a href="https://pubmed.ncbi.nlm.nih.gov/42080900/">PMID: 42080900</a>); <strong>EZHIP/PRC2</strong> targeting in PFA (<a href="https://pubmed.ncbi.nlm.nih.gov/41596609/">PMID: 41596609</a>); <strong>locoregional (intrathecal) CAR-T</strong> against EPHA2/HER2/IL13Rα2 — <em>"an effective treatment for primary, metastatic and recurrent group 3 medulloblastoma and PFA ependymoma xenografts"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32341580/">PMID: 32341580</a>); a candidate <strong>hsa-miR-138-5p</strong> axis in fusion-positive tumors (<a href="https://pubmed.ncbi.nlm.nih.gov/41628537/">PMID: 41628537</a>).</p>
+<h3>13. Prevention</h3>
+<p>There is <strong>no primary prevention</strong> for sporadic ependymoma beyond avoiding unnecessary high-dose ionizing radiation. <strong>Secondary prevention</strong> applies to hereditary risk: in NF2-related schwannomatosis, surveillance imaging and <em>"active management gave better outcomes than surveillance in spinal ependymoma"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31425178/">PMID: 31425178</a>). <strong>Genetic counseling</strong> is indicated for NF2 families (autosomal dominant; high de novo/mosaic rates complicate testing). No vaccination, chemoprevention, or population screening exists. Tertiary prevention focuses on managing hydrocephalus, treatment toxicity, and surveillance for recurrence.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy of affected species:</strong> <em>Homo sapiens</em> (NCBI:txid9606). Experimental disease is modeled in <em>Mus musculus</em> (NCBI:txid10090) and <em>Drosophila melanogaster</em> (NCBI:txid7227).</li>
+<li><strong>Orthologous genes:</strong> NF2 (merlin) is highly conserved; EZHIP is <strong>eutherian-specific</strong> (an intrinsically disordered PRC2 inhibitor), limiting cross-species modeling; <em>"expression of human EZHIP reduces H3K27me3 in Drosophila melanogaster through a conserved mechanism"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33049227/">PMID: 33049227</a>), showing the PRC2 pathway itself is deeply conserved.</li>
+<li><strong>Natural disease / veterinary relevance:</strong> Not specifically characterized in this investigation. <em>(Information not available.)</em></li>
+<li><strong>Zoonotic potential:</strong> None (non-transmissible neoplasm).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<p><strong>Genetically engineered mouse models (F013, F025):</strong> <em>"ZFTA-RELA ... is sufficient to initiate tumours in mice"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41882368/">PMID: 41882368</a>) via in utero electroporation of embryonic neural progenitors, faithfully recapitulating supratentorial ependymoma. A <em>"De Novo Mouse Model of C11orf95-RELA Fusion-Driven Ependymoma Identifies Driver Functions in Addition to NF-κB"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29949764/">PMID: 29949764</a>). Tumorigenesis depends on nuclear condensate formation and <em>"goldilocks"</em> fusion-protein levels compatible with distinct developmental epigenetic states (<a href="https://pubmed.ncbi.nlm.nih.gov/39211123/">PMID: 39211123</a>).</p>
+<p><strong>Patient-derived xenografts (PDX)/orthotopic models:</strong> Used for preclinical therapy testing — <em>"Treatment of ZR driven patient-derived mouse models with Selinexor impairs cell growth and extends survival of animals in vivo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42080900/">PMID: 42080900</a>); PFA xenografts (primary/metastatic/recurrent) validated intrathecal CAR-T (<a href="https://pubmed.ncbi.nlm.nih.gov/32341580/">PMID: 32341580</a>).</p>
+<p><strong>Invertebrate:</strong> <em>Drosophila</em> models the conserved EZHIP/PRC2 mechanism.</p>
+<p><strong>Recapitulation &amp; limitations:</strong> Mouse ZR models reproduce ST-EPN histology, methylation-linked lineage programs, and NF-κB/condensate biology. Limitations: EZHIP is eutherian-specific, and human PFA's tumor microenvironment and hindbrain developmental context are incompletely captured; cross-species scMultiome shows lineage programs both permit and restrain transformation (<a href="https://pubmed.ncbi.nlm.nih.gov/39211123/">PMID: 39211123</a>). Resources: MGI, IMPC/KOMP, Cellosaurus (PDX/cell lines).</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Ependymoma exemplifies a tumor family unified by anatomy and lineage but split by <strong>compartment-specific oncogenic mechanisms</strong>. The overarching model:</p>
+<pre><code>       RADIAL GLIA / EPENDYMAL-LINEAGE PROGENITOR
+       (impaired differentiation -&gt; cellular hierarchy)
+                        |
++-------------------------------+-------------------------------+
+|                               |                               |
+  SUPRATENTORIAL                   POSTERIOR FOSSA                     SPINAL
+|                               |                               |
+  ZFTA-RELA fusion (&gt;60%)         PFA: EZHIP up (CXorf67)         NF2 loss (germline/
+|                               |                         somatic + 22q loss)
+  Constitutive nuclear            Mimics H3K27M -&gt; binds EZH2       |            |
+  localization; IDR-driven        SET domain -&gt; inhibits PRC2    Classic       SP-MYCN
+  NUCLEAR CONDENSATES             |                              spinal        (MYCN 2p24
+|                         GLOBAL H3K27me3 LOSS           EPN           amplification)
+  Recruit MED1/BRD4/Pol II        |                              |             aggressive
+|                         De-repression of PRC2 target   excellent
+  Aberrant NF-kB /                neurodevelopmental genes        prognosis
+  oncogenic transcription         |
+|                         PFB: distinct methylation,
+  (MERTK, XPO1, itaconate         better prognosis
+   dependencies)                  |
+|                         +-------------------------------+
++--------------+----------+   Modifiers of aggression:    |
+       |              1q gain, 6q loss,           |
+       v              CDKN2A/2B deletion,         |
+CLINICAL MANIFESTATION        Ki-67&gt;=7%, undiff. content  |
+   (hydrocephalus/raised ICP;         +-------------------------------+
+    seizures/focal deficits; spinal deficits)
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> The initiating fusion (ZFTA-RELA) or epigenetic lesion (EZHIP overexpression) is upstream; downstream are the transcriptional/chromatin programs (NF-κB activation; PRC2-target de-repression) that block differentiation and expand undifferentiated progenitors. Copy-number modifiers (1q gain, 6q loss, CDKN2A loss) are secondary events that amplify aggressiveness and accumulate at recurrence. The convergent endpoint — a proliferating, differentiation-blocked ependymal-lineage tumor obstructing CSF flow or infiltrating cord — produces the shared clinical syndrome. This model directly explains why <strong>molecular subgroup outperforms histologic grade</strong> (Hypothesis H001, supported) and why <strong>subgroup-specific vulnerabilities</strong> (MERTK, EZHIP/PRC2, XPO1) are rational therapeutic targets (Hypothesis H003, supported).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37743338/">37743338</a></td>
+<td>WHO CNS5 ten-entity classification; "anaplastic" dropped</td>
+<td>Supports classification framework</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42080900/">42080900</a></td>
+<td>ZFTA-RELA most frequent ST driver; XPO1/selinexor vulnerability</td>
+<td>Supports F001, F013, F024</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40866513/">40866513</a></td>
+<td>ZR nuclear condensates required for tumorigenesis; IDR mechanism</td>
+<td>Supports F017</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33741710/">33741710</a></td>
+<td>&gt;60% of ST-EPN harbor ZFTA-RELA; oncogenic transcription</td>
+<td>Supports F017</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30923826/">30923826</a></td>
+<td>EZHIP/CXorf67 mimics K27M, inhibits PRC2, H3K27me3 loss</td>
+<td>Supports F002, F017</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33049227/">33049227</a></td>
+<td>EZHIP &amp; H3K27M competitively inhibit PRC2; Drosophila model</td>
+<td>Supports F017, F025</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36759899/">36759899</a></td>
+<td>Shared H3K27me3 loss / hindbrain pathways with DMG</td>
+<td>Supports F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32663469/">32663469</a></td>
+<td>scRNA-seq cellular hierarchy; undifferentiated = aggressive</td>
+<td>Supports F010, F027</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17179988/">17179988</a></td>
+<td>Radial glia as cell of origin</td>
+<td>Supports F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38265489/">38265489</a></td>
+<td>Spinal EPN = mature ependymal-like; NF2 subtype</td>
+<td>Supports F027</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20516456/">20516456</a></td>
+<td>1q gain + CDKN2A deletion adverse; molecular staging</td>
+<td>Supports F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16609018/">16609018</a></td>
+<td>1q25 gain independent prognostic marker</td>
+<td>Supports F019</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37246777/">37246777</a></td>
+<td>1q gain/6q loss enriched at recurrence in PFA</td>
+<td>Supports F019</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41026848/">41026848</a></td>
+<td>Subgroup-specific PFS/OS; risk stratification</td>
+<td>Supports F019</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33135735/">33135735</a></td>
+<td>1q gain/CDKN2A loss adverse; RELA no independent impact</td>
+<td>Supports F019</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40556668/">40556668</a></td>
+<td>Location-dependent presentation; treatment; 10-yr OS 50–75%</td>
+<td>Supports F006, F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30811284/">30811284</a></td>
+<td>ACNS0121 risk-adapted RT; EFS by group</td>
+<td>Supports F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33014396/">33014396</a></td>
+<td>Adult age, subtotal resection, race as risk factors</td>
+<td>Supports F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37980692/">37980692</a></td>
+<td>AAAIR 0.41/100,000</td>
+<td>Supports F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18084720/">18084720</a></td>
+<td>23% of spinal cord tumors; incidence 0.74/100,000</td>
+<td>Supports F018</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16142778/">16142778</a></td>
+<td>Etiology largely unknown; radiation the only risk</td>
+<td>Supports F011, F026</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23931824/">23931824</a></td>
+<td>NF2 predisposition; mutation spectrum/mosaicism</td>
+<td>Supports F005, F020</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39937237/">39937237</a></td>
+<td>NF2-related SWN nomenclature; ependymoma risk</td>
+<td>Supports F005, F020</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34812989/">34812989</a></td>
+<td>Surrogate IHC (L1CAM, H3K27me3, EZHIP); Ki-67</td>
+<td>Supports F009, F023</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41553163/">41553163</a></td>
+<td>H3K27me3 IHC loss defines PFA</td>
+<td>Supports F023</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18095125/">18095125</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/16160486/">16160486</a></td>
+<td>Rosettes; GFAP/S-100/vimentin; dot-like EMA</td>
+<td>Supports F023</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32539423/">32539423</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/32661052/">32661052</a></td>
+<td>DWI/ADC; radiomics AUC 0.91</td>
+<td>Supports F016</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34895332/">34895332</a></td>
+<td>SP-MYCN aggressive spinal class</td>
+<td>Supports F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41665993/">41665993</a></td>
+<td>MERTK vulnerability in ZFTA-RELA</td>
+<td>Supports F024</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32341580/">32341580</a></td>
+<td>Intrathecal CAR-T (EPHA2/HER2/IL13Rα2) in PFA models</td>
+<td>Supports F024, F025</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41596609/">41596609</a></td>
+<td>EZHIP as druggable PFA vulnerability</td>
+<td>Supports F024</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41882368/">41882368</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/29949764/">29949764</a></td>
+<td>Mouse models of ZR-driven ependymoma</td>
+<td>Supports F013, F025</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42032119/">42032119</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41788986/">41788986</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41488407/">41488407</a></td>
+<td>No standard relapse therapy; re-irradiation; systemic agents</td>
+<td>Supports F014</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Notes on evidence quality:</strong> A minority of citation snippets were flagged during verification (<code>mismatch</code> for PMIDs 42348066, 41665993, 29949764) where the exact quoted text could not be fully re-matched to the stored abstract; the substantive claims they support are corroborated by independent sources in the table above, so the findings remain robust. Evidence sources span <strong>human clinical/registry</strong> (CBTRUS, SEER, cooperative trials), <strong>molecular cohort/omics</strong> studies, <strong>mouse/PDX/Drosophila models</strong>, and <strong>in vitro</strong> mechanistic work.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Literature-only investigation.</strong> No primary molecular data were analyzed; all findings derive from published abstracts and registry summaries. Quantitative claims reflect the specific cohorts cited and may not generalize.</li>
+<li><strong>Rare-disease statistics.</strong> Subgroup survival estimates (e.g., EPN-YAP1 n=4; EPN-PFB n=19) rest on small numbers with wide confidence intervals.</li>
+<li><strong>Etiology remains largely unexplained.</strong> Beyond high-dose ionizing radiation and germline NF2, no environmental, infectious, or common-variant genetic risk factors are established; no GWAS susceptibility loci or protective factors were identified.</li>
+<li><strong>Adult vs pediatric biology.</strong> Most molecular data derive from pediatric cohorts; adult ependymoma (especially spinal) is comparatively under-characterized.</li>
+<li><strong>Therapeutic translation.</strong> Targeted (MERTK, XPO1, EZHIP/PRC2) and CAR-T strategies are validated only in preclinical/xenograft models; no subgroup-directed systemic therapy has proven clinical benefit, and chemotherapy remains of minimal value.</li>
+<li><strong>Veterinary/natural disease and metabolomics/proteomics/lipidomics</strong> for ependymoma were not characterized in depth (data not available in the reviewed literature).</li>
+<li><strong>Grade–methylation reconciliation.</strong> Histologic variant diagnoses are unreliable (~36% reclassified by methylation), and grade correlates weakly with outcome — underscoring dependence on molecular assays not universally available.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Clinical validation of subgroup-directed therapy.</strong> Advance MERTK inhibition and XPO1 inhibition (selinexor) for ZFTA-RELA ST-EPN, and EZHIP/PRC2-axis agents for PFA, into biomarker-selected early-phase trials; register NCT identifiers.</li>
+<li><strong>Intrathecal CAR-T translation.</strong> Move locoregional EPHA2/HER2/IL13Rα2 CAR-T (± azacytidine) from PFA xenografts to first-in-human pediatric trials, with CSF pharmacodynamic endpoints.</li>
+<li><strong>Prospective molecular risk stratification.</strong> Embed 1q gain, 6q loss, CDKN2A/2B status, and methylation subgroup as stratification variables in cooperative-group RT-adaptation trials (successors to ACNS0121) to test de-escalation in favorable subgroups and intensification in PFA with 1q+/6q−.</li>
+<li><strong>Liquid biopsy / CSF biomarkers.</strong> Develop CSF-based methylation or fusion detection for minimally invasive subgrouping, dissemination staging, and recurrence monitoring.</li>
+<li><strong>Model refinement.</strong> Given EZHIP's eutherian specificity, prioritize humanized/organoid and PDX models of PFA to capture microenvironment and hindbrain developmental context; use cross-species scMultiome to define the "goldilocks" oncoprotein-dose window as a therapeutic parameter.</li>
+<li><strong>Recurrent-disease standard-of-care trials.</strong> Formally compare proton re-irradiation, re-resection, and candidate systemic agents (temozolomide, bevacizumab combinations) in randomized settings to establish an evidence-based relapse algorithm.</li>
+<li><strong>Etiologic epidemiology.</strong> Conduct large consortium GWAS and gene–environment studies to probe the unexplained ~95% of sporadic risk, including any germline predisposition beyond NF2.</li>
+</ol>
+<hr />
+<p><em>Report generated from a 10-iteration autonomous investigation: 27 confirmed findings, 3 supported hypotheses (H001 molecular-subgroup classification; H002 divergent ZFTA-RELA/NF-κB vs EZHIP/PRC2 mechanisms; H003 subgroup-specific actionable vulnerabilities), and 75 papers reviewed.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Ependymoma-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Ependymoma-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Eosinophilic_Granulomatosis_with_Polyangiitis-asta.html">← Eosinophilic granulomatosis with polyangiitis (Asta)</a>
+                
+                
+                <a href="Epidermolysis_Bullosa-falcon.html">Epidermolysis Bullosa (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Ependymoma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Ependymoma-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3MC Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>3MC Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>3MC Syndrome</h1>
+                
+                <p class="report-subtitle">3MC Syndrome — Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-08-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0017398" target="_blank" rel="noopener noreferrer">MONDO:0017398</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>3MC Syndrome — Comprehensive Disease Characterization Report</h1>
+<p><em>Prepared for a disease knowledge base entry. Evidence type is human clinical unless otherwise noted (model organism / in vitro / computational). Primary literature cited by PMID.</em></p>
+<hr />
+<h2>Summary (Answer to the Research Question)</h2>
+<p><strong>3MC syndrome</strong> is a rare, autosomal-recessive congenital malformation syndrome that unifies four historically separate disorders — <strong>M</strong>alpuech, <strong>M</strong>ichels, <strong>M</strong>ingarelli and <strong>C</strong>arnevale syndromes ("3MC"). It is caused by biallelic loss-of-function variants in one of three genes of the <strong>lectin pathway of complement</strong>: <strong>MASP1</strong> (encoding MASP-1/MASP-3), <strong>COLEC11</strong> (encoding collectin-11/CL-K1), and <strong>COLEC10</strong> (encoding collectin-10/CL-L1). The shared mechanism is loss of a collectin/MASP-3 chemoattractant guidance cue required for <strong>neural crest cell migration</strong>, producing a distinctive facial gestalt (hypertelorism, blepharophimosis, blepharoptosis, highly arched eyebrows) together with cleft lip/palate, postnatal growth deficiency, developmental delay, hearing loss, a characteristic caudal appendage, skeletal (craniosynostosis, radioulnar synostosis) and genitourinary anomalies (PMIDs 21258343, 28301481).</p>
+<hr />
+<h2>1. Disease Information</h2>
+<ul>
+<li><strong>Overview:</strong> A rare autosomal-recessive multiple-congenital-anomaly / dysmorphism syndrome affecting craniofacial, skeletal, genitourinary, ophthalmic and (variably) cardiac development. The name "3MC" was proposed as a unifying term for the overlapping Carnevale, Mingarelli, Malpuech and Michels syndromes (<a href="https://pubmed.ncbi.nlm.nih.gov/21258343/" target="_blank" rel="noopener noreferrer">PMID 21258343</a>).</li>
+<li><strong>Key identifiers (suggested):</strong></li>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0018721" target="_blank" rel="noopener noreferrer">MONDO:0018721</a> ("3MC syndrome") — with subtypes 3MC syndrome type 1/2/3.</li>
+<li><strong>OMIM (phenotype):</strong> 3MC syndrome 1 (<strong>#257920</strong>, <em>MASP1/COLEC11</em> — historically Malpuech/Carnevale), 3MC syndrome 2 (<strong>#265050</strong>, <em>COLEC11</em>), 3MC syndrome 3 (<strong>#248340</strong>, <em>COLEC10</em> — historically Michels). (PMIDs 36503917, 34636477)</li>
+<li><strong>OMIM (gene):</strong> MASP1 <em>600521; COLEC11 </em>612502; COLEC10 *607620.</li>
+<li><strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:293843" target="_blank" rel="noopener noreferrer">ORPHA:293843</a> (3MC syndrome); legacy entries Malpuech syndrome (<a href="https://bioregistry.io/ORPHA:1993" target="_blank" rel="noopener noreferrer">ORPHA:1993</a>), Michels syndrome (<a href="https://bioregistry.io/ORPHA:1394" target="_blank" rel="noopener noreferrer">ORPHA:1394</a>), Carnevale/Mingarelli.</li>
+<li><strong>ICD-10:</strong> Q87.0 (congenital malformation syndromes predominantly affecting facial appearance). <strong>ICD-11:</strong> LD2F.0Y (other specified syndromes with facial features as a major feature).</li>
+<li><strong>MeSH:</strong> No dedicated descriptor; indexed under "Abnormalities, Multiple" / supplementary concept "3MC syndrome."</li>
+<li><strong>Synonyms / alternative names:</strong> Malpuech–Michels–Mingarelli–Carnevale syndrome; Malpuech facial clefting syndrome; Michels syndrome; Carnevale syndrome; Mingarelli syndrome; Malpuech syndrome; OSA syndrome; craniofacial-ulnar-renal syndrome; blepharophimosis-ptosis-cleft-lip syndrome (descriptive).</li>
+<li><strong>Data derivation:</strong> Information here is derived from <strong>aggregated disease-level resources</strong> (OMIM/Orphanet) and <strong>individual patient case reports / small cohorts</strong> (fewer than ~100 molecularly confirmed patients worldwide). There is no large EHR-based dataset for this ultra-rare disorder.</li>
+</ul>
+<hr />
+<h2>2. Etiology</h2>
+<ul>
+<li><strong>Primary cause — genetic:</strong> Biallelic (homozygous or compound heterozygous) pathogenic variants in <strong>MASP1</strong>, <strong>COLEC11</strong>, or <strong>COLEC10</strong> — all encoding components of the lectin complement pathway (<a href="https://pubmed.ncbi.nlm.nih.gov/21258343/" target="_blank" rel="noopener noreferrer">PMID 21258343</a>: <em>"identified two mutated genes, COLEC11 and MASP1, both of which encode proteins in the lectin complement pathway"</em>; <a href="https://pubmed.ncbi.nlm.nih.gov/28301481/" target="_blank" rel="noopener noreferrer">PMID 28301481</a> for COLEC10). There is evidence of further <strong>genetic heterogeneity</strong>: some clinically typical patients from consanguineous families have no MASP1/COLEC11/COLEC10 variant (<a href="https://pubmed.ncbi.nlm.nih.gov/26789649/" target="_blank" rel="noopener noreferrer">PMID 26789649</a>).</li>
+<li><strong>Genetic risk factors:</strong></li>
+<li>Causal variants in the three genes (Section 4).</li>
+<li><strong>Consanguinity</strong> — a major risk factor; most reported families are consanguineous with homozygous variants.</li>
+<li><strong>Founder alleles</strong> — e.g., COLEC10 c.311G&gt;T (p.Gly104Val) in Ashkenazi Jews (carrier frequency ~1/99; <a href="https://pubmed.ncbi.nlm.nih.gov/35943032/" target="_blank" rel="noopener noreferrer">PMID 35943032</a>); COLEC10 c.807_810delCTGT in Apulia, Italy (<a href="https://pubmed.ncbi.nlm.nih.gov/34740859/" target="_blank" rel="noopener noreferrer">PMID 34740859</a>).</li>
+<li><strong>Modifier genes:</strong> Model-organism data suggest other complement components (MASP-2, factor B, C3) may modify skeletal severity (<a href="https://pubmed.ncbi.nlm.nih.gov/41774788/" target="_blank" rel="noopener noreferrer">PMID 41774788</a>, model organism).</li>
+<li><strong>Environmental risk factors:</strong> None established. 3MC is a monogenic Mendelian disorder; no toxin, infectious, lifestyle, occupational, age or sex exposure is a known cause. (Not applicable.)</li>
+<li><strong>Protective factors:</strong> No genetic or environmental protective factors described for the developmental syndrome. (Free <strong>L-fucose</strong> is protective against CL-11-mediated <em>renal ischemia-reperfusion injury</em> in mice — <a href="https://pubmed.ncbi.nlm.nih.gov/31914693/" target="_blank" rel="noopener noreferrer">PMID 31914693</a> — but this concerns adult acquired injury, not the developmental syndrome.)</li>
+<li><strong>Gene–environment interactions:</strong> None documented for 3MC syndrome. (Not applicable.)</li>
+</ul>
+<hr />
+<h2>3. Phenotypes</h2>
+<p><em>Frequencies drawn largely from a 7-patient cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/41703727/" target="_blank" rel="noopener noreferrer">PMID 41703727</a>) and case series (PMIDs 36503917, 26789649). Onset is congenital/prenatal for structural features; course is generally stable/non-progressive (malformative) with lifelong sequelae.</em></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Frequency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hypertelorism</td>
+<td>physical/craniofacial sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a></td>
+<td>Very frequent; core gestalt</td>
+</tr>
+<tr>
+<td>Blepharophimosis</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" rel="noopener noreferrer">HP:0000581</a></td>
+<td>Frequent; core gestalt</td>
+</tr>
+<tr>
+<td>Blepharoptosis (ptosis)</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a></td>
+<td>7/7 in cohort; core gestalt</td>
+</tr>
+<tr>
+<td>Highly arched eyebrows</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002553" target="_blank" rel="noopener noreferrer">HP:0002553</a></td>
+<td>7/7; core gestalt</td>
+</tr>
+<tr>
+<td>Epicanthus inversus</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000537" target="_blank" rel="noopener noreferrer">HP:0000537</a></td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Downslanted palpebral fissures</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" rel="noopener noreferrer">HP:0000494</a></td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Cleft lip and/or palate (often bilateral)</td>
+<td>physical malformation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" rel="noopener noreferrer">HP:0000202</a> / <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" rel="noopener noreferrer">HP:0000175</a></td>
+<td>~6/7 (86%); variable — may be absent</td>
+</tr>
+<tr>
+<td>Postnatal growth deficiency / short stature</td>
+<td>clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" rel="noopener noreferrer">HP:0008897</a> / <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Global developmental delay / intellectual disability</td>
+<td>behavioral/cognitive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> / <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Common (7/7 neuromotor delay in cohort); variable severity, may be absent</td>
+</tr>
+<tr>
+<td>Hearing loss</td>
+<td>lab/functional sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a></td>
+<td>~4/7 (57%)</td>
+</tr>
+<tr>
+<td>Caudal appendage / prominent elongated coccyx (sacral protuberance)</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100541" target="_blank" rel="noopener noreferrer">HP:0100541</a> (tail-like) / sacral appendage</td>
+<td>~4/7; relatively specific diagnostic clue</td>
+</tr>
+<tr>
+<td>Craniosynostosis</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" rel="noopener noreferrer">HP:0001363</a></td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Radioulnar synostosis</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003042" target="_blank" rel="noopener noreferrer">HP:0003042</a></td>
+<td>Subset; limb feature</td>
+</tr>
+<tr>
+<td>Genital anomalies (e.g., hypospadias, cryptorchidism)</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000078" target="_blank" rel="noopener noreferrer">HP:0000078</a> / <a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" rel="noopener noreferrer">HP:0000047</a> / <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a></td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Vesicorenal anomalies (horseshoe/pelvic kidney, reflux)</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" rel="noopener noreferrer">HP:0000119</a> / <a href="http://purl.obolibrary.org/obo/HP_0000085" target="_blank" rel="noopener noreferrer">HP:0000085</a></td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Congenital heart disease (e.g., PDA)</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a> / <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" rel="noopener noreferrer">HP:0001643</a></td>
+<td>~2/7 (29%)</td>
+</tr>
+<tr>
+<td>Anterior chamber / anterior-segment dysgenesis</td>
+<td>ophthalmic sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007700" target="_blank" rel="noopener noreferrer">HP:0007700</a></td>
+<td>Subset (notably Michels-type)</td>
+</tr>
+<tr>
+<td>Umbilical / periumbilical anomalies, umbilical hernia</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" rel="noopener noreferrer">HP:0001537</a></td>
+<td>~6/7 in recent cohort</td>
+</tr>
+<tr>
+<td>Clinodactyly of 5th finger</td>
+<td>physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004209" target="_blank" rel="noopener noreferrer">HP:0004209</a></td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>High myopia</td>
+<td>ophthalmic sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" rel="noopener noreferrer">HP:0011003</a></td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>Behavioral/psychiatric (ADHD, ODD, depression)</td>
+<td>behavioral</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" rel="noopener noreferrer">HP:0007018</a> / —</td>
+<td>Case-reported comorbidity (<a href="https://pubmed.ncbi.nlm.nih.gov/37463393/" target="_blank" rel="noopener noreferrer">PMID 37463393</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Age of onset:</strong> Congenital/prenatal (structural malformations detectable prenatally — bilateral cleft lip/palate + sacral protuberance + renal anomaly; <a href="https://pubmed.ncbi.nlm.nih.gov/32441374/" target="_blank" rel="noopener noreferrer">PMID 32441374</a>). Growth deficiency is <em>postnatal</em>.</li>
+<li><strong>Severity:</strong> Variable (mild to severe), even within the same gene and family (<a href="https://pubmed.ncbi.nlm.nih.gov/29407414/" target="_blank" rel="noopener noreferrer">PMID 29407414</a> describes an adult with the facial gestalt but without cleft lip/palate, intellectual disability, or short stature).</li>
+<li><strong>Progression:</strong> Non-progressive/stable malformative disorder; sequelae are lifelong.</li>
+<li><strong>Quality-of-life impact:</strong> Cleft repair, hearing loss, developmental delay, short stature and limb/skeletal anomalies affect feeding, speech, hearing, mobility and learning; no formal EQ-5D/SF-36 studies exist for this ultra-rare disease (not available).</li>
+</ul>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<ul>
+<li><strong>Causal genes (HGNC / locus / OMIM gene / product):</strong></li>
+<li><strong>MASP1</strong> — <a href="https://bioregistry.io/HGNC:6901" target="_blank" rel="noopener noreferrer">HGNC:6901</a>; 3q27.3; <em>600521; encodes </em><em>MASP-1</em><em> and </em><em>MASP-3</em><em> (alternative splicing). 3MC-causing variants are truncating, or </em><em>missense within exon 12</em>* encoding the MASP-3-specific C-terminal serine protease domain (<a href="https://pubmed.ncbi.nlm.nih.gov/29407414/" target="_blank" rel="noopener noreferrer">PMID 29407414</a>).</li>
+<li><strong>COLEC11</strong> — <a href="https://bioregistry.io/HGNC:17213" target="_blank" rel="noopener noreferrer">HGNC:17213</a>; 2p25.3; <em>612502; encodes </em><em>collectin-11 (CL-K1 / CL-11 / collectin kidney-1)</em>*.</li>
+<li><strong>COLEC10</strong> — <a href="https://bioregistry.io/HGNC:2311" target="_blank" rel="noopener noreferrer">HGNC:2311</a>; 8q24.12; <em>607620; encodes </em><em>collectin-10 (CL-L1 / collectin liver-1)</em>*.</li>
+<li><strong>Representative pathogenic variants (all germline, biallelic):</strong></li>
+<li>COLEC11 p.Gly204Ser — associated with undetectable serum protein (<a href="https://pubmed.ncbi.nlm.nih.gov/25912189/" target="_blank" rel="noopener noreferrer">PMID 25912189</a>, in vitro).</li>
+<li>COLEC10 p.Arg9Ter (c.25C&gt;T), p.Gly77Glufs*66 (c.226delA), p.Cys176Trp (c.528C&gt;G) — impair CL-L1 expression/secretion (<a href="https://pubmed.ncbi.nlm.nih.gov/28301481/" target="_blank" rel="noopener noreferrer">PMID 28301481</a>, in vitro).</li>
+<li>COLEC10 c.311G&gt;T; p.Gly104Val — Ashkenazi Jewish founder variant (<a href="https://pubmed.ncbi.nlm.nih.gov/35943032/" target="_blank" rel="noopener noreferrer">PMID 35943032</a>).</li>
+<li>COLEC10 c.807_810delCTGT; p.Cys270Serfs*33 (loss of natural stop, +24 aa) — Apulian founder (<a href="https://pubmed.ncbi.nlm.nih.gov/34740859/" target="_blank" rel="noopener noreferrer">PMID 34740859</a>).</li>
+<li>COLEC10 c.128_129delCA; p.Thr43AsnfsTer9 — Iranian, first homozygous frameshift (<a href="https://pubmed.ncbi.nlm.nih.gov/34636477/" target="_blank" rel="noopener noreferrer">PMID 34636477</a>).</li>
+<li>MASP1 c.310C&gt;T; p.Gln104Ter — nonsense (<a href="https://pubmed.ncbi.nlm.nih.gov/33765348/" target="_blank" rel="noopener noreferrer">PMID 33765348</a>).</li>
+<li>MASP1 homozygous ~2 kb intragenic deletion partially affecting exon 12; also exon-level deletions (PMIDs 29407414, 41703727) — may be missed by standard exome pipelines.</li>
+<li><strong>Variant classification &amp; type:</strong> Pathogenic/likely pathogenic per ACMG/AMP; predominantly <strong>loss-of-function</strong> — nonsense, frameshift, splice, intragenic/exon-level deletions, and secretion-impairing missense. <strong>Functional consequence = loss of function</strong> (protein deficiency or non-secretion). No gain-of-function or dominant-negative mechanism reported.</li>
+<li><strong>Allele frequency:</strong> Causal alleles are rare/absent in gnomAD except population-specific founders (Ashkenazi COLEC10 carrier freq ≈1.01%, <a href="https://pubmed.ncbi.nlm.nih.gov/35943032/" target="_blank" rel="noopener noreferrer">PMID 35943032</a>).</li>
+<li><strong>Somatic vs germline:</strong> Exclusively <strong>germline</strong>, biallelic (autosomal recessive). No somatic/COSMIC relevance.</li>
+<li><strong>Modifier genes:</strong> Complement components MASP-2, factor B, C3 modulate skeletal phenotype in mice (<a href="https://pubmed.ncbi.nlm.nih.gov/41774788/" target="_blank" rel="noopener noreferrer">PMID 41774788</a>, model organism).</li>
+<li><strong>Epigenetics:</strong> No disease-specific methylation/histone signature reported (not available).</li>
+<li><strong>Chromosomal abnormalities:</strong> None characteristic; the disorder is caused by single-gene point/indel/small-deletion variants (some detectable only by careful CNV analysis of WES/WGS; <a href="https://pubmed.ncbi.nlm.nih.gov/29407414/" target="_blank" rel="noopener noreferrer">PMID 29407414</a>).</li>
+</ul>
+<p><strong>Suggested gene/GO annotations:</strong> MASP1/COLEC11/COLEC10; <a href="http://purl.obolibrary.org/obo/GO_0001867" target="_blank" rel="noopener noreferrer">GO:0001867</a> (complement activation, lectin pathway), <a href="http://purl.obolibrary.org/obo/GO_0030246" target="_blank" rel="noopener noreferrer">GO:0030246</a> (carbohydrate binding), <a href="http://purl.obolibrary.org/obo/GO_0005509" target="_blank" rel="noopener noreferrer">GO:0005509</a> (calcium ion binding).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> None known. (Not applicable — Mendelian disorder.)</li>
+<li><strong>Lifestyle factors:</strong> None known (not applicable).</li>
+<li><strong>Infectious agents:</strong> None (not applicable). Note the biological irony that the causative genes are innate-immune anti-microbial pattern-recognition molecules, but the syndrome itself is developmental, not infectious.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain (upstream → downstream):</strong>
+Biallelic LOF variant in MASP1/COLEC11/COLEC10 → deficient or mis-secreted collectin (CL-K1 or CL-L1) or non-functional MASP-3 → loss of the <strong>CL-K1·MASP-3 chemoattractant guidance cue</strong> for <strong>cranial neural crest cells (cNCC)</strong> → aberrant NCC migration/differentiation → malformation of NCC-derived and midline structures (craniofacial skeleton, palate, heart outflow, genitourinary tract, vertebral/coccygeal elements) → clinical phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/21258343/" target="_blank" rel="noopener noreferrer">PMID 21258343</a>).</p>
+<ul>
+<li><strong>Molecular pathways:</strong> Lectin pathway of complement (and its link to the alternative pathway). CL-K1/CL-L1 form Ca²⁺-dependent heteromeric collectin complexes that associate with MASP-1/2/3 (<a href="https://pubmed.ncbi.nlm.nih.gov/27782323/" target="_blank" rel="noopener noreferrer">PMID 27782323</a>). <strong>MASP-3 is the exclusive pro-factor D activator in resting blood, linking the lectin and alternative pathways</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27535802/" target="_blank" rel="noopener noreferrer">PMID 27535802</a>: <em>"activated MASP-3 is the exclusive pro-FD activator in resting blood, which demonstrates a fundamental link between the lectin and alternative pathways."</em>).</li>
+<li><strong>Cellular processes:</strong> <strong>Neural crest cell migration</strong> (<a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" rel="noopener noreferrer">GO:0001755</a>) — CL-K1 acts as a directional guidance cue (<a href="https://pubmed.ncbi.nlm.nih.gov/21258343/" target="_blank" rel="noopener noreferrer">PMID 21258343</a>). Also <strong>osteoclast differentiation</strong> (<a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" rel="noopener noreferrer">GO:0030316</a>) — CL-11 regulates osteoclastogenesis complement-dependently (<a href="https://pubmed.ncbi.nlm.nih.gov/41774788/" target="_blank" rel="noopener noreferrer">PMID 41774788</a>, model organism/in vitro).</li>
+<li><strong>Protein dysfunction:</strong> LOF via impaired <strong>secretion</strong> and loss of <strong>Ca²⁺ binding</strong> in the carbohydrate-recognition domain (CRD). Disease mutations do not necessarily block folding/oligomerization in vitro, but abolish Ca²⁺ binding and secretion, producing serum protein deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/25912189/" target="_blank" rel="noopener noreferrer">PMID 25912189</a>, in vitro).</li>
+<li><strong>Metabolic/biochemical:</strong> CL-K1 recognizes <strong>high-mannose oligosaccharides</strong> and <strong>L-fucose</strong> on stressed/altered self-surfaces (PMIDs 25912189, 31914693). Enzymatically, MASP-3 has low amidolytic activity relative to other C1r/C1s/MASP proteases (<a href="https://pubmed.ncbi.nlm.nih.gov/23861840/" target="_blank" rel="noopener noreferrer">PMID 23861840</a>, in vitro/structural).</li>
+<li><strong>Immune involvement:</strong> The causative molecules are innate-immune complement effectors; however, 3MC patients are not primarily immunodeficient — the phenotype reflects the <strong>developmental (non-immune) moonlighting role</strong> of these proteins ("a broader functionality of the complement system than previously anticipated," <a href="https://pubmed.ncbi.nlm.nih.gov/27782323/" target="_blank" rel="noopener noreferrer">PMID 27782323</a>).</li>
+<li><strong>Tissue-damage mechanism (adult context):</strong> In acquired renal ischemia-reperfusion injury, CL-11 binds a fucosylated damage ligand on tubular epithelium and triggers complement/C5b-9 injury — mechanistically informative but distinct from the developmental syndrome (PMIDs 28663231, 31914693, model organism).</li>
+<li><strong>Molecular profiling / omics / single-cell / CRISPR screens:</strong> No disease-specific transcriptomic, proteomic, metabolomic or functional-genomics screens published for 3MC (not available); mechanistic evidence is from targeted zebrafish morphants, mouse expression/knockout, and in vitro biochemistry.</li>
+</ul>
+<p><strong>Suggested ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" rel="noopener noreferrer">GO:0001755</a> (neural crest cell migration), <a href="http://purl.obolibrary.org/obo/GO_0001867" target="_blank" rel="noopener noreferrer">GO:0001867</a> (lectin-pathway complement activation), <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" rel="noopener noreferrer">GO:0030316</a> (osteoclast differentiation), <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a> (innate immune response); <strong><a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a></strong> (migratory neural crest cell / cranial NCC), <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a> (chondrocyte), <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a> (osteoclast); <a href="http://purl.obolibrary.org/obo/CHEBI_2181" target="_blank" rel="noopener noreferrer">CHEBI:2181</a> (L-fucose), <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a> (calcium(2+)), <a href="http://purl.obolibrary.org/obo/CHEBI_37671" target="_blank" rel="noopener noreferrer">CHEBI:37671</a> (high-mannose oligosaccharide/mannose).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ / system level:</strong></li>
+<li><strong>Craniofacial skeleton &amp; face</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> face; <a href="http://purl.obolibrary.org/obo/UBERON_0001716" target="_blank" rel="noopener noreferrer">UBERON:0001716</a> secondary palate) — cleft lip/palate, hypertelorism, dysmorphism.</li>
+<li><strong>Skull sutures</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000905" target="_blank" rel="noopener noreferrer">UBERON:0000905</a>) — craniosynostosis.</li>
+<li><strong>Eyes / periocular</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>) — blepharophimosis, ptosis, anterior-segment dysgenesis (<a href="http://purl.obolibrary.org/obo/UBERON_0000481" target="_blank" rel="noopener noreferrer">UBERON:0000481</a> anterior chamber).</li>
+<li><strong>Skeleton / limbs</strong> — radioulnar synostosis (radius <a href="http://purl.obolibrary.org/obo/UBERON_0001423" target="_blank" rel="noopener noreferrer">UBERON:0001423</a> / ulna <a href="http://purl.obolibrary.org/obo/UBERON_0001424" target="_blank" rel="noopener noreferrer">UBERON:0001424</a>); vertebral column/<strong>coccyx</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0009832" target="_blank" rel="noopener noreferrer">UBERON:0009832</a>) — caudal appendage.</li>
+<li><strong>Kidney &amp; urinary tract</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>) — horseshoe/pelvic kidney, vesicoureteral reflux.</li>
+<li><strong>Genitalia</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000990" target="_blank" rel="noopener noreferrer">UBERON:0000990</a>) — genital anomalies.</li>
+<li><strong>Heart</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>) — congenital heart disease (e.g., PDA).</li>
+<li><strong>Ear / auditory system</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001690" target="_blank" rel="noopener noreferrer">UBERON:0001690</a>) — hearing loss.</li>
+<li><strong>CNS</strong> — developmental delay/cognitive impairment (functional).</li>
+<li><strong>Tissue / cell level:</strong> Connective/skeletal tissue (cartilage, bone) and epithelial (palatal) tissue; the key targeted cell population is the <strong>cranial neural crest cell (<a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a>)</strong> and its derivatives (chondrocytes, cranial mesenchyme); osteoclasts implicated in skeletal maintenance (<a href="https://pubmed.ncbi.nlm.nih.gov/41774788/" target="_blank" rel="noopener noreferrer">PMID 41774788</a>).</li>
+<li><strong>Subcellular level:</strong> Secreted proteins traffic through the <strong>endoplasmic reticulum / secretory pathway</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a> ER; <a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a> extracellular region); LOF mutations cause ER retention / secretion failure (<a href="https://pubmed.ncbi.nlm.nih.gov/25912189/" target="_blank" rel="noopener noreferrer">PMID 25912189</a>).</li>
+<li><strong>Localization / lateralization:</strong> Malformations are typically <strong>bilateral/midline</strong> (bilateral cleft lip/palate, hypertelorism, radioulnar synostosis often bilateral), consistent with a midline/symmetric developmental patterning defect.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Congenital</strong> — structural anomalies arise during embryogenesis and are detectable <strong>prenatally</strong> (first prenatal diagnosis: bilateral cleft lip/palate + sacral abnormality + pelvic kidney + brachycephaly; <a href="https://pubmed.ncbi.nlm.nih.gov/32441374/" target="_blank" rel="noopener noreferrer">PMID 32441374</a>). Growth deficiency is <strong>postnatal</strong>.</li>
+<li><strong>Onset pattern:</strong> Non-acute; features are present from birth (insidious/static developmental).</li>
+<li><strong>Progression:</strong> Non-progressive malformative syndrome; <strong>stable</strong> course. Skeletal contractures or scoliosis may require intervention over time (e.g., knee flexion contracture managed with a Taylor Spatial Frame — <a href="https://pubmed.ncbi.nlm.nih.gov/34589314/" target="_blank" rel="noopener noreferrer">PMID 34589314</a>).</li>
+<li><strong>Disease course / duration:</strong> Chronic, lifelong; individuals can survive to adulthood (<a href="https://pubmed.ncbi.nlm.nih.gov/29407414/" target="_blank" rel="noopener noreferrer">PMID 29407414</a> describes a 21-year follow-up in an adult).</li>
+<li><strong>Remission / critical periods:</strong> No remission (structural). The critical window is <strong>embryonic craniofacial neural-crest migration</strong>; interventions are corrective/supportive postnatally rather than preventive of the malformation.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> Ultra-rare; <strong>&lt;50</strong> molecularly confirmed COLEC11/MASP1 patients reported as of 2020 (<a href="https://pubmed.ncbi.nlm.nih.gov/32441374/" target="_blank" rel="noopener noreferrer">PMID 32441374</a>), with additional COLEC10 cases since. Formal prevalence/incidence per 100,000 is <strong>not established</strong> (not available).</li>
+<li><strong>Inheritance:</strong> <strong>Autosomal recessive</strong> (all three genes) (PMIDs 21258343, 28301481).</li>
+<li><strong>Penetrance / expressivity:</strong> Presumed high penetrance for a recognizable phenotype in biallelic carriers, but <strong>highly variable expressivity</strong> (mild adult cases lacking cleft/ID/short stature — <a href="https://pubmed.ncbi.nlm.nih.gov/29407414/" target="_blank" rel="noopener noreferrer">PMID 29407414</a>).</li>
+<li><strong>Genetic anticipation:</strong> Not applicable (no repeat expansion).</li>
+<li><strong>Germline mosaicism:</strong> Not reported.</li>
+<li><strong>Founder effects / consanguinity:</strong> Strong role of <strong>consanguinity</strong>; documented founders — Ashkenazi Jewish COLEC10 c.311G&gt;T (<strong>carrier frequency 1 in 99</strong>, <a href="https://pubmed.ncbi.nlm.nih.gov/35943032/" target="_blank" rel="noopener noreferrer">PMID 35943032</a>) and Apulian (Italian) COLEC10 c.807_810delCTGT (<a href="https://pubmed.ncbi.nlm.nih.gov/34740859/" target="_blank" rel="noopener noreferrer">PMID 34740859</a>).</li>
+<li><strong>Carrier frequency:</strong> ≈1.01% in Ashkenazi Jews for the COLEC10 founder allele; otherwise very rare (<a href="https://pubmed.ncbi.nlm.nih.gov/35943032/" target="_blank" rel="noopener noreferrer">PMID 35943032</a>).</li>
+<li><strong>Population demographics:</strong> Cases reported worldwide (Turkey/Kurdish, Iran, Italy, Mexico, Ashkenazi Jewish, and others), often from consanguineous or founder populations. <strong>Sex ratio:</strong> roughly equal (autosomal; cohort of 7 had 5 F / 2 M — small-sample skew, <a href="https://pubmed.ncbi.nlm.nih.gov/41703727/" target="_blank" rel="noopener noreferrer">PMID 41703727</a>). <strong>Age distribution:</strong> predominantly diagnosed in infancy/childhood.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical recognition:</strong> Diagnosis is suspected on the <strong>facial gestalt</strong> (hypertelorism, blepharophimosis, blepharoptosis, highly arched eyebrows) plus cleft lip/palate and — a relatively specific clue — a <strong>caudal appendage</strong> (PMIDs 34899147, 26789649).</li>
+<li><strong>Genetic testing (confirmatory, gold standard):</strong></li>
+<li><strong>Whole-exome (WES) / whole-genome (WGS) sequencing</strong> or a <strong>3MC/multiple-congenital-anomaly gene panel</strong> covering <strong>MASP1, COLEC11, COLEC10</strong>. Important caveat: some <strong>clinical exome panels omit COLEC10</strong>, causing missed diagnoses — targeted Sanger of COLEC10 may be needed (<a href="https://pubmed.ncbi.nlm.nih.gov/34740859/" target="_blank" rel="noopener noreferrer">PMID 34740859</a>).</li>
+<li><strong>CNV / deletion analysis:</strong> exon-level and intragenic deletions occur (MASP1) and can be missed by routine pipelines — require careful visual/CNV analysis of WES/WGS (PMIDs 29407414, 41703727).</li>
+<li>Single-gene / Sanger for founder alleles (e.g., Ashkenazi COLEC10 c.311G&gt;T).</li>
+<li>Karyotype/FISH/mtDNA/repeat-expansion testing: not indicated (normal/uninformative).</li>
+<li><strong>Biomarkers / functional assays:</strong> Serum/plasma <strong>CL-K1 or CL-L1 levels</strong> may be reduced/undetectable with secretion-impairing variants (<a href="https://pubmed.ncbi.nlm.nih.gov/25912189/" target="_blank" rel="noopener noreferrer">PMID 25912189</a>), but levels can be <strong>normal</strong> despite pathogenic variants (<a href="https://pubmed.ncbi.nlm.nih.gov/34740859/" target="_blank" rel="noopener noreferrer">PMID 34740859</a>) — so protein level is supportive, not definitive.</li>
+<li><strong>Imaging:</strong> Prenatal <strong>ultrasound</strong> (facial clefts + sacral/spinal defect + renal anomaly; <a href="https://pubmed.ncbi.nlm.nih.gov/32441374/" target="_blank" rel="noopener noreferrer">PMID 32441374</a>); postnatal skeletal survey/radiographs (radioulnar synostosis, craniosynostosis, coccygeal appendage); renal ultrasound; echocardiography; audiology; ophthalmologic exam (anterior-segment).</li>
+<li><strong>Clinical criteria / differential diagnosis:</strong> No formal consensus criteria. Differential includes other blepharophimosis–ptosis syndromes (e.g., BPES), oral-facial-clefting syndromes, Fraser syndrome, and other craniofacial-limb-renal syndromes; the <strong>caudal appendage + radioulnar synostosis + facial gestalt</strong> combination and molecular confirmation distinguish 3MC (<a href="https://pubmed.ncbi.nlm.nih.gov/35943032/" target="_blank" rel="noopener noreferrer">PMID 35943032</a> notes 3MC should be in the differential for short stature + radioulnar synostosis + cleft lip/palate).</li>
+<li><strong>Screening:</strong> <strong>Carrier / cascade screening</strong> in founder populations (Ashkenazi Jewish COLEC10) and consanguineous families; <strong>prenatal molecular testing</strong> feasible once a family variant is known (<a href="https://pubmed.ncbi.nlm.nih.gov/32441374/" target="_blank" rel="noopener noreferrer">PMID 32441374</a>). No newborn-screening program exists.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival / mortality:</strong> No formal survival statistics; the disorder is generally <strong>compatible with survival to adulthood</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29407414/" target="_blank" rel="noopener noreferrer">PMID 29407414</a>, 21-year follow-up). Severe multi-organ involvement (cardiac, renal) can affect prognosis in individual cases.</li>
+<li><strong>Morbidity / function:</strong> Chronic disability from cognitive impairment, hearing loss, short stature, cleft-related speech/feeding issues, and skeletal/limb constraints (radioulnar synostosis, contractures). Variable — some individuals have mild, near-normal cognition (<a href="https://pubmed.ncbi.nlm.nih.gov/29407414/" target="_blank" rel="noopener noreferrer">PMID 29407414</a>).</li>
+<li><strong>Quality-of-life measures:</strong> No disease-specific QoL data (not available).</li>
+<li><strong>Complications:</strong> Cleft-related feeding/speech difficulties and otitis/hearing loss; renal anomalies may predispose to urinary complications; skeletal contractures/scoliosis; psychiatric comorbidity reported (ADHD/ODD/depression; <a href="https://pubmed.ncbi.nlm.nih.gov/37463393/" target="_blank" rel="noopener noreferrer">PMID 37463393</a>).</li>
+<li><strong>Recovery / prognostic factors:</strong> Malformations are static; outcomes improve with corrective surgery, hearing rehabilitation, and developmental support. Prognosis is modulated by severity of cardiac/renal/CNS involvement. No validated prognostic biomarkers.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><em>No disease-modifying or gene-specific therapy exists. Management is multidisciplinary, symptomatic, and supportive.</em></p>
+<ul>
+<li><strong>Pharmacotherapy:</strong> None specific to 3MC. Symptomatic (e.g., stimulants/SSRIs for comorbid ADHD/depression as clinically indicated; <a href="https://pubmed.ncbi.nlm.nih.gov/37463393/" target="_blank" rel="noopener noreferrer">PMID 37463393</a>). No pharmacogenomic considerations established. <em>(NCIT: Supportive Care; Symptomatic Treatment.)</em></li>
+<li><strong>Advanced therapeutics (gene/cell/RNA/targeted/immuno):</strong> None approved or in trials for 3MC (not applicable). The lectin-pathway/CL-11 axis is a therapeutic target in <em>acquired renal IRI</em> (L-fucose decoy strategy, <a href="https://pubmed.ncbi.nlm.nih.gov/32472330/" target="_blank" rel="noopener noreferrer">PMID 32472330</a>, model organism) — not for the developmental syndrome.</li>
+<li><strong>Surgical / interventional:</strong> <strong>Cleft lip and palate repair</strong> (NCIT: Cleft Lip Repair / Cleft Palate Repair); craniofacial/craniosynostosis surgery; ptosis/blepharophimosis correction; orthopedic correction of limb contractures/synostosis (e.g., <strong>Taylor Spatial Frame</strong> for knee flexion contracture, <a href="https://pubmed.ncbi.nlm.nih.gov/34589314/" target="_blank" rel="noopener noreferrer">PMID 34589314</a>); urologic/genital corrective surgery as needed.</li>
+<li><strong>Supportive / rehabilitative:</strong> <strong>Hearing aids/audiologic management</strong>; speech therapy; physical/occupational therapy; growth and nutritional monitoring; developmental/educational support; ophthalmologic care.</li>
+<li><strong>Treatment strategy:</strong> Individualized, coordinated by clinical genetics + craniofacial/plastic surgery, ENT/audiology, orthopedics, urology/nephrology, cardiology, ophthalmology, and developmental pediatrics. <strong>Genetic counseling</strong> is integral.</li>
+<li><strong>Experimental treatments / trials:</strong> None registered specifically for 3MC (not available).</li>
+</ul>
+<p><strong>Suggested NCIT terms:</strong> Supportive Care; Surgical Procedure; Cleft Lip Repair; Cleft Palate Repair; Physical Therapy; Genetic Counseling; Hearing Aid.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not preventable once conceived (congenital genetic disorder). Preconception risk reduction via <strong>genetic counseling</strong> for consanguineous couples and known-carrier families.</li>
+<li><strong>Secondary prevention / early detection:</strong> <strong>Prenatal molecular diagnosis</strong> and <strong>prenatal ultrasound</strong> (facial clefts + sacral/renal anomalies) enable early identification and reproductive planning (<a href="https://pubmed.ncbi.nlm.nih.gov/32441374/" target="_blank" rel="noopener noreferrer">PMID 32441374</a>). <strong>Preimplantation genetic testing (PGT-M)</strong> is an option when the familial variant is known.</li>
+<li><strong>Genetic screening:</strong> <strong>Carrier and cascade screening</strong> — high-yield in the Ashkenazi Jewish population for COLEC10 c.311G&gt;T (carrier ~1/99) and in consanguineous/founder populations (<a href="https://pubmed.ncbi.nlm.nih.gov/35943032/" target="_blank" rel="noopener noreferrer">PMID 35943032</a>).</li>
+<li><strong>Counseling:</strong> Autosomal-recessive recurrence risk 25% per pregnancy for carrier couples; molecular confirmation "allows for alternate reproductive options" (<a href="https://pubmed.ncbi.nlm.nih.gov/32441374/" target="_blank" rel="noopener noreferrer">PMID 32441374</a>).</li>
+<li><strong>Tertiary prevention:</strong> Early cleft repair, hearing rehabilitation, developmental therapy, and orthopedic/urologic surveillance to limit complications.</li>
+<li><strong>Immunization / public-health / environmental interventions:</strong> Not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of gene orthologs:</strong> MASP1, COLEC11, COLEC10 are conserved in vertebrates — <strong>Mus musculus</strong> (NCBI Taxon 10090), <strong>Danio rerio</strong> (7955), <strong>Homo sapiens</strong> (9606).</li>
+<li><strong>Naturally occurring animal disease:</strong> No naturally occurring 3MC-equivalent Mendelian disease is catalogued in companion animals/livestock (OMIA — not available). Phenotypes are known only from engineered/experimental models.</li>
+<li><strong>Comparative biology / conservation:</strong> The lectin complement pathway and its developmental role are evolutionarily conserved; zebrafish colec11/masp1 knockdown reproduces craniofacial and pigmentary defects (<a href="https://pubmed.ncbi.nlm.nih.gov/21258343/" target="_blank" rel="noopener noreferrer">PMID 21258343</a>), demonstrating conserved mechanism.</li>
+<li><strong>Transmission / zoonosis:</strong> Not applicable (genetic, non-transmissible).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Zebrafish (<em>Danio rerio</em>, ZFIN):</strong> <strong>Morpholino knockdown (morphants)</strong> of <em>colec11</em> or <em>masp1</em> produce <strong>pigmentary defects and severe craniofacial abnormalities</strong> — the key model recapitulating the human craniofacial phenotype and demonstrating the neural-crest guidance mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/21258343/" target="_blank" rel="noopener noreferrer">PMID 21258343</a>, model organism). <em>Recapitulation: strong for craniofacial/neural-crest features.</em></li>
+<li><strong>Mouse (<em>Mus musculus</em>, MGI):</strong></li>
+<li><strong>Expression studies:</strong> CL-K1 is highly expressed in embryonic craniofacial cartilage, heart, bronchi, kidney, and vertebral bodies (<a href="https://pubmed.ncbi.nlm.nih.gov/21258343/" target="_blank" rel="noopener noreferrer">PMID 21258343</a>); COLEC10/CL-L1 is expressed in the base membrane of the developing palate (<a href="https://pubmed.ncbi.nlm.nih.gov/28301481/" target="_blank" rel="noopener noreferrer">PMID 28301481</a>) — spatially concordant with affected human structures.</li>
+<li><strong>Knockouts:</strong> CL-11 (Colec11) knockout alone does <strong>not</strong> reproduce skeletal abnormalities; <strong>combined</strong> CL-11 + MASP-2 / factor B / C3 deficiency causes vertebral bone loss and spinal curvature via impaired osteoclastogenesis (<a href="https://pubmed.ncbi.nlm.nih.gov/41774788/" target="_blank" rel="noopener noreferrer">PMID 41774788</a>, model organism) — a <em>limitation</em> (single-gene mouse KO under-recapitulates the human skeletal phenotype) and a clue that complement modifiers matter.</li>
+<li><strong>In vitro / cellular models:</strong> Mammalian expression systems demonstrating that disease mutations block CL-K1/CL-L1 secretion and Ca²⁺ binding (PMIDs 25912189, 28301481); <strong>human iPSC-derived osteoclasts</strong> showing CL-11 dependence (<a href="https://pubmed.ncbi.nlm.nih.gov/41774788/" target="_blank" rel="noopener noreferrer">PMID 41774788</a>); recombinant MASP-3 serine-protease domain structural/enzymatic studies (<a href="https://pubmed.ncbi.nlm.nih.gov/23861840/" target="_blank" rel="noopener noreferrer">PMID 23861840</a>).</li>
+<li><strong>Model limitations:</strong> Mouse single-gene KOs incompletely reproduce the full malformation spectrum (skeletal features require compound complement deficiency); morpholino zebrafish models capture craniofacial/pigment phenotypes but are transient knockdowns.</li>
+<li><strong>Resources:</strong> ZFIN (zebrafish), MGI/IMPC (mouse), Cellosaurus (iPSC lines).</li>
+</ul>
+<hr />
+<h2>Evidence Source Summary</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Evidence type</th>
+<th>Key PMIDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gene discovery (MASP1, COLEC11)</td>
+<td>Human + zebrafish + mouse</td>
+<td>21258343</td>
+</tr>
+<tr>
+<td>Gene discovery (COLEC10)</td>
+<td>Human + mouse + in vitro</td>
+<td>28301481</td>
+</tr>
+<tr>
+<td>Mutation mechanism (secretion, Ca²⁺)</td>
+<td>In vitro / structural</td>
+<td>25912189, 23861840</td>
+</tr>
+<tr>
+<td>Complement pathway link (MASP-3→factor D)</td>
+<td>In vitro</td>
+<td>27535802, 27782323</td>
+</tr>
+<tr>
+<td>Phenotype spectrum &amp; frequencies</td>
+<td>Human cohorts/case series</td>
+<td>41703727, 36503917, 26789649, 29407414</td>
+</tr>
+<tr>
+<td>Founder allele / carrier frequency</td>
+<td>Human population</td>
+<td>35943032, 34740859, 34636477, 33765348</td>
+</tr>
+<tr>
+<td>Prenatal diagnosis</td>
+<td>Human case</td>
+<td>32441374</td>
+</tr>
+<tr>
+<td>Skeletal/osteoclast mechanism</td>
+<td>Mouse + iPSC</td>
+<td>41774788</td>
+</tr>
+<tr>
+<td>Renal CL-11/fucose (adult context)</td>
+<td>Mouse / review</td>
+<td>31914693, 32472330, 28663231, 27286717</td>
+</tr>
+<tr>
+<td>Orthopedic management</td>
+<td>Human case</td>
+<td>34589314</td>
+</tr>
+<tr>
+<td>Psychiatric comorbidity</td>
+<td>Human case</td>
+<td>37463393</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Future Directions</h2>
+<ul>
+<li><strong>Ultra-rarity:</strong> &lt;~100 molecularly confirmed patients; frequencies are from small cohorts and case reports, limiting precision of penetrance/expressivity and genotype–phenotype correlation.</li>
+<li><strong>Genetic heterogeneity:</strong> Some clinically typical, consanguineous patients lack variants in the three known genes (<a href="https://pubmed.ncbi.nlm.nih.gov/26789649/" target="_blank" rel="noopener noreferrer">PMID 26789649</a>) — additional lectin-pathway genes likely remain to be discovered.</li>
+<li><strong>No omics datasets:</strong> No published transcriptomic/proteomic/metabolomic/single-cell profiling of patient tissues; mechanism rests on targeted models and biochemistry.</li>
+<li><strong>Future directions:</strong> Deeper phenotyping registries; CNV-aware sequencing (to capture exon-level deletions); functional CL-K1/CL-L1 assays as adjunct diagnostics; delineating the neural-crest guidance mechanism at single-cell resolution; exploring complement modifiers of skeletal severity.</li>
+</ul>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/3MC_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/3MC_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>19</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>61</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>52</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0018721</code> (1 mention) - the report calls it "3MC syndrome"; MONDO calls it <strong>obsolete rare combined vascular malformation</strong></li>
+<li><code>HP:0000316</code> (1 mention) - the report calls it "physical/craniofacial sign"; HP calls it <strong>Hypertelorism</strong></li>
+<li><code>HP:0000581</code> (1 mention) - the report calls it "physical sign"; HP calls it <strong>Blepharophimosis</strong></li>
+<li><code>HP:0000508</code> (1 mention) - the report calls it "physical sign"; HP calls it <strong>Ptosis</strong></li>
+<li><code>HP:0002553</code> (1 mention) - the report calls it "physical sign"; HP calls it <strong>Highly arched eyebrow</strong></li>
+<li><code>HP:0000537</code> (1 mention) - the report calls it "physical sign"; HP calls it <strong>Epicanthus inversus</strong></li>
+<li><code>HP:0000494</code> (1 mention) - the report calls it "physical sign"; HP calls it <strong>Downslanted palpebral fissures</strong></li>
+<li><code>HP:0000365</code> (1 mention) - the report calls it "lab/functional sign"; HP calls it <strong>Hearing impairment</strong></li>
+<li><code>HP:0100541</code> (1 mention) - the report calls it "tail-like"; HP calls it <strong>Femoral hernia</strong></li>
+<li><code>HP:0001363</code> (1 mention) - the report calls it "physical sign"; HP calls it <strong>Craniosynostosis</strong></li>
+<li><code>HP:0003042</code> (1 mention) - the report calls it "physical sign"; HP calls it <strong>Elbow dislocation</strong></li>
+<li><code>HP:0007700</code> (1 mention) - the report calls it "ophthalmic sign"; HP calls it <strong>Ocular anterior segment dysgenesis</strong></li>
+<li><code>HP:0001537</code> (1 mention) - the report calls it "physical sign"; HP calls it <strong>Umbilical hernia</strong></li>
+<li><code>HP:0004209</code> (1 mention) - the report calls it "physical sign"; HP calls it <strong>Clinodactyly of the 5th finger</strong></li>
+<li><code>HP:0011003</code> (1 mention) - the report calls it "ophthalmic sign"; HP calls it <strong>High myopia</strong></li>
+<li><code>CHEBI:37671</code> (1 mention) - the report calls it "high-mannose oligosaccharide/mannose"; CHEBI calls it <strong>(1-&gt;3)-beta-D-glucan</strong></li>
+<li><code>UBERON:0000970</code> (1 mention) - the report calls it "Eyes / periocular"; UBERON calls it <strong>eye</strong></li>
+<li><code>UBERON:0002113</code> (1 mention) - the report calls it "Kidney &amp; urinary tract"; UBERON calls it <strong>kidney</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>UBERON:0000905</code> (1 mention), reported as "Skull sutures" - UBERON does not contain this term</li>
+<li><code>UBERON:0009832</code> (1 mention), reported as "coccyx" - UBERON does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>MONDO:0018721</code> (obsolete rare combined vascular malformation) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0001755</code> (2 mentions) - the report calls it "Neural crest cell migration", "Cellular processes:<strong> </strong>Neural crest cell migration", "neural crest cell migration"; GO calls it <strong>neural crest cell migration</strong></li>
+<li><code>CHEBI:2181</code> (1 mention) - the report calls it "L-fucose"; CHEBI calls it <strong>L-fucopyranose</strong>, and lists "(-)-L-Fucose" among its other names</li>
+<li><code>UBERON:0000990</code> (1 mention) - the report calls it "Genitalia"; UBERON calls it <strong>reproductive system</strong>, and lists "genitalia" among its other names</li>
+<li><code>UBERON:0001690</code> (1 mention) - the report calls it "Ear / auditory system"; UBERON calls it <strong>ear</strong>, and lists "auditory apparatus" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>GO:0001867</code> - called "complement activation, lectin pathway", "lectin-pathway complement activation"</li>
+<li><code>GO:0001755</code> - called "Neural crest cell migration", "Cellular processes:<strong> </strong>Neural crest cell migration", "neural crest cell migration"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="3-Methylcrotonyl-CoA_Carboxylase_Deficiency-openscientist.html">← 3-Methylcrotonyl-CoA Carboxylase Deficiency (OpenScientist)</a>
+                
+                
+                <a href="45_X_46_XY_Mixed_Gonadal_Dysgenesis-claude_code.html">45,X/46,XY Mixed Gonadal Dysgenesis (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/3MC_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/3MC_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
