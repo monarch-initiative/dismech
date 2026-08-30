@@ -50,13 +50,19 @@ just template-version-audit --format tsv --out /tmp/versions.tsv
 The summary reports how each answer was reached:
 
 ```
-Reports scanned: 2630
+Reports scanned: 2645
 
 How the template revision was determined:
   stamped        0  0.0%
-  inferred    2131  81.0%
-  unknown      499  19.0%
+  inferred    2153  81.4%
+  unknown      492  18.6%
 ```
+
+The scan recurses: reports also live in `research/modules/`, `groupings/`,
+`surrogacy/` and `datasets/`. It skips citation sidecars and the contents of
+`*_artifacts/` directories, which hold the tables and figures a provider
+returned beside a report — 993 of the 1,023 nested markdown files, and not
+reports.
 
 **`stamped` and `inferred` are not the same claim.** A stamp is a fact the
 generator recorded. An inference is reconstructed from timestamps and assumes
@@ -85,7 +91,7 @@ commit message carry that.
 
 ## Why there is no backfill
 
-The obvious move is to write `template_sha` into all ~2,600 committed reports.
+The obvious move is to write `template_sha` into all ~2,650 committed reports.
 It was considered and rejected:
 
 - The information is **already derivable**. A report's `start_time` plus the
@@ -102,12 +108,12 @@ template being edited without being committed.
 
 ## What the audit found
 
-At the time of writing, on 2,630 reports:
+At the time of writing, on 2,645 reports:
 
 | | |
 |---|---:|
 | Generated from a superseded revision | 1,974 |
-| Undetermined | 479 |
+| Undetermined | 491 |
 | Current | 177 |
 
 **Every report generated from the disease template predates the current
@@ -120,7 +126,7 @@ a superseded revision would be red on 1,974 reports the moment it was added, and
 would go red again for the whole corpus after every prompt edit. Staleness here
 is a fact about the corpus, not a defect in any one report.
 
-The 479 undetermined split into honest categories rather than failures:
+The 491 undetermined split into honest categories rather than failures:
 
 - **452 record no `template_file` at all** — mostly hand-written syntheses.
 - **A dozen record a free-text label** rather than a path (`manual_curation`,

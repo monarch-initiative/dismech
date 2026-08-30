@@ -41,7 +41,7 @@ import hashlib
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from functools import cache
 from pathlib import Path
 
@@ -68,7 +68,7 @@ REPORTS_DIR = Path("research")
 TEMPLATES_DIR = Path("templates")
 
 
-class Provenance(str, Enum):
+class Provenance(StrEnum):
     """How a report's template revision was determined.
 
     The distinction is the point of the class. ``STAMPED`` is a fact the
@@ -216,10 +216,12 @@ def _normalize_template_path(value: object) -> str | None:
         the value is missing or blank.
 
     Note:
-        Twenty committed reports record ``templates\\disease_pathophysiology_research.md``
-        with Windows separators. That names the same template every other report
-        names, so folding the separator resolves them instead of writing them off
-        as unknown. The value is otherwise left alone -- several reports record a
+        Twenty committed reports record the disease template's path with
+        Windows separators (``templates\\disease_pathophysiology_research.md``).
+        That names the same template every other report names, so folding the
+        separator resolves them instead of writing them off as unknown.
+
+        The value is otherwise left alone -- several reports record a
         free-text label rather than a path (``manual_curation``,
         ``codex_supplement_local``), and inventing a path for those would be worse
         than reporting them undetermined.
@@ -375,19 +377,37 @@ def stamp_report(report: Path, repo_root: Path = Path(".")) -> str | None:
     return sha
 
 
+#: Suffix marking a provider artifacts directory, whose contents are inputs
+#: embedded beside a report rather than reports in their own right.
+ARTIFACTS_DIR_SUFFIX = "_artifacts"
+
+
 def iter_reports(reports_dir: Path = REPORTS_DIR):
-    """Yield research report paths, skipping citation sidecars.
+    """Yield research report paths, skipping sidecars and provider artifacts.
 
     Args:
         reports_dir: Directory to scan.
 
     Yields:
-        Each ``*.md`` report, in sorted order. Sidecars are named
-        ``<report>.md.citations.md`` -- note the doubled ``.md`` -- so they
-        are excluded by suffix rather than by a glob that would silently
-        include them.
+        Each ``*.md`` report, in sorted order.
+
+    Note:
+        The scan **recurses**. Reports do not all sit at the top of
+        ``research/`` -- ``modules/``, ``groupings/``, ``surrogacy/`` and
+        ``datasets/`` hold their own, and a top-level-only glob reports a
+        corpus census while silently omitting them.
+
+        Two exclusions, both by construction rather than by name-guessing:
+        citation sidecars, which are ``<report>.md.citations.md`` (a doubled
+        ``.md``); and anything inside a ``*_artifacts/`` directory, which holds
+        the tables and figures a provider returned alongside a report. Those
+        artifacts are numerous -- 993 of the 1,023 nested markdown files at the
+        time of writing -- and are not reports, so counting them would swamp the
+        census with rows that can never carry a ``template_file``.
     """
-    for path in sorted(reports_dir.glob("*.md")):
+    for path in sorted(reports_dir.rglob("*.md")):
         if path.name.endswith(".citations.md"):
+            continue
+        if any(part.endswith(ARTIFACTS_DIR_SUFFIX) for part in path.parts):
             continue
         yield path

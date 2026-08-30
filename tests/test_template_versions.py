@@ -322,6 +322,48 @@ def test_iter_reports_excludes_citation_sidecars(tmp_path: Path) -> None:
     assert found == ["X-deep-research-falcon.md"]
 
 
+def test_iter_reports_recurses_into_report_subdirectories(tmp_path: Path) -> None:
+    """`modules/`, `groupings/`, `surrogacy/` and `datasets/` hold reports too.
+
+    A top-level-only glob reports a corpus census while silently omitting them.
+    """
+    (tmp_path / "Top-deep-research-falcon.md").write_text(
+        "---\n---\n", encoding="utf-8"
+    )
+    for sub in ("modules", "groupings", "surrogacy", "datasets"):
+        (tmp_path / sub).mkdir()
+        (tmp_path / sub / f"{sub}-report.md").write_text("---\n---\n", encoding="utf-8")
+
+    found = {p.name for p in iter_reports(tmp_path)}
+
+    assert found == {
+        "Top-deep-research-falcon.md",
+        "modules-report.md",
+        "groupings-report.md",
+        "surrogacy-report.md",
+        "datasets-report.md",
+    }
+
+
+def test_iter_reports_skips_provider_artifact_directories(tmp_path: Path) -> None:
+    """Artifacts sit beside a report but are not reports.
+
+    They outnumber real nested reports by roughly 60 to 1, so including them
+    would swamp the census with rows that can never carry a `template_file`.
+    """
+    (tmp_path / "X-deep-research-falcon.md").write_text("---\n---\n", encoding="utf-8")
+    artifacts = tmp_path / "X-deep-research-falcon_artifacts"
+    artifacts.mkdir()
+    (artifacts / "artifact-00.md").write_text("a table", encoding="utf-8")
+    nested = artifacts / "deeper"
+    nested.mkdir()
+    (nested / "artifact-01.md").write_text("another", encoding="utf-8")
+
+    found = [p.name for p in iter_reports(tmp_path)]
+
+    assert found == ["X-deep-research-falcon.md"]
+
+
 def test_template_history_is_ordered_newest_first(
     repo_with_two_revisions: tuple[Path, str, str],
 ) -> None:

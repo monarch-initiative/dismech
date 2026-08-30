@@ -1772,13 +1772,6 @@ research-datasets provider disorder *args="":
     fi
     exit ${dr_status:-0}
 
-# Verify that datasets[].accession values resolve to real repository records.
-# Nothing else in the validation stack checks dataset accessions, so run this
-# before committing any new `datasets:` block.
-# Examples:
-#   just verify-datasets --all
-#   just verify-datasets kb/disorders/Asthma.yaml
-#   just verify-datasets --accession geo:GSE67472
 # Report which revision of a research template produced each report, and how
 # many predate the current prompt. A report records `template_file:` as a bare
 # path, so the file behind it changes while the reference does not (#10183).
@@ -1789,13 +1782,20 @@ research-datasets provider disorder *args="":
 # assumes the working tree matched a committed revision. Do not read
 # "undetermined" as "stale" -- they are separate rows for that reason.
 # Examples:
-#   just template-version-audit
 #   just template-version-audit --stale-only --format list
 #   just template-version-audit --template templates/disease_pathophysiology_research.md
+#   just template-version-audit
 [group('Research')]
 template-version-audit *args="":
     @uv run python scripts/template_version.py audit {{args}}
 
+# Verify that datasets[].accession values resolve to real repository records.
+# Nothing else in the validation stack checks dataset accessions, so run this
+# before committing any new `datasets:` block.
+# Examples:
+#   just verify-datasets --all
+#   just verify-datasets kb/disorders/Asthma.yaml
+#   just verify-datasets --accession geo:GSE67472
 [group('Research')]
 verify-datasets *args="":
     @uv run python scripts/verify_dataset_accessions.py {{args}}

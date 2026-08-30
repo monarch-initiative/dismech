@@ -19,7 +19,7 @@ Two subcommands, matching the two halves of issue #10183:
 Usage:
     scripts/template_version.py stamp research/Asthma-deep-research-falcon.md
     scripts/template_version.py audit
-    scripts/template_version.py audit --template templates/disease_pathophysiology_research.md
+    scripts/template_version.py audit --stale-only --format list
     scripts/template_version.py audit --format tsv --out /tmp/versions.tsv
     scripts/template_version.py audit --stale-only
 """
