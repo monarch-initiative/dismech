@@ -1221,6 +1221,66 @@ Use OAK to search for terms:
 uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 ```
 
+**Devices are not clinical actions, and NCIT has terms for both.** `TreatmentTerm` is
+rooted at `NCIT:C25218` (Clinical Intervention or Procedure), so a term naming the
+*equipment* cannot be the `term:` of a `TreatmentTerm`, no matter how exactly it matches
+the treatment's name. The worked case is cochlear implantation: `NCIT:C157820` "Cochlear
+Implant" is the obvious term, is defined as "a two part electronic device...", and has
+**no** `C25218` ancestor. Bind the clinical action instead — `NCIT:C15329` (Surgical
+Procedure) for the implantation itself — and carry the specificity in `preferred_term`
+(`cochlear device implantation`). This is the case the
+[Ontology Term Contract](#ontology-term-contract) covers — `preferred_term` may be more
+specific than the best available ontology term — and it generalizes: hearing aids,
+pumps, stents, and shunts all have NCIT device terms that cannot sit in that slot.
+
+**Better still, keep the device term queryable.** `preferred_term` is free text, so
+binding the action alone throws the device concept away. Attach it as a `qualifiers`
+predicate-value pair instead — `NCIT:C16830` (Medical Device) as the predicate,
+the device term as the value — which validates today and leaves `NCIT:C157820`
+searchable. `qualifiers` is deprecated for the common clinical qualifiers that have
+dedicated slots (see [Descriptor Qualifier Slots](#descriptor-qualifier-slots)), but a
+device attached to an action is exactly the predicate-value pattern that section
+reserves it for, so this use is the carve-out and not a regression:
+
+```yaml
+  treatment_term:
+    preferred_term: cochlear device implantation
+    term:
+      id: NCIT:C15329
+      label: Surgical Procedure
+    qualifiers:
+    - predicate:
+        preferred_term: medical device
+        term:
+          id: NCIT:C16830
+          label: Medical Device
+      value:
+        preferred_term: cochlear implant
+        term:
+          id: NCIT:C157820
+          label: Cochlear Implant
+```
+
+Worked examples: `Labyrinthitis`, `Otofacial_Neurodevelopmental_Syndrome`,
+`Autosomal_Recessive_Nonsyndromic_Hearing_Loss_104`,
+`Jervell_and_Lange-Nielsen_Syndrome_1`.
+
+Two things follow that are easy to get wrong:
+
+- **When the binding is broader than the treatment, `preferred_term` must not echo the
+  ontology label.** A treatment named `Cochlear Implantation and Auditory Rehabilitation`
+  bound to `NCIT:C15315` whose `preferred_term` is just `Rehabilitation` has thrown away
+  every bit of information the binding lost. This is *not* a rule against ever matching
+  the label: where the term already says what the treatment is, echoing it is correct
+  and is what `dismech-terms` recommends (`preferred_term: Pharmacotherapy` against
+  `NCIT:C15986` is right). The test is whether the label is narrower than, or as narrow
+  as, the treatment being described.
+- **A divergent binding is not automatically drift.** A treatment that bundles
+  amplification *or* implantation *with* rehabilitation is genuinely a rehabilitation
+  intervention, and one whose disease has no reported surgical case should not assert
+  a surgical term. Check what the treatment actually is before normalizing it to the
+  majority binding, and record the reason in `notes` when you leave one alone.
+
 #### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
 
 Treatment terms describe the **medical action** (e.g., Pharmacotherapy, chemotherapy,
