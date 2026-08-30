@@ -144,9 +144,33 @@ def test_rendered_page_shows_the_hash_and_links_the_template(tmp_path: Path) -> 
     assert "1e7ea4ee817a" in html
     assert "disease_pathophysiology_research.md" in html
     assert SHA in html, "the full hash belongs in the tooltip, not only the short one"
-    assert "git log --find-object=1e7ea4ee817a" in html, (
-        "a bare blob hash is not actionable without the command that resolves it"
+    assert f"git log --find-object={SHA} -- templates/" in html, (
+        "the command should carry the full hash, which is what gets pasted, and "
+        "scope to templates/ only when the prompt really is a templates/ path"
     )
+
+
+def test_tooltip_drops_the_pathspec_for_an_unlinked_prompt(tmp_path: Path) -> None:
+    """A label's blob is not under `templates/`.
+
+    Scoping the lookup there would return nothing, which reads as "this hash is
+    not in the repo" rather than "wrong directory". Defensive: `stamp_report`
+    declines unless the template is a file on disk, so a label is never stamped
+    by the pipeline.
+    """
+    html = _render(
+        tmp_path,
+        {
+            "provider": "falcon",
+            "template_file": "manual_curation",
+            "template_sha": SHA,
+        },
+    )
+
+    assert f"git log --find-object={SHA}" in html
+    assert "-- templates/" not in html
+    assert "manual_curation" in html
+    assert "blob/main/manual_curation" not in html, "a label must not be linked"
 
 
 def test_rendered_page_omits_the_chip_when_unstamped(tmp_path: Path) -> None:

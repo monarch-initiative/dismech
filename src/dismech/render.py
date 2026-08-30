@@ -3087,7 +3087,19 @@ def _prompt_provenance(metadata: dict) -> dict | None:
         ``name`` links to the template at ``main``, which is the file's *current*
         content and so may differ from the revision the hash names. That is the
         point of showing the hash beside it; the tooltip carries the lookup that
-        resolves it.
+        resolves it. The link can also 404 outright when a template has since
+        been deleted -- two committed reports name
+        ``disease_pathophysiology_research_scanner.md``, which no longer exists.
+        Nothing better is available: GitHub's ``/blob/<ref>/<path>`` needs a
+        commit-ish and a blob hash is not one, and the git-blobs API returns
+        base64 JSON rather than a page.
+
+        The unlinked branches are defensive rather than expected. ``stamp_report``
+        declines unless ``template_file`` resolves to a file on disk, so a
+        free-text label or an ephemeral ``/tmp`` path is never stamped by the
+        pipeline; reaching them takes a hand-written stamp. They are handled
+        anyway so that a hand-written one degrades to "shown but not linked"
+        rather than to a 404 dressed up as provenance.
     """
     raw = metadata.get(STAMP_KEY_TEMPLATE_SHA)
     sha = raw.strip() if isinstance(raw, str) else ""
