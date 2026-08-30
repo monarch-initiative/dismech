@@ -480,7 +480,11 @@ def _append_code_cache(path: Path, prefix: str, entries: dict[str, str]) -> None
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=["curie", "label", "retrieved_at"])
+        # LF, not csv's default CRLF: every other cache under `cache/`
+        # is LF, and a lone CRLF file churns the diff on every rewrite.
+        writer = csv.DictWriter(
+            fh, fieldnames=["curie", "label", "retrieved_at"], lineterminator="\n"
+        )
         writer.writeheader()
         for curie in sorted(rows, key=_key):
             writer.writerow(rows[curie])
