@@ -125,6 +125,20 @@ Depending on user preference, use one or more of the following commands
 
 Use the filesystem-friendly name here.
 
+**If the provider you were asked to use is unavailable**, do not substitute one
+by hand and write a paragraph about it into the history record — six committed
+records already do that, and the substitution is invisible to every query. Ask
+for a fallback and let the run record it:
+
+```bash
+just dr_fallback='--fallback' research-disorder falcon DISORDER_NAME
+```
+
+The report is then renamed to whoever actually produced it, and carries
+`fell_back`, `requested_provider` and `provider_attempts` in its frontmatter. Say
+in the history record which report you used; the report says who wrote it. See
+[`docs/deep-research-provider-fallback.md`](../../../docs/deep-research-provider-fallback.md).
+
 `claude_code` needs **no separate API key**. It wraps the local `claude` CLI as
 a subprocess (`claude --print --output-format json`), reusing the Claude Code
 credential that is already present — `CLAUDE_CODE_OAUTH_TOKEN` is exported in
@@ -227,7 +241,9 @@ For example:
 
 You MUST read this before progressing.
 
-### Step 3a: Read the report's Reference Validation results (REQUIRED)
+### Step 3a: Read the report's validation results (REQUIRED)
+
+#### Reference validation
 
 Every `just research-*` recipe now resolves the report's citations as part of
 generating it (`deep-research-client >= 0.2.10`, backed by the same
@@ -307,6 +323,51 @@ relevance check is not a substitute for that**: references are scored against
 wrong-disease vocabulary too and scores all of its wrong-disease citations as
 on topic. See
 [`docs/deep-research-reference-validation.md`](../../../docs/deep-research-reference-validation.md).
+
+#### Term validation
+
+The same recipes also resolve every **ontology CURIE** the report suggests
+(`deep-research-client >= 0.2.11`, backed by the same `linkml-term-validator`
+`just validate-terms` runs). This is a separate check from the one above, and it
+catches a different failure: the CMTX report in
+[#9729](https://github.com/monarch-initiative/dismech/issues/9729) had 26/26
+citations verified and still offered `MONDO:0010674` — Hunter syndrome — as the
+Charcot-Marie-Tooth X-linked term.
+
+Two places to look, as before: a `term_validation:` frontmatter block and a
+`## Term Validation` section at the end of the body.
+
+**What to do with it:**
+
+- **Never bind a CURIE listed under `unresolved_terms`.** It does not exist. Find
+  the right term with the `dismech-terms` skill instead.
+- **Read `needs_review`, not `confabulation_rate`.** The rate measures identifier
+  resolution only, so a report whose every CURIE resolves but whose labels name
+  different terms still shows `0.0`.
+- **`mislabelled_terms` is where the wrong bindings surface.** Each entry gives
+  the report's name and the ontology's. Some are harmless paraphrase ("distal
+  weakness" for `HP:0002460`, *Distal muscle weakness*). Look for the ones where
+  the ontology label names a **different disease, or a different term in the
+  same ontology** — a sibling, a parent, a near-miss. The second kind is easy to
+  skim past: the CMTX report writes "areflexia" beside `HP:0001265`, which HPO
+  calls *Hyporeflexia* (*Areflexia* is `HP:0001284`), and those are clinically
+  distinct.
+- `unresolvable_prefixes` means nothing was checked for that prefix — not that
+  anything is wrong. `HGNC` is skipped by default; verify gene CURIEs the usual
+  way.
+- A clean section is **not** permission to copy terms across. Term validation
+  says a CURIE exists and is named consistently; it does not say the term is the
+  right one for your claim. Step 5 is unchanged.
+
+Reports generated before this existed have no term section. Add one:
+
+```bash
+just validate-research-terms research/DISORDER_NAME-deep-research-PROVIDER.md
+```
+
+Like the reference retro-fit, this adds the markdown section but not a
+frontmatter summary, and re-running is safe. See
+[`docs/deep-research-term-validation.md`](../../../docs/deep-research-term-validation.md).
 
 ### Step 3b: GeneReviews Baseline (REQUIRED when applicable)
 
@@ -412,11 +473,143 @@ The `just fetch-reference` command can accept multiple identifiers of different 
 
 You can also find additional references relevant to individual assertions, on top of what is in the deep research.
 
+#### Which citations to take
+
+Work from the report's `.citations.md` companion file, not from whichever
+identifiers happened to appear in the prose you read most closely. The report
+body cites the same paper in several places and omits some of its sources from
+the narrative entirely, so reading the body alone gives you an arbitrary subset.
+
+Most reports have one; `--fallback` runs often do not. When the sidecar is
+missing, sweep the body for identifiers rather than reading linearly, so the set
+you work from is still the report's and not your reading path's:
+
+```bash
+grep -o "PMID:[0-9]*" research/DISORDER-deep-research-PROVIDER.md | sort -u
+```
+
+That covers about four in five sidecar-less reports. Where it returns nothing,
+look for DOIs before giving up. `falcon` reports are the usual case: they cite
+by author-year key (`martelli2024clinicalspectrumof`), which is not a fetchable
+identifier, and the sidecar-less ones carry no PMID strings at all — but most
+do carry DOI links, which are fetchable.
+
+```bash
+grep -oE "doi\.org/10\.[^ ;|,)]+" research/DISORDER-deep-research-PROVIDER.md | sort -u
+```
+
+Fetch those with `just fetch-reference DOI:<id>`. Then look each one up in
+PubMed and cite the PMID in preference — a DOI-keyed item is not checked by the
+gating validator, so the PMID is worth the extra lookup. Only for keys with no
+DOI beside them do you have to search PubMed by author, year and title words.
+
+Re-running the report is the last resort, not the first: a sidecar-less report
+usually still names its sources, and a re-run costs a provider call for
+identifiers already sitting in the file.
+
+Let the *claims you are curating* choose the references, not a target count. Every
+assertion you write needs its own citation, so the number falls out of how much of
+the entry the report actually supports. If a well-covered report leaves you with
+two or three references, you have almost certainly dropped claims it supported.
+
+Two preferences that are not just taste:
+
+- **Prefer a PMID over a DOI for the same paper.** `DOI:` is in `skip_prefixes`
+  in `conf/reference_validator_config.yaml`, so a DOI-keyed evidence item is not
+  snippet-checked by the gating validator — CI will not catch a bad quote there.
+  Look the paper up and cite its PMID when it has one.
+
+  When there is genuinely no PubMed record, `DOI:` is fine, but check the quote
+  yourself rather than leaving it unverified. The body is cached like any other,
+  and the audit tool takes a flag for exactly this:
+
+  ```bash
+  just count-verified-snippets --unskip-prefix DOI kb/disorders/YourFile.yaml
+  ```
+
+  Say in the history record that you ran it, since the PR's own CI will not.
+- **Prefer the peer-reviewed version of a `PPR:` preprint** when one exists —
+  for a different reason: a preprint's text can differ from the published
+  paper's, so a quote taken from it may not survive. This is not a validation
+  gap; `PPR:` is *not* in `skip_prefixes` and its snippets are checked normally.
+  When only the preprint exists, cite it and say so in the `explanation`.
+- **Prefer the primary report over the review that cites it** for a specific
+  finding — a number, a cohort frequency, an experimental result. Reviews are
+  the right citation for a synthesis claim ("X is the dominant mechanism"), and
+  they are often the only place a pooled figure exists, in which case cite the
+  review and let the snippet say it is pooled.
+
+A citation the report listed but you could not use is worth a line in the history
+record when the reason is substantive — the paper turned out to be about a
+different disease, or reported a negative result the report read as positive.
+
 Note that a validated report (Step 3a) has already fetched most of these — its
 lookups are cached into the same `references_cache/` — so `just fetch-reference`
 on a reference the report resolved is a cache hit and returns immediately. Run it
 anyway rather than assuming; it costs nothing when the file is already there, and
 it is still required for any reference you found outside the report.
+
+#### Build the pathophysiology as a chain, not a list
+
+The research template asks for mechanism content by *category* — molecular
+pathways, cellular processes, protein dysfunction, tissue damage — so a report
+comes back sorted into those buckets. That grouping is an artifact of how the
+question was asked. It is not the structure the entry wants, and transcribing it
+one bucket to one node produces a flat list of disconnected mechanisms.
+
+The entry wants a causal chain. Read across the report's buckets and ask what
+causes what, then connect the nodes with `downstream`:
+
+```yaml
+pathophysiology:
+- name: FBN1 Haploinsufficiency
+  biological_scale: MOLECULAR
+  downstream:
+  - target: Excess TGF-beta Signaling
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:nnnnnnnn
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: "exact quote showing this step causes the next one"
+      explanation: Why this supports the edge, not merely either node.
+- name: Excess TGF-beta Signaling
+  biological_scale: CELLULAR
+  downstream:
+  - target: Medial Elastic Fiber Fragmentation
+- name: Medial Elastic Fiber Fragmentation
+  biological_scale: TISSUE
+```
+
+`target` is a foreign key to another node's `name` in the same file, so it must
+match exactly. A node may name several downstream targets where the mechanism
+genuinely branches.
+
+The `evidence` on an edge is a **different claim** from the evidence on either
+node it connects: the schema's own wording is "evidence that supports this
+specific edge (not just the parent node-level claim)". Two well-cited nodes do
+not establish that one causes the other, so cite the edge separately where a
+source actually makes the causal claim. It is not required, and an uncited edge
+the report clearly asserts is fine — but do not reach for a node's citation to
+paper over an edge you cannot source.
+
+The report usually states the causality even when its layout hides it — "leads
+to", "resulting in", "consequently", or a pathway described in order within one
+bucket. Where it does not, and you cannot source the link, leave the edge out
+rather than inventing it: an unconnected node is honest, a fabricated edge is
+not.
+
+Two failure modes to watch for while you do this:
+
+- **A node that would take two `biological_scale` values is bundling two
+  claims.** Split it and put an edge between the halves. That tag is
+  single-valued precisely so this shows up.
+- **A node with no upstream and no downstream** is either the initiating lesion,
+  a genuine gap, or a phenotype that wandered into the wrong section. Decide
+  which before leaving it.
+
+`just check-entity-refs kb/disorders/YourFile.yaml` verifies every `target`
+resolves. It does not check that the chain is complete — only a reader can.
 
 #### Including Images from Deep Research Artifacts
 
@@ -589,7 +782,8 @@ phenotypes:
   description: <Description from research>
   evidence:
   - reference: PMID:XXXXXXXX
-    supports: <SUPPORT | REFUTE | PARTIAL>
+    supports: <SUPPORT | REFUTE | NO_EVIDENCE>
+    directness: <DIRECT | INDIRECT>   # optional; omit unless actually assessed
     evidence_source: <HUMAN_CLINICAL | MODEL_ORGANISM | IN_VITRO | COMPUTATIONAL>
     snippet: "<Exact quote from abstract>"
     explanation: "<Why this supports the phenotype>"
@@ -603,11 +797,18 @@ The same generic `evidence` list schema is used for most types.
 
 Add term objects using ontology term IDs; for example, for a `pathophsyiology` object, it might look like this:
 
+The `downstream` and `biological_scale` lines below are the ones covered under
+"Build the pathophysiology as a chain, not a list" in Step 4 — that section says
+how to choose them; this one is only the shape.
+
 ```
 pathophysiology:
 - name: <Mechanism Name>
   description: >
     <Detailed mechanism description from research>
+  biological_scale: MOLECULAR | CELLULAR | TISSUE | ORGANISM
+  downstream:
+  - target: <name of the node this one causes>
   cell_types:
   - preferred_term: <Cell Type>
     term:
@@ -803,7 +1004,9 @@ When asked to address review comments on an existing PR:
    - Each reviewer issue and how you addressed it
    - Any issues you intentionally did NOT fix, with reasoning
    - Validation results after fixes
-5. **Use `supports: PARTIAL`** when evidence is indirect — don't overstate evidence strength
+5. **Use `directness: INDIRECT`** when the quote supports the claim through an inference
+   step rather than stating it — `supports` stays `SUPPORT`. If the quote instead supports
+   one part of the claim and contradicts another, that is two evidence items, not one
 6. **If evidence doesn't support a claim, find better evidence** rather than arguing about evidence_source classification
 7. **Verify ontology terms with OAK** when the reviewer questions them — don't assume
 

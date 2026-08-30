@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Myiasis · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Myiasis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Myiasis</h1>
+                
+                <p class="report-subtitle">Myiasis: Comprehensive Disease-Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0019147" target="_blank" rel="noopener noreferrer">MONDO:0019147</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">32 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Myiasis: Comprehensive Disease-Characteristics Report</h1>
+<h2>Executive summary</h2>
+<p>Myiasis is an infectious–parasitic infestation in which larvae of flies (order <strong>Diptera</strong>) develop in or on a living vertebrate. It is not one etiologically uniform disease: clinical behavior depends on the fly species, whether it is an obligate or facultative parasite, and the involved anatomical site. Human disease is concentrated in tropical/subtropical settings, travelers, people exposed to livestock, and vulnerable patients with wounds, impaired self-care, or intensive-care devices. Skin and wounds are most often involved, but ocular, oral, nasal, aural, gastrointestinal, and urogenital disease occurs.</p>
+<p>The evidence base remains dominated by case reports and small series rather than population surveillance or randomized trials. Consequently, global incidence, prevalence, mortality, and phenotype frequencies cannot be estimated reliably. The most consistent management is complete mechanical removal, irrigation and wound care; invasive obligate myiasis additionally requires debridement, while ivermectin and antibiotics are selected adjuncts rather than universal therapy. Recent research emphasizes molecular identification, hospital infection prevention, climate-sensitive geographic expansion, and One Health connections among human disease, livestock infestation, fly microbiota, and emerging bacterial sepsis.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Evidence-based summary</th>
+<th>Suggested ontology terms (approximate mappings where needed)</th>
+<th>Evidence type and key source/year/DOI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Definition / classification</td>
+<td>Myiasis is infestation of living human or animal tissue by dipteran larvae. It is classified anatomically (cutaneous/furuncular, wound, ocular, nasal, aural, urogenital, gastrointestinal/cavitary) and ecologically as obligate, facultative, or accidental/pseudomyiasis. Major implicated human families include Oestridae, Calliphoridae, Sarcophagidae, and Muscidae. Lucilia sericata is typically facultative; Cochliomyia hominivorax, Chrysomya bezziana, Oestrus ovis, and Wohlfahrtia magnifica are important obligate agents (<a href="#ref-monney2025myiasisinthe-pages-1-2">monney2025myiasisinthe pages 1-2</a>, <a href="#ref-monney2025myiasisinthe-pages-3-5">monney2025myiasisinthe pages 3-5</a>, <a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>).</td>
+<td>MONDO: myiasis (ID uncertain; do not assign without ontology lookup). MeSH/ICD likely available but not verified here. Approx. HPO/clinical descriptors: cutaneous lesion, wound infestation, ocular infestation.</td>
+<td>Human clinical review/case + taxonomy review: Swiss Med Wkly 2025 <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a>; Turk J Pediatr 2009; Microorganisms 2024 <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">doi:10.3390/microorganisms12020233</a></td>
+</tr>
+<tr>
+<td>Major clinical phenotypes</td>
+<td>Clinical forms include furuncular lesions, wound myiasis, conjunctival/ophthalmomyiasis, nasopharyngeal/oropharyngeal, aural, and genital involvement. Furuncular disease may present as swelling and furuncle-like lesion; inflammatory lesions can be accompanied by eosinophilia. O. ovis in animals causes sneezing/nasal discharge and is zoonotic for ophthalmic/nasopharyngeal human disease (<a href="#ref-zhou2025machinelearningbasedtext-pages-1-2">zhou2025machinelearningbasedtext pages 1-2</a>, <a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>, garijo‐toledo2023prevalenceofoestrus pages 1-3, <a href="#ref-silva2024prevalenceandseasonal-pages-1-3">silva2024prevalenceandseasonal pages 1-3</a>).</td>
+<td>Approx. HPO: Skin nodule, Furuncle, Wound infection, Edema, Pain, Bleeding, Eosinophilia, Conjunctivitis, Nasal discharge, Dyspnea. UBERON approx.: skin, oral cavity, eye, nasal cavity, pharynx, genitalia.</td>
+<td>Human case reports/review + veterinary epidemiology: Front Cell Infect Microbiol 2025 <a href="https://doi.org/10.3389/fcimb.2025.1568563" target="_blank" rel="noopener noreferrer">doi:10.3389/fcimb.2025.1568563</a>; Turk J Pediatr 2009; Med Vet Entomol 2023 <a href="https://doi.org/10.1111/mve.12634" target="_blank" rel="noopener noreferrer">doi:10.1111/mve.12634</a>; Braz J Vet Parasitol 2024 <a href="https://doi.org/10.1590/S1984-29612024020" target="_blank" rel="noopener noreferrer">doi:10.1590/S1984-29612024020</a></td>
+</tr>
+<tr>
+<td>Risk factors</td>
+<td>Recurrent risk factors include wounds, necrosis, bacterial contamination, poor hygiene, advanced age, severe underlying illness, immobilization, diabetes, alcoholism, vascular disease, mental impairment, mechanical ventilation, nasogastric tube use, periodontal disease, mouth breathing/lip incompetence, hot seasons, rural/livestock exposure, and tropical travel. Some patients lack obvious predisposing factors (<a href="#ref-monney2025myiasisinthe-pages-2-3">monney2025myiasisinthe pages 2-3</a>, <a href="#ref-monney2025myiasisinthe-pages-3-5">monney2025myiasisinthe pages 3-5</a>, <a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>).</td>
+<td>Approx. HPO/social-clinical descriptors: Impaired wound healing, Periodontitis, Immobility, Diabetes mellitus. UBERON approx.: oral cavity, skin wound.</td>
+<td>Human clinical review/case: Swiss Med Wkly 2025 <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a>; Turk J Pediatr 2009</td>
+</tr>
+<tr>
+<td>Pathophysiology</td>
+<td>Causal chain: adult fly deposits eggs/larvae on wounds, body orifices, or intact skin (species-dependent) → larvae feed on living tissue, secretions, or necrotic material → mechanical/proteolytic injury and burrowing produce pain, bleeding, edema, ulceration, necrosis, and local inflammation → secondary bacterial infection may occur, rarely progressing to sepsis. Histologic inflammatory response can include lymphocytes, giant cells, neutrophils, eosinophils, and plasma cells; eosinophilia can occur in furuncular myiasis. In obligate species such as W. magnifica and C. bezziana, tissue destruction can be extensive (<a href="#ref-hou2025extensivepalatalnecrosis-pages-5-6">hou2025extensivepalatalnecrosis pages 5-6</a>, <a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>, <a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>, <a href="#ref-malekiravasan2020newinsightsinto-pages-1-2">malekiravasan2020newinsightsinto pages 1-2</a>).</td>
+<td>GO approx.: inflammatory response; response to wounding; proteolysis; leukocyte migration. CL approx.: neutrophil, eosinophil, plasma cell, giant cell/macrophage. UBERON approx.: skin, mucosa, hoof/nasal cavities in veterinary disease.</td>
+<td>Human case/pathobiology + veterinary review + fly microbiome study: Turk J Pediatr 2009; Microorganisms 2024 <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">doi:10.3390/microorganisms12020233</a>; Front Microbiol 2020 <a href="https://doi.org/10.3389/fmicb.2020.00505" target="_blank" rel="noopener noreferrer">doi:10.3389/fmicb.2020.00505</a>; Archives of Orofacial Sciences 2025 <a href="https://doi.org/10.21315/aos2025.2001.cr03" target="_blank" rel="noopener noreferrer">doi:10.21315/aos2025.2001.cr03</a></td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Primary diagnosis is clinical visualization/removal of larvae, supported by species identification. Morphology of larval stages remains standard; molecular confirmation commonly uses mitochondrial COI barcoding. In ICU-associated cases, developmental stage and temperature can help estimate timing of infestation. For O. ovis and W. magnifica, detailed larval morphology and anatomic localization are used in veterinary/human investigations (<a href="#ref-monney2025myiasisinthe-pages-1-2">monney2025myiasisinthe pages 1-2</a>, <a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>, <a href="#ref-simin2024longtimeno-pages-2-3">simin2024longtimeno pages 2-3</a>, <a href="#ref-simin2024longtimeno-pages-3-5">simin2024longtimeno pages 3-5</a>).</td>
+<td>NCIT approx.: Clinical examination; Specimen collection; DNA barcoding; Polymerase chain reaction. UBERON approx.: lesion site-specific sampling.</td>
+<td>Human/veterinary diagnostic reports: Swiss Med Wkly 2025 <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a>; Microorganisms 2024 <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">doi:10.3390/microorganisms12020233</a></td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>Core management is prompt mechanical larval extraction plus cleansing/irrigation and local wound care. Debridement is important for invasive obligate wound myiasis. Antibiotics are used when secondary bacterial infection is suspected; systemic antiparasitic therapy such as ivermectin may be used in selected cutaneous/orbital/wound cases, but facultative ICU myiasis may derive limited added benefit once larvae are removed. Veterinary treatment includes antiseptics/insecticides, local antibiotic spray, macrocyclic lactones, and supportive care (<a href="#ref-monney2025myiasisinthe-pages-2-3">monney2025myiasisinthe pages 2-3</a>, <a href="#ref-monney2025myiasisinthe-pages-3-5">monney2025myiasisinthe pages 3-5</a>, <a href="#ref-simin2024longtimeno-pages-2-3">simin2024longtimeno pages 2-3</a>, <a href="#ref-zhou2025machinelearningbasedtext-pages-2-5">zhou2025machinelearningbasedtext pages 2-5</a>).</td>
+<td>NCIT approx.: Debridement; Wound irrigation; Anti-infective therapy; Ivermectin therapy; Supportive care. CHEBI: ivermectin; diazinon (veterinary/environmental use).</td>
+<td>Human review + veterinary case management + bibliometric synthesis: Swiss Med Wkly 2025 <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a>; Microorganisms 2024 <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">doi:10.3390/microorganisms12020233</a>; Front Cell Infect Microbiol 2025 <a href="https://doi.org/10.3389/fcimb.2025.1568563" target="_blank" rel="noopener noreferrer">doi:10.3389/fcimb.2025.1568563</a></td>
+</tr>
+<tr>
+<td>Prevention</td>
+<td>Prevention is mainly environmental and behavioral: fly control, sanitation, wound hygiene and coverage, oral care in debilitated/intubated patients, screening/windows/fumigation in healthcare settings, and traveler/livestock exposure education. ICU prevention emphasizes barriers against fly entry and better oral care for ventilated patients. Climate warming may expand risk windows/regions for some fly species (<a href="#ref-monney2025myiasisinthe-pages-13-15">monney2025myiasisinthe pages 13-15</a>, <a href="#ref-monney2025myiasisinthe-pages-3-5">monney2025myiasisinthe pages 3-5</a>, garijo‐toledo2023prevalenceofoestrus pages 1-3).</td>
+<td>NCIT/Public health approx.: Infection prevention; Environmental control; Health education. GO not central.</td>
+<td>Human infection-control review + veterinary climate-linked epidemiology: Swiss Med Wkly 2025 <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a>; Med Vet Entomol 2023 <a href="https://doi.org/10.1111/mve.12634" target="_blank" rel="noopener noreferrer">doi:10.1111/mve.12634</a></td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Robust global incidence/prevalence in humans is not available; literature is dominated by case reports. Country-level review from Italy found 703 autochthonous human cases, 98.1% due to O. ovis; imported cases were mainly Cordylobia spp. (59.5%) and Dermatobia hominis (40.5%). ICU-acquired myiasis review identified 38 worldwide cases, 92% oro-/nasopharyngeal and 45% due to L. sericata. Seasonality and heat are recurrent epidemiologic themes (<a href="#ref-zammarchi2014humanoestriasisacquired-pages-2-4">zammarchi2014humanoestriasisacquired pages 2-4</a>, <a href="#ref-monney2025myiasisinthe-pages-2-3">monney2025myiasisinthe pages 2-3</a>, <a href="#ref-monney2025myiasisinthe-pages-1-2">monney2025myiasisinthe pages 1-2</a>).</td>
+<td>MONDO approx.: myiasis. UBERON approx.: nasopharynx/oral cavity/eye/skin.</td>
+<td>Human literature review: Parasitology Research 2014 <a href="https://doi.org/10.1007/s00436-014-3906-9" target="_blank" rel="noopener noreferrer">doi:10.1007/s00436-014-3906-9</a>; Swiss Med Wkly 2025 <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a></td>
+</tr>
+<tr>
+<td>Veterinary / One Health</td>
+<td>Veterinary burden is substantial and supports One Health relevance. W. magnifica causes painful traumatic myiasis in sheep and other warm-blooded vertebrates and is associated with emerging bacterium Wohlfahrtiimonas chitiniclastica. Recent animal prevalence data: O. ovis prevalence 56.3% in 3476 small-ruminant heads from eastern Spain, with temperature association; 45.77% (319/697) in sheep from Mato Grosso, Brazil, with year-round infestation. Veterinary lesions include lameness, depression, inappetence, blindness, reproductive problems, and death if untreated (<a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>, garijo‐toledo2023prevalenceofoestrus pages 1-3, <a href="#ref-silva2024prevalenceandseasonal-pages-1-3">silva2024prevalenceandseasonal pages 1-3</a>).</td>
+<td>CL approx.: epithelial cells, neutrophils/eosinophils in inflamed tissue. UBERON approx.: nasal cavity, sinuses, skin, hoof, genitalia. CHEBI: ivermectin/doramectin (control).</td>
+<td>Veterinary field studies and One Health review: Microorganisms 2024 <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">doi:10.3390/microorganisms12020233</a>; Med Vet Entomol 2023 <a href="https://doi.org/10.1111/mve.12634" target="_blank" rel="noopener noreferrer">doi:10.1111/mve.12634</a>; Braz J Vet Parasitol 2024 <a href="https://doi.org/10.1590/S1984-29612024020" target="_blank" rel="noopener noreferrer">doi:10.1590/S1984-29612024020</a></td>
+</tr>
+<tr>
+<td>Non-applicable genetics / omics</td>
+<td>Myiasis is an infectious/parasitic infestation rather than a monogenic human disease. No established human causal genes, pathogenic variants, inheritance pattern, penetrance, or chromosomal abnormalities are known to define “myiasis.” Omics are mostly applied to the fly, not the host: COI sequencing for species ID and 16S/metagenetic studies of L. sericata microbiota. Experimental work on suspected intestinal myiasis suggests some reported cases may be pseudomyiasis rather than true colonization (<a href="#ref-malekiravasan2020newinsightsinto-pages-1-2">malekiravasan2020newinsightsinto pages 1-2</a>, <a href="#ref-zhan2026clogmiaalbipunctatafails-pages-13-15">zhan2026clogmiaalbipunctatafails pages 13-15</a>, <a href="#ref-zhan2026clogmiaalbipunctatafails-pages-1-2">zhan2026clogmiaalbipunctatafails pages 1-2</a>).</td>
+<td>Mark as not applicable for OMIM-style causal gene fields. GO/CL/UBERON only for host response, not disease inheritance. NCIT approx.: DNA barcoding; microbiome analysis.</td>
+<td>Insect microbiome and experimental model evidence: Front Microbiol 2020 <a href="https://doi.org/10.3389/fmicb.2020.00505" target="_blank" rel="noopener noreferrer">doi:10.3389/fmicb.2020.00505</a>; PLOS One 2026 <a href="https://doi.org/10.1371/journal.pone.0356742" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0356742</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table summarizes evidence-based disease characteristics of myiasis and maps them to cautious ontology suggestions where reliable. It is useful for populating a disease knowledge base while explicitly separating well-supported clinical/parasitologic facts from non-applicable human genetics fields.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and classification</h3>
+<p>Myiasis is infestation of living human or animal tissues by dipteran larvae (“maggots”). Important causative families are <strong>Calliphoridae</strong>, <strong>Sarcophagidae</strong>, <strong>Oestridae</strong>, and <strong>Muscidae</strong>. Ecologically, agents are:</p>
+<ul>
+<li><strong>Obligate parasites</strong>, which require a living host and may invade viable tissue—examples include <em>Cochliomyia hominivorax</em>, <em>Chrysomya bezziana</em>, <em>Wohlfahrtia magnifica</em>, and <em>Oestrus ovis</em>.</li>
+<li><strong>Facultative parasites</strong>, normally associated with carrion or decaying matter but able to colonize necrotic wounds—most notably <em>Lucilia sericata</em>.</li>
+<li><strong>Accidental myiasis/pseudomyiasis</strong>, in which ingested or contaminating larvae pass through a specimen or body compartment without sustained tissue infestation.</li>
+</ul>
+<p>Anatomical categories are cutaneous (furuncular, migratory/creeping, and wound or traumatic), ocular, nasal/nasopharyngeal, oral/oropharyngeal, aural, gastrointestinal, and urogenital myiasis. Cutaneous myiasis itself comprises three major clinical patterns: furuncular, migratory, and traumatic/wound disease. (<a href="#ref-monney2025myiasisinthe-pages-1-2">monney2025myiasisinthe pages 1-2</a>, <a href="#ref-monney2025myiasisinthe-pages-3-5">monney2025myiasisinthe pages 3-5</a>, <a href="#ref-zhou2025machinelearningbasedtext-pages-1-2">zhou2025machinelearningbasedtext pages 1-2</a>, <a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>)</p>
+<h3>Identifiers and synonyms</h3>
+<ul>
+<li><strong>ICD-10-CM:</strong> <strong>B87 — Myiasis</strong>, with anatomical subcodes such as B87.0 cutaneous, B87.1 wound, B87.2 ocular, B87.3 nasopharyngeal, B87.4 aural, B87.8 other, and B87.9 unspecified. Local ICD modifications should be checked before production use.</li>
+<li><strong>MeSH:</strong> <em>Myiasis</em>; commonly indexed under parasitic diseases/arthropod infestations.</li>
+<li><strong>ICD-11:</strong> represented within infestations by arthropods; the exact current browser code should be validated against the release used by the knowledge base.</li>
+<li><strong>MONDO:</strong> a myiasis concept is available, but its numerical identifier was not independently verified in the retrieved corpus and should not be populated without a direct MONDO release lookup.</li>
+<li><strong>OMIM:</strong> not applicable as a primary entry because myiasis is not a Mendelian disorder.</li>
+<li><strong>Orphanet:</strong> generally not applicable; it is not a defined rare genetic disease.</li>
+<li>Synonyms include <strong>maggot infestation</strong>, <strong>fly-larval infestation</strong>, <strong>cutaneous myiasis</strong>, <strong>wound myiasis</strong>, <strong>traumatic myiasis</strong>, and species-specific terms such as <strong>oestriasis/oestrosis</strong>, <strong>wohlfahrtiosis</strong>, <strong>dermatobiosis</strong>, and <strong>screwworm myiasis</strong>.</li>
+</ul>
+<p>This report synthesizes <strong>aggregated disease-level literature</strong>, including reviews, surveillance studies, and case reports. It is not derived from an individual EHR, although many primary evidence items describe individual patients.</p>
+<h2>2. Etiology, risk factors, and protective factors</h2>
+<h3>Causal agents and exposure</h3>
+<p>The direct cause is deposition of eggs or larvae by a competent fly on intact skin, wounds, necrotic tissue, mucosa, or natural orifices; some larvae may instead be ingested. <em>W. magnifica</em> is larviparous and can deposit larvae in eyes, ears, mouth, genital openings, wounds, or occasionally intact skin. Larvae feed on tissue and body fluids until they leave the host to pupate. Its Palearctic distribution extends from Mediterranean Europe and North Africa through the Middle East and Eurasian steppe into Central and East Asia. (<a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>)</p>
+<h3>Established or plausible risk factors</h3>
+<p>Human risk factors include:</p>
+<ul>
+<li>open wounds, ulcers, necrosis, malignant wounds, infected dermatitis, and bacterial contamination;</li>
+<li>poor wound or oral hygiene, periodontal disease, exposed body orifices, and inadequate fly barriers;</li>
+<li>older age, frailty, impaired consciousness, immobility, neurologic disability, or inability to perform self-care;</li>
+<li>diabetes, vascular occlusive disease, alcoholism, malignancy, malnutrition, and severe systemic illness;</li>
+<li>mechanical ventilation, endotracheal or nasogastric tubes, mouth breathing, and lip incompetence;</li>
+<li>homelessness or poor housing/sanitation, though disease also occurs in high-income settings without social neglect;</li>
+<li>tropical/subtropical residence or travel, outdoor sleeping, livestock contact, shepherding, and warm seasons.</li>
+</ul>
+<p>In a review of ICU-acquired disease, 92% of 38 cases were oro- or nasopharyngeal; ventilation, nasogastric tubes, and periodontal disease were recurring factors. Nevertheless, healthy people can develop furuncular or ocular disease, and an eight-year-old with <em>W. magnifica</em> furuncular myiasis had no identified risk factor beyond likely environmental exposure. (<a href="#ref-monney2025myiasisinthe-pages-2-3">monney2025myiasisinthe pages 2-3</a>, <a href="#ref-monney2025myiasisinthe-pages-3-5">monney2025myiasisinthe pages 3-5</a>, <a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>)</p>
+<h3>Protective factors</h3>
+<p>Protective factors are environmental rather than genetic: prompt wound cleaning and coverage, oral hygiene, protective clothing and repellents in fly-active areas, screened buildings, sanitation, fly control, early treatment of necrotic wounds, and regular inspection of dependent patients and livestock. No validated human protective allele, diet, supplement, or preventive medication is known.</p>
+<h3>Genetics and gene–environment interaction</h3>
+<p>No causal human gene, susceptibility locus, protective variant, modifier gene, or replicated gene–environment interaction has been established. Host comorbidities alter exposure and tissue vulnerability, but this is not evidence of genetic inheritance. There is no established role for penetrance, anticipation, mosaicism, founder variants, carrier status, or consanguinity.</p>
+<h2>3. Phenotypes</h2>
+<p>Phenotype expression depends strongly on anatomy and species; formal population frequencies are generally unavailable.</p>
+<ul>
+<li><strong>Furuncular cutaneous disease:</strong> one or several painful/pruritic papules or nodules with a central punctum, serous drainage, movement sensation, and intermittent lancinating pain. Onset follows larval inoculation and evolves over days to weeks. Suggested HPO mappings: <em>Skin nodule</em>, <em>Papule</em>, <em>Pruritus</em>, <em>Pain</em>, <em>Abnormality of skin physiology</em>.</li>
+<li><strong>Migratory/creeping disease:</strong> serpiginous or moving subcutaneous/epidermal lesions. Usually progressive over days until removal or larval exit. Suggested HPO: <em>Abnormal skin morphology</em>, <em>Pruritus</em>.</li>
+<li><strong>Wound/traumatic myiasis:</strong> visible larvae in an ulcer or wound, malodor, bleeding, serosanguineous or purulent drainage, edema, pain, friable tissue, and necrosis. Severity ranges from superficial facultative colonization to rapid destruction by obligate species. Suggested HPO: <em>Skin ulcer</em>, <em>Necrosis</em>, <em>Edema</em>, <em>Bleeding</em>, <em>Pain</em>.</li>
+<li><strong>Ocular disease:</strong> foreign-body sensation, acute conjunctivitis, lacrimation, photophobia, and visible motile larvae; internal or orbital invasion can threaten vision. Suggested HPO: <em>Conjunctivitis</em>, <em>Photophobia</em>, <em>Visual impairment</em>, <em>Lacrimation</em>.</li>
+<li><strong>Nasal/nasopharyngeal disease:</strong> nasal irritation, sneezing, obstruction, epistaxis, discharge, facial discomfort, and occasionally tissue destruction. Suggested HPO: <em>Nasal discharge</em>, <em>Epistaxis</em>, <em>Nasal obstruction</em>.</li>
+<li><strong>Oral/oropharyngeal disease:</strong> oral larvae, ulceration, bleeding, halitosis, swelling, dysphagia, and tissue necrosis. ICU disease often has little tissue injury when caused by facultative <em>L. sericata</em>. Suggested HPO: <em>Oral ulcer</em>, <em>Dysphagia</em>, <em>Bleeding</em>, <em>Abnormal oral cavity morphology</em>.</li>
+<li><strong>Aural disease:</strong> otalgia, discharge, tinnitus, hearing disturbance, and canal or middle-ear injury. Suggested HPO: <em>Otalgia</em>, <em>Hearing impairment</em>, <em>Otorrhea</em>.</li>
+<li><strong>Urogenital disease:</strong> vulvar, vaginal, urethral, or urinary symptoms, discharge, pain, ulceration, or larvae in urine; contamination must be distinguished from true infestation.</li>
+<li><strong>Laboratory abnormalities:</strong> peripheral eosinophilia and elevated IgE can occur but are neither common nor diagnostic. An eight-year-old had an absolute eosinophil count of 5,160/mm³ and IgE 667 IU/mL; both declined after removal of one larva. Tissue reactions may contain lymphocytes, macrophage-derived giant cells, neutrophils, eosinophils, and plasma cells. (<a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>)</li>
+</ul>
+<p>Quality-of-life data using EQ-5D, SF-36, or PROMIS were not found. Pain, odor, social stigma, sleep disruption, impaired mobility, vision/hearing risk, and wound-care burden can substantially impair functioning. Veterinary disease similarly causes severe pain, lameness, impaired feeding, reproductive problems, and production loss. (<a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>)</p>
+<h2>4. Genetic and molecular information</h2>
+<p>There are <strong>no recognized human causal genes, HGNC disease genes, pathogenic germline or somatic variants, chromosomal abnormalities, modifier genes, or disease-defining epigenetic changes</strong>. WES, WGS, gene panels, CMA, karyotyping, FISH, mitochondrial testing, and repeat-expansion testing therefore have no routine diagnostic role.</p>
+<p>Molecular testing is directed at the <strong>parasite</strong>, not inherited host susceptibility. Mitochondrial cytochrome-c oxidase subunit I (<strong>COI</strong>) barcoding can confirm morphological identification. A 2024 <em>W. magnifica</em> investigation amplified a 710-bp COI barcode with LCO1490/HCO2198 primers, sequenced it bidirectionally, and compared it with GenBank using BLAST; sequences were deposited as MT027108–MT027114. (<a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>, <a href="#ref-simin2024longtimeno-pages-3-5">simin2024longtimeno pages 3-5</a>)</p>
+<h2>5. Environmental, lifestyle, and infectious-agent information</h2>
+<p>Temperature, humidity, season, fly ecology, livestock density, sanitation, housing, and wound exposure determine risk. <em>W. magnifica</em> activity is greatest during hot summer months, although climatic conditions may permit a March–November season. A Spanish long-term veterinary study found temperature, but not rainfall, associated with <em>O. ovis</em> prevalence, supporting concern that warming may alter fly abundance and geographic risk. (<a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>, garijo‐toledo2023prevalenceofoestrus pages 1-3)</p>
+<p>Smoking and alcohol are not direct causes; alcohol use may act through neglect, impaired consciousness, or chronic wounds. Diet is not etiologic, although malnutrition may impair wound integrity and care.</p>
+<p>Major infectious agents are Diptera larvae, especially <em>Dermatobia hominis</em>, <em>Cordylobia anthropophaga</em>, <em>Cochliomyia hominivorax</em>, <em>C. macellaria</em>, <em>Chrysomya bezziana</em>, <em>Lucilia sericata</em>, <em>Wohlfahrtia magnifica</em>, <em>Oestrus ovis</em>, <em>Musca domestica</em>, and several Sarcophagidae and Psychodidae. Larvae can carry bacteria. <em>W. magnifica</em> is associated with the emerging Gram-negative organism <em>Wohlfahrtiimonas chitiniclastica</em>, capable of local infection and sepsis. (<a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>)</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<ol>
+<li><strong>Upstream exposure:</strong> an adult fly reaches exposed skin, wound, necrotic tissue, or mucosal opening and deposits eggs or larvae.</li>
+<li><strong>Establishment:</strong> larvae anchor by mouth hooks and body spines. Facultative species preferentially consume necrotic tissue; obligate species can invade viable tissue.</li>
+<li><strong>Tissue injury:</strong> movement and feeding cause mechanical disruption. Extracorporeal digestion releases salivary digestive enzymes that liquefy substrate before ingestion, providing a mechanistic basis for progressive tissue breakdown. (<a href="#ref-malekiravasan2020newinsightsinto-pages-1-2">malekiravasan2020newinsightsinto pages 1-2</a>)</li>
+<li><strong>Host response:</strong> epithelial injury induces acute and chronic inflammation, edema, bleeding, pain, and sometimes systemic eosinophilia. Relevant processes include inflammatory response, response to wounding, proteolysis, leukocyte migration, and tissue remodeling; relevant cell types include keratinocytes/epithelial cells, neutrophils, eosinophils, macrophages/giant cells, lymphocytes, and plasma cells. (<a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>)</li>
+<li><strong>Downstream complications:</strong> continuing invasion can cause ulceration, necrosis, destruction of cartilage or bone, secondary bacterial infection, bacteremia/sepsis, and—in anatomically dangerous sites—intracranial, orbital, or airway complications. <em>C. bezziana</em> larvae can penetrate wounds within approximately 24 hours after hatching and produce progressive bleeding, purulent discharge, and extensive soft-tissue or bone injury. (<a href="#ref-hou2025extensivepalatalnecrosis-pages-5-6">hou2025extensivepalatalnecrosis pages 5-6</a>)</li>
+</ol>
+<p>Suggested GO terms include <strong>inflammatory response</strong>, <strong>response to wounding</strong>, <strong>proteolysis</strong>, <strong>leukocyte migration</strong>, <strong>innate immune response</strong>, and <strong>tissue remodeling</strong>. Suggested Cell Ontology concepts include <strong>neutrophil</strong>, <strong>eosinophil</strong>, <strong>macrophage</strong>, <strong>lymphocyte</strong>, <strong>plasma cell</strong>, and site-specific <strong>epithelial cell</strong>. Exact ontology identifiers should be validated before ingestion.</p>
+<h3>Molecular profiling</h3>
+<p>Human transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, or multi-omic signatures have not been clinically validated. Fly-associated metagenetics is more developed: a 2020 <em>L. sericata</em> study identified 265 bacterial records spanning 20 families, 28 genera, and 40 species; Gammaproteobacteria dominated, while <em>Enterococcus faecalis</em>, <em>Proteus</em>, <em>Providencia vermicola</em>, and <em>Serratia marcescens</em> showed transstadial transmission. These data concern insect ecology and maggot-debridement safety, not a human diagnostic biomarker. (<a href="#ref-malekiravasan2020newinsightsinto-pages-1-2">malekiravasan2020newinsightsinto pages 1-2</a>)</p>
+<h2>7. Anatomical structures affected</h2>
+<p>Primary sites include:</p>
+<ul>
+<li><strong>Skin and subcutis</strong>—suggested UBERON: skin, subcutaneous tissue;</li>
+<li><strong>open wounds, ulcers, malignant tissue</strong>, and exposed connective tissue;</li>
+<li><strong>eye</strong>, conjunctiva, eyelids, orbit;</li>
+<li><strong>external auditory canal</strong>, middle ear;</li>
+<li><strong>nasal cavity</strong>, turbinates, paranasal sinuses, nasopharynx;</li>
+<li><strong>oral cavity</strong>, gingiva, palate, tongue, pharynx;</li>
+<li><strong>urogenital tract</strong>, including vulva, vagina, urethra, bladder;</li>
+<li>rarely gastrointestinal tract.</li>
+</ul>
+<p>In animals, hoof/interdigital tissue, genital openings, nasal passages, ethmoid region, and frontal/maxillary sinuses are prominent. In <em>O. ovis</em>, first instars are concentrated in septum, meatus, and ventral conchae, whereas later stages occur in the nasopharynx, ethmoid labyrinth, dorsal conchae, and sinuses. (garijo‐toledo2023prevalenceofoestrus pages 1-3)</p>
+<p>Disease may be unilateral, bilateral, focal, or multisite; no fixed lateralization exists. At subcellular level there is no disease-specific organelle lesion—the pathology is tissue-level mechanical, enzymatic, inflammatory, and microbial injury.</p>
+<h2>8. Temporal development</h2>
+<p>Myiasis can occur at any age and is acquired rather than congenital. Furuncular lesions usually evolve over days to weeks; wound and cavitary disease may appear acutely and progress rapidly when produced by obligate tissue-feeding species. In an ICU case, 13 third-instar <em>L. sericata</em> larvae were found 60 hours after intubation; developmental modeling indicated at least 30 hours to reach third instar at approximately 34°C, illustrating how temperature and stage can help estimate acquisition. (<a href="#ref-monney2025myiasisinthe-pages-1-2">monney2025myiasisinthe pages 1-2</a>)</p>
+<p>There is no universal staging system. A pragmatic sequence is inoculation, larval establishment, progressive local injury, possible secondary infection/deep invasion, and either removal, spontaneous exit/pupation, or complications. Facultative superficial disease is often self-limited after complete extraction. Obligate myiasis can progress until every larva is removed and devitalized tissue is treated. Recurrence generally indicates retained larvae, continued exposure, or inadequately managed wounds rather than biological relapse.</p>
+<h2>9. Inheritance, epidemiology, and population</h2>
+<p>Myiasis is <strong>not inherited</strong>. Penetrance, expressivity, anticipation, germline mosaicism, carrier frequency, and founder effects are not applicable.</p>
+<p>No reliable global incidence or prevalence per 100,000 exists. A bibliometric analysis recovered only 211 PubMed publications on cutaneous myiasis from 2001–2021 and found that case reports remained a defining feature, underscoring surveillance limitations. (<a href="#ref-zhou2025machinelearningbasedtext-pages-2-5">zhou2025machinelearningbasedtext pages 2-5</a>, <a href="#ref-zhou2025machinelearningbasedtext-pages-1-2">zhou2025machinelearningbasedtext pages 1-2</a>)</p>
+<p>Available quantitative observations include:</p>
+<ul>
+<li>An Italian review documented <strong>703 autochthonous cases</strong>, of which <strong>690 (98.1%)</strong> were attributed to <em>O. ovis</em>. Among 42 imported cases, <strong>59.5%</strong> involved <em>Cordylobia</em> species and <strong>40.5%</strong> <em>D. hominis</em>. Historically, 77% of recognized Italian <em>O. ovis</em> cases were in shepherds; old occupational surveys reported lifetime histories of approximately 80–87%, but these figures should not be extrapolated to modern populations. (<a href="#ref-zammarchi2014humanoestriasisacquired-pages-2-4">zammarchi2014humanoestriasisacquired pages 2-4</a>)</li>
+<li>A worldwide ICU review identified <strong>38 cases</strong>; <strong>92%</strong> were oro-/nasopharyngeal and <strong>45%</strong> involved <em>L. sericata</em>. Fourteen occurred in high-income countries and eight in Europe. (<a href="#ref-monney2025myiasisinthe-pages-2-3">monney2025myiasisinthe pages 2-3</a>)</li>
+<li>Human cases occur in both sexes and all ages. No robust global sex ratio is available. Older, disabled, or critically ill people predominate in wound/nosocomial series, while travelers and otherwise healthy adults commonly develop furuncular disease.</li>
+</ul>
+<p>Geography follows fly species: <em>D. hominis</em> in tropical America; <em>Cordylobia</em> in sub-Saharan Africa; New World screwworm in the Americas where not eradicated; <em>C. bezziana</em> across parts of Africa and Asia; and <em>W. magnifica</em> across the Palearctic. Imported disease occurs worldwide through travel.</p>
+<h2>10. Diagnostics</h2>
+<h3>Clinical and laboratory diagnosis</h3>
+<p>Diagnosis is usually made by seeing or extracting larvae. Examination should determine lesion depth, larval number, necrosis, vascular or neurologic involvement, and proximity to the eye, airway, ear, skull, or major vessels. CBC may show eosinophilia, but no blood biomarker is sufficiently sensitive or specific. Culture blood or tissue when fever, cellulitis, sepsis, or bacteremia is suspected.</p>
+<h3>Species identification</h3>
+<p>Larvae should be preserved appropriately and referred to medical entomology or parasitology. Morphological diagnosis uses size and instar, posterior peritremes/spiracles, anterior spiracles, cephalopharyngeal skeleton, body spines, and anal division. Molecular COI barcoding is valuable when specimens are damaged, morphology is ambiguous, or epidemiological confirmation is important. (<a href="#ref-simin2024longtimeno-pages-2-3">simin2024longtimeno pages 2-3</a>, <a href="#ref-simin2024longtimeno-pages-3-5">simin2024longtimeno pages 3-5</a>)</p>
+<h3>Imaging and pathology</h3>
+<p>Ultrasound can demonstrate movement in furuncular lesions. CT or MRI is indicated for orbital, sinonasal, aural, intracranial, deep-tissue, or bone involvement. Endoscopy may assist nasal, oral, aural, or urogenital inspection. Histology is not usually required but may show mixed inflammatory infiltrates, necrosis, and larval structures.</p>
+<h3>Differential diagnosis</h3>
+<p>Differentials include bacterial furuncle/abscess, epidermoid cyst, arthropod bite, cutaneous larva migrans, tungiasis, leishmaniasis, pyoderma, foreign-body granuloma, cellulitis, malignancy, mucormycosis, allergic or bacterial conjunctivitis, rhinitis/sinusitis, otitis externa, and delusional infestation. True intestinal or urinary infestation must be distinguished from specimen contamination and pseudomyiasis.</p>
+<p>No routine asymptomatic screening, newborn screening, carrier screening, genetic testing, or population screening is warranted.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Complete removal in uncomplicated furuncular or superficial facultative disease is usually curative. In the eosinophilic pediatric case, lymphadenopathy and swelling regressed rapidly without additional treatment, and the eosinophil count normalized after larval extraction. (<a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>)</p>
+<p>Adverse outcomes include persistent ulceration, bleeding, pain, disfigurement, secondary bacterial infection, cellulitis, osteomyelitis, bacteremia/sepsis, airway compromise, visual loss, hearing injury, intracranial extension, and death. Risk is greatest with obligate tissue-feeding species, large burdens, delayed presentation, deep craniofacial or orbital location, severe comorbidity, and inadequate debridement. In veterinary <em>W. magnifica</em> disease, untreated infestation can produce lethargy, depression, inappetence, blindness, lameness, reproductive loss, wasting, and death. (<a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>)</p>
+<p>There are no validated survival curves, 5- or 10-year survival estimates, prognostic scores, or molecular prognostic biomarkers. Death usually reflects deep invasion, sepsis, or underlying illness rather than a chronic post-myiasis state.</p>
+<h2>12. Treatment and current applications</h2>
+<h3>Clinical algorithm</h3>
+<ol>
+<li>Stabilize airway, bleeding, sepsis, and ocular or neurologic emergencies.</li>
+<li>Mechanically remove all visible larvae with forceps and adequate analgesia/anesthesia.</li>
+<li>Irrigate thoroughly; repeat inspection because deeply embedded larvae may be missed.</li>
+<li>Debride necrotic tissue, particularly in obligate wound myiasis.</li>
+<li>Obtain larvae for identification and cultures when infection is suspected.</li>
+<li>Treat bacterial infection based on clinical findings and cultures—not simply because larvae are present.</li>
+<li>Consider ivermectin for extensive, inaccessible, orbital, or invasive disease under specialist supervision.</li>
+<li>Correct the predisposing wound, malignancy, hygiene deficit, or hospital fly-control breach.</li>
+</ol>
+<p>Mechanical extraction is the primary intervention. Reviews suggest that antibiotics or antiparasitic agents add little after complete removal of uncomplicated facultative ICU myiasis, whereas obligate myiasis requires aggressive extraction and debridement. (<a href="#ref-monney2025myiasisinthe-pages-2-3">monney2025myiasisinthe pages 2-3</a>, <a href="#ref-monney2025myiasisinthe-pages-3-5">monney2025myiasisinthe pages 3-5</a>)</p>
+<h3>Pharmacotherapy and interventions</h3>
+<ul>
+<li><strong>Ivermectin:</strong> a macrocyclic lactone used off-label in selected human myiasis cases; evidence is primarily case-based, and no universal dose or regimen is established across anatomical forms.</li>
+<li><strong>Antibiotics:</strong> indicated for cellulitis, bacteremia, osteomyelitis, or other secondary infection; they do not remove larvae.</li>
+<li><strong>Occlusive agents:</strong> petroleum jelly or similar occlusion may force air-breathing furuncular larvae toward the surface. Care is needed because larval rupture or death in situ may intensify inflammation.</li>
+<li><strong>Surgical/endoscopic extraction and debridement:</strong> required for deep, cavitary, orbital, sinonasal, or destructive lesions.</li>
+<li><strong>Supportive care:</strong> analgesia, antiseptic wound care, dressings, nutrition, and rehabilitation for functional injury.</li>
+</ul>
+<p>Suggested NCIt intervention concepts are <strong>foreign-body removal</strong>, <strong>surgical debridement</strong>, <strong>wound irrigation</strong>, <strong>antibiotic therapy</strong>, <strong>antiparasitic therapy</strong>, <strong>ivermectin</strong>, and <strong>supportive care</strong>. Suggested chemical mappings include ivermectin and antiseptic/irrigation agents; exact CHEBI identifiers require release validation.</p>
+<p>The ClinicalTrials.gov search retrieved no relevant interventional myiasis trial. Gene, cell, RNA, immune-checkpoint, or precision-genotype therapies have no role. Pharmacogenomic guidance specific to myiasis is unavailable.</p>
+<h3>Important distinction from maggot debridement therapy</h3>
+<p>Uncontrolled myiasis is not equivalent to regulated maggot debridement therapy (MDT). MDT uses sterile, laboratory-reared facultative larvae—commonly <em>L. sericata</em>—to remove necrotic tissue. A 2025 computational/bibliometric study proposed possible benefit in infected diabetic wounds, but this does not justify retaining wild larvae, whose species, burden, and microbiota are uncontrolled. (<a href="#ref-zhou2025machinelearningbasedtext-pages-2-5">zhou2025machinelearningbasedtext pages 2-5</a>, <a href="#ref-malekiravasan2020newinsightsinto-pages-1-2">malekiravasan2020newinsightsinto pages 1-2</a>)</p>
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<ul>
+<li>cover and regularly inspect wounds; promptly remove necrotic tissue;</li>
+<li>maintain personal, oral, household, and livestock hygiene;</li>
+<li>use screens, bed nets, protective clothing, and repellents where flies are active;</li>
+<li>manage garbage, carrion, manure, and animal wounds;</li>
+<li>educate travelers, caregivers, livestock workers, and shepherds;</li>
+<li>implement veterinary surveillance and coordinated screwworm control.</li>
+</ul>
+<h3>Secondary and tertiary prevention</h3>
+<p>Early recognition and complete extraction prevent deep invasion. Patients with malignant wounds, diabetes, vascular ulcers, immobility, tracheostomy/intubation, or impaired consciousness need scheduled skin, mouth, device-site, and wound examinations. Following treatment, repeat inspection and continued wound coverage reduce retained-larva complications and reinfestation.</p>
+<p>Hospitals should use window/door screens, air barriers where feasible, pest surveillance, prompt waste removal, environmental fumigation when an outbreak is confirmed, and meticulous oral care for mechanically ventilated patients. Recent ICU reports document fumigation and window screening as practical outbreak responses. (<a href="#ref-monney2025myiasisinthe-pages-13-15">monney2025myiasisinthe pages 13-15</a>, <a href="#ref-monney2025myiasisinthe-pages-3-5">monney2025myiasisinthe pages 3-5</a>)</p>
+<p>There is no human vaccine, chemoprophylaxis program, genetic screening, or validated population screening test.</p>
+<h2>14. Other species and natural disease</h2>
+<p>Myiasis is naturally widespread among mammals and birds. Important hosts include sheep, goats, cattle, horses, pigs, camels, dogs, cats, wildlife, and humans. Taxonomic identifiers should be linked at the causative-species level—for example, <em>Oestrus ovis</em>, <em>W. magnifica</em>, <em>L. sericata</em>, <em>C. hominivorax</em>, and <em>C. bezziana</em>—rather than treating “maggot” as one organism.</p>
+<p>Recent veterinary data show substantial burden:</p>
+<ul>
+<li>In eastern Spain, 3,476 culled sheep/goat heads examined from 2009–2019 yielded <strong>56.3% overall <em>O. ovis</em> prevalence</strong>, higher in sheep (<strong>61.2%</strong>) than goats (<strong>43%</strong>). Mean intensity was <strong>12.8 larvae/head</strong>; temperature was significantly associated with prevalence. The abstract concluded that results showed “the trend increasing in recent years in association with higher mean temperatures.” (garijo‐toledo2023prevalenceofoestrus pages 1-3)</li>
+<li>In Mato Grosso, Brazil, <strong>319/697 sheep (45.77%)</strong> were infested; 2,412 larvae were recovered, <strong>96.89%</strong> identified as <em>O. ovis</em>. Seasonal prevalence ranged from <strong>41% in spring to 56% in summer</strong>, but larvae occurred year-round. The authors state: “It is also reported as a zoonosis causing ophthalmomyiasis and nasopharyngeal myiasis.” (<a href="#ref-silva2024prevalenceandseasonal-pages-1-3">silva2024prevalenceandseasonal pages 1-3</a>)</li>
+<li>A 2024 Serbian study documented the first reported Western Balkan <em>W. magnifica</em> cases in 80 years. Four sheep had severe hoof, genital, or interdigital disease; two hoof wounds contained 400 and 354 larvae, with deep bleeding foci, horn destruction, inflammation, arthritis, lameness, and poor condition. (<a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>, <a href="#ref-simin2024longtimeno-pages-3-5">simin2024longtimeno pages 3-5</a>)</li>
+</ul>
+<p>Animal disease is both an economic/welfare problem and an exposure reservoir, but ordinary human-to-human or animal-to-human transmission does not occur directly: adult flies mediate infestation. The One Health significance includes shared fly ecology, livestock amplification, climate sensitivity, and fly-associated bacteria such as <em>W. chitiniclastica</em>.</p>
+<h2>15. Model organisms and research systems</h2>
+<p>There is no standard genetic knockout, transgenic, zebrafish, organoid, or iPSC model of human myiasis. Natural infestation in sheep, goats, cattle, and other livestock is the most informative comparative system because it reproduces larval colonization, inflammation, pain, tissue destruction, and seasonal ecology. Its limitation is species-specific anatomy and fly–host adaptation.</p>
+<p>Experimental models are sparse. A 2026 study—outside the requested 2023–2024 priority window but mechanistically informative—used INFOGEST-like simulated digestive fluids and BALB/c mouse gavage to test <em>Clogmia albipunctata</em>. Gastric exposure reduced egg hatchability from <strong>76.80% to 0%</strong> and produced <strong>99.17% larval mortality</strong>; mice showed no shedding, mucosal injury, or colonization. The study supports pseudomyiasis or sample contamination as explanations for many purported intestinal cases, but healthy mice do not model hypochlorhydria, dysmotility, altered microbiota, or immunosuppression. (<a href="#ref-zhan2026clogmiaalbipunctatafails-pages-13-15">zhan2026clogmiaalbipunctatafails pages 13-15</a>, <a href="#ref-zhan2026clogmiaalbipunctatafails-pages-1-2">zhan2026clogmiaalbipunctatafails pages 1-2</a>)</p>
+<p>Other useful platforms include fly-rearing systems, larval feeding assays, wound models, microbiome/metagenetic profiling, COI phylogenetics, and insecticide susceptibility studies. These primarily investigate parasite biology, species identification, MDT, veterinary control, and forensic timing rather than inherited human disease.</p>
+<h2>Evidence appraisal and current research priorities</h2>
+<p>The strongest current evidence concerns clinical recognition, species morphology/molecular identification, and veterinary epidemiology. Human evidence is weak for comparative drug efficacy, standardized ivermectin regimens, global burden, long-term quality of life, and prognostic biomarkers. A 2025 literature analysis found persistent emphasis on uncommon species, nasal disease, travel, and case reports—an expert signal that the field needs prospective surveillance and standardized reporting rather than additional isolated descriptions. (<a href="#ref-zhou2025machinelearningbasedtext-pages-2-5">zhou2025machinelearningbasedtext pages 2-5</a>, <a href="#ref-zhou2025machinelearningbasedtext-pages-1-2">zhou2025machinelearningbasedtext pages 1-2</a>)</p>
+<p>Priority research needs are: mandatory or sentinel reporting in endemic regions; standardized case definitions separating true myiasis from pseudomyiasis; prospective treatment comparisons; validated protocols for orbital, craniofacial, and malignant-wound disease; genomic surveillance of fly populations; systematic characterization of larval microbiota and bacteremia risk; and integrated veterinary–human–environmental surveillance under a One Health framework.</p>
+<h2>Key recent sources and publication details</h2>
+<ol>
+<li>Simin S, et al. <strong>Long Time No Hear, Magnificent Wohlfahrtia!</strong> <em>Microorganisms</em>. Published <strong>23 January 2024</strong>. DOI/URL: <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/microorganisms12020233</a>. The abstract calls <em>W. magnifica</em> “a potentially deadly agent of obligate traumatic myiasis in humans and animals.” (<a href="#ref-simin2024longtimeno-pages-1-2">simin2024longtimeno pages 1-2</a>)</li>
+<li>Silva VLB, et al. <strong>Prevalence and seasonal aspects of parasitism by Oestrus ovis in sheep from Mato Grosso State, Brazil.</strong> <em>Brazilian Journal of Veterinary Parasitology</em>. Received <strong>12 December 2023</strong>, accepted <strong>11 March 2024</strong>. DOI/URL: <a href="https://doi.org/10.1590/S1984-29612024020" target="_blank" rel="noopener noreferrer">https://doi.org/10.1590/S1984-29612024020</a>. (<a href="#ref-silva2024prevalenceandseasonal-pages-1-3">silva2024prevalenceandseasonal pages 1-3</a>)</li>
+<li>Garijo-Toledo MM, et al. <strong>Prevalence of Oestrus ovis in small ruminants from the eastern Iberian Peninsula.</strong> <em>Medical and Veterinary Entomology</em>. Published <strong>2023</strong>. DOI/URL: <a href="https://doi.org/10.1111/mve.12634" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/mve.12634</a>. (garijo‐toledo2023prevalenceofoestrus pages 1-3)</li>
+<li>Monney M, et al. <strong>Myiasis in the intensive care unit: report from Switzerland and review of worldwide cases.</strong> <em>Swiss Medical Weekly</em>. Published <strong>July 2025</strong>. DOI/URL: <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">https://doi.org/10.57187/s.3827</a>. This post-2024 review supplies the most current aggregated ICU evidence. (<a href="#ref-monney2025myiasisinthe-pages-1-2">monney2025myiasisinthe pages 1-2</a>, <a href="#ref-monney2025myiasisinthe-pages-2-3">monney2025myiasisinthe pages 2-3</a>)</li>
+<li>Zhou Z, et al. <strong>Machine learning-based text mining for cutaneous myiasis.</strong> <em>Frontiers in Cellular and Infection Microbiology</em>. Published <strong>May 2025</strong>. DOI/URL: <a href="https://doi.org/10.3389/fcimb.2025.1568563" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fcimb.2025.1568563</a>. (<a href="#ref-zhou2025machinelearningbasedtext-pages-2-5">zhou2025machinelearningbasedtext pages 2-5</a>)</li>
+<li>Maleki-Ravasan N, et al. <strong>New Insights Into Culturable and Unculturable Bacteria Across the Life History of Medicinal Maggots Lucilia sericata.</strong> <em>Frontiers in Microbiology</em>. Published <strong>8 April 2020</strong>. DOI/URL: <a href="https://doi.org/10.3389/fmicb.2020.00505" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fmicb.2020.00505</a>. (<a href="#ref-malekiravasan2020newinsightsinto-pages-1-2">malekiravasan2020newinsightsinto pages 1-2</a>)</li>
+<li>Zammarchi L, et al. <strong>Human oestriasis acquired in Florence and review on human myiasis in Italy.</strong> <em>Parasitology Research</em>. Published <strong>May 2014</strong>. DOI/URL: <a href="https://doi.org/10.1007/s00436-014-3906-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00436-014-3906-9</a>. (<a href="#ref-zammarchi2014humanoestriasisacquired-pages-2-4">zammarchi2014humanoestriasisacquired pages 2-4</a>)</li>
+<li>Tuygun N, et al. <strong>Furuncular myiasis in a child caused by Wohlfahrtia magnifica associated with eosinophilia.</strong> <em>Turkish Journal of Pediatrics</em>. Published <strong>2009;51:279–281</strong>. Its abstract states: “Following removal of the larva, the clinical and hematological manifestations returned to normal.” (<a href="#ref-tuygun2009furuncularmyiasisin-pages-1-2">tuygun2009furuncularmyiasisin pages 1-2</a>)</li>
+</ol>
+<p><strong>Database limitation:</strong> PMIDs were not exposed in the retrieved full-text metadata, so DOI URLs are supplied rather than risking incorrect PMID assignment. Likewise, exact MONDO, HPO, GO, CL, UBERON, CHEBI, and NCIt numerical identifiers should be resolved against the knowledge base’s pinned ontology releases before production ingestion.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-monney2025myiasisinthe-pages-1-2"></a>(monney2025myiasisinthe pages 1-2): Marine Monney, Jiri Hodecek, Jean-Marc Schwob, N. Buetti, Jacques Schrenzel, and Viviane Donner. Myiasis in the intensive care unit: report from switzerland and review of worldwide cases. Swiss medical weekly, 155:3827, Jul 2025. URL: <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">https://doi.org/10.57187/s.3827</a>, <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a>. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-monney2025myiasisinthe-pages-3-5"></a>(monney2025myiasisinthe pages 3-5): Marine Monney, Jiri Hodecek, Jean-Marc Schwob, N. Buetti, Jacques Schrenzel, and Viviane Donner. Myiasis in the intensive care unit: report from switzerland and review of worldwide cases. Swiss medical weekly, 155:3827, Jul 2025. URL: <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">https://doi.org/10.57187/s.3827</a>, <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a>. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tuygun2009furuncularmyiasisin-pages-1-2"></a>(tuygun2009furuncularmyiasisin pages 1-2): N Tuygun, A Taylan-Ozkan, and G Tanir. Furuncular myiasis in a child caused by wohlfahrtia magnifica (diptera: sarcophagidae) associated with eosinophilia. Unknown journal, 2009.</p>
+</li>
+<li>
+<p><a id="ref-zhou2025machinelearningbasedtext-pages-1-2"></a>(zhou2025machinelearningbasedtext pages 1-2): Zhiyuan Zhou, Chaoran Yu, Danhua Yao, Zhen Wang, Yuhua Huang, Pengfei Wang, Weimin Wang, and Yousheng Li. Machine learning-based text mining for cutaneous myiasis and potential value of an accidental maggot therapy for complicated skin and soft tissue infection with sepsis. Frontiers in Cellular and Infection Microbiology, May 2025. URL: <a href="https://doi.org/10.3389/fcimb.2025.1568563" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fcimb.2025.1568563</a>, <a href="https://doi.org/10.3389/fcimb.2025.1568563" target="_blank" rel="noopener noreferrer">doi:10.3389/fcimb.2025.1568563</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-garijo-toledo2023prevalenceofoestrus-pages-1-3"></a>(garijo‐toledo2023prevalenceofoestrus pages 1-3): María Magdalena Garijo‐Toledo, José Sansano‐Maestre, Ana Elena Ahuir‐Baraja, Carlos Martínez‐Carrasco, Francisco Domingo Alonso de Vega, Lola Llobat, and María Rocío Ruiz de Ybáñez‐Carnero. Prevalence of oestrus ovis in small ruminants from the eastern iberian peninsula. a long‐term study. Medical and Veterinary Entomology, 37:330-338, Jan 2023. URL: <a href="https://doi.org/10.1111/mve.12634" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/mve.12634</a>, <a href="https://doi.org/10.1111/mve.12634" target="_blank" rel="noopener noreferrer">doi:10.1111/mve.12634</a>. This article has 7 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-silva2024prevalenceandseasonal-pages-1-3"></a>(silva2024prevalenceandseasonal pages 1-3): V. L. Silva, D. G. S. Ramos, R. C. Pacheco, Diego Montagner Schenkel, Nilton Pereira Dias Junior, Artur Kanadani Campos, and Fernando H. Furlan. Prevalence and seasonal aspects of parasitism by oestrus ovis (diptera: oestridae) in sheep from mato grosso state, brazil. Revista Brasileira de Parasitologia Veterinária / Brazilian Journal of Veterinary Parasitology, Apr 2024. URL: <a href="https://doi.org/10.1590/s1984-29612024020" target="_blank" rel="noopener noreferrer">https://doi.org/10.1590/s1984-29612024020</a>, <a href="https://doi.org/10.1590/s1984-29612024020" target="_blank" rel="noopener noreferrer">doi:10.1590/s1984-29612024020</a>. This article has 2 citations.</p>
+</li>
+<li>
+<p><a id="ref-monney2025myiasisinthe-pages-2-3"></a>(monney2025myiasisinthe pages 2-3): Marine Monney, Jiri Hodecek, Jean-Marc Schwob, N. Buetti, Jacques Schrenzel, and Viviane Donner. Myiasis in the intensive care unit: report from switzerland and review of worldwide cases. Swiss medical weekly, 155:3827, Jul 2025. URL: <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">https://doi.org/10.57187/s.3827</a>, <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a>. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-hou2025extensivepalatalnecrosis-pages-5-6"></a>(hou2025extensivepalatalnecrosis pages 5-6): Ken Wong Siong Hou, Syamsa Rizal Abdullah, Mohd Rafizul Mohd Yusof, Ahmad Firdaus Mohd Salleh, and Syed Nabil. Extensive palatal necrosis secondary to chrysomya bezziana myiasis: a case report. Archives of Orofacial Sciences, 20:59-68, Jun 2025. URL: <a href="https://doi.org/10.21315/aos2025.2001.cr03" target="_blank" rel="noopener noreferrer">https://doi.org/10.21315/aos2025.2001.cr03</a>, <a href="https://doi.org/10.21315/aos2025.2001.cr03" target="_blank" rel="noopener noreferrer">doi:10.21315/aos2025.2001.cr03</a>. This article has 0 citations.</p>
+</li>
+<li>
+<p><a id="ref-simin2024longtimeno-pages-1-2"></a>(simin2024longtimeno pages 1-2): Stanislav Simin, Snežana Tomanović, Ratko Sukara, Marijana Stefanov, Milan Savović, Bojan Gajić, and Vesna Lalošević. Long time no hear, magnificent wohlfahrtia! morphological and molecular evidence of almost forgotten flesh fly in serbia and western balkans. Microorganisms, 12:233, Jan 2024. URL: <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/microorganisms12020233</a>, <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">doi:10.3390/microorganisms12020233</a>. This article has 2 citations.</p>
+</li>
+<li>
+<p><a id="ref-malekiravasan2020newinsightsinto-pages-1-2"></a>(malekiravasan2020newinsightsinto pages 1-2): Naseh Maleki-Ravasan, Nahid Ahmadi, Zahra Soroushzadeh, Abbas Ali Raz, Sedigheh Zakeri, and Navid Dinparast Djadid. New insights into culturable and unculturable bacteria across the life history of medicinal maggots lucilia sericata (meigen) (diptera: calliphoridae). Frontiers in Microbiology, Apr 2020. URL: <a href="https://doi.org/10.3389/fmicb.2020.00505" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fmicb.2020.00505</a>, <a href="https://doi.org/10.3389/fmicb.2020.00505" target="_blank" rel="noopener noreferrer">doi:10.3389/fmicb.2020.00505</a>. This article has 46 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-simin2024longtimeno-pages-2-3"></a>(simin2024longtimeno pages 2-3): Stanislav Simin, Snežana Tomanović, Ratko Sukara, Marijana Stefanov, Milan Savović, Bojan Gajić, and Vesna Lalošević. Long time no hear, magnificent wohlfahrtia! morphological and molecular evidence of almost forgotten flesh fly in serbia and western balkans. Microorganisms, 12:233, Jan 2024. URL: <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/microorganisms12020233</a>, <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">doi:10.3390/microorganisms12020233</a>. This article has 2 citations.</p>
+</li>
+<li>
+<p><a id="ref-simin2024longtimeno-pages-3-5"></a>(simin2024longtimeno pages 3-5): Stanislav Simin, Snežana Tomanović, Ratko Sukara, Marijana Stefanov, Milan Savović, Bojan Gajić, and Vesna Lalošević. Long time no hear, magnificent wohlfahrtia! morphological and molecular evidence of almost forgotten flesh fly in serbia and western balkans. Microorganisms, 12:233, Jan 2024. URL: <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/microorganisms12020233</a>, <a href="https://doi.org/10.3390/microorganisms12020233" target="_blank" rel="noopener noreferrer">doi:10.3390/microorganisms12020233</a>. This article has 2 citations.</p>
+</li>
+<li>
+<p><a id="ref-zhou2025machinelearningbasedtext-pages-2-5"></a>(zhou2025machinelearningbasedtext pages 2-5): Zhiyuan Zhou, Chaoran Yu, Danhua Yao, Zhen Wang, Yuhua Huang, Pengfei Wang, Weimin Wang, and Yousheng Li. Machine learning-based text mining for cutaneous myiasis and potential value of an accidental maggot therapy for complicated skin and soft tissue infection with sepsis. Frontiers in Cellular and Infection Microbiology, May 2025. URL: <a href="https://doi.org/10.3389/fcimb.2025.1568563" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fcimb.2025.1568563</a>, <a href="https://doi.org/10.3389/fcimb.2025.1568563" target="_blank" rel="noopener noreferrer">doi:10.3389/fcimb.2025.1568563</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-monney2025myiasisinthe-pages-13-15"></a>(monney2025myiasisinthe pages 13-15): Marine Monney, Jiri Hodecek, Jean-Marc Schwob, N. Buetti, Jacques Schrenzel, and Viviane Donner. Myiasis in the intensive care unit: report from switzerland and review of worldwide cases. Swiss medical weekly, 155:3827, Jul 2025. URL: <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">https://doi.org/10.57187/s.3827</a>, <a href="https://doi.org/10.57187/s.3827" target="_blank" rel="noopener noreferrer">doi:10.57187/s.3827</a>. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zammarchi2014humanoestriasisacquired-pages-2-4"></a>(zammarchi2014humanoestriasisacquired pages 2-4): Lorenzo Zammarchi, Andrea Giorni, Simona Gabrielli, Marianne Strohmeyer, Gabriella Cancrini, and Alessandro Bartoloni. Human oestriasis acquired in florence and review on human myiasis in italy. Parasitology Research, 113:2379-2385, May 2014. URL: <a href="https://doi.org/10.1007/s00436-014-3906-9" target="_blank" rel="noopener noreferrer">https://doi.org/10.1007/s00436-014-3906-9</a>, <a href="https://doi.org/10.1007/s00436-014-3906-9" target="_blank" rel="noopener noreferrer">doi:10.1007/s00436-014-3906-9</a>. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zhan2026clogmiaalbipunctatafails-pages-13-15"></a>(zhan2026clogmiaalbipunctatafails pages 13-15): Huahan Zhan, Linghong Zhang, Lu Ge, Yanli Chen, Peiyi Zhang, Yumeng Jiao, Xiaocheng Luo, Hui Xia, Qiang Fang, and Zhiyong Tao. Clogmia albipunctata fails to induce true intestinal myiasis: evidence from in vitro and in vivo digestive models. PLOS One, 21(8):e0356742, Aug 2026. URL: <a href="https://doi.org/10.1371/journal.pone.0356742" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0356742</a>, <a href="https://doi.org/10.1371/journal.pone.0356742" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0356742</a>. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zhan2026clogmiaalbipunctatafails-pages-1-2"></a>(zhan2026clogmiaalbipunctatafails pages 1-2): Huahan Zhan, Linghong Zhang, Lu Ge, Yanli Chen, Peiyi Zhang, Yumeng Jiao, Xiaocheng Luo, Hui Xia, Qiang Fang, and Zhiyong Tao. Clogmia albipunctata fails to induce true intestinal myiasis: evidence from in vitro and in vivo digestive models. PLOS One, 21(8):e0356742, Aug 2026. URL: <a href="https://doi.org/10.1371/journal.pone.0356742" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0356742</a>, <a href="https://doi.org/10.1371/journal.pone.0356742" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0356742</a>. This article has 0 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Myiasis-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>8</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Unresolved references</h3>
+<p>These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:</p>
+<ul>
+<li><code>DOI:10.1590/S1984-29612024020</code> (4 mentions) - Identifier did not resolve to a record</li>
+<li><code>DOI:10.1590/s1984-29612024020</code> (3 mentions) - Identifier did not resolve to a record</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Myhre_Syndrome-falcon.html">← Myhre Syndrome (Falcon)</a>
+                
+                
+                <a href="MYO6_Hearing_Loss-falcon.html">MYO6_Hearing_Loss (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Myiasis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Myiasis-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

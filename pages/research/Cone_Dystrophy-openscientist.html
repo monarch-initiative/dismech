@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cone Dystrophy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Cone Dystrophy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Cone Dystrophy</h1>
+                
+                <p class="report-subtitle">Cone Dystrophy: A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0000455" target="_blank" rel="noopener noreferrer">MONDO:0000455</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">36 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Cone Dystrophy: A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Cone Dystrophy (and Cone-Rod Dystrophy) · <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000455" target="_blank" rel="noopener noreferrer">MONDO:0000455</a> · <strong>Category:</strong> Inherited retinal dystrophy / progressive cone photoreceptor degeneration</p>
+<p><strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000455" target="_blank" rel="noopener noreferrer">MONDO:0000455</a> · MeSH: Cone-Rod Dystrophies · OMIM (representative): CDSRR 610356; multiple CORD/COD phenotype numbers · ICD-11: hereditary retinal dystrophy range (9B70.x) · Orphanet: cone/cone-rod dystrophy entries</p>
+<hr />
+<h2>Summary</h2>
+<p>Cone dystrophy (CD) is a genetically heterogeneous inherited retinal dystrophy (IRD) defined by primary dysfunction and progressive degeneration of the cone photoreceptors that populate the fovea and macula. Clinically, patients present with decreased central visual acuity, dyschromatopsia (color-vision loss), photophobia/hemeralopia (day-blindness and glare intolerance), and — in early-onset forms — nystagmus. When rod photoreceptors are secondarily involved, the disorder is termed cone-rod dystrophy (CORD), which adds nyctalopia (night blindness) and peripheral field loss to the phenotype. Estimated prevalence is approximately <strong>1 in 30,000–40,000</strong> for progressive cone dystrophy, making cone/cone-rod dystrophy one of the more common IRDs after retinitis pigmentosa and Stargardt disease.</p>
+<p>Mechanistically, a large fraction of cone dystrophies converge on dysregulation of the <strong>cGMP/Ca²⁺ phototransduction node</strong> in cone outer segments. Dominant gain-of-function mutations in <em>GUCA1A</em> (GCAP1) and <em>GUCY2D</em> (retinal guanylate cyclase, RetGC-1) cause aberrantly sustained cGMP synthesis; recessive mutations in <em>PDE6C/PDE6H</em> (cGMP phosphodiesterase) and <em>CNGA3/CNGB3</em> (cone CNG channel) disrupt the same pathway. Excess cGMP over-activates cyclic nucleotide-gated channels, producing Na⁺/Ca²⁺ influx and Ca²⁺ overload that triggers a downstream <strong>calpain/PARP cell-death cascade</strong> — a genotype-agnostic execution mechanism that is an attractive neuroprotective drug target. Other forms act through ciliary/structural trafficking defects (<em>RPGR</em>, <em>RPGRIP1</em>, <em>CDHR1</em>, <em>CEP290</em>), visual-cycle/RPE dysfunction (<em>ABCA4</em>), transcriptional dysregulation (<em>CRX</em>), or ion-channel modification (<em>KCNV2</em>, which produces the pathognomonic "supernormal rod" ERG of CDSRR).</p>
+<p>Diagnosis rests on a <strong>photopic-selective ERG signature</strong> — reduced/extinguished light-adapted single-flash and 30-Hz flicker responses with relatively preserved scotopic (rod) responses — combined with SD-OCT (ellipsoid-zone/outer-retinal loss), fundus autofluorescence (central or bull's-eye maculopathy), and gene-panel/exome sequencing. No approved cure exists; management is largely supportive (tinted/edge-filter lenses, low-vision aids, refractive correction, genetic counseling). The most advanced therapeutic frontier is <strong>AAV-mediated gene supplementation for CNGA3/CNGB3 achromatopsia</strong>, which is safe and produces modest but statistically significant functional gains (pooled +2.65 ETDRS letters), with greater benefit for <em>CNGA3</em> and when treatment occurs in childhood. Accurate early molecular diagnosis and genetic counseling are therefore the pivotal intervention levers.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Epidemiology: prevalence ~1:14,000–1:40,000</h3>
+<p>Cone dystrophy and cone-rod dystrophy rank among the more common inherited retinal diseases. A nationwide Israeli IRD study (n=9,396 diagnosed individuals) found cone-rod dystrophy prevalence of approximately <strong>1:14,000</strong>, the second most common IRD after retinitis pigmentosa (~1:2,400), with Stargardt disease at ~1:16,000 and all IRDs combined at 1:1,043 (<a href="https://pubmed.ncbi.nlm.nih.gov/38753338/">PMID: 38753338</a>). The GeneReviews-level estimate for progressive cone dystrophy specifically is <strong>1 in 30,000–40,000</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40736814/">PMID: 40736814</a>).</p>
+<p>A notable feature is the comparatively <strong>low genetic diagnostic yield</strong> for cone/cone-rod dystrophy relative to other IRD subphenotypes. In a Finnish cohort, "the lowest rates of causative variant identification were observed in cone or cone-rod dystrophy and macular dystrophy" (<a href="https://pubmed.ncbi.nlm.nih.gov/40571344/">PMID: 40571344</a>), reflecting the extensive genetic heterogeneity and the existence of causative variants (e.g., in the repetitive <em>RPGR-ORF15</em> region) that are difficult to detect with standard short-read sequencing.</p>
+<h3>2. Core pathophysiology: dysregulated cGMP/Ca²⁺ phototransduction</h3>
+<p>The unifying molecular theme across many cone dystrophies is disruption of the cGMP/Ca²⁺ second-messenger cycle in cone photoreceptors. In dominant disease, <strong>GCAP1 (GUCA1A)</strong> mutations in the EF-hand Ca²⁺-binding motifs (e.g., L151F in EF4, Y99C, E111A) reduce Ca²⁺ affinity so that GCAP1 fails to switch off retinal guanylate cyclase (RetGC-1/GUCY2D) at the high Ca²⁺ concentrations found in dark-adapted photoreceptors. Enzymatic work showed that "GCAP1-L151F stimulation of photoreceptor guanylate cyclase was not completely inhibited at high physiological [Ca²⁺], consistent with a lowered affinity for Ca²⁺-binding to EF4" (<a href="https://pubmed.ncbi.nlm.nih.gov/15790869/">PMID: 15790869</a>).</p>
+<p>Analogously, <strong>GUCY2D</strong> mutations at the dimerization domain (R838C/R838S; CORD6) act as dominant gain-of-function alleles: the R838C substitution "increases the apparent affinity of RetGC-1 for GCAP-1 and alters the Ca²⁺ sensitivity of the GCAP-1 response, allowing the mutant to be stimulated by GCAP-1 at higher Ca²⁺ concentrations than wild type" (<a href="https://pubmed.ncbi.nlm.nih.gov/10430891/">PMID: 10430891</a>). Both mechanisms produce persistent cyclase stimulation and cGMP overproduction. Recessive <em>PDE6C/PDE6H</em> (which degrade cGMP) and <em>CNGA3/CNGB3</em> (the cone CNG channel) disrupt the same node from the opposite direction. Elevated cGMP and consequent Ca²⁺ influx is cytotoxic, driving cone (then rod) degeneration.</p>
+<h3>3. Diagnostic signature: photopic-selective ERG deficit</h3>
+<p>The hallmark electrophysiologic finding is a <strong>cone-selective (photopic) ERG deficit with preserved rod (scotopic) responses</strong>. Genetically confirmed cone dystrophy cases show "severe cone dysfunction, characterized by markedly reduced light-adapted single-flash responses and near-extinguished 30 Hz flicker responses, with relatively preserved rod-mediated scotopic responses" (<a href="https://pubmed.ncbi.nlm.nih.gov/42525358/">PMID: 42525358</a>). SD-OCT shows foveal ellipsoid-zone attenuation/loss with relative RPE preservation early in disease, and FAF shows central or bull's-eye abnormality.</p>
+<p>A special case is <strong>KCNV2/CDSRR</strong>, which shows a pathognomonic delayed "supernormal" rod b-wave with a squared a-wave: "the ERG showed a delayed and supernormal b-wave with a 'squaring (trough-flattened)' a-wave in the DA-30 ERG, and CDSRR was diagnosed" (<a href="https://pubmed.ncbi.nlm.nih.gov/38630375/">PMID: 38630375</a>).</p>
+<h3>4. Natural history and prognosis: progressive central vision loss; EZ length as an early biomarker</h3>
+<p>Cone and cone-rod dystrophies follow a chronic, progressive course centered on the macula. In an RPGR cohort (n=50; 357 microperimetry assessments), cone-rod dystrophy central sensitivity declined faster than rod-cone disease: <strong>10.8%/yr (MS16)</strong> and 14.9%/yr (MS4) in CORD versus 5.1% and 4.1%/yr in rod-cone (P=.02 and P&lt;.001), with median survival age to total central sensitivity loss of 25.1 years (CORD) vs 33.1 years (rod-cone) (<a href="https://pubmed.ncbi.nlm.nih.gov/41237986/">PMID: 41237986</a>).</p>
+<p>Structural biomarkers precede functional decline. In autosomal recessive <em>PROM1</em> IRD (n=6, median 11.8-year follow-up), "best-corrected visual acuity (BCVA) was maintained until a steep decline around 15 years of age. This was preceded by contraction of the subfoveal ellipsoid zone length (EZL), measured on OCT" (<a href="https://pubmed.ncbi.nlm.nih.gov/40494823/">PMID: 40494823</a>). Disease is lifelong/chronic and legally blinding but not directly life-limiting; onset in most progressive cone dystrophies is in the first-to-third decade.</p>
+<h3>5. RPGR-ORF15 glutamylation defect drives X-linked cone/cone-rod dystrophy</h3>
+<p>X-linked cone dystrophy caused by <em>RPGR</em> involves a post-translational modification defect. <strong>TTLL5 glutamylates RPGR-ORF15</strong> in its Glu-Gly-rich repeat region; loss of this modification causes photoreceptor degeneration. The "Ttll5 mutant mouse develops slow photoreceptor degeneration with early mislocalization of cone opsins, features resembling those of Rpgr-null mice" (<a href="https://pubmed.ncbi.nlm.nih.gov/27162334/">PMID: 27162334</a>). Distal truncating <em>RPGR-ORF15</em> variants that impair glutamylation associate with a cone-dominated phenotype: "impaired glutamylation caused by distal truncating variants in RPGR ORF15 and its association with the cone-dominated phenotype have provided the first molecular evidence of a genotype-phenotype correlation" (<a href="https://pubmed.ncbi.nlm.nih.gov/41481301/">PMID: 41481301</a>).</p>
+<h3>6. Treatment landscape: no approved cure; AAV gene supplementation and CRISPR</h3>
+<p>No approved pharmacologic cure exists. Management is supportive (tinted/edge-filter glasses and photochromic lenses for photophobia, refractive correction, low-vision aids, UV protection, genetic counseling). The most advanced therapeutic is AAV subretinal gene supplementation for recessive disease: "rAAV-mediated gene replacement therapy with different forms of the human red cone opsin promoter led to the restoration of cone function and day vision in two canine models of CNGB3 achromatopsia" (<a href="https://pubmed.ncbi.nlm.nih.gov/20378608/">PMID: 20378608</a>).</p>
+<p>For <strong>autosomal-dominant gain-of-function GUCY2D CORD</strong>, simple gene supplementation is insufficient; editing strategies are required. A dual-AAV "ablate-and-replace" (AAV-SaCas9) approach "preserved outer nuclear layer thickness for up to 24 weeks" in mice, whereas ablation alone did not restore function (<a href="https://pubmed.ncbi.nlm.nih.gov/42264060/">PMID: 42264060</a>).</p>
+<h3>7. Downstream cell-death cascade: cGMP → CNG channel → Ca²⁺ → calpain/PARP</h3>
+<p>Elevated photoreceptor cGMP over-activates CNG channels, causing Na⁺/Ca²⁺ influx, membrane depolarization, and Ca²⁺ overload that triggers excessive activation of calpain proteases and poly(ADP-ribose) polymerase (PARP), executing photoreceptor death. This pathway is druggable: cGMP accumulation is "associated with the excessive activation of calpain and poly (ADP-ribose) polymerase (PARP). Inhibitors of calpain or PARP have shown promise in preventing photoreceptor cell death" (<a href="https://pubmed.ncbi.nlm.nih.gov/35327647/">PMID: 35327647</a>).</p>
+<p>Some CNG channel variants classically labeled loss-of-function are in fact gain-of-function: "CNGA3_R410W/CNGB3 and TAX4_R421W channels are spontaneously active without cGMP and induce cell death, suggesting cone degeneration triggered by spontaneous CNG channel activity as a possible cause of achromatopsia" (<a href="https://pubmed.ncbi.nlm.nih.gov/35233102/">PMID: 35233102</a>).</p>
+<h3>8. Phenotype spectrum and symptom frequencies</h3>
+<p>In the KCNV2 Study Group cohort (n=117), mean age of onset was <strong>3.9 years</strong> and all patients were symptomatic before 12 years. <strong>Decreased visual acuity was present in 100%</strong>; reduced color vision in 78.6%; photophobia in 53.5%; nyctalopia in 43.6%; and nystagmus in 38.6% (<a href="https://pubmed.ncbi.nlm.nih.gov/33309813/">PMID: 33309813</a>). A genetically confirmed achromatopsia cohort (n=21) found that all patients had color-vision difficulty, 20/21 (95.2%) had photosensitivity, 18/21 (85.7%) had congenital nystagmus, and one-third had nyctalopia (<a href="https://pubmed.ncbi.nlm.nih.gov/41867372/">PMID: 41867372</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Symptom / Sign</th>
+<th>KCNV2 cohort (n=117)</th>
+<th>ACHM cohort (n=21)</th>
+<th>HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decreased visual acuity</td>
+<td>100%</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a> (reduced visual acuity)</td>
+</tr>
+<tr>
+<td>Reduced color vision / dyschromatopsia</td>
+<td>78.6%</td>
+<td>100%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" rel="noopener noreferrer">HP:0000551</a> (abnormality of color vision)</td>
+</tr>
+<tr>
+<td>Photophobia / photosensitivity</td>
+<td>53.5%</td>
+<td>95.2%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a></td>
+</tr>
+<tr>
+<td>Nyctalopia (night blindness)</td>
+<td>43.6%</td>
+<td>~33%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a></td>
+</tr>
+<tr>
+<td>Nystagmus</td>
+<td>38.6%</td>
+<td>85.7%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>9. Genetic heterogeneity, allelism, and syndromic differential diagnosis</h3>
+<p>The same gene often produces a phenotypic continuum. <strong>CNGA3/CNGB3</strong> cause both stationary achromatopsia and progressive cone/cone-rod dystrophy: "In rare cases, variants in CNGA3 are also associated with cone dystrophy, Leber's congenital amaurosis and oligo cone trichromacy" (<a href="https://pubmed.ncbi.nlm.nih.gov/25052312/">PMID: 25052312</a>). <em>GUCY2D</em> underlies both recessive Leber congenital amaurosis and dominant CORD6.</p>
+<p>Syndromic cone-rod dystrophy occurs in <strong>Alström syndrome (ALMS1)</strong>, where "age of symptom onset (i.e. nystagmus and photophobia) was at 6-9 months in all patients. These symptoms mostly mislead to the diagnosis of congenital achromatopsia (ACHM), Leber congenital amaurosis (LCA), isolated CORD or Bardet-Biedl syndrome" (<a href="https://pubmed.ncbi.nlm.nih.gov/29193673/">PMID: 29193673</a>); as well as Bardet-Biedl syndrome (BBS1) and Spinocerebellar ataxia type 7. Non-syndromic causal genes span phototransduction (<em>GUCA1A, GUCY2D, PDE6C, PDE6H, CNGA3, CNGB3, GNAT2, KCNV2</em>), visual cycle/RPE (<em>ABCA4, RPGR</em>), transcription factors (<em>CRX</em>), and ciliary/structural/trafficking genes (<em>RPGRIP1, RIMS1, RAB28, C8orf37, POC1B, TTLL5, CDHR1, PROM1, RP1L1, CEP290, ADAM9, UNC119</em>).</p>
+<h3>10. Inheritance, founder effects, and consanguinity</h3>
+<p>Inheritance is <strong>autosomal dominant</strong> (<em>GUCA1A, GUCY2D/CORD6, some CRX, RIMS1, PROM1, AIPL1</em>), <strong>autosomal recessive</strong> (<em>CNGA3, CNGB3, PDE6C, PDE6H, ABCA4, RPGRIP1, CDHR1, C8orf37, POC1B, RAB28, ADAM9, CERKL</em>, etc.), or <strong>X-linked</strong> (<em>RPGR/COD1, CACNA1F</em>). Recessive forms are enriched by consanguinity and founder effects: "Two CNGA3 founder mutations underlie &gt;50% of cases. These mutations lead to a high ACHM prevalence of ∼1:5000 among Arab-Muslims residing in Jerusalem" (<a href="https://pubmed.ncbi.nlm.nih.gov/25616768/">PMID: 25616768</a>) — versus ~1:30,000 generally. In Newfoundland, "recurrent mutations p.T383fsX and p.L527R were due to a founder effect" (<a href="https://pubmed.ncbi.nlm.nih.gov/23362848/">PMID: 23362848</a>). The CNGB3 founder allele is also famous in the Pingelapese ("island of the colorblind"). Dominant <em>GUCA1A/GUCY2D</em> disease shows variable expressivity and incomplete/age-dependent penetrance; X-linked <em>RPGR</em> shows variable manifestation in female carriers.</p>
+<h3>11. Diagnostic imaging pattern (OCT/FAF)</h3>
+<p>Full-field ERG shows reduced/extinguished photopic responses with preserved scotopic responses. In a genetically confirmed cohort (n=21), "most patients [had] a normal scotopic response and absent photopic response on electroretinogram, macular hyperfluorescence on fundus autofluorescence, and normal optical coherence tomography imaging" (<a href="https://pubmed.ncbi.nlm.nih.gov/41867372/">PMID: 41867372</a>). Adult-onset CD/CRD frequently shows "a bull's eye pattern with foveal sparing, consistent with perifoveal photoreceptor loss on optical coherence tomography" (<a href="https://pubmed.ncbi.nlm.nih.gov/38091967/">PMID: 38091967</a>). SD-OCT documents "loss of the ellipsoid zone line and collapse of the outer nuclear segment" with extinguished photopic ERG (<a href="https://pubmed.ncbi.nlm.nih.gov/39100576/">PMID: 39100576</a>).</p>
+<h3>12. AAV gene therapy for CNGA3/CNGB3 achromatopsia</h3>
+<p>A genotype-aware systematic review/meta-analysis of 9 human AAV gene therapy studies found: "Pooled analysis showed modest, but statistically significant, improvement in best-corrected visual acuity, with a mean difference of <strong>2.65 ETDRS letters</strong>, and significant improvement in contrast sensitivity. Retinal sensitivity did not improve significantly, whereas color discrimination showed small but significant improvement" (<a href="https://pubmed.ncbi.nlm.nih.gov/42542214/">PMID: 42542214</a>). The same analysis found an "approximate adverse-event probability of 29%, with events generally mild, transient, and manageable." Benefit is mainly in <em>CNGA3</em>, with a non-linear dose response. Achromatopsia is a leading gene-therapy target because "Up to 80% of the patients carry mutations in the genes CNGA3 and CNGB3 encoding the two subunits of the cone cyclic nucleotide-gated channel" (<a href="https://pubmed.ncbi.nlm.nih.gov/28095637/">PMID: 28095637</a>). Treating in childhood may restore temporal resolution, with flicker-fusion approaching control levels only in a treated child (<a href="https://pubmed.ncbi.nlm.nih.gov/42602306/">PMID: 42602306</a>).</p>
+<h3>13. Animal and cellular models</h3>
+<p>Naturally occurring and engineered models recapitulate the disease across species. "Naturally occurring mouse models with mutations in Cnga3 (cpfl5 mice) and Gnat2 (cpfl3 mice) were discovered at The Jackson Laboratory. A natural occurring canine model with CNGB3 mutations has also been found" (<a href="https://pubmed.ncbi.nlm.nih.gov/20238068/">PMID: 20238068</a>). The <strong>Cdhr1 knockout</strong> recapitulates shortened/disorganised photoreceptor outer segments and is rescued by gene therapy: "AAV gene supplementation therapy delivered by subretinal injection can lead to long-term morphological, structural, functional and behavioural improvements in the Cdhr1 knockout mouse model... CDHR1 supplementation restored full-length photoreceptor outer segments" (<a href="https://pubmed.ncbi.nlm.nih.gov/42562233/">PMID: 42562233</a>). The canine <strong>RPGRIP1 cord1</strong> model in English Springer Spaniels shows "insidious pathology with delayed-onset visual defects" (<a href="https://pubmed.ncbi.nlm.nih.gov/39428496/">PMID: 39428496</a>) — a naturally occurring large-animal model. Patient-derived iPSC/retinal organoids (e.g., for KCNV2, CEP290) are also established.</p>
+<h3>14. KCNV2/CDSRR: a distinct subtype</h3>
+<p>Biallelic <strong>KCNV2</strong> (Kv8.2) variants cause "cone dystrophy with nyctalopia and supernormal rod responses" (CDSRR; OMIM 610356), autosomal recessive, "featuring pathognomonic findings on electroretinography (ERG)" (<a href="https://pubmed.ncbi.nlm.nih.gov/38630375/">PMID: 38630375</a>). Kv8.2 co-assembles with Kv2.1 in photoreceptor inner segments; mouse Kcnv2 knockouts model the disorder.</p>
+<h3>15. Anatomical structures affected</h3>
+<p>Cone dystrophy primarily affects the <strong>neural retina — cone photoreceptors of the fovea centralis</strong> within the macula: "Fovea centralis, located at the center of the macula, is packed with cone photoreceptors and is responsible for central visual acuity" (<a href="https://pubmed.ncbi.nlm.nih.gov/36934831/">PMID: 36934831</a>). SD-OCT localizes pathology to the outer retinal bands: in CORD (n=24 eyes), "A ring maculopathy appearance involving the fovea area was observed in all study eyes. There was an absence of interdigitation zone in the entire length of SD-OCT scan, including the foveal area, in all 24 study eyes" (<a href="https://pubmed.ncbi.nlm.nih.gov/23648999/">PMID: 23648999</a>). The RPE becomes secondarily involved as disease advances; involvement is bilateral.</p>
+<hr />
+<h2>Section-by-Section Synthesis (Research Template)</h2>
+<h3>1. Disease Information</h3>
+<p>Cone dystrophy is an inherited retinal dystrophy of primary cone photoreceptor dysfunction/degeneration, distinguished from retinitis pigmentosa (a rod-cone disorder) by its cone-first pathology. It is classified along two axes: (i) course — stationary/congenital cone dysfunction syndromes (achromatopsia, blue-cone monochromatism) vs progressive cone dystrophy; and (ii) rod involvement — pure cone dystrophy vs cone-rod dystrophy (CORD; primary cone loss with secondary rod degeneration): "Cone and cone-rod dystrophies can be divided according to the disease course into stationary and progressive disorders or by the genetic mode of inheritance into autosomal-recessive, autosomal-dominant, and X-linked traits" (<a href="https://pubmed.ncbi.nlm.nih.gov/19184602/">PMID: 19184602</a>). <strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000455" target="_blank" rel="noopener noreferrer">MONDO:0000455</a>; OMIM CDSRR 610356 and multiple CORD entries; MeSH "Cone-Rod Dystrophies"; Orphanet cone/cone-rod dystrophy entries; ICD-11 9B70-range. <strong>Synonyms:</strong> progressive cone dystrophy, cone-rod dystrophy (CORD/CoRD), COD. Information is drawn from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet, GeneReviews) and cohort/registry studies, not single-patient EHR (<a href="https://pubmed.ncbi.nlm.nih.gov/40736814/">PMID: 40736814</a>).</p>
+<h3>2. Etiology</h3>
+<p>Cone dystrophy is a <strong>Mendelian genetic disorder</strong>; there are no established environmental or infectious causes. Causal factors are pathogenic variants in ≥20 genes (see Section 4). Genetic risk is defined by the causal variant and inheritance mode; <strong>consanguinity</strong> and <strong>founder effects</strong> are the dominant population-level risk amplifiers for recessive forms (<a href="https://pubmed.ncbi.nlm.nih.gov/25616768/">PMID: 25616768</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23362848/">PMID: 23362848</a>). No robust environmental protective factors are established; UV protection and light avoidance are symptomatic rather than disease-modifying. Gene-environment interactions are minimal for this monogenic disorder, though light exposure may modulate the rate of cGMP/CNG-driven photoreceptor stress.</p>
+<h3>3. Phenotypes</h3>
+<p>Core phenotypes are <strong>reduced central visual acuity</strong> (<a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a>), <strong>dyschromatopsia</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" rel="noopener noreferrer">HP:0000551</a>), <strong>photophobia</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a>), <strong>nyctalopia</strong> in cone-rod forms (<a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a>), <strong>nystagmus</strong> in early-onset forms (<a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a>), and <strong>central/paracentral scotoma</strong> (visual field defect, <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" rel="noopener noreferrer">HP:0001123</a>). Frequencies are quantified in Finding 8. Onset ranges from infancy (syndromic/achromatopsia-overlap forms, &lt;1 year) to mid-teens/adulthood (progressive cone dystrophy). Severity is variable and progression is typically slow but relentless, ending in legal blindness (20/200 or worse). Quality-of-life impact centers on loss of reading/central vision, disabling glare, and color-discrimination failure; formal per-phenotype QOL instruments are underused in this population.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Causal genes</strong> by functional class: phototransduction — <em>GUCA1A, GUCY2D, PDE6C, PDE6H, CNGA3, CNGB3, GNAT2, KCNV2</em>; visual cycle/RPE — <em>ABCA4, RPGR</em>; transcription — <em>CRX</em>; ciliary/structural/trafficking — <em>RPGRIP1, RIMS1, RAB28, C8orf37, POC1B, TTLL5, CDHR1, PROM1, RP1L1, CEP290, ADAM9, UNC119</em>. <strong>Variant types</strong> include missense (e.g., GUCA1A L151F/Y99C, GUCY2D R838C/S, CNGA3 p.Cys319Arg), frameshift (CNGB3 p.T383fs), nonsense/truncating (RPGR-ORF15 distal truncations), and structural variants. <strong>Functional consequences</strong> are gain-of-function for dominant <em>GUCA1A/GUCY2D</em> (sustained cGMP synthesis) and for certain CNG variants (constitutive channel opening; <a href="https://pubmed.ncbi.nlm.nih.gov/35233102/">PMID: 35233102</a>); loss-of-function for most recessive alleles. <strong>Modifier genes:</strong> <em>KCNV2</em> itself acts as a channel modifier subunit; <em>TTLL5</em> modifies RPGR via glutamylation. Epigenetic and large-scale chromosomal abnormalities are not major contributors, though structural variants at loci such as RP17/CEP290 require careful classification (<a href="https://pubmed.ncbi.nlm.nih.gov/42545071/">PMID: 42545071</a>).</p>
+<h3>5. Environmental Information</h3>
+<p>Not applicable as primary cause — cone dystrophy is monogenic. No toxins, radiation, lifestyle factors, or infectious agents are established causes. Bright-light exposure and lack of UV/glare protection worsen symptoms but do not initiate disease.</p>
+<h3>6. Mechanism/Pathophysiology</h3>
+<p>The dominant pathway is <strong>cGMP/Ca²⁺ dysregulation → CNG-channel over-activation → Ca²⁺ overload → calpain/PARP-mediated photoreceptor death</strong> (see Mechanistic Model below). Relevant <strong>GO biological processes:</strong> phototransduction (<a href="http://purl.obolibrary.org/obo/GO_0007602" target="_blank" rel="noopener noreferrer">GO:0007602</a>), cGMP metabolic process (<a href="http://purl.obolibrary.org/obo/GO_0046068" target="_blank" rel="noopener noreferrer">GO:0046068</a>), regulation of cytosolic calcium ion concentration (<a href="http://purl.obolibrary.org/obo/GO_0051480" target="_blank" rel="noopener noreferrer">GO:0051480</a>), photoreceptor cell maintenance (<a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" rel="noopener noreferrer">GO:0045494</a>), neuron apoptotic process (<a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" rel="noopener noreferrer">GO:0051402</a>). <strong>GO cellular components:</strong> photoreceptor outer segment (<a href="http://purl.obolibrary.org/obo/GO_0001750" target="_blank" rel="noopener noreferrer">GO:0001750</a>), photoreceptor connecting cilium (<a href="http://purl.obolibrary.org/obo/GO_0032391" target="_blank" rel="noopener noreferrer">GO:0032391</a>), cyclic nucleotide-gated ion channel complex. <strong>Cell type (CL):</strong> retinal cone cell (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>). Additional mechanisms include ciliary transport defects (RPGR/RPGRIP1/CEP290), outer-segment structural failure (CDHR1), visual-cycle toxicity (ABCA4 lipofuscin/bisretinoid accumulation), and transcriptional dysregulation (CRX).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary:</strong> cone photoreceptors of the fovea centralis (<a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" rel="noopener noreferrer">UBERON:0001786</a> fovea centralis) within the macula lutea (<a href="http://purl.obolibrary.org/obo/UBERON_0005388" target="_blank" rel="noopener noreferrer">UBERON:0005388</a>), in the neural retina (<a href="http://purl.obolibrary.org/obo/UBERON_0003902" target="_blank" rel="noopener noreferrer">UBERON:0003902</a>). <strong>Outer-retinal bands</strong> affected on OCT: external limiting membrane, ellipsoid zone (IS/OS), interdigitation zone, and secondarily the retinal pigment epithelium (<a href="http://purl.obolibrary.org/obo/UBERON_0001782" target="_blank" rel="noopener noreferrer">UBERON:0001782</a>). <strong>Subcellular:</strong> photoreceptor outer segment and connecting cilium. Body system: nervous/visual system. Involvement is <strong>bilateral</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23648999/">PMID: 23648999</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36934831/">PMID: 36934831</a>).</p>
+<h3>8. Temporal Development</h3>
+<p>Onset is bimodal: infancy/early childhood for achromatopsia-overlap and syndromic forms (mean 3.9 years in KCNV2; <a href="https://pubmed.ncbi.nlm.nih.gov/33309813/">PMID: 33309813</a>), and mid-teens/adulthood for classic progressive cone dystrophy. Onset pattern is insidious/chronic. Progression is generally slow but relentless; CORD progresses faster centrally than rod-cone disease (10.8%/yr vs 5.1%/yr; <a href="https://pubmed.ncbi.nlm.nih.gov/41237986/">PMID: 41237986</a>). Disease course is progressive and lifelong; there is no spontaneous remission. Ellipsoid-zone contraction marks a critical structural window preceding acuity collapse (<a href="https://pubmed.ncbi.nlm.nih.gov/40494823/">PMID: 40494823</a>).</p>
+<h3>9. Inheritance and Population</h3>
+<p>Prevalence ~1:30,000–40,000 (progressive CD) to ~1:14,000 (CORD in Israel) (<a href="https://pubmed.ncbi.nlm.nih.gov/40736814/">PMID: 40736814</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38753338/">PMID: 38753338</a>). Inheritance is AD, AR, or X-linked. Penetrance is complete for most recessive forms but may be incomplete/age-dependent for dominant <em>GUCA1A/GUCY2D</em>. Founder effects and consanguinity elevate local prevalence markedly (ACHM ~1:5,000 in Arab-Muslim Jerusalem; <a href="https://pubmed.ncbi.nlm.nih.gov/25616768/">PMID: 25616768</a>). Sex ratio is roughly equal for autosomal forms; X-linked <em>RPGR</em> disease predominantly affects males with variable female-carrier manifestation.</p>
+<h3>10. Diagnostics</h3>
+<p>Diagnosis integrates <strong>full-field ERG</strong> (photopic-selective loss; pathognomonic supernormal-rod ERG in CDSRR), <strong>SD-OCT</strong> (ellipsoid-zone/outer-nuclear-layer loss, bull's-eye maculopathy), <strong>fundus autofluorescence</strong> (central/ring hyperfluorescence), color-vision testing, and <strong>molecular genetic testing</strong> (gene panels, WES, and — for RPGR-ORF15 — long-read sequencing). Differential diagnosis includes Stargardt disease (ABCA4), occult macular dystrophy, hydroxychloroquine toxicity, and syndromic CORD (Alström, Bardet-Biedl). Because ABCA4 disease alleles are common in the population, overlap with Stargardt disease is frequent — "Fourteen probands (35%) were found to have a potentially disease-causing ABCA4 sequence variant on at least one allele" in a bull's-eye maculopathy series (<a href="https://pubmed.ncbi.nlm.nih.gov/18024811/">PMID: 18024811</a>). Genetic diagnostic yield is comparatively low, arguing for comprehensive/long-read approaches (<a href="https://pubmed.ncbi.nlm.nih.gov/40571344/">PMID: 40571344</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42525358/">PMID: 42525358</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38091967/">PMID: 38091967</a>).</p>
+<h3>11. Outcome/Prognosis</h3>
+<p>Cone dystrophy is not life-limiting; mortality is unaffected. Morbidity is defined by progressive central-vision loss to legal blindness (20/200 or worse, sometimes counting fingers), disabling photophobia, and eventual peripheral field loss in cone-rod forms (<a href="https://pubmed.ncbi.nlm.nih.gov/40736814/">PMID: 40736814</a>). Prognostic factors include genotype, age of onset, and structural biomarkers (ellipsoid-zone length). Recovery is not spontaneous; gene therapy offers partial, genotype-specific functional stabilization/gain in select forms.</p>
+<h3>12. Treatment</h3>
+<p>No approved cure. <strong>Supportive:</strong> tinted/red-filter and photochromic lenses, refractive correction, low-vision aids, UV protection (NCIT: supportive care; low vision aids). <strong>Advanced:</strong> AAV gene supplementation for CNGA3/CNGB3 achromatopsia (safe, +2.65 ETDRS letters pooled; <a href="https://pubmed.ncbi.nlm.nih.gov/42542214/">PMID: 42542214</a>); CRISPR "ablate-and-replace" for dominant GUCY2D CORD (<a href="https://pubmed.ncbi.nlm.nih.gov/42264060/">PMID: 42264060</a>); genotype-agnostic neuroprotection via calpain/PARP inhibitors (preclinical; <a href="https://pubmed.ncbi.nlm.nih.gov/35327647/">PMID: 35327647</a>). Pediatric CNGA3/CNGB3 trials are in Phases 1–2 (<a href="https://pubmed.ncbi.nlm.nih.gov/42627399/">PMID: 42627399</a>). NCIT terms: Gene Therapy (NCIT:C15254), Adeno-associated Virus Vector, Supportive Care (NCIT:C15274).</p>
+<h3>13. Prevention</h3>
+<p>Classical primary prevention (vaccination/lifestyle) is not applicable. Prevention is <strong>reproductive/genetic</strong>: carrier and cascade testing (high-yield in founder/consanguineous populations), preimplantation and prenatal genetic diagnosis, and genetic counseling. "Accurate diagnosis is essential for accessing emerging gene-targeted treatments for inherited retinal diseases (IRDs), but many minoritised communities face additional barriers to diagnosis" (<a href="https://pubmed.ncbi.nlm.nih.gov/40513990/">PMID: 40513990</a>). Tertiary prevention is supportive management to preserve residual function and quality of life.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Naturally occurring cone/cone-rod disease is well documented in <strong>dogs</strong> (NCBI Taxon 9615): CNGB3 day-blind dogs (Alaskan Malamute, German Shorthaired Pointer) and RPGRIP1 <em>cord1</em> progressive retinal atrophy in English Springer Spaniels (<a href="https://pubmed.ncbi.nlm.nih.gov/39428496/">PMID: 39428496</a>). Orthologous genes (<em>Cnga3, Cngb3, Gnat2, Rpgr, Rpgrip1, Cdhr1</em>) are conserved across mouse (NCBI Taxon 10090) and dog, enabling comparative pathology and gene-therapy proof-of-concept. Disease mechanisms are evolutionarily conserved across mammals; no zoonotic potential (non-infectious).</p>
+<h3>15. Model Organisms</h3>
+<p><strong>Mouse:</strong> <em>Cnga3</em> (cpfl5), <em>Gnat2</em> (cpfl3), <em>Cngb3</em> knockout, <em>Pde6c</em> (cpfl1), <em>Ttll5</em>-mutant, <em>Rpgr</em>-null, <em>Cdhr1</em> knockout, <em>Kcnv2</em> knockout, and CRX-mutant CORD models (<a href="https://pubmed.ncbi.nlm.nih.gov/20238068/">PMID: 20238068</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27162334/">PMID: 27162334</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42562233/">PMID: 42562233</a>). <strong>Dog:</strong> natural CNGB3 and RPGRIP1 models. <strong>Cellular:</strong> patient-derived iPSC and retinal organoids (KCNV2, CEP290). Models faithfully reproduce absent photopic ERG, day-blindness, photophobia, and cone-opsin mislocalization; limitations include species differences in macular/foveal structure (mice lack a fovea), which constrains modeling of human central-vision phenotypes. Resources: MGI, IMPC, IMSR (mouse); OMIA (dog); Cellosaurus (cell lines).</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The central pathophysiologic engine of many cone dystrophies is a <strong>cGMP/Ca²⁺ imbalance</strong> in the cone outer segment that converges on a common execution pathway:</p>
+<pre><code>   UPSTREAM (genotype-specific triggers)
+   ┌─────────────────────────────────────────────────────────┐
+   │  GUCA1A (GCAP1) gain-of-function ─┐                       │
+   │  GUCY2D (RetGC-1) gain-of-function├─► ↑ cGMP synthesis    │
+   │  PDE6C / PDE6H loss-of-function ──┘   (impaired breakdown)│
+   └─────────────────────────────────────────────────────────┘
+          │
+          ▼
+    ┌──────────────────────────────┐
+    │   ELEVATED cGMP in cone OS    │
+    └──────────────────────────────┘
+          │
+┌─────────────────┴───────────────────┐
+▼                                     ▼
+  Over-activation of                Constitutive CNG opening
+  CNGA3/CNGB3 channels              (gain-of-function variants,
+  (excess ligand)                    e.g. CNGA3 R410W)
+└─────────────────┬───────────────────┘
+          ▼
+    ┌──────────────────────────────┐
+    │  Na⁺/Ca²⁺ INFLUX → Ca²⁺       │
+    │  OVERLOAD + depolarization    │
+    └──────────────────────────────┘
+          │
+          ▼
+   DOWNSTREAM (genotype-agnostic executioner)
+    ┌──────────────────────────────┐
+    │  Calpain + PARP activation    │  ◄── DRUGGABLE
+    │  → photoreceptor cell death   │      NODE
+    └──────────────────────────────┘
+          │
+          ▼
+   CLINICAL MANIFESTATION
+   Cone loss → ↓ acuity, dyschromatopsia, photophobia
+   (± secondary rod loss → nyctalopia, peripheral field loss = CORD)
+</code></pre>
+<p><strong>Parallel/alternative mechanisms</strong> feed into the same end-stage cone death without traversing the cGMP node:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Mechanism class</th>
+<th>Representative genes</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cGMP/Ca²⁺ dysregulation</td>
+<td>GUCA1A, GUCY2D, PDE6C/H, CNGA3/B3</td>
+<td>↑cGMP → CNG over-activation → Ca²⁺ death cascade</td>
+</tr>
+<tr>
+<td>Ciliary/OS transport</td>
+<td>RPGR, RPGRIP1, CEP290, TTLL5</td>
+<td>Opsin mislocalization, cilium dysfunction</td>
+</tr>
+<tr>
+<td>Outer-segment structure</td>
+<td>CDHR1, PROM1</td>
+<td>Shortened/disorganized OS, failed disc morphogenesis</td>
+</tr>
+<tr>
+<td>Visual cycle / RPE</td>
+<td>ABCA4</td>
+<td>Bisretinoid/lipofuscin toxicity</td>
+</tr>
+<tr>
+<td>Transcription</td>
+<td>CRX</td>
+<td>Failed photoreceptor gene expression/maintenance</td>
+</tr>
+<tr>
+<td>Ion-channel modifier</td>
+<td>KCNV2 (Kv8.2)</td>
+<td>Altered inner-segment K⁺ handling (CDSRR, supernormal rod ERG)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The <strong>calpain/PARP node is genotype-agnostic</strong>, making it the most attractive target for a broadly applicable neuroprotective small-molecule therapy, complementary to gene-specific AAV/CRISPR approaches. Upstream, gain-of-function dominant disease (GUCA1A/GUCY2D and certain CNG variants) requires <em>silencing/editing</em> rather than simple <em>supplementation</em>, explaining why "ablate-and-replace" strategies are needed for CORD6.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Supports finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38753338/">38753338</a></td>
+<td>Nationwide IRD prevalence, Israel</td>
+<td>Epidemiology (CORD ~1:14,000)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40736814/">40736814</a></td>
+<td>Progressive Cone &amp; Cone-Rod Dystrophy (GeneReviews)</td>
+<td>Prevalence ~1:30–40k, onset, prognosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40571344/">40571344</a></td>
+<td>Finnish IRD prevalence</td>
+<td>Low diagnostic yield in CD/CRD</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15790869/">15790869</a></td>
+<td>GCAP1 L151F adCORD</td>
+<td>GUCA1A gain-of-function mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10430891/">10430891</a></td>
+<td>RetGC-1 dimerization mutation</td>
+<td>GUCY2D R838C gain-of-function</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42525358/">42525358</a></td>
+<td>PDE6C progressive cone dystrophy</td>
+<td>Photopic-selective ERG signature</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38630375/">38630375</a></td>
+<td>KCNV2 siblings</td>
+<td>Pathognomonic CDSRR ERG</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41237986/">41237986</a></td>
+<td>RPGR central sensitivity decline</td>
+<td>CORD faster central decline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40494823/">40494823</a></td>
+<td>PROM1 longitudinal study</td>
+<td>EZ length as early biomarker</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27162334/">27162334</a></td>
+<td>TTLL5/RPGR glutamylation</td>
+<td>X-linked cone dystrophy mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41481301/">41481301</a></td>
+<td>RPGR-ORF15 female carriers</td>
+<td>Genotype-phenotype correlation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20378608/">20378608</a></td>
+<td>Gene therapy in canine CNGB3</td>
+<td>AAV restores cone function</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42264060/">42264060</a></td>
+<td>CRISPR for CORD/ACHM</td>
+<td>Ablate-and-replace for dominant GUCY2D</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35327647/">35327647</a></td>
+<td>PARP/calpain in IRD</td>
+<td>cGMP death cascade &amp; druggability</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35233102/">35233102</a></td>
+<td>ACHM channel mutation</td>
+<td>CNG gain-of-function</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33309813/">33309813</a></td>
+<td>KCNV2 Study Group</td>
+<td>Symptom frequencies</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41867372/">41867372</a></td>
+<td>Achromatopsia cohort</td>
+<td>Phenotype frequencies, imaging</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25052312/">25052312</a></td>
+<td>CNGA3 cone-rod dystrophy</td>
+<td>Allelic continuum</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29193673/">29193673</a></td>
+<td>ALMS1 cone-rod dystrophy</td>
+<td>Syndromic differential</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25616768/">25616768</a></td>
+<td>CNGA3 achromatopsia genetics</td>
+<td>Founder effect, elevated prevalence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23362848/">23362848</a></td>
+<td>Newfoundland achromatopsia</td>
+<td>Founder effects</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23648999/">23648999</a></td>
+<td>Outer retina OCT in CORD</td>
+<td>Foveal/macular band pathology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36934831/">36934831</a></td>
+<td>Foveal photoreceptor OCT</td>
+<td>Fovea/macula as target</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42542214/">42542214</a></td>
+<td>AAV meta-analysis (ACHM)</td>
+<td>Efficacy +2.65 letters, safety</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28095637/">28095637</a></td>
+<td>Gene therapy for achromatopsia</td>
+<td>80% CNGA3/CNGB3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20238068/">20238068</a></td>
+<td>Achromatopsia gene therapy candidate</td>
+<td>Animal models</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42562233/">42562233</a></td>
+<td>CDHR1 degeneration</td>
+<td>Knockout model + gene therapy rescue</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39428496/">39428496</a></td>
+<td>Canine cord1 RPGRIP1</td>
+<td>Large-animal CORD model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18024811/">18024811</a></td>
+<td>ABCA4 bull's-eye maculopathy</td>
+<td>ABCA4/Stargardt overlap</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19184602/">19184602</a></td>
+<td>Genetics of cone/cone-rod dystrophies</td>
+<td>Classification framework</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40513990/">40513990</a></td>
+<td>IRD in Indigenous populations</td>
+<td>Diagnosis as prevention lever</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42627399/">42627399</a></td>
+<td>Pediatric gene therapy trials</td>
+<td>CNGA3/CNGB3 trials Phase 1–2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42602306/">42602306</a></td>
+<td>Temporal vision in ACHM</td>
+<td>Childhood treatment restores flicker fusion</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38091967/">38091967</a></td>
+<td>Adult-onset CD/CRD</td>
+<td>Bull's-eye maculopathy, presenting symptom</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39100576/">39100576</a></td>
+<td>CORD case</td>
+<td>OCT EZ loss + extinguished photopic ERG</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>How the evidence coheres:</strong> The mechanistic papers (10430891, 15790869, 35327647, 35233102) establish the cGMP→CNG→Ca²⁺→calpain/PARP causal chain; the cohort/imaging papers (42525358, 33309813, 41867372, 23648999) establish the clinical/diagnostic phenotype; the epidemiology/genetics papers (38753338, 40736814, 25616768, 23362848) establish population parameters; and the therapeutic papers (42542214, 20378608, 42264060, 42562233) establish the treatment frontier. No papers in the reviewed set directly contradict the core model, though the low diagnostic yield (40571344) and difficulty resolving RPGR-ORF15 variants flag that the known genetic spectrum is incomplete.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No primary experimental dataset.</strong> This report is a literature-synthesis of published cohorts, mechanistic studies, and reviews; no independent statistical analysis of raw patient data was performed. All effect sizes and prevalence figures are as reported in the primary literature.</li>
+<li><strong>Genetic diagnostic gap.</strong> Cone/cone-rod dystrophy has among the lowest causative-variant identification rates of all IRD subphenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/40571344/">PMID: 40571344</a>). Hidden causes include structural variants, deep-intronic/pseudoexon variants (e.g., CEP290; <a href="https://pubmed.ncbi.nlm.nih.gov/42545071/">PMID: 42545071</a>), and the repetitive RPGR-ORF15 region that eludes short-read sequencing.</li>
+<li><strong>Prevalence heterogeneity.</strong> Estimates range from ~1:14,000 (CORD, Israel) to ~1:30,000–40,000 (progressive CD), reflecting differences in ascertainment, definition (cone vs cone-rod vs achromatopsia), and population structure (founder/consanguineous enrichment). A single global figure is not well established.</li>
+<li><strong>Therapeutic evidence is genotype-narrow.</strong> Robust human gene-therapy data exist essentially only for CNGA3/CNGB3 achromatopsia; efficacy for CNGB3 is uncertain, and dominant gain-of-function forms (GUCA1A/GUCY2D) lack approved editing therapies. Calpain/PARP neuroprotection remains preclinical.</li>
+<li><strong>Quality-of-life data are thin.</strong> Formal per-phenotype QOL instruments (EQ-5D, SF-36, PROMIS) are rarely applied specifically to cone dystrophy cohorts; QOL impact is inferred from functional endpoints.</li>
+<li><strong>Model organism limitations.</strong> Mice lack a fovea, limiting fidelity for the central-vision phenotype that dominates human disease; large-animal (dog) models better capture cone-directed pathology but are resource-intensive.</li>
+<li><strong>Natural-history endpoints.</strong> Sensitive, validated structural/functional endpoints (e.g., ellipsoid-zone length, microperimetry) are still being standardized for trial readiness across genotypes.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Deploy long-read and structural-variant-aware sequencing</strong> (e.g., nanopore RPGR-ORF15, optical genome mapping) systematically in genetically unsolved cone/cone-rod dystrophy cohorts to close the diagnostic gap and enable therapy eligibility.</li>
+<li><strong>Advance genotype-agnostic neuroprotection to trials.</strong> Given the convergent calpain/PARP death cascade, formally test calpain and PARP inhibitors (and CNG-channel/voltage-gated Ca²⁺/Na⁺ channel blockers) in cone-directed IRD explant and large-animal models, then early-phase human trials, as a broad add-on to gene-specific therapy.</li>
+<li><strong>Develop editing therapy for dominant GUCA1A/GUCY2D CORD.</strong> Optimize dual-AAV "ablate-and-replace" or base/prime-editing approaches to raise editing efficiency and durability beyond the ~24-week ONL preservation demonstrated in mice.</li>
+<li><strong>Standardize natural-history endpoints.</strong> Establish multicenter, genotype-stratified longitudinal cohorts using ellipsoid-zone length, microperimetry, adaptive-optics cone density, and FST as validated endpoints to power future trials.</li>
+<li><strong>Expand carrier/cascade screening</strong> in defined founder and consanguineous populations (e.g., Arab-Muslim Jerusalem, Pingelapese, Newfoundland) where recessive alleles are enriched, coupled with equitable access to diagnosis in underserved communities.</li>
+<li><strong>Extend gene-therapy age-window studies.</strong> The observation that only a treated child regained near-normal flicker-fusion argues for prospective pediatric-versus-adult comparative trials to define the critical treatment window.</li>
+<li><strong>Integrate patient-derived retinal organoids</strong> (iPSC) for high-throughput variant functional classification (VUS resolution) and preclinical drug screening across the diverse cone-dystrophy gene spectrum.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 20 confirmed findings, 10 supported hypotheses, and 94 reviewed papers across 10 investigation iterations. Evidence source types span human clinical cohorts, model organism studies (mouse, dog), in vitro/iPSC systems, and computational modeling, as annotated per citation.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Cone_Dystrophy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Cone_Dystrophy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Citations</h2>
+<ol>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38753338/" target="_blank" rel="noopener noreferrer">PMID:38753338</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40736814/" target="_blank" rel="noopener noreferrer">PMID:40736814</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40571344/" target="_blank" rel="noopener noreferrer">PMID:40571344</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/15790869/" target="_blank" rel="noopener noreferrer">PMID:15790869</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/10430891/" target="_blank" rel="noopener noreferrer">PMID:10430891</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42525358/" target="_blank" rel="noopener noreferrer">PMID:42525358</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38630375/" target="_blank" rel="noopener noreferrer">PMID:38630375</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41237986/" target="_blank" rel="noopener noreferrer">PMID:41237986</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40494823/" target="_blank" rel="noopener noreferrer">PMID:40494823</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27162334/" target="_blank" rel="noopener noreferrer">PMID:27162334</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41481301/" target="_blank" rel="noopener noreferrer">PMID:41481301</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/20378608/" target="_blank" rel="noopener noreferrer">PMID:20378608</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42264060/" target="_blank" rel="noopener noreferrer">PMID:42264060</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35327647/" target="_blank" rel="noopener noreferrer">PMID:35327647</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35233102/" target="_blank" rel="noopener noreferrer">PMID:35233102</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33309813/" target="_blank" rel="noopener noreferrer">PMID:33309813</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41867372/" target="_blank" rel="noopener noreferrer">PMID:41867372</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25052312/" target="_blank" rel="noopener noreferrer">PMID:25052312</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29193673/" target="_blank" rel="noopener noreferrer">PMID:29193673</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25616768/" target="_blank" rel="noopener noreferrer">PMID:25616768</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23362848/" target="_blank" rel="noopener noreferrer">PMID:23362848</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38091967/" target="_blank" rel="noopener noreferrer">PMID:38091967</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39100576/" target="_blank" rel="noopener noreferrer">PMID:39100576</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42542214/" target="_blank" rel="noopener noreferrer">PMID:42542214</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28095637/" target="_blank" rel="noopener noreferrer">PMID:28095637</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42602306/" target="_blank" rel="noopener noreferrer">PMID:42602306</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/20238068/" target="_blank" rel="noopener noreferrer">PMID:20238068</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42562233/" target="_blank" rel="noopener noreferrer">PMID:42562233</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39428496/" target="_blank" rel="noopener noreferrer">PMID:39428496</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36934831/" target="_blank" rel="noopener noreferrer">PMID:36934831</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23648999/" target="_blank" rel="noopener noreferrer">PMID:23648999</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19184602/" target="_blank" rel="noopener noreferrer">PMID:19184602</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42545071/" target="_blank" rel="noopener noreferrer">PMID:42545071</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/18024811/" target="_blank" rel="noopener noreferrer">PMID:18024811</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42627399/" target="_blank" rel="noopener noreferrer">PMID:42627399</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40513990/" target="_blank" rel="noopener noreferrer">PMID:40513990</a></li>
+</ol>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Conduct_Disorder-falcon.html">← Conduct Disorder (Falcon)</a>
+                
+                
+                <a href="Congenital_Adrenal_Hyperplasia-falcon.html">Congenital Adrenal Hyperplasia (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Cone_Dystrophy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Cone_Dystrophy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
