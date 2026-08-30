@@ -650,7 +650,8 @@ phenotypes:
   description: <Description from research>
   evidence:
   - reference: PMID:XXXXXXXX
-    supports: <SUPPORT | REFUTE | PARTIAL>
+    supports: <SUPPORT | REFUTE | NO_EVIDENCE>
+    directness: <DIRECT | INDIRECT>   # optional; omit unless actually assessed
     evidence_source: <HUMAN_CLINICAL | MODEL_ORGANISM | IN_VITRO | COMPUTATIONAL>
     snippet: "<Exact quote from abstract>"
     explanation: "<Why this supports the phenotype>"
@@ -864,7 +865,9 @@ When asked to address review comments on an existing PR:
    - Each reviewer issue and how you addressed it
    - Any issues you intentionally did NOT fix, with reasoning
    - Validation results after fixes
-5. **Use `supports: PARTIAL`** when evidence is indirect — don't overstate evidence strength
+5. **Use `directness: INDIRECT`** when the quote supports the claim through an inference
+   step rather than stating it — `supports` stays `SUPPORT`. If the quote instead supports
+   one part of the claim and contradicts another, that is two evidence items, not one
 6. **If evidence doesn't support a claim, find better evidence** rather than arguing about evidence_source classification
 7. **Verify ontology terms with OAK** when the reviewer questions them — don't assume
 

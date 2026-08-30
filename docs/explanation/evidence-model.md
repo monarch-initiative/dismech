@@ -14,24 +14,27 @@ the direction in which we would like to extend it.
 
 ## What an evidence item is
 
-An `EvidenceItem` is a **validated pointer into the literature**. Its seven fields are:
+An `EvidenceItem` is a **validated pointer into the literature**. Its eight fields are:
 
 ```yaml
 evidence:
 - reference: PMID:1301956            # a real, resolvable ID (PMID, DOI, NCT, ORPHA, CGGV, …)
   reference_title: "Molecular genetics of the LDL receptor gene …"
-  supports: SUPPORT                  # polarity: SUPPORT / REFUTE / PARTIAL / NO_EVIDENCE / WRONG_STATEMENT
+  supports: SUPPORT                  # direction: SUPPORT / REFUTE / NO_EVIDENCE
+  directness: DIRECT                 # optional: DIRECT / INDIRECT / UNKNOWN
   evidence_source: HUMAN_CLINICAL    # study type reported in the paper (see below)
   snippet: "…mediates the uptake and lysosomal degradation of plasma LDL…"
   explanation: "When LDLR function is impaired, the core hepatic LDL uptake step fails."
   images: [...]                      # optional figures from deep-research artifacts
 ```
 
-Two of those fields carry the evidence *semantics*:
+Three of those fields carry the evidence *semantics*:
 
 - **`supports`** records the **direction** the reference points relative to the claim —
-  whether it supports, refutes, partially supports, is silent, or documents the claim as
-  factually wrong.
+  whether it supports it, contradicts it, or does not bear on it at all.
+- **`directness`** (optional) records **how directly** the quoted text bears on the claim —
+  whether the quote asserts the claim itself, or asserts something from which the claim
+  follows by an inference step. It is not a strength grade.
 - **`evidence_source`** records the **type of study reported in the publication** —
   `HUMAN_CLINICAL`, `MODEL_ORGANISM`, `IN_VITRO`, `COMPUTATIONAL`, or `OTHER`. It
   describes the cited paper, *not* how the entry was curated: an AI-assisted curation of a
@@ -60,8 +63,9 @@ text actually appear in it?"* That is **citation integrity**.
 
 **The appraisal layer is thin.** What the model does *not* yet capture is how *strong* the
 evidence is, *what experiment* produced it, and *how* the mechanistic claim was inferred
-from that experiment. `supports` is direction, not strength — a single case report and a
-human natural-knockout study both collapse to `SUPPORT`. `evidence_source` is a coarse
+from that experiment. `supports` is direction and `directness` is inferential distance —
+neither is strength, so a single case report and a human natural-knockout study both
+collapse to `SUPPORT`. `evidence_source` is a coarse
 organism bucket — every human observation from an n=1 case report to a large randomised
 trial is one value, and it says nothing about study design or inferential power.
 
