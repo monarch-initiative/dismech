@@ -57,9 +57,22 @@ GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
 
 BRANCH_OPERATORS = {"AND", "OR", "NOT"}
 
+# Free-text nosology slots folded into a disease's classification tags,
+# alongside the structured `classifications:` block. Shared so the advisory in
+# lint_criterion_advisories() names exactly the slots _classification_tags()
+# reads, and the two cannot drift apart.
+FREE_TEXT_TAG_SLOTS = ("parents", "categories")
+
 # Map each leaf predicate to the payload slot(s) it requires. ``None`` means the
 # constraint is carried in free text (``description``) and has no structured
 # payload to evaluate.
+#
+# HAS_INHERITANCE is listed as ``None`` because its payload is OPTIONAL, not
+# absent: a leaf carrying an ``inheritance_term`` is evaluated against the
+# member's curated inheritance blocks, while a leaf carrying only a
+# ``description`` (e.g. "hereditary, i.e. germline rather than acquired", which
+# no single HPO term names) stays free text and evaluates to UNKNOWN. Requiring
+# the payload here would invalidate the latter, which is a legitimate use.
 PREDICATE_PAYLOAD = {
     "HAS_PHENOTYPE": "phenotype_term",
     "HAS_GENE": "gene",
@@ -165,6 +178,65 @@ def lint_criterion(node: Any, path: str = "logic") -> list[str]:
         if node.get("operands"):
             errors.append(f"{path}: leaf node must not have operands")
     return errors
+
+
+def lint_criterion_advisories(
+    node: Any, path: str = "logic", negated_context: bool = False
+) -> list[str]:
+    """Return non-gating style advisories for a criteria expression.
+
+    Distinct from :func:`lint_criterion`, whose findings are structural errors
+    and gate CI. These are conventions worth steering toward but which existing
+    curated groupings legitimately do not follow, so flagging them as errors
+    would turn correct files red.
+
+    Currently one advisory: a positive ``HAS_CLASSIFICATION`` leaf whose value
+    carries no ``<slot>:`` prefix. ``_classification_tags()`` also emits
+    bare-value tags and folds in the free-text ``parents:``/``categories:``
+    slots, so a bare value matches a tag in *any* slot -- fine when the tag is
+    unique KB-wide (as for ``RASopathy``), but a latent false positive when two
+    nosology schemes share a string. The keyed form pins the slot.
+
+    Negated leaves are deliberately exempt. For an exclusion the slot-agnostic
+    reading is the *stronger* one -- "not classified there, whichever slot says
+    so" -- and keying it would narrow the exclusion, admitting a member tagged
+    under a different slot. Advising the keyed form there would be backwards.
+
+    The schema offers two ways to negate, and the exemption covers both: a leaf
+    marked ``negated: true``, and a leaf sitting under an ``operator: NOT``
+    branch. ``negated_context`` carries the second down the recursion, flipping
+    at each NOT so a doubly-negated leaf is treated as positive again. No KB
+    grouping uses the NOT-operator form today, so this closes a latent
+    inconsistency rather than a live false positive.
+    """
+    advisories: list[str] = []
+    if not isinstance(node, dict):
+        return advisories
+    excluded = bool(node.get("negated")) ^ negated_context
+    if (
+        classify_node(node) is NodeKind.LEAF
+        and node.get("criterion_predicate") == "HAS_CLASSIFICATION"
+        and not excluded
+    ):
+        value = node.get("classification")
+        if isinstance(value, str) and ":" not in value:
+            # Name the slots the extractor actually reads, so the advice is
+            # actionable without the curator going to look them up. The
+            # structured `classifications:` keys vary per entry, so those are
+            # described rather than enumerated.
+            slots = " or ".join(f"'{slot}:{value}'" for slot in FREE_TEXT_TAG_SLOTS)
+            advisories.append(
+                f"{path}: HAS_CLASSIFICATION {value!r} is unkeyed, so it matches "
+                f"that tag in any slot; prefer {slots}, or "
+                f"'<classifications-key>:{value}' (e.g. "
+                f"'iuis_category:{value}'), to pin which slot it reads"
+            )
+    child_context = negated_context ^ (node.get("operator") == "NOT")
+    for i, child in enumerate(node.get("operands", []) or []):
+        advisories.extend(
+            lint_criterion_advisories(child, f"{path}.operands[{i}]", child_context)
+        )
+    return advisories
 
 
 def iter_nodes(node: Any) -> Iterable[dict]:
@@ -289,8 +361,17 @@ class DiseaseFacts:
     gene_ids: set[str] = field(default_factory=set)
     go_ids: set[str] = field(default_factory=set)
     module_stems: set[str] = field(default_factory=set)
+    # HP mode-of-inheritance ids from curated `inheritance_term` blocks. Kept
+    # separate from `phenotype_freq` because an inheritance term is a statement
+    # about the entry's genetic architecture, not a phenotype it manifests.
+    inheritance_ids: set[str] = field(default_factory=set)
     # HP id -> best (strongest) known frequency band, if any.
     phenotype_freq: dict[str, str | None] = field(default_factory=dict)
+    # Normalized nosology/classification tags this disease carries. Holds both
+    # the bare value ("combined immunodeficiency") and the keyed form
+    # ("iuis_category:combined immunodeficiency") so a criterion may cite
+    # either. See _classification_tags().
+    classification_tags: set[str] = field(default_factory=set)
 
 
 def _walk(obj: Any) -> Iterable[Any]:
@@ -304,9 +385,59 @@ def _walk(obj: Any) -> Iterable[Any]:
             yield from _walk(v)
 
 
+def _norm_tag(value: str) -> str:
+    """Normalize a classification tag for comparison (case/whitespace-insensitive)."""
+    return " ".join(value.lower().split())
+
+
+def _classification_tags(data: dict) -> set[str]:
+    """Collect the nosology tags a disease entry carries.
+
+    DisMech has no single canonical nosology slot, so three slots count:
+
+    * the structured ``classifications:`` block — every
+      ``<key>.classification_value``, contributed both bare and as
+      ``<key>:<value>`` so a criterion can disambiguate when the same string
+      appears under two schemes;
+    * the free-text ``parents:`` and ``categories:`` lists, which is where
+      tags such as ``RASopathy`` live.
+
+    Plural/singular is not normalized away: a criterion citing ``RASopathy``
+    does not match an entry tagged ``RASopathies``. Keeping the match literal
+    means a normalization drift shows up as UNKNOWN/NOT_SATISFIED in the audit
+    rather than being silently papered over.
+    """
+    tags: set[str] = set()
+
+    classifications = data.get("classifications")
+    if isinstance(classifications, dict):
+        for key, assignment in classifications.items():
+            items = assignment if isinstance(assignment, list) else [assignment]
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                value = item.get("classification_value")
+                if isinstance(value, str) and value.strip():
+                    tags.add(_norm_tag(value))
+                    tags.add(f"{_norm_tag(str(key))}:{_norm_tag(value)}")
+
+    for slot in FREE_TEXT_TAG_SLOTS:
+        values = data.get(slot)
+        if isinstance(values, str):
+            values = [values]
+        if isinstance(values, list):
+            for value in values:
+                if isinstance(value, str) and value.strip():
+                    tags.add(_norm_tag(value))
+                    tags.add(f"{_norm_tag(slot)}:{_norm_tag(value)}")
+
+    return tags
+
+
 def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
-    """Extract genes, GO terms, module conformance, and phenotype frequencies."""
+    """Extract genes, GO terms, module conformance, phenotypes, classifications."""
     facts = DiseaseFacts(name=name)
+    facts.classification_tags = _classification_tags(data)
 
     for node in _walk(data):
         if not isinstance(node, dict):
@@ -325,6 +456,20 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
                 facts.gene_ids.add(tid.lower())
             elif tid.startswith("GO:"):
                 facts.go_ids.add(tid)
+
+        # Inheritance: capture the HPO mode-of-inheritance id. The walk reaches
+        # every `inheritance` block in the entry - disease level, has_subtypes,
+        # and the per-gene blocks under `genetic` - which is what the criteria
+        # mean: a disorder qualifies if ANY curated branch of it does. The
+        # gene-level path is deliberate and pinned by a test; no entry uses it
+        # for a multi-locus term today, but a per-gene digenic assertion is a
+        # reasonable place to make one and must not be silently ignored.
+        it = node.get("inheritance_term")
+        if isinstance(it, dict):
+            iterm = it.get("term") or {}
+            ihp = iterm.get("id") if isinstance(iterm, dict) else None
+            if isinstance(ihp, str) and ihp.startswith("HP:"):
+                facts.inheritance_ids.add(ihp)
 
         # Phenotypes: capture HP id + (strongest) frequency band.
         pt = node.get("phenotype_term")
@@ -399,6 +544,20 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
                 if stem in facts.module_stems
                 else Satisfaction.NOT_SATISFIED
             )
+    elif predicate == "HAS_INHERITANCE":
+        # Optional payload: only a leaf that names a term can be checked.
+        hp = _term_id(node.get("inheritance_term"))
+        if hp:
+            # Closure, as for HAS_PHENOTYPE: a member curating a descendant of
+            # the criterion term satisfies it. Note the three non-Mendelian
+            # modes are HPO SIBLINGS under HP:0001426, so digenic does not
+            # subsume oligogenic (or vice versa) - a grouping that means either
+            # must say so with an OR, as Digenic_and_Oligogenic_Disorders does.
+            result = (
+                Satisfaction.SATISFIED
+                if term_closure(hp) & facts.inheritance_ids
+                else Satisfaction.NOT_SATISFIED
+            )
     elif predicate == "HAS_PHENOTYPE":
         hp = _term_id(node.get("phenotype_term"))
         if hp:
@@ -425,7 +584,15 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
                         if FREQUENCY_RANK[have] <= FREQUENCY_RANK[min_freq]
                         else Satisfaction.NOT_SATISFIED
                     )
-    # HAS_CLASSIFICATION / HAS_INHERITANCE / HAS_MAPPING / OTHER -> UNKNOWN.
+    elif predicate == "HAS_CLASSIFICATION":
+        wanted = node.get("classification")
+        if isinstance(wanted, str) and wanted.strip():
+            result = (
+                Satisfaction.SATISFIED
+                if _norm_tag(wanted) in facts.classification_tags
+                else Satisfaction.NOT_SATISFIED
+            )
+    # HAS_MAPPING / OTHER, and any payload-less HAS_INHERITANCE leaf -> UNKNOWN.
 
     if node.get("negated"):
         result = result.negate()
@@ -788,6 +955,20 @@ def _report(paths: list[str], strict: bool) -> int:
                 print(f"    - {e}")
         else:
             print("  structure: OK")
+
+        advisories: list[str] = []
+        for ci, criteria in enumerate(grouping.get("membership_criteria", []) or []):
+            advisories.extend(
+                lint_criterion_advisories(
+                    criteria.get("logic"), f"membership_criteria[{ci}].logic"
+                )
+            )
+        if advisories:
+            # Never gating, including under --strict: these are conventions,
+            # not errors, and existing groupings legitimately do not follow them.
+            print("  advisories:")
+            for a in advisories:
+                print(f"    ~ {a}")
 
         # Tier 2: advisory membership audit.
         for ev in evaluate_grouping(grouping, index):

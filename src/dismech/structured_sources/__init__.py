@@ -21,6 +21,7 @@ from dismech.structured_sources.icees import ICEESSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
 from dismech.structured_sources.ontology_edges import OntologyEdgeSource
 from dismech.structured_sources.orphanet import OrphanetSource
+from dismech.structured_sources.strchive import StrchiveSource
 
 __all__ = [
     "BulkFile",
@@ -32,5 +33,6 @@ __all__ = [
     "OntologyEdgeSource",
     "OrphanetSource",
     "ReferenceCacheEntry",
+    "StrchiveSource",
     "StructuredSource",
 ]

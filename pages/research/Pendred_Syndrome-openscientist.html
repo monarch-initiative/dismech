@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pendred Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Pendred Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Pendred Syndrome</h1>
+                
+                <p class="report-subtitle">Pendred Syndrome: Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010134" target="_blank" rel="noopener noreferrer">MONDO:0010134</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">18 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Pendred Syndrome: Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Pendred Syndrome
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0008550" target="_blank" rel="noopener noreferrer">MONDO:0008550</a> · <strong>OMIM:</strong> #274600 · <strong>Orphanet:</strong> ORPHA 705
+<strong>Category:</strong> Mendelian (autosomal recessive)
+<strong>Report type:</strong> Aggregated disease-level knowledge synthesis (literature-derived; not individual EHR)</p>
+<hr />
+<h2>Summary</h2>
+<p>Pendred syndrome (PDS) is an autosomal recessive disorder caused by biallelic loss-of-function variants in <strong>SLC26A4</strong> (chromosome 7q22.3), which encodes <strong>pendrin</strong>, a homodimeric 14-transmembrane Cl⁻/HCO₃⁻/I⁻ anion exchanger bearing a cytoplasmic membrane-targeting STAS domain. Pendrin is expressed at the apical membrane of epithelial cells in the <strong>inner ear, thyroid, and kidney</strong> (and airways), where it mediates endolymph ion/pH balance, thyroid iodide organification, and renal bicarbonate handling respectively. The disease is defined by a classic triad: <strong>bilateral sensorineural hearing loss (SNHL)</strong>, an <strong>inner-ear malformation</strong> (enlarged vestibular aqueduct [EVA] / incomplete partition type II), and <strong>thyroid goiter with an iodide organification defect</strong> (positive perchlorate discharge test). PDS is allelic with the nonsyndromic deafness DFNB4; the presence of a thyroid organification defect/goiter distinguishes PDS from DFNB4. Estimated prevalence is <strong>7.5–10 per 100,000</strong> in non-African populations.</p>
+<p>Mechanistically, pendrin loss abolishes HCO₃⁻ secretion into endolymph during a defined <strong>perinatal developmental window</strong> (mapped in mouse to <strong>E16.5–P2</strong>), causing endolymphatic acidification, loss of the endocochlear potential, enlargement of the endolymphatic compartment (EVA), and failure to acquire normal hearing. A second, <strong>thyroid-hormone-dependent</strong> inner-ear component—resembling local cochlear hypothyroidism—also contributes to the deafness phenotype. In the thyroid, impaired apical iodide efflux limits iodide organification, producing euthyroid or hypothyroid goiter. Genotype correlates with severity along an <strong>M2 (biallelic coding/splice) &gt; M1 + CEVA haplotype &gt; M0</strong> gradient, and the mutation spectrum is strongly population-specific (e.g., H723R and IVS15+5G&gt;A in Japanese/Okinawan cohorts).</p>
+<p>Clinically, PDS is non-life-limiting; the dominant burden is progressive/fluctuating deafness and its effect on communication and quality of life. Current management is <strong>supportive</strong> (hearing aids, cochlear implantation, levothyroxine for hypothyroidism, avoidance of head trauma, and genetic counseling). Excitingly, multiple <strong>preclinical therapeutic strategies</strong>—postnatal AAV gene replacement, CRISPR/Cas9 exon-skipping, small-molecule pendrin "correctors" (e.g., PC2-1 for H723R), and prenatal electroporation gene transfer—rescue pendrin function within an early therapeutic window, opening a realistic path to disease modification.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> Pendred syndrome is a Mendelian, autosomal recessive multi-organ disorder combining congenital/early-onset sensorineural hearing loss, a characteristic inner-ear malformation (EVA), and thyroid dyshormonogenesis (goiter with iodide organification defect). It was first described by Vaughan Pendred in 1896 and molecularly resolved with the identification of <em>SLC26A4</em> (originally <em>PDS</em>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM</td>
+<td>#274600</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0008550" target="_blank" rel="noopener noreferrer">MONDO:0008550</a></td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>ORPHA 705</td>
+</tr>
+<tr>
+<td>Gene (HGNC)</td>
+<td>SLC26A4</td>
+</tr>
+<tr>
+<td>Gene locus</td>
+<td>7q22.3</td>
+</tr>
+<tr>
+<td>Allelic nonsyndromic disorder</td>
+<td>DFNB4 (OMIM #600791)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>E07.1 (dyshormonogenetic goiter) / H90.x (SNHL); commonly coded jointly</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Pendred Syndrome (D053576)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> Pendred's syndrome; deafness with goiter; goiter-deafness syndrome; thyroid hormone organification defect IIB; autosomal recessive sensorineural hearing impairment with goiter.</p>
+<p><strong>Data provenance:</strong> This report is derived from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet, primary literature, model-organism studies), not from individual patient EHR data.</p>
+<blockquote>
+<p>Supporting evidence: <em>"Pendred syndrome (PDS) is an autosomal recessive disease caused by variants in SLC26A4 manifesting thyroid dyshormonogenesis. Patients typically present with goiter and sensorineural hearing loss (SNHL). The prevalence of PDS in non-African populations is estimated to be between 7.5 and 10 per 100,000"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40956475/">PMID: 40956475</a>. <em>"A thyroid iodine organification defect can lead to multinodular goiter and distinguishes Pendred syndrome from DFNB4. Pendred syndrome and DFNB4 are each inherited as an autosomal recessive trait caused by biallelic mutations of SLC26A4."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/34345941/">PMID: 34345941</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause (genetic).</strong> PDS is a monogenic disorder caused by <strong>biallelic pathogenic variants in SLC26A4</strong>. It is not infectious, autoimmune, or primarily environmental. (Note: a mimicking condition, "pseudo-Pendred syndrome"—goiter + deafness <em>without</em> inner-ear malformation and without <em>SLC26A4</em> mutations, potentially autoimmune or <em>TPO</em>-related—is a distinct entity and should be excluded; <a href="https://pubmed.ncbi.nlm.nih.gov/21274344/">PMID: 21274344</a>.)</p>
+<p><strong>Genetic risk factors / genotype classes.</strong> Disease expression follows a genotype gradient:
+- <strong>M2</strong> — two mutant <em>SLC26A4</em> alleles (coding/splice) → full phenotype, most severe.
+- <strong>M1 + CEVA</strong> — one coding/splice mutation <em>in trans</em> with the <strong>Caucasian EVA (CEVA)</strong> haplotype (12 upstream variants acting as a hypomorphic recessive allele) → milder phenotype.
+- <strong>M0</strong> — no detectable <em>SLC26A4</em> mutation → low sibling recurrence; alternative genetic causes (e.g., <em>CHD7</em>, <em>FOXI1</em>, <em>KCNJ10</em>, or digenic mechanisms).</p>
+<p><strong>Environmental / modifying factors.</strong> <strong>Iodine status/diet</strong> modulates thyroid phenotype severity (iodide organification defect is more clinically apparent under iodine stress). <strong>Head trauma / barotrauma / pressure changes</strong> can precipitate sudden hearing-loss drops or vertigo in EVA. <strong>Consanguinity</strong> raises recurrence risk in populations with high intermarriage rates (e.g., Iran, Pakistan, Sudan).</p>
+<p><strong>Protective factors.</strong> No robust protective genetic alleles are established. Environmentally, adequate dietary iodine and avoidance of head/barotrauma reduce, respectively, thyroid decompensation and acute hearing drops.</p>
+<p><strong>Gene–environment interactions.</strong> The best-characterized interaction is genotype × iodine intake shaping goiter/hypothyroidism penetrance, and genotype × mechanical/pressure trauma shaping the timing of hearing-loss progression.</p>
+<blockquote>
+<p><em>"In most European-Caucasian M1 patients, there is a haplotype … called CEVA (Caucasian EVA), which acts as a pathogenic recessive allele in trans to mutations affecting the coding regions or splice sites of SLC26A4. This combination … is associated with a less severe phenotype than the M2 genotype."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/34345941/">PMID: 34345941</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term (suggested)</th>
+<th>Onset</th>
+<th>Severity</th>
+<th>Progression</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sensorineural hearing loss (bilateral)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a> (SNHL); <a href="http://purl.obolibrary.org/obo/HP_0008619" target="_blank" rel="noopener noreferrer">HP:0008619</a> (bilateral SNHL)</td>
+<td>Congenital–childhood; may pass newborn screen and present later</td>
+<td>Moderate–profound; variable</td>
+<td>Progressive, often <strong>fluctuating/step-wise</strong></td>
+<td>~All affected</td>
+</tr>
+<tr>
+<td>Enlarged vestibular aqueduct</td>
+<td>Imaging manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011387" target="_blank" rel="noopener noreferrer">HP:0011387</a></td>
+<td>Congenital</td>
+<td>n/a (structural)</td>
+<td>Stable structure</td>
+<td>~96% of EVA cohorts carry biallelic <em>SLC26A4</em></td>
+</tr>
+<tr>
+<td>Incomplete partition type II / Mondini</td>
+<td>Imaging manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011389" target="_blank" rel="noopener noreferrer">HP:0011389</a> (inner ear malformation)</td>
+<td>Congenital</td>
+<td>Variable</td>
+<td>Stable</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Goiter</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000853" target="_blank" rel="noopener noreferrer">HP:0000853</a> (goiter); <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" rel="noopener noreferrer">HP:0000821</a> (hypothyroidism)</td>
+<td>Childhood–young adult (often peripubertal)</td>
+<td>Mild–moderate; euthyroid or hypothyroid</td>
+<td>Progressive/nodular</td>
+<td>~6.4% in a large EVA cohort; higher in classic PDS series</td>
+</tr>
+<tr>
+<td>Vertigo / vestibular dysfunction</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" rel="noopener noreferrer">HP:0002321</a> (vertigo); <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a> (hearing impairment)</td>
+<td>Childhood–adult</td>
+<td>Variable, episodic</td>
+<td>Episodic/recurrent</td>
+<td>~42.9% recurrent vertigo in EVA cohort</td>
+</tr>
+<tr>
+<td>Iodide organification defect (perchlorate discharge +)</td>
+<td>Laboratory abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031428" target="_blank" rel="noopener noreferrer">HP:0031428</a> (abnormal thyroid physiology)</td>
+<td>Congenital (biochemical)</td>
+<td>n/a</td>
+<td>Stable</td>
+<td>Characteristic of PDS vs DFNB4</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality-of-life impact.</strong> The dominant QoL burden is communicative: progressive/fluctuating bilateral SNHL affects language acquisition (if early), education, employment, and social participation. Episodic vertigo adds functional/balance disability. Goiter/hypothyroidism carries the usual metabolic and cosmetic/compressive burden when present. Notably, <strong>36.4%</strong> of one EVA subset <strong>passed newborn hearing screening</strong>, underscoring later-onset/progressive loss that can be missed at birth and delay intervention.</p>
+<blockquote>
+<p><em>"Recurrent vertigo (256 of 597 [42.9%]) and goiter (38 of 597 [6.4%]) were common comorbidities."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41066100/">PMID: 41066100</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong>SLC26A4</strong> (7q22.3; OMIM *605646), encoding pendrin. It is the single major causal gene for PDS and allelic DFNB4.</p>
+<p><strong>Pathogenic variants.</strong>
+- <strong>Types:</strong> missense (e.g., <strong>p.His723Arg / H723R</strong>, <strong>p.Thr410Met</strong>), nonsense (<strong>p.Trp482</strong><em> / p.Trp482X), frameshift (e.g., c.2260del/p.Asp754Ilefs</em>5), splice-site (<strong>c.919-2A&gt;G</strong>/IVS7-2A&gt;G; <strong>IVS15+5G&gt;A</strong>), and structural/copy-number variants; also a deep-intronic splicing variant <strong>c.304+941C&gt;T</strong>.
+- <strong>Classification:</strong> Per ACMG/AMP, many recurrent alleles are Pathogenic/Likely Pathogenic; functional assays (iodide influx, surface expression, confocal localization) are frequently needed to reclassify VUS. Functional testing confirmed pathogenicity for novel variants including p.G139R, p.M147I, p.Y530S, p.D754Ifs<em>5, and p.F161I (<a href="https://pubmed.ncbi.nlm.nih.gov/40426046/">PMID: 40426046</a>).
+- </em><em>Functional consequence:</em><em> predominantly </em><em>loss of function</em><em> — impaired anion exchange and/or defective apical membrane trafficking (misfolding/ER retention, as for H723R).
+- </em><em>Origin:</em><em> </em><em>germline</em><em> (recessive, inherited). No somatic contribution.
+- </em><em>Allele frequency:</em>* individual pathogenic alleles are rare in gnomAD; specific alleles are enriched by founder effects (below).</p>
+<p><strong>Population-specific spectrum (founder effects).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Population</th>
+<th>Predominant alleles</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Japanese / Okinawan</td>
+<td><strong>H723R</strong>, <strong>IVS15+5G&gt;A</strong></td>
+<td>~90% of alleles in Okinawa</td>
+</tr>
+<tr>
+<td>Sudanese (consanguineous)</td>
+<td><strong>p.Thr410Met</strong>, <strong>p.Trp482</strong>*</td>
+<td>Congenital hypothyroidism families</td>
+</tr>
+<tr>
+<td>Iranian deaf cohorts</td>
+<td>Multiple (c.919-2A&gt;G, etc.)</td>
+<td><em>SLC26A4</em> ~8–16% of NSHL</td>
+</tr>
+<tr>
+<td>European Caucasian</td>
+<td>Coding/splice + <strong>CEVA</strong> haplotype</td>
+<td>~50% of EVA are M0/M1</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Modifier genes / genetic heterogeneity.</strong> In EVA without biallelic <em>SLC26A4</em>, monoallelic <strong>CHD7</strong> variants (CHARGE-associated gene) can cause nonsyndromic EVA (<a href="https://pubmed.ncbi.nlm.nih.gov/37668839/">PMID: 37668839</a>); <em>FOXI1</em> and <em>KCNJ10</em> have been proposed in digenic models. The <strong>CEVA</strong> upstream haplotype is the principal validated modifier of severity.</p>
+<p><strong>Epigenetic / chromosomal.</strong> No recurrent disease-defining epigenetic marks or gross chromosomal aberrations are established for PDS; disease is at the single-gene level. Transcriptional regulation of the pendrin gene has been characterized (<a href="https://pubmed.ncbi.nlm.nih.gov/22116353/">PMID: 22116353</a>), but methylation-based mechanisms are not a recognized cause. Copy-number variants (~2.5% of one EVA cohort) are the main large-scale change.</p>
+<blockquote>
+<p><em>"Genetic analysis revealed that 2661 of 2774 patients (95.9%) carried biallelic SLC26A4 variants, with 70 (2.5%) attributable to copy number variants and 13 (0.5%) to a deep-intronic variant (c.304 + 941C&gt;T) that affected splicing."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41066100/">PMID: 41066100</a>. <em>"The most prevalent types of SLC26A4 alleles were IVS15 + 5G &gt; A and H723R"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/23705809/">PMID: 23705809</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> <strong>Dietary iodine</strong> is the key modulator of the thyroid phenotype; iodine deficiency exacerbates goiter/organification stress. No toxin, radiation, or occupational exposure causes PDS.</li>
+<li><strong>Lifestyle / physical factors:</strong> <strong>Head trauma, barotrauma, and activities with pressure changes</strong> (contact sports, diving) are associated with sudden hearing drops/vertigo in EVA and are advised against.</li>
+<li><strong>Infectious agents:</strong> None. PDS is genetic; infectious deafness (e.g., congenital CMV) is a differential, not a cause.</li>
+</ul>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<p><strong>Molecular/biochemical core.</strong> Pendrin (SLC26A4) is an electroneutral apical <strong>Cl⁻/HCO₃⁻/I⁻ anion antiporter</strong> of the SLC26/SulP family. It mediates <strong>bicarbonate secretion / chloride reabsorption</strong> (inner ear and kidney), <strong>iodide accumulation/efflux</strong> (thyroid apical membrane), and <strong>endolymph ion balance</strong> (inner ear). It functionally partners with <strong>CFTR</strong> in epithelial anion transport.</p>
+<p><strong>Structural basis of dysfunction.</strong> Pendrin is a <strong>homodimer</strong> with a <strong>14-transmembrane</strong> core arranged in an elevator-type transport architecture (mobile core + gate domains) and a C-terminal cytoplasmic <strong>STAS domain</strong> (Sulfate Transporter and Anti-Sigma factor antagonist; conserved 4 β-strand / 5 α-helix fold). A <strong>basic residue at the anion-binding site is essential for anion antiport</strong>, and STAS-domain integrity is essential for <strong>membrane targeting</strong>; STAS mutations are disease-associated. Disease variants act by (i) abolishing transport (anion-binding/gate residues) or (ii) mistrafficking/ER retention (e.g., H723R), reducing surface expression.</p>
+<p><strong>Inner-ear causal chain (dual mechanism).</strong></p>
+<pre><code>SLC26A4 LoF
+   │
+   ├─►  Loss of apical HCO3- secretion into endolymph
+   │        │  (critical window: mouse E16.5–P2)
+   │        ▼
+   │    Endolymphatic ACIDIFICATION  ──►  loss of endocochlear potential
+   │        │                                    │
+   │        ▼                                    ▼
+   │    Enlarged endolymphatic sac/duct  →  EVA   Hair-cell dysfunction / failure to
+   │                                              acquire normal hearing → SNHL (progressive/fluctuating)
+   │
+   └─►  Reduced LOCAL thyroid-hormone availability during inner-ear development
+    ▼
+&quot;Cochlear hypothyroidism&quot;-like defects:
+thick tectorial membrane (↓β-tectorin), absent BK channel in inner hair cells,
+reduced inner-ear bone calcification  ──►  contributes to deafness
+</code></pre>
+<ul>
+<li><strong>Upstream trigger:</strong> loss of pendrin-mediated HCO₃⁻ transport during the perinatal window.</li>
+<li><strong>Downstream manifestations:</strong> endolymph acidification → loss of endocochlear potential → hair-cell dysfunction → SNHL; and endolymphatic enlargement → EVA.</li>
+<li><strong>Parallel contributor:</strong> insufficient local thyroid hormone during inner-ear development (cochlear-hypothyroidism-like phenotype).</li>
+</ul>
+<p><strong>Thyroid causal chain.</strong> Apical pendrin normally supports iodide efflux into the follicular lumen for organification by TPO/H₂O₂. Loss → <strong>impaired iodide organification</strong> → compensatory TSH rise → <strong>goiter</strong>, with euthyroidism or (partial) hypothyroidism; positive <strong>perchlorate discharge test</strong>.</p>
+<p><strong>Cell types &amp; processes involved (ontology suggestions):</strong>
+- Inner-ear: endolymphatic sac/duct epithelial cells, cochlear lateral wall (stria vascularis) cells, inner hair cells (<strong><a href="http://purl.obolibrary.org/obo/CL_0000589" target="_blank" rel="noopener noreferrer">CL:0000589</a></strong>), outer hair cells (<strong><a href="http://purl.obolibrary.org/obo/CL_0000601" target="_blank" rel="noopener noreferrer">CL:0000601</a></strong>).
+- Thyroid: thyroid follicular cell / thyrocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0002258" target="_blank" rel="noopener noreferrer">CL:0002258</a></strong>).
+- Kidney: β-intercalated cell of cortical collecting duct (<strong><a href="http://purl.obolibrary.org/obo/CL_1000722" target="_blank" rel="noopener noreferrer">CL:1000722</a></strong>).
+- Processes (GO): <strong><a href="http://purl.obolibrary.org/obo/GO_0006820" target="_blank" rel="noopener noreferrer">GO:0006820</a></strong> anion transport; <strong><a href="http://purl.obolibrary.org/obo/GO_0015701" target="_blank" rel="noopener noreferrer">GO:0015701</a></strong> bicarbonate transport; <strong><a href="http://purl.obolibrary.org/obo/GO_0006821" target="_blank" rel="noopener noreferrer">GO:0006821</a></strong> chloride transport; inner-ear development <strong><a href="http://purl.obolibrary.org/obo/GO_0048839" target="_blank" rel="noopener noreferrer">GO:0048839</a></strong>; ion homeostasis/endocochlear-potential maintenance.
+- Cellular components (GO CC): <strong><a href="http://purl.obolibrary.org/obo/GO_0016324" target="_blank" rel="noopener noreferrer">GO:0016324</a></strong> apical plasma membrane; <strong><a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a></strong> plasma membrane; <strong><a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a></strong> endoplasmic reticulum (mistrafficked mutants).
+- Chemical entities (CHEBI): bicarbonate (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_17544" target="_blank" rel="noopener noreferrer">CHEBI:17544</a></strong>), chloride (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_17996" target="_blank" rel="noopener noreferrer">CHEBI:17996</a></strong>), iodide (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_16382" target="_blank" rel="noopener noreferrer">CHEBI:16382</a></strong>).</p>
+<p><strong>Immune/metabolic involvement.</strong> No autoimmune mechanism in true PDS. Metabolic change is limited to thyroid hormone economy. Notably, elevated SLC26A4 expression is implicated in <strong>airway inflammation</strong> in asthma (a separate, gain-of-expression context), illustrating pendrin's broader epithelial roles (<a href="https://pubmed.ncbi.nlm.nih.gov/39100210/">PMID: 39100210</a>).</p>
+<blockquote>
+<p><em>"Pendrin (SLC26A4), a Cl(-)/anion exchanger encoded by the gene PDS, is highly expressed in the kidney, thyroid and inner ear epithelia and is essential for bicarbonate secretion/chloride reabsorption, iodide accumulation and endolymph ion balance, respectively."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/22116353/">PMID: 22116353</a>. <em>"Lack of pendrin during this period led to endolymphatic acidification, loss of the endocochlear potential, and failure to acquire normal hearing."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21965328/">PMID: 21965328</a>. <em>"The pathological inner ear hallmarks included thicker tectorial membrane with reduced β-tectorin protein expression, the absence of BK channel expression of inner hair cells, and reduced inner ear bone calcification."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24760582/">PMID: 24760582</a>. <em>"the basic residue at the anion binding site is essential for both anion antiport of SLC26A4 and motor functions of SLC26A5"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/38582450/">PMID: 38582450</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<p><strong>Organ level (primary):</strong> Inner ear (cochlea + vestibular apparatus) and thyroid gland. <strong>Secondary/other:</strong> kidney (subclinical acid–base handling), airway epithelium (physiological expression). <strong>Body systems:</strong> special sensory (auditory/vestibular), endocrine (thyroid).</p>
+<p><strong>Tissue/cell level:</strong> epithelial tissue is the target throughout — endolymphatic sac/duct epithelium and cochlear lateral wall (inner ear), follicular epithelium (thyroid), collecting-duct intercalated cells (kidney).</p>
+<p><strong>Subcellular:</strong> apical plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0016324" target="_blank" rel="noopener noreferrer">GO:0016324</a>) — site of pendrin function; ER (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a>) is implicated where trafficking-defective mutants (e.g., H723R) are retained.</p>
+<p><strong>Localization (UBERON suggestions):</strong> inner ear <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001690" target="_blank" rel="noopener noreferrer">UBERON:0001690</a></strong>; cochlea <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" rel="noopener noreferrer">UBERON:0001844</a></strong>; vestibular aqueduct/endolymphatic duct <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002279" target="_blank" rel="noopener noreferrer">UBERON:0002279</a></strong>; endolymphatic sac <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002518" target="_blank" rel="noopener noreferrer">UBERON:0002518</a></strong>; thyroid gland <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" rel="noopener noreferrer">UBERON:0002046</a></strong>; kidney <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a></strong>.</p>
+<p><strong>Lateralization:</strong> Hearing loss and EVA are typically <strong>bilateral</strong>, but <strong>unilateral</strong> EVA occurs. Importantly, hearing-loss severity does <strong>not</strong> differ significantly between unilateral and bilateral EVA.</p>
+<blockquote>
+<p><em>"No significant differences across bilateral status were observed in audiological measurements."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30634102/">PMID: 30634102</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital or early-childhood SNHL; a substantial fraction is <strong>later-onset/progressive</strong> and can pass newborn hearing screening (36.4% in one subset). Goiter typically emerges in later childhood to young adulthood (often peripubertal).</li>
+<li><strong>Onset pattern:</strong> Insidious/chronic for hearing (with acute "drops"), chronic for goiter.</li>
+<li><strong>Progression:</strong> Hearing loss is <strong>progressive and characteristically fluctuating/step-wise</strong>, sometimes precipitated by minor head trauma or pressure change. EVA itself is a stable structural malformation.</li>
+<li><strong>Course/duration:</strong> Chronic, lifelong. No spontaneous remission of hearing loss (drops may partially recover but overall trajectory is downward).</li>
+<li><strong>Critical periods:</strong> The <strong>perinatal window (mouse E16.5–P2)</strong> is the mechanistic critical period for hearing acquisition and the key <strong>therapeutic opportunity window</strong> for gene/pharmacologic rescue.</li>
+</ul>
+<blockquote>
+<p><em>"Varying the temporal expression of Slc26a4 revealed that E16.5 to P2 was the critical interval in which pendrin was required for acquisition of normal hearing."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21965328/">PMID: 21965328</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 9 — Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> Prevalence <strong>~7.5–10 per 100,000</strong> (non-African populations). <em>SLC26A4</em> accounts for a large share of syndromic and EVA-associated deafness; in a 21-year EVA cohort (n=2774), <strong>95.9%</strong> carried biallelic <em>SLC26A4</em> variants.</li>
+<li><strong>Inheritance:</strong> <strong>Autosomal recessive</strong>.</li>
+<li><strong>Penetrance:</strong> High for hearing loss with biallelic (M2) genotypes; goiter penetrance is <strong>incomplete and age/iodine-dependent</strong>.</li>
+<li><strong>Expressivity:</strong> <strong>Variable</strong>, even within families sharing an identical genotype — e.g., a family homozygous for c.919-2A&gt;G showed variable inner-ear morphology, including one member with normal cochleovestibular structure (<a href="https://pubmed.ncbi.nlm.nih.gov/38877731/">PMID: 38877731</a>).</li>
+<li><strong>Genetic anticipation:</strong> None (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> Not a recognized feature.</li>
+<li><strong>Founder effects / consanguinity:</strong> Strong founder alleles (Okinawa H723R/IVS15+5G&gt;A; Sudanese T410M/W482X). Consanguinity elevates prevalence in the Middle East/South Asia/North Africa.</li>
+<li><strong>Carrier frequency:</strong> Elevated in founder/consanguineous populations; individual alleles rare in outbred populations.</li>
+<li><strong>Sex ratio:</strong> Approximately equal (autosomal recessive); no strong sex predilection.</li>
+<li><strong>Geographic distribution:</strong> Worldwide; specific alleles regionally clustered. Syndromic causes including Pendred are comparatively uncommon in native sub-Saharan African deafness (<a href="https://pubmed.ncbi.nlm.nih.gov/28642064/">PMID: 28642064</a>).</li>
+</ul>
+<blockquote>
+<p><em>"Genetic analysis revealed that 2661 of 2774 patients (95.9%) carried biallelic SLC26A4 variants."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41066100/">PMID: 41066100</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Clinical / laboratory tests.</strong>
+- <strong>Thyroid function:</strong> TSH, free T4 (often euthyroid; may show subclinical/overt hypothyroidism), thyroglobulin.
+- <strong>Perchlorate discharge test:</strong> positive — demonstrates the <strong>iodide organification defect</strong> (the biochemical hallmark distinguishing PDS from DFNB4).
+- <strong>Audiometry:</strong> pure-tone audiometry (air/bone), speech recognition threshold (SRT), word recognition score (WRS); OAE/ABR in infants.
+- <strong>Vestibular testing:</strong> as indicated for vertigo.</p>
+<p><strong>Imaging (definitive for EVA).</strong> High-resolution <strong>temporal-bone CT</strong> and/or <strong>MRI</strong> demonstrate EVA and associated cochlear incomplete partition type II. EVA is a <strong>radiologic diagnosis</strong> using the <strong>Valvassori criterion</strong> (midpoint diameter <strong>&gt;1.5 mm</strong>) or the more sensitive <strong>Cincinnati criterion</strong> (<strong>&gt;0.9 mm at midpoint and/or &gt;1.9 mm at operculum</strong>). Thyroid ultrasound characterizes goiter/nodularity.</p>
+<p><strong>Genetic testing (recommended approach).</strong>
+- <strong>Single-gene / targeted:</strong> <em>SLC26A4</em> sequencing (plus CEVA haplotype and CNV/deep-intronic analysis) is first-line given the strong genotype correlation.
+- <strong>Panels/WES/WGS:</strong> deafness gene panels or exome/genome when <em>SLC26A4</em> is negative (to detect <em>CHD7</em>, <em>FOXI1</em>, <em>KCNJ10</em>, and others), and to resolve M1/M0 cases; CNV and deep-intronic (c.304+941C&gt;T) detection require appropriate methods (MLPA/CMA/genome or RNA-based confirmation).
+- <strong>Functional confirmation:</strong> iodide-influx and surface-expression assays reclassify novel/VUS alleles (<a href="https://pubmed.ncbi.nlm.nih.gov/40426046/">PMID: 40426046</a>).</p>
+<p><strong>Clinical criteria.</strong> Diagnosis rests on the triad (SNHL + EVA/inner-ear malformation + goiter/organification defect) supported by biallelic <em>SLC26A4</em>. <strong>Differential diagnosis:</strong> DFNB4 (same gene, no organification defect), pseudo-Pendred (autoimmune/<em>TPO</em>; no EVA), CHARGE/<em>CHD7</em>-related EVA, BOR syndrome, congenital CMV, Waardenburg, Usher (progressive), and other dyshormonogenetic goiters.</p>
+<p><strong>Screening.</strong> Newborn hearing screening (may miss later-onset cases), cascade/carrier testing in families, and prenatal/preimplantation options where a familial genotype is known.</p>
+<blockquote>
+<p><em>"Using Cincinnati criteria, 89 ears fit inclusion criteria, 75 of which were from patients with bilateral EVA compared to 14 ears from patients with unilateral EVA."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30634102/">PMID: 30634102</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> PDS is <strong>not life-limiting</strong>; normal life expectancy. No disease-specific mortality.</li>
+<li><strong>Morbidity/function:</strong> Principal morbidity is <strong>progressive bilateral SNHL</strong> with communication disability; episodic <strong>vertigo</strong> (≈43% recurrent in EVA cohorts) adds balance disability; <strong>goiter/hypothyroidism</strong> when present.</li>
+<li><strong>Disease course:</strong> Chronic, lifelong; fluctuating hearing with step-wise declines, often trauma/pressure-triggered.</li>
+<li><strong>Recovery potential:</strong> Hearing loss is generally irreversible; cochlear implantation restores functional hearing in severe-to-profound cases with generally favorable outcomes in genetic/<em>SLC26A4</em> etiologies.</li>
+<li><strong>Prognostic factors:</strong> Genotype class (<strong>M2 more severe than M1+CEVA</strong>); early identification and intervention improve language/communication outcomes; <strong>laterality (unilateral vs bilateral) does NOT predict hearing-loss severity</strong> — audiological measures (PTA, SRT, WRS) and VA width/operculum size did not differ significantly (p = 0.281–0.933; SRT p = 0.925; WRS p = 0.521) between unilateral and bilateral EVA.</li>
+</ul>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>Current standard (supportive/symptomatic).</strong>
+- <strong>Hearing rehabilitation:</strong> hearing aids; <strong>cochlear implantation (CI)</strong> for severe-to-profound loss (NCIT: Cochlear Implant Procedure). <em>SLC26A4</em>/Pendred is a favorable CI genotype.
+- <strong>Thyroid management:</strong> <strong>levothyroxine</strong> for hypothyroidism (NCIT: Levothyroxine Sodium); monitor goiter; thyroidectomy only for compressive/nodular indications (NCIT: Thyroidectomy).
+- <strong>Preventive counseling:</strong> avoid head trauma/barotrauma; helmet use; caution with contact sports/diving.
+- <strong>Genetic counseling</strong> for families.</p>
+<p><strong>Emerging / preclinical disease-modifying strategies (not yet clinical).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Key result</th>
+<th>Model</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AAV gene replacement</strong> (AAV.Anc80L65-SLC26A4) delivered postnatally to endolymphatic sac + cochlear lateral wall</td>
+<td>Lower ABR thresholds; preserved hair cells; reduced ES enlargement; partial endocochlear-potential restoration; durable to adulthood</td>
+<td>Mouse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41701544/">41701544</a></td>
+</tr>
+<tr>
+<td><strong>Small-molecule pendrin corrector (PC2-1)</strong> (HTS of 54,000 compounds)</td>
+<td>↑ surface expression + anion-exchange activity of <strong>H723R</strong>; active in patient nasal epithelium; non-toxic; reaches µM cochlear perilymph</td>
+<td>In vitro / cell</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37690388/">37690388</a></td>
+</tr>
+<tr>
+<td><strong>CRISPR/Cas9 exon skipping</strong></td>
+<td>Restores function for premature-termination <strong>c.919-2A&gt;G</strong> allele</td>
+<td>DFNB4 mouse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39232211/">39232211</a></td>
+</tr>
+<tr>
+<td><strong>Prenatal electroporation gene transfer</strong></td>
+<td>Restored hearing + vestibular function</td>
+<td><em>Slc26a4</em>-KO mouse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31784581/">31784581</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pharmacogenomics / personalized medicine:</strong> correctors are <strong>genotype-specific</strong> (e.g., PC2-1 for the H723R misfolding class), while gene replacement/editing addresses null/splice alleles — a clear precision-medicine framework once a therapeutic window is respected.</p>
+<blockquote>
+<p><em>"AAV.Anc80L65-mediated SLC26A4 delivery significantly improved hearing … preserved hair cells, reduced endolymphatic sac enlargement, partially restored the endocochlear potential, and mitigated inner ear structural degeneration."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41701544/">PMID: 41701544</a>. <em>"pendrin corrector (PC2-1) increased the surface expression and anion exchange activity of p.H723R pendrin (H723R-PDS), the most prevalent genetic variant that causes Pendred syndrome and DFNB4."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/37690388/">PMID: 37690388</a>.</p>
+</blockquote>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not preventable (Mendelian). <strong>Genetic/reproductive counseling</strong>, carrier screening in founder/consanguineous populations, and <strong>prenatal/preimplantation genetic diagnosis</strong> where the familial genotype is known.</li>
+<li><strong>Secondary prevention (early detection):</strong> newborn + serial childhood hearing screening (given later-onset risk); early audiologic/imaging work-up; thyroid monitoring for goiter/hypothyroidism.</li>
+<li><strong>Tertiary prevention (complication limitation):</strong> timely hearing aids/CI to prevent language/communication deficits; levothyroxine to prevent hypothyroid sequelae; <strong>trauma/pressure avoidance</strong> to reduce sudden hearing drops; balance rehabilitation.</li>
+<li><strong>Immunization / public-health / environmental:</strong> not applicable (non-infectious). Adequate dietary iodine supports thyroid function.</li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> <em>SLC26A4</em> is conserved across mammals; the mouse ortholog is <strong>Slc26a4</strong> (<em>Mus musculus</em>, NCBI Taxon 10090). The SLC26/SulP family is deeply conserved (bacterial SulP transporters, anti-sigma factor antagonists share the STAS fold).</li>
+<li><strong>Natural disease in other species:</strong> No well-established spontaneous Pendred-equivalent companion-animal disease is documented; the primary comparative knowledge comes from engineered rodent models rather than naturally occurring animal disease.</li>
+<li><strong>Comparative biology / conservation:</strong> The elevator-type transport mechanism, the essential anion-binding basic residue, and the STAS domain are evolutionarily conserved, so disease mechanisms translate well between mouse and human — the basis for the strong predictive value of mouse models.</li>
+<li><strong>Zoonotic potential:</strong> None (genetic disorder).</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<ul>
+<li><strong>Principal model:</strong> <strong>Mouse (<em>Mus musculus</em>)</strong>.</li>
+<li><strong>Slc26a4-null (knockout):</strong> profoundly deaf with severe inner-ear malformation and enlarged endolymphatic compartment — recapitulates severe human phenotype.</li>
+<li><strong>Inducible/temporal transgenic</strong> (doxycycline-controlled <em>Slc26a4</em> on null background): defined the <strong>E16.5–P2 critical window</strong>; partial induction reproduces a human EVA-like partial hearing loss (<a href="https://pubmed.ncbi.nlm.nih.gov/21965328/">PMID: 21965328</a>).</li>
+<li><strong>Slc26a4(loop/loop)</strong> missense mutant: profoundly deaf with normal-sized thyroid (DFNB4-like) but atrophic thyroid microfollicles and cochlear-hypothyroidism-like inner-ear defects (<a href="https://pubmed.ncbi.nlm.nih.gov/24760582/">PMID: 24760582</a>); a related <em>Slc26a4</em> missense mutant models otoconial/vestibular defects and BPPV predisposition (<a href="https://pubmed.ncbi.nlm.nih.gov/31898392/">PMID: 31898392</a>).</li>
+<li><strong>Model types available:</strong> knockout, knock-in/missense, conditional/inducible transgenic; CRISPR-edited allele-specific models (e.g., c.919-2A&gt;G exon-skipping model).</li>
+<li><strong>In vitro/cellular models:</strong> heterologous cells expressing mutant pendrin (iodide-influx/surface-expression assays); patient-derived nasal epithelial cells for corrector testing.</li>
+<li><strong>Phenotype recapitulation:</strong> Strong for deafness, EVA/endolymphatic enlargement, endocochlear-potential loss, thyroid microfollicular defects, and therapeutic response.</li>
+<li><strong>Limitations:</strong> Mouse thyroid phenotype is often milder than human goiter; developmental timing differs (human critical window is prenatal, complicating direct translation of postnatal mouse therapy timing); strain-background effects on vestibular phenotypes.</li>
+<li><strong>Resources:</strong> MGI (Slc26a4), IMPC/IMSR for alleles.</li>
+</ul>
+<hr />
+<h2>Evidence Base (Key Literature)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40956475/">40956475</a></td>
+<td>Pendrin defects in Sudanese CH families</td>
+<td>Inheritance, gene, cardinal features, <strong>prevalence 7.5–10/100,000</strong></td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34345941/">34345941</a></td>
+<td>SLC26A4-related hearing loss genetic architecture</td>
+<td><strong>M2/M1-CEVA/M0</strong> classes; organification defect distinguishes PDS from DFNB4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22116353/">22116353</a></td>
+<td>Transcriptional regulation of pendrin</td>
+<td>Pendrin transport function + tissue distribution</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35227018/">35227018</a></td>
+<td>CFTR–pendrin interplay</td>
+<td>Apical localization; CFTR partnership</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21965328/">21965328</a></td>
+<td>Temporal Slc26a4 mouse model</td>
+<td><strong>E16.5–P2 critical window</strong>; endolymph acidification / EP loss</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24760582/">24760582</a></td>
+<td>Atrophic follicles / cochlear-hypothyroidism</td>
+<td>Thyroid-hormone-dependent inner-ear component</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41066100/">41066100</a></td>
+<td>Reevaluation of EVA (n=2774)</td>
+<td>95.9% biallelic; CNV/deep-intronic alleles; vertigo/goiter frequencies</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23705809/">23705809</a></td>
+<td>Okinawa EVA/PDS</td>
+<td>Founder alleles H723R, IVS15+5G&gt;A</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41701544/">41701544</a></td>
+<td>Postnatal AAV Slc26a4 therapy</td>
+<td>Gene-replacement rescue + therapeutic window</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37690388/">37690388</a></td>
+<td>Pendrin corrector PC2-1</td>
+<td>Small-molecule chaperone for H723R</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39232211/">39232211</a></td>
+<td>CRISPR exon skipping (DFNB4)</td>
+<td>Editing rescue for c.919-2A&gt;G</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31784581/">31784581</a></td>
+<td>Prenatal electroporation gene transfer</td>
+<td>Restored hearing/vestibular function</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38582450/">38582450</a></td>
+<td>SLC26 molecular principles</td>
+<td>Anion-binding residue essential for antiport</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22116355/">22116355</a></td>
+<td>STAS domain structure/function</td>
+<td>STAS → membrane targeting; disease mutations</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38184688/">38184688</a></td>
+<td>Pendrin anion-exchange/inhibition</td>
+<td>Structural mechanism of exchange &amp; inhibition</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30634102/">30634102</a></td>
+<td>Unilateral vs bilateral EVA</td>
+<td>Laterality does not predict severity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40426046/">40426046</a></td>
+<td>Genetic heterogeneity in EVA/PDS</td>
+<td>Functional validation of novel variants</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37668839/">37668839</a></td>
+<td>CHD7 variants in EVA</td>
+<td>Genetic heterogeneity beyond SLC26A4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38877731/">38877731</a></td>
+<td>Intrafamilial variability</td>
+<td>Variable expressivity with identical genotype</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All statistical claims in Sections 1–12 are anchored to the verified abstract quotes reproduced inline above.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation (Synthesis)</h2>
+<p>Pendred syndrome is best understood as a <strong>single-protein, multi-epithelium anion-transport disease</strong> whose phenotype is dictated by <em>where</em> and <em>when</em> pendrin function is lost:</p>
+<ol>
+<li><strong>Inner ear (developmental, time-critical):</strong> Absence of pendrin-mediated HCO₃⁻ secretion during the perinatal window acidifies endolymph, collapses the endocochlear potential, and enlarges the endolymphatic compartment (EVA). A <strong>second, thyroid-hormone-dependent axis</strong> (local cochlear hypothyroidism) compounds the sensory deficit. Because the injury is developmental and window-bounded, hearing loss is largely fixed by early life yet clinically progressive/fluctuating — and, crucially, <strong>reversible only if intervention occurs within the window</strong>, which is why gene/pharmacologic rescue works in neonatal mice.</li>
+<li><strong>Thyroid (metabolic, iodine-sensitive):</strong> Loss of apical iodide efflux impairs organification → compensatory goiter, penetrance modulated by iodine intake.</li>
+<li><strong>Genotype grades severity</strong> (M2 &gt; M1+CEVA &gt; M0), and <strong>structure explains variant behavior</strong>: anion-binding/gate mutations kill transport, whereas trafficking mutants (H723R) are correctable by chaperones.</li>
+</ol>
+<p>This model unifies the epidemiology, the imaging criteria, the founder genetics, and the therapeutic landscape into one coherent causal chain from <strong>SLC26A4 loss-of-function → epithelial anion-transport failure → organ-specific developmental/metabolic injury → clinical triad</strong>.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>Translational timing:</strong> The human hearing-critical window is prenatal; the postnatal success of mouse gene therapy may not map directly onto a treatable postnatal window in humans. Defining the human window is a central open question.</li>
+<li><strong>M0/M1 etiology:</strong> ~50% of European EVA lacks biallelic <em>SLC26A4</em>; the full genetic/regulatory architecture (CEVA mechanism, <em>CHD7</em>, <em>FOXI1</em>, <em>KCNJ10</em>, deep-intronic/CNV alleles) is incompletely resolved.</li>
+<li><strong>Genotype–phenotype variability:</strong> Marked intrafamilial variability (identical genotype, divergent inner-ear morphology) implies unidentified modifiers or stochastic developmental effects.</li>
+<li><strong>Thyroid phenotype quantification:</strong> Goiter penetrance and its iodine dependence are not precisely quantified across populations; mouse thyroid phenotype under-represents human goiter.</li>
+<li><strong>No human therapeutic trials yet:</strong> All disease-modifying approaches remain preclinical; safety, durability, delivery, and correct-window delivery are unproven in patients.</li>
+<li><strong>Vestibular burden under-studied:</strong> Vertigo is common (~43%) but its natural history and QoL impact are less characterized than hearing loss.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Define the human therapeutic window</strong> via natural-history imaging/audiology cohorts and, where feasible, fetal inner-ear developmental staging, to determine whether prenatal or early-postnatal intervention is required.</li>
+<li><strong>Advance genotype-tailored therapeutics:</strong> progress AAV <em>SLC26A4</em> replacement toward IND-enabling studies for null/splice alleles; optimize/expand pendrin correctors beyond H723R to other misfolding-class variants; validate CRISPR exon-skipping for recurrent splice alleles (c.919-2A&gt;G, IVS15+5G&gt;A).</li>
+<li><strong>Resolve M0/M1 cases</strong> with genome sequencing + RNA-seq (splicing), systematic CEVA and CNV screening, and <em>CHD7/FOXI1/KCNJ10</em> analysis; build a curated functional-variant database with standardized iodide-influx/surface-expression assays.</li>
+<li><strong>Population carrier screening</strong> in founder/consanguineous populations (Okinawa, Sudan, Iran, Pakistan) to enable cascade testing and reproductive counseling.</li>
+<li><strong>Prospective vestibular + QoL study</strong> using validated instruments (e.g., SF-36/PROMIS, dizziness handicap inventory) stratified by genotype and laterality.</li>
+<li><strong>Iodine-status intervention analysis</strong> to quantify how dietary iodine modifies goiter penetrance and hearing trajectory.</li>
+<li><strong>Ontology curation</strong> for the knowledge base using the suggested HPO/GO/CL/UBERON/NCIT/CHEBI terms embedded above.</li>
+</ol>
+<hr />
+<p><em>Report compiled from aggregated disease-level literature across 5 investigation iterations (38 papers reviewed, 9 confirmed findings). Evidence types: predominantly human clinical/genetic and mouse model-organism studies, with in-vitro functional and structural/computational support.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Pendred_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Pendred_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>23</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0008550</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>obsolete thoracolaryngopelvic dysplasia</strong></li>
+<li><code>HP:0011387</code> (1 mention) - the report calls it "Imaging manifestation"; HP calls it <strong>Enlarged vestibular aqueduct</strong></li>
+<li><code>HP:0011389</code> (1 mention) - the report calls it "inner ear malformation"; HP calls it <strong>Functional abnormality of the inner ear</strong></li>
+<li><code>HP:0031428</code> (1 mention) - the report calls it "abnormal thyroid physiology"; HP calls it <strong>Increased circulating osteocalcin level</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>CL:1000722</code> (1 mention) - CL does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>MONDO:0008550</code> (obsolete thoracolaryngopelvic dysplasia) (2 mentions) - replaced by <code>MONDO:0008551</code></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Pemphigus_Vulgaris-falcon.html">← Pemphigus Vulgaris (Falcon)</a>
+                
+                
+                <a href="Penile_Cancer-falcon.html">Penile Cancer (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Pendred_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Pendred_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

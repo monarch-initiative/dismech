@@ -1,0 +1,66 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Congenital_Heart_Disease
+  path: kb/disorders/Congenital_Heart_Disease.yaml
+session:
+  id: 2026-08-19T201822Z-claude-code-d043da
+  timestamp: '2026-08-19T20:18:22Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/8916
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/8981
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - prevalence
+  - phenotypes
+  - pathophysiology
+  - genetic
+  - treatments
+  - animal_models
+  - experimental_models
+  - discussions
+  summary: 'Address PR #8981 review: fix CRITICAL prevalence_class mis-banding, truncated
+    snippets, add arrhythmia/SCD, treatment evidence, model layer'
+  details: |
+    Review-response session addressing the ai4c-reviewer CHANGES_REQUESTED on PR #8981 (one CRITICAL, six IMPORTANT findings). All seven addressed.
+
+    CRITICAL - finding 1, prevalence_class mis-banding. All three prevalence records carried prevalence_class BAND_1_5_PER_10000 alongside rate_per_100000 of 941.0 (Worldwide), 231.5 (Africa) and 934.2 (Asia). Independently confirmed the reviewer is correct by reading both the schema enum (BAND_1_5_PER_10000 = "1 to 9 per 10,000 (10-99 per 100,000)"; ABOVE_1_IN_1000 = "More than 1 in 1,000 (more than 100 per 100,000)") and the reference implementation scripts/migrate_prevalence.py::_band_from_rate(), which returns ABOVE_1_IN_1000 for any rate >= 100. All three records are 2.3x to 9.4x above the declared band, so the commonest congenital anomaly in humans was coded as rare in queryable data. Set prevalence_class: ABOVE_1_IN_1000 on all three (the reviewer said "all four"; the entry has three, and every one was re-checked, not only the named ones). Rewrote the Worldwide notes, which had entrenched the error by describing ABOVE_1_IN_1000 as a class the rate "also exceeds" - it is unbounded above, so nothing exceeds it. Added to the Africa notes that its lower confidence bound (42.9 per 100,000) would fall a band lower while the point estimate sets the class, so the choice is auditable.
+
+    IMPORTANT - finding 2, wrap-truncated snippets. Treated as a class of error rather than two instances, as instructed. Wrote an audit script that normalises unicode (middle-dot decimals, en-dashes, curly quotes, U+223C tilde), locates every PMID-backed snippet in its cached body, and flags any that ends without terminal punctuation while the source sentence continues. It flagged 26 of 99; manual triage found most were complete findings whose continuation only added interpretation. Two were genuine payload-cuts, both the reviewer's: PMID:16025100 stopped at "...NOTCH1 cause a", cutting the aortic-valve-anomaly result, and PMID:12845333 stopped at "Here, we show that isolated cardiac septal", cutting the GATA4 G296S linkage result. Both replaced with the reviewer-supplied corrected text. The audit is clean of payload-cuts now. Note no deterministic repo check catches this class - count-verified-snippets passed 81/81 with both defects present.
+
+    IMPORTANT - finding 2b follow-on, unsupported explanation clause. The GATA4 explanation asserted a TBX5 interaction absent from the quoted text. Rather than drop the clause, added a second evidence item quoting the abstract's actual TBX5 sentences ("Furthermore, the Gata4 mutation abrogated a physical interaction between Gata4 and TBX5... Conversely, interaction of Gata4 and TBX5 was disrupted by specific human TBX5 missense mutations that cause similar cardiac septal defects."), which evidences the bidirectional interaction the septation-network node relies on.
+
+    IMPORTANT - finding 3, NOTCH1 background prose. The genetic-section NOTCH1 evidence quoted the paper's setup ("The incidence increases with age...") and its explanation conceded it only "frames" the phenotype (CLAUDE.md section 6: a topic is not a result). Replaced with the paper's finding sentence and rewrote the explanation to state the result.
+
+    IMPORTANT - finding 4, HP:0000924 mis-binding. "Extracardiac congenital anomaly" was bound to Abnormality of the skeletal system while its description and PMID:26785492 evidence concern anomalies of any organ system. Searched HPO first for a better term (2026-08-19): the only "congenital malformation of" classes are cardiac (HP:0011603, HP:0011723, HP:0045017), there is no "multiple congenital anomalies" class, and every "Abnormality of the X system" term names a single system. Dropped term:, kept the free-text preferred_term, and added a NEEDS TERM / NTR CANDIDATE note recording the search and the removed binding. No term beats a bad term.
+
+    IMPORTANT - finding 5, arrhythmia and sudden cardiac death. Added both phenotypes. Note the reviewer's suggested HP:0001644 is Dilated cardiomyopathy; verified with OAK and used HP:0001645 Sudden cardiac death instead, alongside HP:0011675 Arrhythmia. Evidence from Salzillo 2024 PMID:39768857 (newly cited): SCD rates 20-30x the general population; highest-risk lesions tetralogy of Fallot, TGA, cyanotic heart disease, Ebstein anomaly, Fontan circulation; incidence greater in adults than children. Also wired both into the pathograph rather than leaving them as disconnected list entries: Altered Circulatory Physiology -> Arrhythmia and -> Sudden cardiac death (both INDIRECT_KNOWN_INTERMEDIATES with named intermediates), plus a DIRECT edge Cardiac Septation Transcription Factor Network Failure -> Arrhythmia carrying the NKX2-5 septation-plus-AV-node quote, which keeps the developmental route to arrhythmia distinct from the acquired scar/dilation route.
+
+    IMPORTANT - finding 6, unevidenced treatments. Cardiac surgical repair or palliation and Heart transplantation had no evidence at either level. Searched PubMed and fetched two new sources. Troost 2019 PMID:30413300 now evidences the surgical entry at both levels, including the specific lifelong-residual-risk claim the reviewer flagged as unevidenced ("adult patients with CHD carry residual lesions and sequelae putting them at risk for premature death related to re-interventions or complications; most commonly heart failure and arrhythmia") attached directly to the RESTORES target_mechanisms link, so the qualification on that edge is now substantiated where it is asserted. Transplantation evidenced with the failing-Fontan combined heart-liver transplantation meta-analysis PMID:40320589, curated supports: PARTIAL because it covers CHLT in failing Fontan (4 retrospective cohorts, 67 patients) rather than heart transplantation across CHD as a whole.
+
+    IMPORTANT - finding 7, missing model layer. Added animal_models and experimental_models, both with modeled_mechanisms so they attach to the pathograph rather than sitting as disconnected lists. (1) Zebrafish embryonic heart-function model (PMID:26969993), PERTURBS -> Flow-Dependent Cardiac Morphogenesis Failure, fidelity MODERATE, with limitations naming the divergence that matters here - a two-chambered heart with no septation and no separate pulmonary circulation cannot represent the septation, conotruncal or duct-dependent arms at all - plus one readout. This gives the chd_flow_dependent_human_evidence HUMAN_MODEL_MISMATCH discussion the structural anchor it lacked. (2) HLHS patient-derived iPSC-cardiomyocytes (PMID:39273002, newly cited), MEASURES -> the same node, with two readouts (reduced CX43 with failure of myocyte alignment; irregular myofibril arrangement). This was added for a specific argumentative reason rather than model-system completeness: if HLHS were purely flow deprivation, patient cardiomyocytes cultured outside any haemodynamic environment should behave normally, and they do not - so it is human-derived evidence for the cell-autonomous alternative the mismatch discussion sets against pure flow dependence. Updated that discussion's rationale to state both anchors and note that neither settles the share of each contribution. The DR-surfaced Dyrk1a trisomic mouse septation rescue was NOT added: PubMed searches for it returned no resolvable record, and fabricating or guessing a citation for it would be worse than the omission.
+
+    Non-blocking suggestions 8 (clinical_trials) and 9 (catheter-based intervention) not actioned this pass; the DR-surfaced NCTs are registries/observational, and catheter intervention is noted as a genuine modelling gap for a follow-up.
+
+    VALIDATION (every check run to completion and its output read, post-fix).
+      just validate                                            -> passed; 99/99 snippets verified
+      just count-verified-snippets                             -> Snippets checked: 99/99 verified against cached references
+      just validate-terms                                      -> Validation passed
+      scripts/check_snippet_length.py --against-ref origin/main -> OK: no new snippets under 5 words
+      scripts/check_folded_hyphens.py                          -> OK: no new folded-scalar hyphen splits (330 grandfathered)
+      just check-duplicate-keys                                -> OK: no duplicate mapping keys
+      just check-title-snippets                                -> OK: no new title-quoting snippets
+      just check-empty-snippets                                -> no empty (non-NO_EVIDENCE) evidence snippets
+      just validate-disorders (batched --no-full-text, CI-equiv) -> passed; 99/99 verified; exit 0
+      just compliance                                          -> 84.6% weighted (was 82.7%)
+    Snippet count rose 81 -> 99; cited PMIDs 20 -> 24 (added PMID:39768857, PMID:30413300, PMID:40320589, PMID:39273002).

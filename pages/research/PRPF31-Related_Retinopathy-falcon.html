@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRPF31-Related Retinopathy · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>PRPF31-Related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>PRPF31-Related Retinopathy</h1>
+                
+                <p class="report-subtitle">PRPF31-Related Retinopathy (Retinitis Pigmentosa 11, RP11): Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-07-13</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0800395" target="_blank" rel="noopener noreferrer">MONDO:0800395</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">27 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>PRPF31-Related Retinopathy (Retinitis Pigmentosa 11, RP11): Disease Characteristics Research Report</h1>
+<h2>Executive summary</h2>
+<p>PRPF31-related retinopathy (commonly referred to as <strong>retinitis pigmentosa 11; RP11</strong>) is a <strong>Mendelian autosomal-dominant inherited retinal dystrophy</strong> caused by heterozygous pathogenic variants in <strong>PRPF31</strong>, a core spliceosomal tri-snRNP component. A defining clinical/genetic hallmark is <strong>incomplete penetrance</strong>: some variant carriers remain asymptomatic, strongly associated with <strong>higher expression of the remaining wild-type PRPF31 allele</strong> (haploinsufficiency threshold model). Disease typically follows a <strong>rod-first degeneration</strong> pattern with nyctalopia and peripheral field loss followed by cone involvement and reduced central vision. Multiple therapeutic strategies are under active development, including <strong>intravitreal VP-001</strong> (interventional clinical trials) and preclinical <strong>AAV gene augmentation</strong>, <strong>splice-switching ASOs</strong>, and supportive approaches such as <strong>autophagy activation</strong>. (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>, NCT05902962 chunk 1)</p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>1.1 What is the disease?</h3>
+<p>PRPF31-related retinopathy is a <strong>non-syndromic retinitis pigmentosa</strong> caused by PRPF31 mutations, characterized by progressive retinal degeneration that begins with rod dysfunction (nyctalopia/night blindness and peripheral visual field constriction) and progresses to cone involvement with loss of central vision in later stages. (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</p>
+<p>A mechanistic feature emphasized in patient-derived retinal models is that PRPF31 mutation causes <strong>retina-specific disruption of alternative splicing programs</strong>, including mis-splicing of genes involved in splicing itself and in ciliogenesis/adhesion, producing RPE and photoreceptor dysfunction despite ubiquitous PRPF31 expression. (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</p>
+<h3>1.2 Key identifiers (OMIM, Orphanet, ICD, MeSH, MONDO)</h3>
+<p>The retrieved primary papers and clinical trial records consistently use the disease names <strong>“PRPF31-associated retinitis pigmentosa,” “retinitis pigmentosa 11 (RP11),”</strong> and <strong>“PRPF31 mutation-associated retinal dystrophy.”</strong> (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>, NCT05902962 chunk 1, NCT05573984 chunk 1)</p>
+<p><strong>Limitation:</strong> OMIM/Orphanet/ICD/MeSH/MONDO identifiers were not present in the available full-text snippets or ClinicalTrials.gov chunks retrieved here, so they cannot be asserted from this evidence set.</p>
+<h3>1.3 Synonyms / alternative names</h3>
+<p>Synonyms used across sources include:
+- Retinitis pigmentosa 11 (RP11) (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>)
+- PRPF31-associated retinitis pigmentosa (NCT06368375 chunk 1)
+- PRPF31 mutation-associated retinal dystrophy (NCT05902962 chunk 1)</p>
+<h3>1.4 Evidence sources: aggregated vs individual</h3>
+<p>Evidence in this report comes from:
+- <strong>Primary experimental disease-model and mechanistic studies</strong> (human iPSC-derived retinal organoids/RPE; mouse CRISPR/AAV models). (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>, <a href="#ref-xi2022geneaugmentationprevents-pages-1-2">xi2022geneaugmentationprevents pages 1-2</a>)
+- <strong>Clinical/review synthesis and treatment landscape</strong> sources (autosomal-dominant IRD treatment review). (<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)
+- <strong>ClinicalTrials.gov registry records</strong> for ongoing/completed observational and interventional studies. (NCT05902962 chunk 1, NCT05573984 chunk 1, NCT06368375 chunk 1)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Disease name</th>
+<th>Common synonyms</th>
+<th>Inheritance</th>
+<th>Causal gene</th>
+<th>Key distinguishing features</th>
+<th>Key sources (year; URL/DOI)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PRPF31-related retinopathy</td>
+<td>Retinitis pigmentosa 11 (RP11); PRPF31-associated retinitis pigmentosa; PRPF31-associated autosomal dominant retinitis pigmentosa (PRPF31-associated adRP)</td>
+<td>Autosomal dominant with incomplete/non-penetrance and variable expressivity (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</td>
+<td><strong>PRPF31</strong> (pre-mRNA processing factor 31), a core spliceosomal/tri-snRNP component (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</td>
+<td>Retina-predominant degeneration despite ubiquitous gene expression; typical rod-first disease with nyctalopia/night blindness, progressive visual-field constriction, then secondary cone/central vision loss; hallmark <strong>incomplete penetrance linked to PRPF31 expression level/haploinsufficiency</strong>; low wild-type PRPF31 expression associates with disease, while higher expression can permit asymptomatic carrier status (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>, <a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</td>
+<td>Buskin et al. 2018; <a href="https://doi.org/10.1038/s41467-018-06448-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-018-06448-y</a> (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>). Rose &amp; Bhattacharya 2016; <a href="https://doi.org/10.1111/cge.12758" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/cge.12758</a> (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>). Rodrigues et al. 2022; <a href="https://doi.org/10.1038/s41536-022-00235-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41536-022-00235-6</a> (<a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>). Grainok et al. 2024; <a href="https://doi.org/10.3390/ijms25063391" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25063391</a> (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>). Georgiou et al. 2022; <a href="https://doi.org/10.1002/ctm2.759" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ctm2.759</a> (<a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>). Varela et al. 2023; <a href="https://doi.org/10.1136/bjo-2022-321903" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/bjo-2022-321903</a> (<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)</td>
+</tr>
+<tr>
+<td>Expression-penetrance note</td>
+<td>Non-penetrant PRPF31 carriers; asymptomatic carriers</td>
+<td>Same AD family transmission, but some heterozygous carriers remain unaffected (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</td>
+<td><strong>PRPF31</strong></td>
+<td>Example quantitative support: a truncating PRPF31 exon 12 variant showed ~46% reduced PRPF31 mRNA in affected fibroblasts versus controls, compared with ~34% reduction in a non-penetrant carrier; ASO-induced exon skipping increased PRPF31 mRNA ~1.7-fold toward a predicted therapeutic threshold (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>)</td>
+<td>Grainok et al. 2024; <a href="https://doi.org/10.3390/ijms25063391" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25063391</a> (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>). Lan et al. 2022; <a href="https://doi.org/10.3390/jcm11226682" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm11226682</a> (<a href="#ref-lan2022a69kb-pages-9-12">lan2022a69kb pages 9-12</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table summarizes core nomenclature, inheritance, causal gene, and the defining penetrance-related biology of PRPF31-related retinopathy. It is useful as a compact disease-identity reference for a knowledge base entry.</em></p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p><strong>Primary cause:</strong> heterozygous pathogenic variants in <strong>PRPF31</strong> causing autosomal-dominant RP11. (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</p>
+<p><strong>Molecular etiology (current understanding):</strong> PRPF31 encodes a <strong>core spliceosomal tri-snRNP</strong> component; pathogenic variants commonly lead to <strong>loss-of-function and reduced effective PRPF31 activity</strong>, producing disrupted splicing programs in retinal cells. (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</p>
+<h3>2.2 Risk factors</h3>
+<ul>
+<li><strong>Genetic:</strong> carrying a PRPF31 pathogenic variant is the principal risk factor. (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>)</li>
+<li><strong>Modifier/contextual genetic effects:</strong> incomplete penetrance and variable expressivity are linked to <strong>PRPF31 expression variability</strong> and potential modifier loci; a proposed association with a <strong>4-copy MSR1 repeat</strong> has been discussed in the autosomal-dominant IRD treatment review. (<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)</li>
+</ul>
+<p>A large-deletion pedigree study reports differential PRPF31 expression among carriers and notes potential cooperative effects of other differentially expressed genes; it also highlights incomplete penetrance as a key family feature. (<a href="#ref-lan2022a69kb-pages-9-12">lan2022a69kb pages 9-12</a>)</p>
+<h3>2.3 Protective factors</h3>
+<p>A practical “protective” factor in this disease is <strong>higher expression of PRPF31</strong> from the remaining normal allele, which can allow <strong>asymptomatic carrier status</strong> (non-penetrance). (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>No specific environmental triggers or gene–environment interactions were identified in the retrieved evidence.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Core clinical features include:
+- <strong>Nyctalopia/night blindness</strong> and <strong>progressive visual field constriction</strong> as early manifestations (rod dysfunction/degeneration). (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>)
+- <strong>Secondary cone degeneration</strong> leading to central vision impairment later in disease. (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</p>
+<p>Disease-course variability is notable; one review reports <strong>age of onset variability from ~6 to 71 years</strong>. (<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)</p>
+<p>A large PRPF31 deletion pedigree described very early onset (night blindness around age 3 in affected individuals) in that family, underscoring variable expressivity. (<a href="#ref-lan2022a69kb-pages-9-12">lan2022a69kb pages 9-12</a>)</p>
+<h3>HPO mappings</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype / clinical feature</th>
+<th>Phenotype type</th>
+<th>Suggested HPO term(s)</th>
+<th>Typical onset / progression notes</th>
+<th>Frequency / remarks</th>
+<th>Supporting citations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Night blindness</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a> Nyctalopia</td>
+<td>Often an early manifestation due to primary rod dysfunction/degeneration; may begin in childhood or early adulthood, but onset is variable across families</td>
+<td>Core RP11 feature repeatedly described in PRPF31-associated disease</td>
+<td>(<a href="#ref-lan2022a69kb-pages-9-12">lan2022a69kb pages 9-12</a>, <a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Peripheral visual field loss / constriction</td>
+<td>Clinical sign / symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" rel="noopener noreferrer">HP:0001133</a> Constricted visual fields</td>
+<td>Progressive over years to decades, usually following early rod involvement; kinetic visual field shows ongoing decline</td>
+<td>One of the hallmark functional deficits in RP11</td>
+<td>(<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)</td>
+</tr>
+<tr>
+<td>Rod photoreceptor degeneration</td>
+<td>Pathophysiologic/structural manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a> Rod-cone dystrophy; <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" rel="noopener noreferrer">HP:0000548</a> Retinal degeneration</td>
+<td>Rods are affected first, with degeneration beginning in the mid-peripheral retina and progressing centrally</td>
+<td>Canonical disease pattern in PRPF31-RP11</td>
+<td>(<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Secondary cone degeneration / central vision decline</td>
+<td>Clinical sign / structural manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" rel="noopener noreferrer">HP:0000546</a> Blindness; <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" rel="noopener noreferrer">HP:0001123</a> Visual field defect</td>
+<td>Typically later than rod loss; progressive cone involvement contributes to reduced central acuity and disability in advanced disease</td>
+<td>Represents later-stage disease burden</td>
+<td>(<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Reduced visual acuity</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a> Reduced visual acuity</td>
+<td>Usually later-onset than nyctalopia/field loss; worsens progressively with cone and macular involvement</td>
+<td>Common outcome measure in natural history and interventional studies</td>
+<td>(<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, NCT05573984 chunk 1, NCT06368375 chunk 1)</td>
+</tr>
+<tr>
+<td>Abnormal electroretinogram</td>
+<td>Electrophysiology abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001311" target="_blank" rel="noopener noreferrer">HP:0001311</a> Abnormal electroretinogram</td>
+<td>Progressive reduction in rod and cone responses; cone ERG decline has been described longitudinally</td>
+<td>Used routinely in PRPF31 natural history/phenotyping studies</td>
+<td>(<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>, NCT05573984 chunk 1, NCT06368375 chunk 1)</td>
+</tr>
+<tr>
+<td>Retinal pigment epithelium dysfunction</td>
+<td>Cellular / tissue manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" rel="noopener noreferrer">HP:0000556</a> Abnormality of the retinal pigment epithelium</td>
+<td>Progressive; modeled in iPSC-RPE with impaired polarity, barrier function, phagocytosis, and cellular stress</td>
+<td>May be a major early disease site in PRPF31-RP11</td>
+<td>(<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>, <a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>Ciliary abnormalities in retinal cells</td>
+<td>Cellular manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100542" target="_blank" rel="noopener noreferrer">HP:0100542</a> Abnormality of ciliogenesis</td>
+<td>Linked to mis-splicing of ciliogenesis genes; associated with progressive photoreceptor/RPE dysfunction</td>
+<td>Supports classification of PRPF31-RP as partly ciliopathy-like</td>
+<td>(<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)</td>
+</tr>
+<tr>
+<td>Retinal degeneration with variable age at onset</td>
+<td>Disease course characteristic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a> Rod-cone dystrophy; <a href="http://purl.obolibrary.org/obo/HP_0003674" target="_blank" rel="noopener noreferrer">HP:0003674</a> Onset variability</td>
+<td>Age at onset is highly variable, reported from about 6 to 71 years in review literature; progression is chronic and typically lifelong</td>
+<td>Marked intra- and interfamilial variability is characteristic</td>
+<td>(<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>, <a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Incomplete penetrance / asymptomatic carrier state</td>
+<td>Inheritance / expressivity feature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003829" target="_blank" rel="noopener noreferrer">HP:0003829</a> Incomplete penetrance</td>
+<td>Some heterozygous carriers remain clinically unaffected, likely because higher wild-type PRPF31 expression remains above a disease threshold</td>
+<td>Distinguishing hallmark of PRPF31-RP11</td>
+<td>(<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Early-onset severe phenotype in some families</td>
+<td>Course severity feature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003581" target="_blank" rel="noopener noreferrer">HP:0003581</a> Childhood onset</td>
+<td>Although many cases are later-onset, certain pedigrees show unusually early disease, including childhood nyctalopia and rapid structural change</td>
+<td>Highlights variable expressivity and possible modifier effects</td>
+<td>(<a href="#ref-lan2022a69kb-pages-9-12">lan2022a69kb pages 9-12</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table summarizes the main clinical features reported for PRPF31-related retinopathy (RP11), with suggested HPO mappings and notes on onset and progression. It is useful for structuring phenotype annotations in a disease knowledge base.</em></p>
+<p>Quality-of-life impacts are not directly quantified in the retrieved primary papers, but ClinicalTrials.gov natural history protocols include validated <strong>patient-reported outcome instruments</strong> (e.g., MRDQ, PGI-S, PGI-C), indicating recognized functional burden. (NCT05573984 chunk 1, NCT05573984a chunk 1)</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<h3>4.1 Causal gene</h3>
+<ul>
+<li><strong>Gene:</strong> PRPF31 (pre-mRNA processing factor 31), spliceosome/tri-snRNP component. (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</li>
+<li><strong>Inheritance:</strong> autosomal dominant, with incomplete penetrance. (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</li>
+</ul>
+<h3>4.2 Pathogenic variants and functional consequence</h3>
+<p>Multiple classes of PRPF31 variants are implicated (nonsense/truncating, deletions, etc.), generally consistent with <strong>loss-of-function/haploinsufficiency</strong>. (<a href="#ref-lan2022a69kb-pages-9-12">lan2022a69kb pages 9-12</a>, <a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</p>
+<p><strong>Quantitative penetrance–expression link (example):</strong> In a family with PRPF31 c.1205C&gt;A (nonsense) variant, PRPF31 transcripts from the mutant allele were undetectable (consistent with nonsense-mediated decay), producing an observed <strong>46% reduction</strong> in PRPF31 mRNA versus controls in patient fibroblasts; a non-penetrant carrier with the same variant had a smaller reduction (~<strong>34%</strong>). (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>)</p>
+<h3>4.3 Modifier genes / modifiers of penetrance</h3>
+<ul>
+<li>Review-level evidence notes association of non-penetrance with an <strong>MSR1 repeat copy number</strong> (4-copy MSR1 repeat). (<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)</li>
+<li>A large-deletion pedigree study mentions expression variation and suggests cooperative effects of other genes, and notes modifiers (e.g., CNOT3 and MSR1) in discussion of penetrance variability. (<a href="#ref-lan2022a69kb-pages-9-12">lan2022a69kb pages 9-12</a>)</li>
+</ul>
+<h3>4.4 Epigenetics and chromosomal abnormalities</h3>
+<p>A 69 kb deletion encompassing PRPF31 exon 1 and upstream genes is described in a large family; the deletion breakpoints are within Alu repeats, consistent with structural-variant mechanisms. (<a href="#ref-lan2022a69kb-pages-9-12">lan2022a69kb pages 9-12</a>)</p>
+<p>No specific DNA methylation/histone findings were available in the retrieved evidence.</p>
+<hr />
+<h2>5. Environmental information</h2>
+<p>No environmental, lifestyle, or infectious contributors were identified in the retrieved evidence. The disease is primarily genetic. (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Causal chain (current model)</h3>
+<ol>
+<li><strong>Heterozygous PRPF31 loss-of-function</strong> reduces effective PRPF31 availability (haploinsufficiency) in susceptible retinal cell types. (<a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>, <a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</li>
+<li>Retinal cells exhibit <strong>disrupted alternative splicing programs</strong>, including mis-splicing of genes involved in splicing and <strong>ciliogenesis/cell adhesion</strong>. (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>)</li>
+<li><strong>RPE defects</strong> occur, including disrupted apical–basal polarity, decreased barrier function (reduced transepithelial resistance), impaired phagocytosis, and ciliary abnormalities; photoreceptors show progressive degeneration and cellular stress. (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>)</li>
+<li>In severe PRPF31-adRP iPSC-derived retinal/RPE models, mutant PRPF31 and other proteins accumulate as <strong>cytoplasmic aggregates</strong>, with associated defects in tri-snRNP assembly, altered nuclear speckles, reduced active spliceosome formation, and global splicing dysregulation; impaired waste disposal (autophagy/lysosome, proteostasis) exacerbates degeneration. (<a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</li>
+</ol>
+<h3>6.2 Pathways / processes (ontology suggestions)</h3>
+<p><strong>GO Biological Process (suggested):</strong>
+- mRNA splicing via spliceosome
+- cilium organization / ciliogenesis
+- autophagy
+- unfolded protein response
+- phagocytosis
+(grounded in observed splicing dysregulation, ciliary defects, aggregate clearance, and RPE phagocytic deficits) (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</p>
+<p><strong>Cell types (CL terms; suggested):</strong>
+- Retinal pigment epithelial cell (RPE)
+- Rod photoreceptor cell
+- Cone photoreceptor cell
+(central affected cell populations across iPSC and mouse studies) (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</p>
+<p><strong>Tissue/structure (UBERON; suggested):</strong>
+- Retina
+- Retinal pigment epithelium
+- Photoreceptor layer / outer nuclear layer
+(paired with OCT/structural thinning described in mouse model) (<a href="#ref-xi2022geneaugmentationprevents-pages-3-4">xi2022geneaugmentationprevents pages 3-4</a>)</p>
+<h3>6.3 Expert opinions / authoritative analyses</h3>
+<p>A 2023 British Journal of Ophthalmology review on autosomal-dominant IRD therapies emphasizes that dominant diseases such as PRPF31-associated adRP often require strategies beyond simple gene supplementation depending on mechanism, and highlights incomplete penetrance/variable expressivity and onset variability as key clinical considerations. (<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)</p>
+<h3>6.4 Recent developments (2023–2024 prioritized)</h3>
+<ul>
+<li><strong>Precision ASO splice-switching therapy (2024):</strong> exon 12 skipping to restore an open reading frame for certain truncating variants, with quantified PRPF31 mRNA restoration toward a predicted therapeutic threshold (1.7-fold upregulation in patient fibroblasts). (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>)</li>
+<li><strong>Clinical translation via intravitreal investigational therapy VP-001</strong> and dedicated multi-year natural history programs (initiated 2022; phase 1 trials initiated 2023/2024). (NCT05902962 chunk 1, NCT05573984 chunk 1)</li>
+</ul>
+<p><strong>Direct abstract quote examples (for knowledge base evidence items):</strong>
+- Grainok et al. 2024: “Retinitis pigmentosa 11 is an untreatable, dominantly inherited retinal disease caused by heterozygous mutations in pre-mRNA processing factor 31 PRPF31. The expression level of PRPF31 is linked to incomplete penetrance in affected families; mutation carriers with higher PRPF31 expression can remain asymptomatic.” (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>)
+- Buskin et al. 2018: “Mis-splicing of genes implicated in ciliogenesis and cellular adhesion was associated with severe RPE defects…” (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>)
+- Xi et al. 2022: “AAV-mediated PRPF31 gene augmentation restored the retinal structure and function…” (<a href="#ref-xi2022geneaugmentationprevents-pages-1-2">xi2022geneaugmentationprevents pages 1-2</a>)</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary:</strong> retina and retinal pigment epithelium (RPE). (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</li>
+<li><strong>Layer-level:</strong> outer retina including photoreceptor inner/outer segments and outer nuclear layer; thinning and loss are described in a Prpf31 KO mouse model. (<a href="#ref-xi2022geneaugmentationprevents-pages-3-4">xi2022geneaugmentationprevents pages 3-4</a>)</li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong> variable; review-level synthesis notes ~6–71 years, but some families show much earlier onset (e.g., childhood nyctalopia reported in one large deletion pedigree). (<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>, <a href="#ref-lan2022a69kb-pages-9-12">lan2022a69kb pages 9-12</a>)</li>
+<li><strong>Progression:</strong> chronic progressive degeneration with rod-first then cone involvement; consistent recapitulation of rod death followed by cone loss in retinal organoid models. (<a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<ul>
+<li><strong>Inheritance:</strong> autosomal dominant with incomplete penetrance / asymptomatic carriers common. (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, <a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</li>
+<li><strong>Population/epidemiology:</strong> RP prevalence is reported as approximately <strong>1 in 2500 births</strong> and affecting “over 1 million people worldwide” in a foundational mechanistic paper; PRPF31 contributes a substantial subset of autosomal dominant RP. (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>)</li>
+</ul>
+<p>Attribution estimates for PRPF31 among adRP vary by cohort and source: e.g., 5–8% of adRP cohorts (Rodrigues 2022) and 6–11.1% in another summary within a PRPF31 mouse model paper. (<a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>, <a href="#ref-xi2022geneaugmentationprevents-pages-1-2">xi2022geneaugmentationprevents pages 1-2</a>)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical tests used in practice/research settings</h3>
+<p>Clinical phenotyping and monitoring in PRPF31 cohorts commonly uses:
+- <strong>BCVA</strong> (ETDRS), <strong>low luminance VA</strong> (NCT05902962 chunk 1, NCT05573984 chunk 1)
+- <strong>Visual fields</strong> (kinetic/static perimetry) (NCT06455826 chunk 1, NCT06368375 chunk 1)
+- <strong>SD-OCT</strong> (retinal thickness; ellipsoid zone measures in natural history study) (NCT05573984 chunk 1)
+- <strong>Microperimetry</strong> (retinal sensitivity) (NCT05902962 chunk 1, NCT05573984 chunk 1)
+- <strong>Full-field ERG</strong> (NCT06368375 chunk 1)
+- <strong>Fundus photography</strong> and <strong>fundus autofluorescence</strong>; ultra-widefield imaging is used in at least one cohort. (NCT06368375 chunk 1)</p>
+<h3>10.2 Genetic testing</h3>
+<p>ClinicalTrials.gov protocols require <strong>genetic confirmation of PRPF31 mutation</strong> for study inclusion in both observational and interventional programs, reflecting real-world use of genetic testing for diagnosis and trial eligibility. (NCT05902962 chunk 1, NCT05573984 chunk 1)</p>
+<h3>10.3 Differential diagnosis</h3>
+<p>Not directly enumerated in retrieved evidence; clinically, differential diagnosis would include other causes of autosomal dominant retinitis pigmentosa (e.g., RHO, RP1, other splicing-factor genes), but explicit differential lists were not in the retrieved sources.</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<p>The disease is progressive and can lead to severe visual disability. Longitudinal natural history protocols include structural (ellipsoid zone area/volume), electrophysiology, and mobility testing endpoints, reflecting clinically meaningful progression assessment. (NCT05573984 chunk 1, NCT05573984a chunk 1)</p>
+<p>Mortality is not discussed and is not expected to be directly affected in non-syndromic RP11; no mortality data were present in retrieved evidence.</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Current standard care</h3>
+<p>No curative standard therapy is described in the retrieved evidence; management is centered on monitoring and supportive care, while disease-modifying therapies are investigational. (<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)</p>
+<h3>12.2 Advanced therapeutics and experimental treatments (2023–2024 emphasis)</h3>
+<ul>
+<li><strong>Intravitreal VP-001 clinical trials (PYC Therapeutics):</strong></li>
+<li>Phase 1 SAD dose escalation (NCT05902962; started 2023-04-20; n=17). (NCT05902962 chunk 1)</li>
+<li>Phase 1 MAD repeat-dose escalation (NCT06455826; started 2024-06-13; completed 2025-09-24; n=6; 30 μg and 75 μg; 3 injections 8 weeks apart). (NCT06455826a chunk 1, NCT06455826 chunk 1)</li>
+<li>
+<p>Repeat-dose safety/efficacy study listed (NCT06852963; Phase 1/2; n=17; details not available in retrieved chunk text). (NCT06455826a chunk 1)</p>
+</li>
+<li>
+<p><strong>Natural history studies supporting endpoint selection and trial readiness:</strong> NCT05573984 (prospective, multi-center; started 2022-07-07; n=50; includes BCVA, LLVA, SD-OCT, ellipsoid zone metrics, microperimetry, ERG, FAF, mobility course, MRDQ, PGI scales). (NCT05573984 chunk 1, NCT05573984a chunk 1)</p>
+</li>
+<li>
+<p><strong>Preclinical PRPF31 gene augmentation:</strong></p>
+</li>
+<li>In a CRISPR/Cas9 AAV-induced Prpf31 KO mouse model, <strong>AAV-mediated PRPF31 augmentation restored retinal structure and function</strong>, supporting gene augmentation as a broadly applicable approach for haploinsufficiency. (<a href="#ref-xi2022geneaugmentationprevents-pages-1-2">xi2022geneaugmentationprevents pages 1-2</a>)</li>
+<li>
+<p>In human iPSC-derived RPE and retinal organoids with PRPF31 mutations, <strong>gene augmentation</strong> and <strong>CRISPR correction</strong> rescued RPE and photoreceptor phenotypes. (<a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</p>
+</li>
+<li>
+<p><strong>Precision RNA therapy (ASO exon skipping; 2024):</strong> exon 12 skipping increased PRPF31 mRNA <strong>~1.7-fold</strong> in patient fibroblasts and was proposed to meet a therapeutic expression threshold inferred from a non-penetrant carrier. (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>)</p>
+</li>
+<li>
+<p><strong>Supportive mechanistic therapy (autophagy activation):</strong> rapamycin reduced aggregates and improved survival in patient-derived iPSC-RPE/retinal models, proposed as a combinable strategy with gene therapy. (<a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</p>
+</li>
+</ul>
+<p><strong>MAXO (suggested) mappings:</strong>
+- Gene therapy / gene augmentation (e.g., AAV-mediated gene delivery)
+- Antisense oligonucleotide therapy
+- Intravitreal injection
+- Supportive pharmacotherapy (autophagy induction)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Strategy / study</th>
+<th>Modality / intervention</th>
+<th>Trial ID / evidence type</th>
+<th>Phase / design</th>
+<th style="text-align: right;">Enrollment</th>
+<th>Dates</th>
+<th>Key endpoints / findings</th>
+<th>Supporting citations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VP-001 single-ascending-dose study (“Platypus”)</td>
+<td>Intravitreal VP-001</td>
+<td>NCT05902962</td>
+<td>Phase 1, open-label, single-arm dose-escalation</td>
+<td style="text-align: right;">17</td>
+<td>Started 2023-04-20; primary completion 2025-08-08</td>
+<td>Primary: incidence, severity, and relatedness of treatment-emergent ocular and serious adverse events over 24 and 48 weeks. Secondary/exploratory: fellow-eye and non-ocular adverse events; change in BCVA, low-luminance VA, visual field sensitivity, microperimetry, SD-OCT retinal thickness, ERG, autofluorescence, and patient-reported outcomes (PGI-C, PGI-S). (NCT05902962 chunk 1)</td>
+<td>(NCT05902962 chunk 1)</td>
+</tr>
+<tr>
+<td>VP-001 multiple-ascending-dose study (“Wallaby”)</td>
+<td>Intravitreal VP-001, 3 repeat injections 8 weeks apart at 30 μg and 75 μg</td>
+<td>NCT06455826</td>
+<td>Phase 1, open-label, multiple ascending dose</td>
+<td style="text-align: right;">6</td>
+<td>Started 2024-06-13; completed 2025-09-24</td>
+<td>Primary: safety/tolerability; incidence, severity, and relatedness of ocular and serious adverse events over 4-week and 52-week periods. Secondary: BCVA, low-luminance VA, kinetic/static perimetry, microperimetry, rod/cone-mediated function, SD-OCT retinal thickness, ffERG, fundus autofluorescence, fundus photography. (NCT06455826a chunk 1, NCT06455826 chunk 1)</td>
+<td>(NCT06455826a chunk 1, NCT06455826 chunk 1)</td>
+</tr>
+<tr>
+<td>VP-001 repeat-dose extension / efficacy study</td>
+<td>Intravitreal VP-001</td>
+<td>NCT06852963</td>
+<td>Phase 1/2, open-label, two-arm safety and efficacy study</td>
+<td style="text-align: right;">17</td>
+<td>Active, not recruiting; detailed dates not available in retrieved context</td>
+<td>Trial record indicates repeat-dose safety/efficacy evaluation in PRPF31 mutation-associated retinal dystrophy, including previously treated participants; detailed endpoint text not available in retrieved context.</td>
+<td>(NCT06455826a chunk 1, NCT06455826 chunk 1)</td>
+</tr>
+<tr>
+<td>PRPF31 natural history study (PYC)</td>
+<td>No intervention; longitudinal phenotyping</td>
+<td>NCT05573984</td>
+<td>Multi-center, prospective observational natural history study</td>
+<td style="text-align: right;">50</td>
+<td>Started 2022-07-07; estimated primary completion 2026-09-09; estimated final completion 2026-11-01</td>
+<td>Structural/functional progression measures: BCVA, LLVA, SD-OCT retinal thickness, ellipsoid zone area/volume, visual field sensitivity, macular sensitivity, fixation stability, full-field retinal sensitivity, ERG, fundus autofluorescence, mobility course, MRDQ, PGI-S, PGI-C. Visits every 16 weeks in year 1, then every 24 weeks. (NCT05573984 chunk 1, NCT05573984a chunk 1)</td>
+<td>(NCT05573984 chunk 1, NCT05573984a chunk 1, NCT05573984a chunk 2, NCT05573984 chunk 2)</td>
+</tr>
+<tr>
+<td>PRPF31 natural history study (Oslo)</td>
+<td>No intervention; observational natural history</td>
+<td>NCT04805658</td>
+<td>Observational</td>
+<td style="text-align: right;">30</td>
+<td>Active, not recruiting; dates/endpoints not available in retrieved context beyond title/registration summary</td>
+<td>Registered natural history study of retinitis pigmentosa type 11; detailed endpoint text was not retrieved in the available context.</td>
+<td>(NCT05573984 chunk 1)</td>
+</tr>
+<tr>
+<td>PRPF31 clinical/genetic phenotyping cohort (Tübingen)</td>
+<td>No intervention; retrospective cross-sectional characterization</td>
+<td>NCT06368375</td>
+<td>Observational cohort, retrospective cross-sectional</td>
+<td style="text-align: right;">87</td>
+<td>Study period 2023-01-01 to 2023-06-30; source data from 2007-09 to 2022-01</td>
+<td>Primary goal: genotype–phenotype characterization in genetically confirmed PRPF31-associated inherited retinal dystrophy and asymptomatic carriers using BCVA, visual field testing, fundus photography, ultra-widefield imaging, FAF, OCT, and ffERG. (NCT06368375 chunk 1)</td>
+<td>(NCT06368375 chunk 1)</td>
+</tr>
+<tr>
+<td>AAV gene augmentation</td>
+<td>AAV-mediated PRPF31 gene supplementation / augmentation</td>
+<td>Preclinical mouse, retinal explant, iPSC-derived retinal models</td>
+<td>Preclinical proof-of-concept</td>
+<td style="text-align: right;">Not applicable</td>
+<td>Key reports 2022</td>
+<td>In CRISPR/Cas9-based mouse models, AAV-mediated PRPF31 augmentation restored retinal structure and function; in human iPSC-derived RPE/organoids, gene augmentation rescued defective RPE and photoreceptor phenotypes, supporting translational development. (<a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>, <a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>)</td>
+<td>(<a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>, <a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Splice-switching antisense oligonucleotide exon skipping</td>
+<td>ASO-mediated skipping of PRPF31 exon 12 to restore open reading frame</td>
+<td>Preclinical cell-based precision therapy</td>
+<td>Preclinical</td>
+<td style="text-align: right;">Not applicable</td>
+<td>2024 report</td>
+<td>In fibroblasts from a patient with PRPF31 c.1205C&gt;A, mutant transcripts were undetectable because of NMD and total PRPF31 mRNA was reduced by 46% versus controls; ASO-induced exon 12 skipping increased PRPF31 mRNA 1.7-fold, reaching a predicted therapeutic threshold inferred from a non-penetrant carrier. (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>)</td>
+<td>(<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>)</td>
+</tr>
+<tr>
+<td>Autophagy activation</td>
+<td>Rapamycin to enhance autophagy and reduce aggregate burden</td>
+<td>Preclinical iPSC-RPE / retinal organoid study</td>
+<td>Preclinical</td>
+<td style="text-align: right;">Not applicable</td>
+<td>2022 report</td>
+<td>Rapamycin reduced progressive cytoplasmic aggregates containing mutant PRPF31 and ubiquitinated proteins and improved cell survival in patient-derived RPE, suggesting a combinable supportive strategy alongside gene therapy. (<a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</td>
+<td>(<a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table summarizes PRPF31-focused therapeutic development and clinical studies, including VP-001 interventional trials, observational natural history studies, and major preclinical strategies. It is useful for quickly comparing modality, development stage, enrollment, dates, and endpoints across the PRPF31-RP11 landscape.</em></p>
+<hr />
+<h2>13. Prevention</h2>
+<p>Primary prevention is not currently feasible for a Mendelian autosomal dominant disease aside from reproductive options; the retrieved sources emphasize genetic diagnosis and natural history characterization rather than prevention interventions. (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>, NCT05573984 chunk 1)</p>
+<p>Secondary prevention in practice corresponds to early detection in at-risk relatives and longitudinal monitoring with structural/functional testing as used in natural history and clinical trial protocols. (NCT05573984 chunk 1, NCT06368375 chunk 1)</p>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring PRPF31-related retinopathy in non-human species was identified in the retrieved evidence.</p>
+<hr />
+<h2>15. Model organisms</h2>
+<h3>15.1 In vitro human models</h3>
+<ul>
+<li><strong>Patient-derived retinal organoids + RPE:</strong> transcriptome profiling demonstrates retina-specific mis-splicing and RPE functional deficits, and gene editing can rescue key cellular phenotypes. (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>)</li>
+<li><strong>iPSC-RPE/retinal organoids:</strong> recapitulate rod death followed by cone loss, with phenotypic rescue by gene augmentation and CRISPR correction; low PRPF31 expression correlates with disease phenotypes and is absent in asymptomatic carrier-derived cells. (<a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</li>
+<li><strong>Proteostasis/autophagy pathology in iPSC-derived RPE/retina:</strong> aggregate accumulation and rapamycin responsiveness support autophagy involvement. (<a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</li>
+</ul>
+<h3>15.2 In vivo animal models</h3>
+<ul>
+<li><strong>AAV-CRISPR/Cas9-induced Prpf31 KO mouse:</strong> achieves ~57% editing efficiency and produces progressive retinal degeneration with structural loss (IS/OS and ONL) and severely reduced ERG responses over weeks. (<a href="#ref-xi2022geneaugmentationprevents-pages-3-4">xi2022geneaugmentationprevents pages 3-4</a>)</li>
+<li><strong>Gene augmentation in the mouse model:</strong> AAV-mediated PRPF31 supplementation restored retinal structure and function (in vivo proof-of-concept). (<a href="#ref-xi2022geneaugmentationprevents-pages-1-2">xi2022geneaugmentationprevents pages 1-2</a>)</li>
+</ul>
+<hr />
+<h2>Data gaps and limitations of the current evidence set</h2>
+<ul>
+<li><strong>Disease identifiers (OMIM/Orphanet/ICD/MeSH/MONDO)</strong> and <strong>PMIDs</strong> were not available in the retrieved text snippets, so they cannot be provided as evidence-grounded fields here.</li>
+<li>Population-level <strong>prevalence/incidence specifically for PRPF31-RP11</strong> (as opposed to RP overall or PRPF31 share of adRP) was not retrieved.</li>
+<li>Detailed clinical guideline-based diagnostic algorithms and differential diagnosis lists were not present in retrieved sources.</li>
+</ul>
+<hr />
+<h2>URLs and publication dates (selected key sources)</h2>
+<ul>
+<li>Buskin et al., Nature Communications (2018-10). <a href="https://doi.org/10.1038/s41467-018-06448-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-018-06448-y</a> (<a href="#ref-buskin2018disruptedalternativesplicing-pages-1-2">buskin2018disruptedalternativesplicing pages 1-2</a>)</li>
+<li>Rose &amp; Bhattacharya, Clinical Genetics (2016-08). <a href="https://doi.org/10.1111/cge.12758" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/cge.12758</a> (<a href="#ref-rose2016varianthaploinsufficiencyand-pages-1-2">rose2016varianthaploinsufficiencyand pages 1-2</a>)</li>
+<li>Rodrigues et al., NPJ Regenerative Medicine (2022-08). <a href="https://doi.org/10.1038/s41536-022-00235-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41536-022-00235-6</a> (<a href="#ref-rodrigues2022modelingprpf31retinitis-pages-1-2">rodrigues2022modelingprpf31retinitis pages 1-2</a>)</li>
+<li>Georgiou et al., Clinical and Translational Medicine (2022-03). <a href="https://doi.org/10.1002/ctm2.759" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ctm2.759</a> (<a href="#ref-georgiou2022activationofautophagy-pages-1-3">georgiou2022activationofautophagy pages 1-3</a>)</li>
+<li>Xi et al., Nature Communications (2022-12). <a href="https://doi.org/10.1038/s41467-022-35361-8" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-022-35361-8</a> (<a href="#ref-xi2022geneaugmentationprevents-pages-1-2">xi2022geneaugmentationprevents pages 1-2</a>)</li>
+<li>Varela et al., British Journal of Ophthalmology (2023-08). <a href="https://doi.org/10.1136/bjo-2022-321903" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/bjo-2022-321903</a> (<a href="#ref-varela2023genetictreatmentfor-pages-6-9">varela2023genetictreatmentfor pages 6-9</a>)</li>
+<li>Grainok et al., International Journal of Molecular Sciences (2024-03). <a href="https://doi.org/10.3390/ijms25063391" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25063391</a> (<a href="#ref-grainok2024aprecisiontherapy-pages-2-4">grainok2024aprecisiontherapy pages 2-4</a>)</li>
+<li>ClinicalTrials.gov: NCT05902962 (2023; Platypus). <a href="https://clinicaltrials.gov/study/NCT05902962" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT05902962</a> (NCT05902962 chunk 1)</li>
+<li>ClinicalTrials.gov: NCT06455826 (2024; Wallaby). <a href="https://clinicaltrials.gov/study/NCT06455826" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT06455826</a> (NCT06455826a chunk 1)</li>
+<li>ClinicalTrials.gov: NCT05573984 (2022; natural history). <a href="https://clinicaltrials.gov/study/NCT05573984" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT05573984</a> (NCT05573984 chunk 1)</li>
+<li>ClinicalTrials.gov: NCT06368375 (2023; Tübingen phenotyping). <a href="https://clinicaltrials.gov/study/NCT06368375" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT06368375</a> (NCT06368375 chunk 1)</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-rose2016varianthaploinsufficiencyand-pages-1-2"></a>(rose2016varianthaploinsufficiencyand pages 1-2): A. M. Rose and Shomi S. Bhattacharya. Variant haploinsufficiency and phenotypic non‐penetrance in prpf31‐associated retinitis pigmentosa. Clinical Genetics, 90:118-126, Aug 2016. URL: <a href="https://doi.org/10.1111/cge.12758" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/cge.12758</a>, <a href="https://doi.org/10.1111/cge.12758" target="_blank" rel="noopener noreferrer">doi:10.1111/cge.12758</a>. This article has 86 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-grainok2024aprecisiontherapy-pages-2-4"></a>(grainok2024aprecisiontherapy pages 2-4): Janya Grainok, Ianthe L. Pitout, Fred K. Chen, Samuel McLenachan, Rachael C. Heath Jeffery, Chalermchai Mitrpant, and Sue Fletcher. A precision therapy approach for retinitis pigmentosa 11 using splice-switching antisense oligonucleotides to restore the open reading frame of prpf31. International Journal of Molecular Sciences, 25:3391, Mar 2024. URL: <a href="https://doi.org/10.3390/ijms25063391" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25063391</a>, <a href="https://doi.org/10.3390/ijms25063391" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25063391</a>. This article has 14 citations.</p>
+</li>
+<li>
+<p><a id="ref-rodrigues2022modelingprpf31retinitis-pages-1-2"></a>(rodrigues2022modelingprpf31retinitis pages 1-2): Amélie Rodrigues, Amélie Slembrouck-Brec, Céline Nanteau, Angélique Terray, Yelyzaveta Tymoshenko, Yvrick Zagar, Sacha Reichman, Zhouhuan Xi, José-Alain Sahel, Stéphane Fouquet, Gael Orieux, Emeline F. Nandrot, Leah C. Byrne, Isabelle Audo, Jérôme E. Roger, and Olivier Goureau. Modeling prpf31 retinitis pigmentosa using retinal pigment epithelium and organoids combined with gene augmentation rescue. NPJ Regenerative Medicine, Aug 2022. URL: <a href="https://doi.org/10.1038/s41536-022-00235-6" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41536-022-00235-6</a>, <a href="https://doi.org/10.1038/s41536-022-00235-6" target="_blank" rel="noopener noreferrer">doi:10.1038/s41536-022-00235-6</a>. This article has 71 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct05902962-chunk-1"></a>(NCT05902962 chunk 1):  SAD of IVT VP-001 in PRPF31 Mutation-Associated Retinal Dystrophy Subjects. PYC Therapeutics. 2023. ClinicalTrials.gov Identifier: NCT05902962</p>
+</li>
+<li>
+<p><a id="ref-buskin2018disruptedalternativesplicing-pages-1-2"></a>(buskin2018disruptedalternativesplicing pages 1-2): Adriana Buskin, Lili Zhu, Valeria Chichagova, Basudha Basu, Sina Mozaffari-Jovin, David Dolan, Alastair Droop, Joseph Collin, Revital Bronstein, Sudeep Mehrotra, Michael Farkas, Gerrit Hilgen, Kathryn White, Kuan-Ting Pan, Achim Treumann, Dean Hallam, Katarzyna Bialas, Git Chung, Carla Mellough, Yuchun Ding, Natalio Krasnogor, Stefan Przyborski, Simon Zwolinski, Jumana Al-Aama, Sameer Alharthi, Yaobo Xu, Gabrielle Wheway, Katarzyna Szymanska, Martin McKibbin, Chris F. Inglehearn, David J. Elliott, Susan Lindsay, Robin R. Ali, David H. Steel, Lyle Armstrong, Evelyne Sernagor, Henning Urlaub, Eric Pierce, Reinhard Lührmann, Sushma-Nagaraja Grellscheid, Colin A. Johnson, and Majlinda Lako. Disrupted alternative splicing for genes implicated in splicing and ciliogenesis causes prpf31 retinitis pigmentosa. Nature Communications, Oct 2018. URL: <a href="https://doi.org/10.1038/s41467-018-06448-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-018-06448-y</a>, <a href="https://doi.org/10.1038/s41467-018-06448-y" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-018-06448-y</a>. This article has 254 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct05573984-chunk-1"></a>(NCT05573984 chunk 1):  Natural History of PRPF31 Mutation-Associated Retinal Dystrophy. PYC Therapeutics. 2022. ClinicalTrials.gov Identifier: NCT05573984</p>
+</li>
+<li>
+<p><a id="ref-nct06368375-chunk-1"></a>(NCT06368375 chunk 1):  Clinical and Genetic Findings in Patients With PRPF31-associated Retinitis Pigmentosa. University Hospital Tuebingen. 2023. ClinicalTrials.gov Identifier: NCT06368375</p>
+</li>
+<li>
+<p><a id="ref-georgiou2022activationofautophagy-pages-1-3"></a>(georgiou2022activationofautophagy pages 1-3): Maria Georgiou, Chunbo Yang, Robert Atkinson, Kuan‐Ting Pan, Adriana Buskin, Marina Moya Molina, Joseph Collin, Jumana Al‐Aama, Franziska Goertler, Sebastian E. J. Ludwig, Tracey Davey, Reinhard Lührmann, Sushma Nagaraja‐Grellscheid, Colin A. Johnson, Robin Ali, Lyle Armstrong, Viktor Korolchuk, Henning Urlaub, Sina Mozaffari‐Jovin, and Majlinda Lako. Activation of autophagy reverses progressive and deleterious protein aggregation in prpf31 patient‐induced pluripotent stem cell‐derived retinal pigment epithelium cells. Clinical and Translational Medicine, Mar 2022. URL: <a href="https://doi.org/10.1002/ctm2.759" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ctm2.759</a>, <a href="https://doi.org/10.1002/ctm2.759" target="_blank" rel="noopener noreferrer">doi:10.1002/ctm2.759</a>. This article has 30 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-xi2022geneaugmentationprevents-pages-1-2"></a>(xi2022geneaugmentationprevents pages 1-2): Zhouhuan Xi, Abhishek Vats, José-Alain Sahel, Yuanyuan Chen, and Leah C. Byrne. Gene augmentation prevents retinal degeneration in a crispr/cas9-based mouse model of prpf31 retinitis pigmentosa. Nature Communications, Dec 2022. URL: <a href="https://doi.org/10.1038/s41467-022-35361-8" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-022-35361-8</a>, <a href="https://doi.org/10.1038/s41467-022-35361-8" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-022-35361-8</a>. This article has 42 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-varela2023genetictreatmentfor-pages-6-9"></a>(varela2023genetictreatmentfor pages 6-9): Malena Daich Varela, Anastasios Georgiadis, and Michel Michaelides. Genetic treatment for autosomal dominant inherited retinal dystrophies: approaches, challenges and targeted genotypes. British Journal of Ophthalmology, 107:1223-1230, Aug 2023. URL: <a href="https://doi.org/10.1136/bjo-2022-321903" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/bjo-2022-321903</a>, <a href="https://doi.org/10.1136/bjo-2022-321903" target="_blank" rel="noopener noreferrer">doi:10.1136/bjo-2022-321903</a>. This article has 33 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-lan2022a69kb-pages-9-12"></a>(lan2022a69kb pages 9-12): Yuanzheng Lan, Yuhong Chen, Yunsheng Qiao, Qingdan Xu, Ruyi Zhai, Xinghuai Sun, Jihong Wu, and Xueli Chen. A 69 kb deletion in chr19q13.42 including prpf31 gene in a chinese family affected with autosomal dominant retinitis pigmentosa. Journal of Clinical Medicine, 11:6682, Nov 2022. URL: <a href="https://doi.org/10.3390/jcm11226682" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/jcm11226682</a>, <a href="https://doi.org/10.3390/jcm11226682" target="_blank" rel="noopener noreferrer">doi:10.3390/jcm11226682</a>. This article has 2 citations.</p>
+</li>
+<li>
+<p><a id="ref-nct05573984a-chunk-1"></a>(NCT05573984a chunk 1):  Natural History of PRPF31 Mutation-Associated Retinal Dystrophy. PYC Therapeutics. 2022. ClinicalTrials.gov Identifier: NCT05573984</p>
+</li>
+<li>
+<p><a id="ref-xi2022geneaugmentationprevents-pages-3-4"></a>(xi2022geneaugmentationprevents pages 3-4): Zhouhuan Xi, Abhishek Vats, José-Alain Sahel, Yuanyuan Chen, and Leah C. Byrne. Gene augmentation prevents retinal degeneration in a crispr/cas9-based mouse model of prpf31 retinitis pigmentosa. Nature Communications, Dec 2022. URL: <a href="https://doi.org/10.1038/s41467-022-35361-8" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-022-35361-8</a>, <a href="https://doi.org/10.1038/s41467-022-35361-8" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-022-35361-8</a>. This article has 42 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct06455826-chunk-1"></a>(NCT06455826 chunk 1):  MAD of IVT VP-001 in PRPF31 Mutation-Associated Retinal Dystrophy Subjects (Wallaby). PYC Therapeutics. 2024. ClinicalTrials.gov Identifier: NCT06455826</p>
+</li>
+<li>
+<p><a id="ref-nct06455826a-chunk-1"></a>(NCT06455826a chunk 1):  MAD of IVT VP-001 in PRPF31 Mutation-Associated Retinal Dystrophy Subjects (Wallaby). PYC Therapeutics. 2024. ClinicalTrials.gov Identifier: NCT06455826</p>
+</li>
+<li>
+<p><a id="ref-nct05573984a-chunk-2"></a>(NCT05573984a chunk 2):  Natural History of PRPF31 Mutation-Associated Retinal Dystrophy. PYC Therapeutics. 2022. ClinicalTrials.gov Identifier: NCT05573984</p>
+</li>
+<li>
+<p><a id="ref-nct05573984-chunk-2"></a>(NCT05573984 chunk 2):  Natural History of PRPF31 Mutation-Associated Retinal Dystrophy. PYC Therapeutics. 2022. ClinicalTrials.gov Identifier: NCT05573984</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/PRPF31-Related_Retinopathy-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+<li><a href="../../research/PRPF31-Related_Retinopathy-deep-research-falcon_artifacts/artifact-01.md">Edison artifact artifact-01</a></li>
+<li><a href="../../research/PRPF31-Related_Retinopathy-deep-research-falcon_artifacts/artifact-02.md">Edison artifact artifact-02</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Proximal_Tubulopathy-Diabetes_Mellitus-Cerebellar_Ataxia_Syndrome-claude_code.html">← Proximal tubulopathy-diabetes mellitus-cerebellar ataxia syndrome (Claude Code)</a>
+                
+                
+                <a href="PRPH2-Related_Retinopathy-openai.html">PRPH2-Related Retinopathy (OpenAI) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/PRPF31-Related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/PRPF31-Related_Retinopathy-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,0 +1,68 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Paraquat_Poisoning
+  path: kb/disorders/Paraquat_Poisoning.yaml
+session:
+  id: 2026-08-22T220841Z-claude-code-148b5a
+  timestamp: '2026-08-22T22:08:41Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - pathophysiology
+  summary: 'Correct a false ontology claim: GO:0015695 is obsolete, the enum was right'
+  details: |
+    Correction to the immediately preceding record, which contained a false claim
+    about the ontology.
+
+    That record and commit 2c72f6c6b stated that GO:0015695 organic cation transport
+    "is live and is a descendant of GO:0006810 transport, but is rejected by the
+    BiologicalProcessTerm dynamic enum", and concluded that this "looks like a gap in
+    the membership cache rather than a statement about the ontology". It was flagged
+    for a maintainer on that basis.
+
+    That is wrong. GO:0015695 is obsolete in current GO. OLS returns its label as
+    "obsolete organic cation transport" with is_obsolete true. The dynamic enum was
+    correct to reject it, and there is no membership-cache bug to report.
+
+    How the error was made, and how it was caught. Every ontology lookup in this
+    session used the local `sqlite:obo:go` build, which is stale: it still reports
+    GO:0015695 with the label "organic cation transport", an `is_a GO:0006810`
+    parent, and no owl:deprecated axiom. Nothing in that output signals obsoletion,
+    so a single local query looked like sufficient evidence that the term was live.
+    The contradiction surfaced only after committing, in the cache diff: the term
+    validator had written the row `GO:0015695,obsolete organic cation transport` into
+    cache/go/terms.csv - its own retrieval disagreeing with the local build in the
+    one place a curator reviewing a cache diff would see it. Confirmed against live
+    OLS before correcting.
+
+    The lesson, which is now recorded on the node itself: one local OAK build is not
+    sufficient evidence that a term is live. Obsoletion status in particular must be
+    cross-checked against OLS or against the label the term validator writes into
+    cache/, because a stale local build fails silently in the direction of looking
+    correct. This is the third distinct way this entry has been bitten by trusting a
+    single view of a term - after GO:0002014, where the label matched but the
+    definition did not, and the NADPH/NADH node name, where the cofactor was taken
+    from a mechanism's common description rather than from the enzyme.
+
+    What changed. Only the notes on the Proximal Tubular Injury node. The binding
+    itself was already GO:0055085 transmembrane transport and is unchanged, so no
+    evidence, term binding or edge is affected - the defect was a false statement
+    about why the binding is what it is, in the one place that would have sent a
+    maintainer looking for a bug that does not exist.
+
+    The now-orphaned cache row for GO:0015695 was NOT hand-deleted, per the cache
+    guardrails. An unused row in a label cache asserts nothing, and it is in fact
+    carrying the correct label.
+
+    Validation unchanged: 66/66 snippets verified, all gates clean, pytest -k
+    Paraquat 16 passed. Prose-only change.

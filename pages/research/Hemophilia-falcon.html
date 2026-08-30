@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hemophilia · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Hemophilia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Hemophilia</h1>
+                
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
+                
+                
+                <div class="report-date">2026-08-20</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0018660" target="_blank" rel="noopener noreferrer">MONDO:0018660</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">42 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Hemophilia</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Genetic</li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Hemophilia</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Hemophilia: comprehensive disease-characteristics report</h1>
+<h2>Scope and evidence note</h2>
+<p>This report concerns <strong>congenital hemophilia A and B</strong>, not acquired hemophilia A. Hemophilia A is factor VIII (FVIII) deficiency caused by pathogenic <strong>F8</strong> variants; hemophilia B, or Christmas disease, is factor IX (FIX) deficiency caused by pathogenic <strong>F9</strong> variants. Both are lifelong X-linked bleeding disorders. Acquired hemophilia A is instead an autoimmune FVIII-inhibitor disorder and belongs in the differential diagnosis rather than this genetic entry.</p>
+<p>The evidence base combines disease-level resources, peer-reviewed human cohorts, trials, laboratory/in-vitro studies, and animal models. It is <strong>aggregated disease-level evidence</strong>, not an individual electronic health record. DOI URLs and publication dates are supplied because PMID metadata were not consistently exposed by the retrieved records; PMIDs are not guessed.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Hemophilia A</th>
+<th>Hemophilia B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Causal gene / protein</td>
+<td><strong>F8</strong> / factor VIII deficiency (OpenTargets Search: hemophilia A,hemophilia B-F8,F9, deshpande2024adenoassociatedvirus–basedgene pages 1-2)</td>
+<td><strong>F9</strong> / factor IX deficiency (<a href="#ref-wang2024clinicalanalysisand-pages-1-2">wang2024clinicalanalysisand pages 1-2</a>, deshpande2024adenoassociatedvirus–basedgene pages 1-2)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>X-linked recessive inherited bleeding disorder (<a href="#ref-zhang2023moleculardiagnosisof-pages-1-2">zhang2023moleculardiagnosisof pages 1-2</a>, <a href="#ref-li2023f8geneinversion-pages-1-2">li2023f8geneinversion pages 1-2</a>)</td>
+<td>X-linked recessive inherited bleeding disorder (<a href="#ref-wang2024clinicalanalysisand-pages-1-2">wang2024clinicalanalysisand pages 1-2</a>, <a href="#ref-arruda2021genetherapyfor-pages-2-3">arruda2021genetherapyfor pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Severity thresholds (shared)</td>
+<td>Severe <strong>&lt;1%</strong>, moderate <strong>1–5%</strong>, mild <strong>&gt;5–40%</strong> factor activity (deshpande2024adenoassociatedvirus–basedgene pages 1-2, <a href="#ref-zhang2023moleculardiagnosisof-pages-1-2">zhang2023moleculardiagnosisof pages 1-2</a>)</td>
+<td>Severe <strong>&lt;1%</strong>, moderate <strong>1–5%</strong>, mild <strong>&gt;5–40%</strong> factor activity (deshpande2024adenoassociatedvirus–basedgene pages 1-2, <a href="#ref-zhang2023moleculardiagnosisof-pages-1-2">zhang2023moleculardiagnosisof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Approximate prevalence / incidence</td>
+<td>Prevalence about <strong>1 per 10,000</strong> overall; incidence about <strong>1:5,000 male births</strong> (<a href="#ref-chernyi2024recentadvancesin-pages-1-3">chernyi2024recentadvancesin pages 1-3</a>, <a href="#ref-arruda2021genetherapyfor-pages-2-3">arruda2021genetherapyfor pages 2-3</a>)</td>
+<td>Prevalence about <strong>1 per 60,000</strong> overall; incidence about <strong>1:30,000 male births</strong> (<a href="#ref-chernyi2024recentadvancesin-pages-1-3">chernyi2024recentadvancesin pages 1-3</a>, <a href="#ref-arruda2021genetherapyfor-pages-2-3">arruda2021genetherapyfor pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Common variant classes</td>
+<td>Intron 22 inversion is the major severe-HA lesion (~45% of severe cases); also intron 1 inversion, missense, nonsense, frameshift, deletions/insertions (<a href="#ref-guo2018spectrumofmolecular-pages-1-2">guo2018spectrumofmolecular pages 1-2</a>, <a href="#ref-zhang2023moleculardiagnosisof-pages-1-2">zhang2023moleculardiagnosisof pages 1-2</a>, <a href="#ref-zhang2023moleculardiagnosisof-pages-2-3">zhang2023moleculardiagnosisof pages 2-3</a>)</td>
+<td>Missense variants predominate; also nonsense, frameshift, deletions, deletion-insertions (<a href="#ref-wang2024clinicalanalysisand-pages-1-2">wang2024clinicalanalysisand pages 1-2</a>, <a href="#ref-wang2024clinicalanalysisand-pages-8-9">wang2024clinicalanalysisand pages 8-9</a>, <a href="#ref-wang2024clinicalanalysisand-pages-7-8">wang2024clinicalanalysisand pages 7-8</a>)</td>
+</tr>
+<tr>
+<td>Inhibitor frequency</td>
+<td>About <strong>20–30%</strong> alloantibody/inhibitor prevalence, especially in severe HA (<a href="#ref-arruda2021genetherapyfor-pages-2-3">arruda2021genetherapyfor pages 2-3</a>)</td>
+<td>About <strong>3–10%</strong> overall in reviews; <strong>6.1%</strong> in one 2024 Chinese real-world cohort (<a href="#ref-arruda2021genetherapyfor-pages-2-3">arruda2021genetherapyfor pages 2-3</a>, <a href="#ref-wang2024clinicalanalysisand-pages-1-2">wang2024clinicalanalysisand pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Principal current prophylaxis</td>
+<td>Prophylaxis is standard of care; options include standard/extended half-life FVIII and subcutaneous emicizumab for HA (<a href="#ref-croteau20212021clinicaltrials-pages-1-6">croteau20212021clinicaltrials pages 1-6</a>, <a href="#ref-croteau20212021clinicaltrials-pages-29-32">croteau20212021clinicaltrials pages 29-32</a>)</td>
+<td>Prophylaxis is standard of care; options include standard/extended half-life FIX replacement (<a href="#ref-croteau20212021clinicaltrials-pages-1-6">croteau20212021clinicaltrials pages 1-6</a>, <a href="#ref-croteau20212021clinicaltrials-pages-29-32">croteau20212021clinicaltrials pages 29-32</a>)</td>
+</tr>
+<tr>
+<td>Licensed gene therapy and key phase 3 outcome</td>
+<td><strong>Valoctocogene roxaparvovec (Roctavian/BMN 270)</strong>; phase 3 GENEr8-1 in <strong>134</strong> adults: FVIII activity rose by mean <strong>41.9 U/dL</strong> at weeks 49–52, annualized bleeding rate fell <strong>84.5%</strong> through 104 weeks, FVIII use fell <strong>98.6%</strong>, mean FVIII <strong>18.2 U/dL</strong> at month 36 (<a href="#ref-levien2024valoctocogeneroxaparvovec-pages-2-3">levien2024valoctocogeneroxaparvovec pages 2-3</a>, <a href="#ref-levien2024valoctocogeneroxaparvovec-pages-3-5">levien2024valoctocogeneroxaparvovec pages 3-5</a>)</td>
+<td><strong>Etranacogene dezaparvovec (Hemgenix/AMT-061)</strong>; phase 3 HOPE-B in <strong>54</strong> adults: mean FIX activity change <strong>34.3 percentage points</strong> at 18 months, <strong>96%</strong> stopped FIX prophylaxis in one review, and ~<strong>94%</strong> remained off prophylaxis at 3 years with FIX ~<strong>38.6 IU/dL</strong> at year 3 (<a href="#ref-anguela2024hemophiliaband-pages-2-3">anguela2024hemophiliaband pages 2-3</a>, <a href="#ref-kaczmarek2024currentandemerging-pages-5-5">kaczmarek2024currentandemerging pages 5-5</a>, <a href="#ref-anguela2024hemophiliaband-pages-4-5">anguela2024hemophiliaband pages 4-5</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table contrasts the core knowledge-base facts for congenital hemophilia A and B using only previously gathered evidence. It summarizes genetics, severity, epidemiology, inhibitor risk, current prophylaxis, and the main licensed gene-therapy outcomes for quick reference.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and classification</h3>
+<p>Hemophilia is failure of secondary hemostasis caused by inadequate FVIII or FIX activity. The accepted laboratory severity classes are <strong>severe, &lt;1 IU/dL (&lt;1%)</strong>; <strong>moderate, 1–5 IU/dL</strong>; and <strong>mild, &gt;5–40 IU/dL</strong>. Approximately 50–67% of patients with hemophilia A and 33–50% with hemophilia B have severe disease. Severe disease produces recurrent spontaneous bleeding, especially hemarthroses; moderate and mild disease more often manifests after trauma, dental work, or surgery. Women and girls can also be symptomatic owing to low factor levels, skewed X-inactivation, Turner syndrome, homozygosity/compound heterozygosity, or other unusual X-chromosome states. (deshpande2024adenoassociatedvirus–basedgene pages 1-2)</p>
+<h3>Identifiers and synonyms</h3>
+<p>Recommended knowledge-base mappings are:</p>
+<ul>
+<li><strong>Hemophilia A:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010602" target="_blank" rel="noopener noreferrer">MONDO:0010602</a>; OMIM #306700; Orphanet <a href="https://bioregistry.io/ORPHA:448" target="_blank" rel="noopener noreferrer">ORPHA:448</a>; ICD-10-CM D66; MeSH <em>Hemophilia A</em>. Open Targets independently identifies <a href="http://purl.obolibrary.org/obo/MONDO_0010602" target="_blank" rel="noopener noreferrer">MONDO:0010602</a> and strongly associates it with <strong>F8</strong>. (OpenTargets Search: hemophilia A,hemophilia B-F8,F9)</li>
+<li><strong>Hemophilia B:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010603" target="_blank" rel="noopener noreferrer">MONDO:0010603</a>; OMIM #306900; Orphanet <a href="https://bioregistry.io/ORPHA:98878" target="_blank" rel="noopener noreferrer">ORPHA:98878</a>; ICD-10-CM D67; MeSH <em>Hemophilia B</em>.</li>
+<li><strong>Umbrella synonyms:</strong> haemophilia, congenital hemophilia, hereditary factor deficiency.</li>
+<li><strong>A synonyms:</strong> factor VIII deficiency, classical hemophilia.</li>
+<li><strong>B synonyms:</strong> factor IX deficiency, Christmas disease.</li>
+</ul>
+<p>The A/B entities should remain separate children beneath a congenital hemophilia parent. “Hemophilic arthropathy” is a complication, not a synonymous disease.</p>
+<h2>2. Etiology, risk, protection, and gene–environment interaction</h2>
+<h3>Causal factors</h3>
+<p>The primary causes are germline loss-of-function or function-reducing variants in <strong>F8</strong> or <strong>F9</strong>. The resulting low FVIII/FIX activity disrupts intrinsic-tenase amplification and thrombin generation. Open Targets gives <strong>F8–hemophilia A</strong> a high association score (0.918) supported by five literature evidence records, reinforcing that F8 is causal rather than merely correlative. (OpenTargets Search: hemophilia A,hemophilia B-F8,F9)</p>
+<h3>Genetic risk factors</h3>
+<ul>
+<li>In severe hemophilia A, <strong>F8 intron-22 inversion</strong> accounts for about 45% of cases; intron-1 inversion accounts for approximately 1–2%. Other lesions include missense, nonsense, frameshift, splice, small indel, exon/gene deletion, duplication, and complex structural variants. (<a href="#ref-zhang2023moleculardiagnosisof-pages-1-2">zhang2023moleculardiagnosisof pages 1-2</a>, <a href="#ref-li2023f8geneinversion-pages-1-2">li2023f8geneinversion pages 1-2</a>)</li>
+<li>In a 216-family molecular study, pathogenic F8 variants were found in 209 families (<strong>96.8%</strong>); Inv22 occurred in 89 severe families and Inv1 in five. Nonsense variants significantly increased inhibitor odds. (<a href="#ref-guo2018spectrumofmolecular-pages-1-2">guo2018spectrumofmolecular pages 1-2</a>)</li>
+<li>In a 2024 hemophilia-B cohort, point variants constituted <strong>84.2%</strong>, missense <strong>63.2%</strong>, and nonsense <strong>24.8%</strong> of identified F9 lesions; large deletions and truncating variants generally produce more severe disease and greater inhibitor risk. (<a href="#ref-wang2024clinicalanalysisand-pages-8-9">wang2024clinicalanalysisand pages 8-9</a>, <a href="#ref-wang2024clinicalanalysisand-pages-7-8">wang2024clinicalanalysisand pages 7-8</a>)</li>
+<li>Family history is informative but not required. Only <strong>30.3%</strong> of the 185-patient Chinese hemophilia-B cohort reported a family history, consistent with de novo variants, unrecognized maternal transmission, and incomplete family ascertainment. (<a href="#ref-wang2024clinicalanalysisand-pages-1-2">wang2024clinicalanalysisand pages 1-2</a>)</li>
+</ul>
+<p>These are ordinarily <strong>germline</strong>, not somatic, disorders. Pathogenic variants should be exceptionally rare or absent from gnomAD/other population databases, but frequency alone cannot establish pathogenicity. Classification should use ACMG/AMP criteria, ClinVar/ClinGen evidence, phenotype, segregation, factor activity, RNA studies where appropriate, and functional assays. A VUS must not be used alone for predictive testing.</p>
+<h3>Environmental and treatment-related modifiers</h3>
+<p>No toxin, diet, infection, smoking exposure, or occupation causes congenital hemophilia. Environment chiefly modifies bleeding expression: trauma, surgery, contact sports, intramuscular procedures, antiplatelet/anticoagulant drugs, obesity-related joint loading, delayed treatment, and poor prophylaxis access increase morbidity. Conversely, regular prophylaxis, safe physical activity, normal body mass, dental care, vaccination, early bleed treatment, and multidisciplinary care protect against complications. In one real-world cohort, preventive therapy, absence of treatment delay and inhibitors, and avoidance of high-intensity episodic replacement correlated with better SF-36 scores. (<a href="#ref-wang2024clinicalanalysisand-pages-1-2">wang2024clinicalanalysisand pages 1-2</a>)</p>
+<p>The major gene–environment interaction is <strong>genotype × treatment exposure</strong> in inhibitor formation. Null F8 genotypes create little endogenous antigen and raise alloantibody risk when therapeutic FVIII is introduced; intensive exposure, inflammation, surgery, treatment product, age, ancestry, and immune background can modify that risk. Severe hemophilia A develops inhibitors in roughly <strong>20–30%</strong>, whereas reported hemophilia-B frequencies are approximately <strong>3–10%</strong>. (<a href="#ref-arruda2021genetherapyfor-pages-2-3">arruda2021genetherapyfor pages 2-3</a>)</p>
+<p>No reproducible “protective allele” is established for routine clinical use. Higher residual factor expression from hypomorphic variants is functionally protective, while timely prophylaxis is the dominant modifiable protective factor.</p>
+<h2>3. Phenotypes</h2>
+<h3>Core phenotype catalogue</h3>
+<ul>
+<li><strong>Prolonged bleeding after injury/procedure</strong> — symptom/sign; congenital predisposition, but presentation may be neonatal through adulthood depending on severity; episodic and variable. Suggested HPO: <strong>Abnormal bleeding (<a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" rel="noopener noreferrer">HP:0001892</a>)</strong> and <strong>Prolonged bleeding after surgery</strong>.</li>
+<li><strong>Spontaneous bleeding</strong> — severe disease, commonly beginning in infancy or early childhood as mobility increases; recurrent without prophylaxis. HPO: <strong>Spontaneous bleeding (<a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" rel="noopener noreferrer">HP:0001890</a>)</strong>.</li>
+<li><strong>Hemarthrosis</strong> — acute painful swelling, warmth, restricted movement, usually knees, ankles, and elbows; recurrent and strongly severity-dependent. HPO: <strong>Hemarthrosis (<a href="http://purl.obolibrary.org/obo/HP_0005261" target="_blank" rel="noopener noreferrer">HP:0005261</a>)</strong> and <strong>Joint swelling (<a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" rel="noopener noreferrer">HP:0001386</a>)</strong>. In a 2024 hemophilia-B cohort, <strong>71.4%</strong> had joint bleeding and 64.4% of those had a target joint; lower-extremity joints predominated. (<a href="#ref-wang2024clinicalanalysisand-pages-1-2">wang2024clinicalanalysisand pages 1-2</a>)</li>
+<li><strong>Muscle/soft-tissue hematoma and easy bruising</strong> — episodic; can cause compartment syndrome, neuropathy, or anemia. Suggested HPO: <strong>Easy bruising (<a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" rel="noopener noreferrer">HP:0000978</a>)</strong> and <strong>Intramuscular hematoma</strong>.</li>
+<li><strong>Mucosal/oral bleeding, epistaxis, hematuria and gastrointestinal bleeding</strong> — less characteristic than deep-tissue bleeding but clinically relevant. Suggested HPO: <strong>Epistaxis (<a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" rel="noopener noreferrer">HP:0000421</a>)</strong>, <strong>Hematuria (<a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" rel="noopener noreferrer">HP:0000790</a>)</strong>, and <strong>Gastrointestinal hemorrhage (<a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" rel="noopener noreferrer">HP:0002239</a>)</strong>.</li>
+<li><strong>Intracranial hemorrhage</strong> — uncommon but life-threatening, especially around birth, trauma, or untreated severe disease. HPO: <strong>Intracranial hemorrhage (<a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" rel="noopener noreferrer">HP:0002170</a>)</strong>.</li>
+<li><strong>Hemophilic arthropathy</strong> — chronic pain, stiffness, synovial hypertrophy, reduced range of motion, contracture, cartilage loss and subchondral bone damage after recurrent or subclinical hemarthrosis. Suggested HPO: <strong>Arthropathy (<a href="http://purl.obolibrary.org/obo/HP_0003040" target="_blank" rel="noopener noreferrer">HP:0003040</a>)</strong>, <strong>Joint pain (<a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a>)</strong>, <strong>Joint contracture (<a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" rel="noopener noreferrer">HP:0001371</a>)</strong> and <strong>Limitation of joint mobility (<a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" rel="noopener noreferrer">HP:0001376</a>)</strong>. Severe hemophilia can culminate in ankylosis and contractures. (<a href="#ref-chernyi2024recentadvancesin-pages-1-3">chernyi2024recentadvancesin pages 1-3</a>)</li>
+<li><strong>Laboratory abnormalities</strong> — low FVIII:C or FIX:C; typically isolated prolonged aPTT that corrects in a mixing study unless an inhibitor is present; normal platelet count and usually normal PT. HPO: <strong>Reduced factor VIII activity (<a href="http://purl.obolibrary.org/obo/HP_0003125" target="_blank" rel="noopener noreferrer">HP:0003125</a>)</strong> or <strong>Reduced factor IX activity</strong>, and <strong>Prolonged partial thromboplastin time (<a href="http://purl.obolibrary.org/obo/HP_0003645" target="_blank" rel="noopener noreferrer">HP:0003645</a>)</strong>.</li>
+<li><strong>Inhibitors</strong> — laboratory/immune complication measured by Nijmegen-modified Bethesda assay; produce poor factor recovery and breakthrough bleeding.</li>
+</ul>
+<h3>Quality-of-life effects</h3>
+<p>Bleeding causes pain, exercise restriction, school/work absence, treatment anxiety, loss of independence, disability, and family financial burden. The 2024 cohort documented exercise limitation, missed school, injection distress, economic pressure and home-care burden. Diagnostic delay affected <strong>34.6%</strong> and treatment delay <strong>38.5%</strong>, demonstrating a real-world implementation gap. (<a href="#ref-wang2024clinicalanalysisand-pages-8-9">wang2024clinicalanalysisand pages 8-9</a>, <a href="#ref-wang2024clinicalanalysisand-pages-7-8">wang2024clinicalanalysisand pages 7-8</a>)</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Genes and proteins</h3>
+<ul>
+<li><strong>F8</strong>, Xq28, encodes coagulation factor VIII; HGNC symbol F8. FVIII circulates stabilized by von Willebrand factor and, once activated, acts as the FIXa cofactor.</li>
+<li><strong>F9</strong>, Xq27.1, encodes vitamin-K-dependent factor IX; HGNC symbol F9. Activated FIX combines with FVIIIa, calcium and phospholipid to activate factor X.</li>
+</ul>
+<p>Normal circulating FVIII is low abundance (~1 nM) with an 8–12-hour half-life; FIX is ~90 nM with a 19–26-hour half-life. (<a href="#ref-arruda2021genetherapyfor-pages-2-3">arruda2021genetherapyfor pages 2-3</a>)</p>
+<h3>Variant interpretation and structural abnormalities</h3>
+<p>Null variants—Inv22/Inv1, large deletion, nonsense, canonical splice and frameshift variants—usually cause severe disease through absent protein. Missense variants frequently retain partial activity and produce moderate/mild disease, although domain-specific exceptions occur. Copy-number variants require MLPA or genome-level detection; a reported partial 0.16-Mb F8 duplication combined with Inv22 preserved an intact transcript and produced no obvious phenotype, illustrating why structural context and RNA confirmation matter. (<a href="#ref-li2023f8geneinversion-pages-1-2">li2023f8geneinversion pages 1-2</a>)</p>
+<p>Routine molecular workflows now identify a causal variant in up to about 97% of hemophilia A families. Inversions should be tested explicitly; sequencing alone can miss them. Rare deep-intronic, regulatory, repetitive, mosaic, or complex rearrangements account for part of the residual unsolved fraction. (<a href="#ref-guo2018spectrumofmolecular-pages-1-2">guo2018spectrumofmolecular pages 1-2</a>, <a href="#ref-zhang2023moleculardiagnosisof-pages-1-2">zhang2023moleculardiagnosisof pages 1-2</a>)</p>
+<h3>Modifier genes and epigenetics</h3>
+<p>HLA class II, cytokine, immune-regulatory, and antigen-processing loci have been studied mainly as <strong>inhibitor-risk modifiers</strong>, but none currently replaces clinical/genotype risk models. Skewed X-chromosome inactivation is the most clinically important epigenetic phenomenon in symptomatic carriers. Disease-specific methylation, histone, single-cell, spatial-transcriptomic, lipidomic, or metabolomic signatures are not validated diagnostic features and should be recorded as research-only.</p>
+<h2>5. Environmental information</h2>
+<p>Congenital hemophilia has <strong>no infectious, toxic, radiation, pollution, dietary, alcohol, or smoking cause</strong>. Historically, plasma-derived concentrate exposure transmitted HIV, hepatitis B, and hepatitis C; modern recombinant products, donor screening and viral inactivation have greatly reduced this risk. Infections are complications of past treatment rather than etiologic agents.</p>
+<p>Lifestyle influences morbidity. Appropriate low-impact exercise and physiotherapy improve strength and joint protection; obesity increases mechanical stress, cardiovascular risk and arthropathy burden. An active Netherlands trial, <strong>NCT05608863</strong>, is testing a two-year virtual coaching/group lifestyle program in approximately 30 overweight/obese people with bleeding disorders, measuring weight, bleeding, factor use and cardiometabolic outcomes. (NCT05608863 chunk 1)</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Upstream coagulation defect</h3>
+<p>The causal chain is:</p>
+<p><strong>F8/F9 pathogenic variant → deficient/dysfunctional FVIII or FIX → impaired intrinsic-tenase activity → inadequate factor-X activation and thrombin burst → weak fibrin clot and rebleeding → deep-tissue hemorrhage/hemarthrosis.</strong></p>
+<p>Suggested GO processes are <strong>blood coagulation (<a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a>)</strong>, <strong>hemostasis (<a href="http://purl.obolibrary.org/obo/GO_0007599" target="_blank" rel="noopener noreferrer">GO:0007599</a>)</strong>, <strong>factor X activation</strong>, and <strong>fibrin-clot formation</strong>. Relevant cells include hepatocytes for FIX synthesis (<strong><a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a></strong>), liver sinusoidal endothelial cells as principal FVIII-producing cells, platelets (<strong><a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" rel="noopener noreferrer">CL:0000233</a></strong>), endothelial cells (<strong><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a></strong>) and synovial macrophages.</p>
+<h3>Downstream joint-damage cascade</h3>
+<p><strong>Hemarthrosis → erythrocyte breakdown and iron/hemosiderin deposition → reactive oxygen species and chondrocyte apoptosis → macrophage/type-A synoviocyte activation → IL-1β, IL-6 and TNF-α → NF-κB, MMP and ADAMTS activation → synovial hypertrophy/pannus and cartilage degradation → VEGF-driven neovascularization and recurrent bleeding → subchondral bone loss, pain, contracture and disability.</strong> Human hemophilic-joint disease showed approximately fourfold elevated VEGF-A; candidate blood/tissue markers include SDF-1α, MMP-9, ferritin, D-dimer, COMP and collagen-turnover markers. (<a href="#ref-badulescu2024biomarkersinvolvedin-pages-11-13">badulescu2024biomarkersinvolvedin pages 11-13</a>, <a href="#ref-badulescu2024biomarkersinvolvedin-pages-3-5">badulescu2024biomarkersinvolvedin pages 3-5</a>)</p>
+<p>TNF-α suppresses proteoglycan/collagen-II synthesis and promotes MMP-1, MMP-3, MMP-13 and ADAMTS4. IL-1β increases iron uptake by fibroblast-like/type-B synoviocytes. Reduced thrombin also diminishes PAR-1-mediated osteoblast proliferation; reduced osteoprotegerin with increased RANK/RANKL shifts remodeling toward osteoclast-mediated resorption. (<a href="#ref-badulescu2024biomarkersinvolvedin-pages-5-6">badulescu2024biomarkersinvolvedin pages 5-6</a>, <a href="#ref-badulescu2024biomarkersinvolvedin-pages-8-10">badulescu2024biomarkersinvolvedin pages 8-10</a>)</p>
+<p>Suggested GO terms include <strong>inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>)</strong>, <strong>reactive oxygen species metabolic process</strong>, <strong>angiogenesis (<a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a>)</strong>, <strong>extracellular-matrix disassembly</strong>, <strong>chondrocyte apoptotic process</strong>, and <strong>osteoclast differentiation (<a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" rel="noopener noreferrer">GO:0030316</a>)</strong>. Relevant cell terms include macrophage <strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong>, fibroblast <strong><a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a></strong>, chondrocyte <strong><a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a></strong>, osteoblast <strong><a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a></strong>, osteoclast <strong><a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a></strong>, synovial fibroblast and vascular endothelial cell.</p>
+<h3>Immune involvement and profiling</h3>
+<p>Therapeutic factor may be internalized by antigen-presenting cells and presented to CD4 T cells, activating B cells and high-affinity neutralizing IgG. Mouse evidence implicates marginal-zone B cells in the initial anti-FVIII response. Immune-tolerance induction succeeds in approximately <strong>60–80%</strong>, leaving a substantial refractory group. (<a href="#ref-chernyi2024recentadvancesin-pages-3-4">chernyi2024recentadvancesin pages 3-4</a>, <a href="#ref-badulescu2024biomarkersinvolvedin-pages-10-11">badulescu2024biomarkersinvolvedin pages 10-11</a>)</p>
+<p>Proteomic/transcriptomic studies of arthropathy remain exploratory; no serum, synovial, proteomic, metabolomic or miRNA signature is sufficiently validated for routine diagnosis or prognosis. Much mechanistic evidence derives from synovectomy specimens, in-vitro synoviocytes, induced hemarthrosis in rodents/dogs, and small human biomarker cohorts, so causality and generalizability remain limited. (<a href="#ref-badulescu2024biomarkersinvolvedin-pages-11-13">badulescu2024biomarkersinvolvedin pages 11-13</a>, <a href="#ref-badulescu2024biomarkersinvolvedin-pages-5-6">badulescu2024biomarkersinvolvedin pages 5-6</a>)</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The primary functional system is blood/coagulation. Bleeding secondarily affects:</p>
+<ul>
+<li><strong>Synovial joints:</strong> knees, ankles and elbows most characteristically; also hips, shoulders and wrists. Suggested UBERON: synovial joint <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002217" target="_blank" rel="noopener noreferrer">UBERON:0002217</a></strong>, knee joint, ankle joint and elbow joint.</li>
+<li><strong>Skeletal muscle and connective tissue:</strong> hematomas and compartment syndromes.</li>
+<li><strong>Central nervous system:</strong> intracranial/spinal hemorrhage.</li>
+<li><strong>Mucosa, urinary tract and gastrointestinal tract:</strong> episodic bleeding.</li>
+<li><strong>Skeleton:</strong> subchondral bone erosion and osteoporosis downstream of chronic arthropathy.</li>
+<li><strong>Liver:</strong> source/therapeutic target for factor expression rather than a tissue injured by congenital deficiency; critical for AAV gene therapy monitoring.</li>
+</ul>
+<p>Disease is not intrinsically lateralized. Individual bleeds may be unilateral, whereas chronic target-joint disease may be asymmetric or bilateral. Relevant subcellular locations include extracellular plasma/coagulation complexes, platelet membrane phospholipid surfaces, hepatocyte nucleus after gene transfer, and AAV episomes.</p>
+<h2>8. Temporal development</h2>
+<p>The molecular defect is congenital and lifelong. Severe disease may present with birth-related cephalohematoma or intracranial bleeding, post-circumcision hemorrhage, or bruising/hemarthrosis when crawling and walking begin. Moderate disease commonly emerges in childhood after trauma; mild disease may remain unrecognized until surgery or adulthood.</p>
+<p>The untreated course is episodic bleeding with cumulative progressive damage: first hemarthrosis → recurrent bleed/target joint → chronic synovitis → established arthropathy, contracture and possible joint replacement. Bleeding can enter treatment-induced remission under effective prophylaxis, but the genotype does not spontaneously remit. Primary prophylaxis should begin early—expert guidance identifies <strong>before age two</strong> as the goal—to prevent rather than merely react to joint bleeding. (NCT07437404 chunk 1)</p>
+<p>Critical windows are pregnancy/delivery planning, the neonatal period, initiation of mobility, the first factor-exposure days when inhibitors emerge, and early synovitis before irreversible cartilage loss.</p>
+<h2>9. Inheritance and population</h2>
+<p>Both A and B are X-linked recessive: hemizygous males are usually affected; heterozygous females show variable factor levels and bleeding. An affected male transmits the variant to all daughters and no sons; a heterozygous mother has a 50% chance of transmitting the variant in each pregnancy. Penetrance for a severe pathogenic variant is high in hemizygous males, but expressivity varies with residual activity, inhibitors, treatment and trauma. Anticipation is not a feature. Germline or parental somatic mosaicism can explain apparently de novo disease.</p>
+<p>Estimates are approximately <strong>1 hemophilia-A case per 5,000 male births</strong> and <strong>1 hemophilia-B case per 30,000 male births</strong>; recent reviews estimate more than <strong>1.1–1.2 million</strong> affected worldwide, roughly 400,000 with severe disease. Underdiagnosis and survival differences produce major regional variation. (<a href="#ref-chernyi2024recentadvancesin-pages-1-3">chernyi2024recentadvancesin pages 1-3</a>, deshpande2024adenoassociatedvirus–basedgene pages 1-2)</p>
+<p>A 2024 African meta-analysis estimated hemophilia-A prevalence at <strong>6.82 per 100,000 persons</strong> (95% CI 5.16–8.48), emphasizing ascertainment and access disparities. Population ancestry does not biologically restrict disease, but diagnosis and survival are strongly geography-dependent. Consanguinity can permit affected females when an affected father and carrier mother reproduce but is not required.</p>
+<p>Among 106 mothers tested in a 2024 hemophilia-B cohort, <strong>84.0%</strong> were molecular carriers; 27.7% had FIX 0.05–0.40 IU/mL and therefore a mild hemophilia-range phenotype. (<a href="#ref-wang2024clinicalanalysisand-pages-8-9">wang2024clinicalanalysisand pages 8-9</a>)</p>
+<h2>10. Diagnostics</h2>
+<h3>Clinical and laboratory algorithm</h3>
+<ol>
+<li>Suspect hemophilia from deep-tissue bleeding, hemarthrosis, disproportionate procedural bleeding, or family history.</li>
+<li>Obtain CBC/platelets, PT/INR, aPTT and fibrinogen. Congenital A/B typically shows normal PT/platelets with prolonged aPTT, although mild disease may have a normal screening aPTT.</li>
+<li>Perform an aPTT mixing study. Correction favors factor deficiency; failure to correct suggests an inhibitor, lupus anticoagulant, or anticoagulant drug.</li>
+<li>Measure one-stage and/or chromogenic <strong>FVIII:C and FIX:C</strong>; measure VWF antigen/activity because type 2N or type 3 von Willebrand disease can mimic hemophilia A.</li>
+<li>If response to factor is poor, quantify inhibitors with the Nijmegen-modified Bethesda assay.</li>
+<li>Assess joints with Hemophilia Joint Health Score, ultrasound/HEAD-US, and MRI when early synovitis/cartilage damage must be defined. In the 2024 cohort, HJHS correlated with HEAD-US-C (<strong>r=0.542, P&lt;0.001</strong>). (<a href="#ref-wang2024clinicalanalysisand-pages-1-2">wang2024clinicalanalysisand pages 1-2</a>)</li>
+</ol>
+<p>Differentials include von Willebrand disease, factor XI deficiency, combined FV/FVIII deficiency, vitamin-K deficiency, liver disease, disseminated intravascular coagulation, lupus anticoagulant, anticoagulant exposure, platelet disorders and acquired FVIII inhibitor.</p>
+<h3>Genetic testing</h3>
+<p>For hemophilia A, test Inv22 and Inv1, sequence all coding exons/splice boundaries, and use deletion/duplication analysis such as MLPA. For unresolved cases, add RNA analysis, long-read sequencing or WGS to detect deep-intronic and complex structural variants. A 2023 series used inversion assays, NGS and Sanger confirmation and found Inv22, Inv1, missense, nonsense and frameshift lesions; approximately 5% remained unresolved by then-current methods. (<a href="#ref-zhang2023moleculardiagnosisof-pages-1-2">zhang2023moleculardiagnosisof pages 1-2</a>, <a href="#ref-zhang2023moleculardiagnosisof-pages-2-3">zhang2023moleculardiagnosisof pages 2-3</a>)</p>
+<p>For hemophilia B, sequence <strong>F9</strong> plus CNV analysis. Targeted single-gene testing is generally more efficient than WES; WES may miss inversions, deep intronic lesions and CNVs. WGS/long-read sequencing is useful after negative comprehensive testing. CMA, karyotype and FISH are not routine unless a syndromic chromosome abnormality is suspected. Mitochondrial and repeat-expansion testing are not applicable.</p>
+<p>Once the familial variant is known, offer cascade testing, factor assays in women and girls, prenatal diagnosis by CVS/amniocentesis, and preimplantation genetic testing for monogenic disease. One report used PGT-M, euploid unaffected embryo transfer, amniocentesis confirmation at 18 weeks, and neonatal FVIII testing. (<a href="#ref-bai2021casereportidentification-pages-7-8">bai2021casereportidentification pages 7-8</a>)</p>
+<h2>11. Outcome and prognosis</h2>
+<p>With comprehensive care and safe prophylaxis, survival and quality of life can approach those of unaffected peers; without reliable therapy, fatal hemorrhage and lifelong musculoskeletal disability remain substantial. (<a href="#ref-marchesini2021recentadvancesin-pages-10-12">marchesini2021recentadvancesin pages 10-12</a>)</p>
+<p>Major adverse prognostic factors are severe factor deficiency, intracranial hemorrhage, recurrent hemarthrosis/target joints, inhibitor development, delayed diagnosis or treatment, poor adherence/access, established arthropathy, chronic viral liver disease, and aging-related cardiovascular comorbidity. Inhibitors increase bleeding and complicate surgery. Cardiovascular disease prevalence in US patients has been reported as high as 15%, creating difficult antithrombotic decisions in older adults.</p>
+<p>Factor activity, annualized bleeding rate, treated joint bleeds, target-joint count, HJHS, HEAD-US/MRI, inhibitor titer, factor recovery/half-life, pain, school/work participation and validated QoL tools are recommended outcomes. No omics-based prognostic biomarker is validated.</p>
+<h2>12. Treatment and current implementation</h2>
+<h3>Standard strategy</h3>
+<p><strong>Prophylaxis rather than on-demand-only therapy is standard for a severe bleeding phenotype.</strong> Individualize by age, bleeding history, joints, pharmacokinetics, activity, venous access, inhibitor status, preference and local access. Standard- and extended-half-life FVIII/FIX products replace the missing protein; Fc fusion, PEGylation and albumin fusion reduce infusion frequency. (<a href="#ref-croteau20212021clinicaltrials-pages-29-32">croteau20212021clinicaltrials pages 29-32</a>, <a href="#ref-croteau20212021clinicaltrials-pages-1-6">croteau20212021clinicaltrials pages 1-6</a>)</p>
+<p>Adjuncts include desmopressin for responsive mild hemophilia A, tranexamic acid or aminocaproic acid for oral/mucosal bleeding, topical hemostasis and appropriately planned factor cover for procedures. Avoid desmopressin in hemophilia B. NSAIDs that impair platelets and intramuscular injections should generally be avoided or carefully managed.</p>
+<p>Suggested NCIt intervention concepts include <strong>Coagulation Factor VIII</strong>, <strong>Coagulation Factor IX</strong>, <strong>Desmopressin</strong>, <strong>Tranexamic Acid</strong>, <strong>Prophylactic Therapy</strong>, <strong>Monoclonal Antibody Therapy</strong>, <strong>Gene Transfer Therapy</strong>, <strong>Physical Therapy</strong>, <strong>Synovectomy</strong>, and <strong>Joint Replacement</strong>.</p>
+<h3>Non-factor and inhibitor therapy</h3>
+<p><strong>Emicizumab</strong> is a subcutaneous bispecific FVIIIa mimetic for hemophilia A with or without inhibitors, dosed weekly, every two weeks, or every four weeks. It reduces infusion burden but does not treat hemophilia B. Concurrent high-dose activated prothrombin-complex concentrate can cause thrombosis/thrombotic microangiopathy; laboratory assays also require specialist interpretation. (<a href="#ref-croteau20212021clinicaltrials-pages-1-6">croteau20212021clinicaltrials pages 1-6</a>)</p>
+<p>Acute inhibitor bleeding is treated with recombinant activated FVII, activated prothrombin-complex concentrate, or appropriate factor where low-titer responsiveness remains. Immune-tolerance induction repeatedly exposes FVIII to eradicate inhibitors and succeeds in approximately 60–80%. (<a href="#ref-chernyi2024recentadvancesin-pages-3-4">chernyi2024recentadvancesin pages 3-4</a>)</p>
+<p>Emerging “rebalancing” therapies suppress natural anticoagulants: fitusiran lowers antithrombin by siRNA; concizumab and marstacimab inhibit TFPI. Their attraction is subcutaneous prophylaxis across A/B and inhibitor states, but excessive rebalancing can cause thrombosis. Active programs also include FVIII mimetics such as Mim8. (<a href="#ref-joshi2024hemostatsinthe-pages-22-23">joshi2024hemostatsinthe pages 22-23</a>)</p>
+<h3>Gene therapy: 2023–2024 evidence</h3>
+<p><strong>Etranacogene dezaparvovec (Hemgenix)</strong> is a single-dose liver-directed AAV5 vector carrying a codon-optimized hyperactive FIX-Padua transgene. FDA approval was <strong>22 November 2022</strong> and EU authorization <strong>20 February 2023</strong>. In 54 HOPE-B participants, mean FIX activity change was 34.3 percentage points at 18 months; three-year levels were 41.5, 36.7 and 38.6 IU/dL at years 1–3, and <strong>94% remained off prophylaxis</strong> at year three. Expression varied widely, and ALT elevations frequently required immunosuppression. (<a href="#ref-kaczmarek2024currentandemerging-pages-5-5">kaczmarek2024currentandemerging pages 5-5</a>, <a href="#ref-anguela2024hemophiliaband-pages-4-5">anguela2024hemophiliaband pages 4-5</a>, <a href="#ref-anguela2024hemophiliaband-pages-2-3">anguela2024hemophiliaband pages 2-3</a>)</p>
+<p><strong>Valoctocogene roxaparvovec (Roctavian)</strong> is an AAV5 B-domain-deleted F8 gene therapy, approved in the United States in June 2023. In GENEr8-1 (134 adult men), FVIII rose by mean <strong>41.9 U/dL</strong> at weeks 49–52, treated-bleed rate fell <strong>84.5%</strong> through 104 weeks, factor use fell <strong>98.6%</strong>, and mean FVIII was 18.2 U/dL at month 36. The year-over-year decline in FVIII is a major durability concern. (<a href="#ref-levien2024valoctocogeneroxaparvovec-pages-2-3">levien2024valoctocogeneroxaparvovec pages 2-3</a>, <a href="#ref-levien2024valoctocogeneroxaparvovec-pages-3-5">levien2024valoctocogeneroxaparvovec pages 3-5</a>)</p>
+<p>Current limitations include adult-only eligibility, liver-health requirements, pre-existing anti-AAV antibodies, corticosteroid-treated transaminitis, uncertain decades-long durability, inability to redose the same capsid readily, variable expression, cost, and limited evidence in women, children, inhibitor patients and advanced liver disease.</p>
+<h3>Active/recent trials and real-world implementation</h3>
+<ul>
+<li><strong>NCT06224907:</strong> phase 3 valoctocogene roxaparvovec in six Japanese adults with severe hemophilia A; excludes AAV5 antibodies, inhibitors and significant liver disease. (NCT06224907 chunk 2)</li>
+<li><strong>NCT07437404:</strong> recruiting phase 3 SCT800 recombinant FVIII in 36 previously untreated boys/men with severe A; inhibitor incidence is primary. (NCT07437404 chunk 1)</li>
+<li><strong>NCT05662319:</strong> active phase 3 subcutaneous fitusiran prophylaxis in 91 adolescent/adult males with severe hemophilia. (NCT05662319 chunk 3)</li>
+<li><strong>NCT03974113:</strong> phase 2/3 fitusiran in 32 boys aged 1 to &lt;12 years. (NCT03974113 chunk 2)</li>
+<li><strong>NCT03754790:</strong> long-term phase 3 fitusiran safety/efficacy, 281 participants with A/B, with or without inhibitors.</li>
+<li><strong>NCT04083781/NCT04082429:</strong> phase 3 concizumab with inhibitors (134 participants) and without inhibitors (156).</li>
+<li><strong>NCT05685238:</strong> recruiting phase 3 long-term Mim8 study, 451 people with hemophilia A.</li>
+<li><strong>NCT06922045:</strong> phase 3 STSP-0601 for acute bleeds in 40 A/B patients with inhibitors; primary endpoint is 12-hour effective hemostasis. (NCT06922045 chunk 1)</li>
+</ul>
+<h2>13. Prevention</h2>
+<p>Primary prevention of the genotype is possible only through informed reproductive choice—not lifestyle modification. Offer nondirective genetic counseling, carrier/cascade testing, PGT-M, prenatal diagnosis and safe delivery planning. Population newborn screening is not standard; targeted neonatal factor testing is appropriate where family history or bleeding raises suspicion.</p>
+<p>Secondary prevention means early diagnosis and prophylaxis before recurrent bleeding. Avoid traumatic delivery instrumentation where an affected fetus is possible; give vitamin K subcutaneously/orally or with careful pressure according to specialist protocol; assess suspected neonatal cranial bleeding urgently.</p>
+<p>Tertiary prevention includes continuous prophylaxis, prompt bleed treatment, inhibitor surveillance, physiotherapy, safe exercise, weight and dental management, hepatitis A/B immunization, avoidance of platelet-impairing drugs, and specialist factor cover for surgery. Vaccination prevents treatment-associated hepatitis complications but does not prevent hemophilia itself.</p>
+<h2>14. Other species and natural disease</h2>
+<p>Natural X-linked FVIII/FIX deficiency occurs in dogs, cats, horses and cattle. Hemophilia A has been reported in Boxers, German Shepherd Dogs, German Shorthaired Pointers and mixed breeds. Hemophilia B is documented in at least <strong>26 dog breeds</strong> and three cat breeds, including Cairn Terriers, Hovawarts, German Wirehaired Pointers and British Shorthairs. Reported animal F8/F9 lesions include missense substitutions, promoter nucleotide deletions and LINE-1 insertions. (<a href="#ref-dodds2022onehealthanimal-pages-5-7">dodds2022onehealthanimal pages 5-7</a>, <a href="#ref-dodds2022onehealthanimal-pages-11-12">dodds2022onehealthanimal pages 11-12</a>, <a href="#ref-dodds2022onehealthanimal-pages-2-4">dodds2022onehealthanimal pages 2-4</a>)</p>
+<p>Suggested taxa are <em>Homo sapiens</em> <a href="https://bioregistry.io/NCBI:9606" target="_blank" rel="noopener noreferrer">NCBI:9606</a>, <em>Canis lupus familiaris</em> <a href="https://bioregistry.io/NCBI:9615" target="_blank" rel="noopener noreferrer">NCBI:9615</a>, <em>Felis catus</em> <a href="https://bioregistry.io/NCBI:9685" target="_blank" rel="noopener noreferrer">NCBI:9685</a>, <em>Equus caballus</em> <a href="https://bioregistry.io/NCBI:9796" target="_blank" rel="noopener noreferrer">NCBI:9796</a> and <em>Bos taurus</em> <a href="https://bioregistry.io/NCBI:9913" target="_blank" rel="noopener noreferrer">NCBI:9913</a>. Breed VBO mappings should be attached where available. The condition is inherited, <strong>not infectious or zoonotic</strong>, and has no cross-species transmission.</p>
+<p>Canine disease closely reproduces spontaneous bleeding, body size, immunity and clinical factor dosing, making dogs valuable for recombinant factor and gene-therapy studies. Purebred inbreeding can amplify pathogenic alleles, making veterinary carrier detection important.</p>
+<h2>15. Model organisms</h2>
+<ul>
+<li><strong>F8- or F9-deficient mice:</strong> inexpensive, genetically tractable models for hemostasis, inhibitor immunology, AAV dose-ranging, CRISPR and tolerance studies. Limitations include small blood volume, species-specific immunity and less spontaneous joint disease than humans.</li>
+<li><strong>Hemophilia-A rats:</strong> more severe spontaneous bleeding and useful joint/trauma phenotypes; induced hemarthrosis produces C2M, C4M, CTX-II and PRO-C4 changes. (<a href="#ref-badulescu2024biomarkersinvolvedin-pages-11-13">badulescu2024biomarkersinvolvedin pages 11-13</a>)</li>
+<li><strong>Naturally affected dogs:</strong> large-animal models for pharmacokinetics, surgery, immune tolerance and durable AAV/lentiviral correction. Canine studies have demonstrated sustained phenotypic correction, but cost, colony size and species-specific immunity limit throughput. (<a href="#ref-dodds2022onehealthanimal-pages-11-12">dodds2022onehealthanimal pages 11-12</a>)</li>
+<li><strong>Induced canine hemarthrosis:</strong> reproduces cartilage-turnover changes, including increased CTX-II and COMP. (<a href="#ref-badulescu2024biomarkersinvolvedin-pages-11-13">badulescu2024biomarkersinvolvedin pages 11-13</a>)</li>
+<li><strong>Nonhuman primates:</strong> mainly safety, biodistribution, liver transduction and dose studies; they generally lack the inherited bleeding phenotype.</li>
+<li><strong>Patient-derived endothelial/hepatic cells and iPSCs:</strong> useful for variant function, RNA defects, protein secretion and genome editing, but cannot reproduce whole-body bleeding or arthropathy.</li>
+</ul>
+<p>A 2022 preclinical lentiviral study achieved stable, nearly lifelong normal-to-supranormal FVIII activity in hemophilia-A mice and normal-range activity in nonhuman primates, illustrating promise while not yet establishing human efficacy. These models also show that vector immunogenicity, pediatric liver growth and long-term genotoxicity are incompletely predicted by animals.</p>
+<h2>Key 2023–2024 conclusions and expert analysis</h2>
+<ol>
+<li>The field has shifted from simply preventing fatal bleeding to <strong>near-zero bleeding, preserved joint health and low treatment burden</strong> through individualized prophylaxis.</li>
+<li>Gene therapy is clinically real, but not yet a universal cure: hemophilia-B FIX expression appears relatively stable through three years, whereas declining FVIII after Roctavian remains a central hemophilia-A problem. (<a href="#ref-kaczmarek2024currentandemerging-pages-5-5">kaczmarek2024currentandemerging pages 5-5</a>, <a href="#ref-levien2024valoctocogeneroxaparvovec-pages-3-5">levien2024valoctocogeneroxaparvovec pages 3-5</a>)</li>
+<li>Real-world inequity remains profound. Diagnostic/treatment delays and limited prophylaxis materially worsen joints and QoL, while lifetime treatment costs have been estimated at USD 20 million or more per patient in high-cost settings. (<a href="#ref-wang2024clinicalanalysisand-pages-1-2">wang2024clinicalanalysisand pages 1-2</a>, <a href="#ref-chernyi2024recentadvancesin-pages-1-3">chernyi2024recentadvancesin pages 1-3</a>)</li>
+<li>Joint disease is both <strong>degenerative and inflammatory</strong>. Iron-driven synovitis, cytokines, angiogenesis and abnormal bone remodeling explain why even subclinical bleeding can create progressive damage. (<a href="#ref-badulescu2024biomarkersinvolvedin-pages-11-13">badulescu2024biomarkersinvolvedin pages 11-13</a>, <a href="#ref-badulescu2024biomarkersinvolvedin-pages-2-3">badulescu2024biomarkersinvolvedin pages 2-3</a>)</li>
+<li>Molecular diagnosis should be comprehensive and structure-aware: inversion testing plus sequencing and CNV analysis approaches a 97% yield, while WGS/long-read/RNA methods address the residual unsolved fraction. (<a href="#ref-guo2018spectrumofmolecular-pages-1-2">guo2018spectrumofmolecular pages 1-2</a>, <a href="#ref-zhang2023moleculardiagnosisof-pages-1-2">zhang2023moleculardiagnosisof pages 1-2</a>)</li>
+</ol>
+<h3>Representative abstract wording</h3>
+<p>Recent reviews characterize hemophilia as an “X-linked lifelong congenital bleeding disorder” caused by insufficient FVIII or FIX and describe gene therapy as aiming for long-term endogenous factor expression. The 2024 gene-therapy literature calls Hemgenix’s authorization “a significant milestone,” while the Roctavian review describes its approval as “a landmark in HA therapeutics” but emphasizes the need for stable FVIII expression. These are expert-review statements rather than proof of permanent cure; the quantitative trial outcomes and durability limitations above should govern knowledge-base interpretation. (<a href="#ref-chernyi2024recentadvancesin-pages-1-3">chernyi2024recentadvancesin pages 1-3</a>, <a href="#ref-kaczmarek2024currentandemerging-pages-5-5">kaczmarek2024currentandemerging pages 5-5</a>, <a href="#ref-levien2024valoctocogeneroxaparvovec-pages-3-5">levien2024valoctocogeneroxaparvovec pages 3-5</a>)</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-opentargets-search-hemophilia-a-hemophilia-b-f8-f9"></a>(OpenTargets Search: hemophilia A,hemophilia B-F8,F9): Open Targets Query (hemophilia A,hemophilia B-F8,F9, 43 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-deshpande2024adenoassociatedvirus-basedgene-pages-1-2"></a>(deshpande2024adenoassociatedvirus–basedgene pages 1-2): Saarang R. Deshpande, Keerthy Joseph, Jiayi Tong, Yong Chen, Allyson Pishko, and Adam Cuker. Adeno-associated virus–based gene therapy for hemophilia a and b: a systematic review and meta-analysis. Nov 2024. URL: <a href="https://doi.org/10.1182/bloodadvances.2024014111" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/bloodadvances.2024014111</a>, <a href="https://doi.org/10.1182/bloodadvances.2024014111" target="_blank" rel="noopener noreferrer">doi:10.1182/bloodadvances.2024014111</a>. This article has 30 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-wang2024clinicalanalysisand-pages-1-2"></a>(wang2024clinicalanalysisand pages 1-2): Wen Wang, Li Xu, Jingsheng Wu, Weiyong Liu, Jiao Jin, Jing Huang, Zhongjin Xu, Yali Huang, Bai Li, Yufeng Liu, Qing Zhang, Min Zhou, Jie Peng, and Qun Hu. Clinical analysis and quality of life survey of hemophilia b patients in the central and western regions of china. Frontiers in Pediatrics, May 2024. URL: <a href="https://doi.org/10.3389/fped.2024.1366990" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fped.2024.1366990</a>, <a href="https://doi.org/10.3389/fped.2024.1366990" target="_blank" rel="noopener noreferrer">doi:10.3389/fped.2024.1366990</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-zhang2023moleculardiagnosisof-pages-1-2"></a>(zhang2023moleculardiagnosisof pages 1-2): Xialin Zhang, Kun Chen, Sicheng Bian, Gang Wang, Xiuyu Qin, Ruijuan Zhang, and Linhua Yang. Molecular diagnosis of hemophilia a and pathogenesis of novel f8 variants in shanxi, china. Global Medical Genetics, 10:247-262, Sep 2023. URL: <a href="https://doi.org/10.1055/s-0043-1774322" target="_blank" rel="noopener noreferrer">https://doi.org/10.1055/s-0043-1774322</a>, <a href="https://doi.org/10.1055/s-0043-1774322" target="_blank" rel="noopener noreferrer">doi:10.1055/s-0043-1774322</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-li2023f8geneinversion-pages-1-2"></a>(li2023f8geneinversion pages 1-2): Shaoying Li, Jianchun He, Liming Chu, Shuai Ren, Wenzhi He, Xiaoyan Ma, Yanchao Wang, Mincong Zhang, Lingyin Kong, Bo Liang, and Qing Li. F8 gene inversion and duplication cause no obvious hemophilia a phenotype. Frontiers in Genetics, Feb 2023. URL: <a href="https://doi.org/10.3389/fgene.2023.1098795" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fgene.2023.1098795</a>, <a href="https://doi.org/10.3389/fgene.2023.1098795" target="_blank" rel="noopener noreferrer">doi:10.3389/fgene.2023.1098795</a>. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-arruda2021genetherapyfor-pages-2-3"></a>(arruda2021genetherapyfor pages 2-3): Valder R. Arruda, Jesse Weber, and Benjamin J. Samelson-Jones. Gene therapy for inherited bleeding disorders. Seminars in Thrombosis and Hemostasis, 47:161-173, Feb 2021. URL: <a href="https://doi.org/10.1055/s-0041-1722862" target="_blank" rel="noopener noreferrer">https://doi.org/10.1055/s-0041-1722862</a>, <a href="https://doi.org/10.1055/s-0041-1722862" target="_blank" rel="noopener noreferrer">doi:10.1055/s-0041-1722862</a>. This article has 29 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-chernyi2024recentadvancesin-pages-1-3"></a>(chernyi2024recentadvancesin pages 1-3): Nikita Chernyi, Darina Gavrilova, Mane Saruhanyan, Ezekiel S. Oloruntimehin, Alexander Karabelsky, Evgeny Bezsonov, and Alexander Malogolovkin. Recent advances in gene therapy for hemophilia: projecting the perspectives. Jul 2024. URL: <a href="https://doi.org/10.3390/biom14070854" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/biom14070854</a>, <a href="https://doi.org/10.3390/biom14070854" target="_blank" rel="noopener noreferrer">doi:10.3390/biom14070854</a>. This article has 48 citations.</p>
+</li>
+<li>
+<p><a id="ref-guo2018spectrumofmolecular-pages-1-2"></a>(guo2018spectrumofmolecular pages 1-2): Zhiping Guo, Linhua Yang, Xiuyu Qin, Xiue Liu, and Yaofang Zhang. Spectrum of molecular defects in 216 chinese families with hemophilia a: identification of noninversion mutation hot spots and 42 novel mutations. Clinical and Applied Thrombosis/Hemostasis, 24:70-78, Jan 2018. URL: <a href="https://doi.org/10.1177/1076029616687848" target="_blank" rel="noopener noreferrer">https://doi.org/10.1177/1076029616687848</a>, <a href="https://doi.org/10.1177/1076029616687848" target="_blank" rel="noopener noreferrer">doi:10.1177/1076029616687848</a>. This article has 26 citations.</p>
+</li>
+<li>
+<p><a id="ref-zhang2023moleculardiagnosisof-pages-2-3"></a>(zhang2023moleculardiagnosisof pages 2-3): Xialin Zhang, Kun Chen, Sicheng Bian, Gang Wang, Xiuyu Qin, Ruijuan Zhang, and Linhua Yang. Molecular diagnosis of hemophilia a and pathogenesis of novel f8 variants in shanxi, china. Global Medical Genetics, 10:247-262, Sep 2023. URL: <a href="https://doi.org/10.1055/s-0043-1774322" target="_blank" rel="noopener noreferrer">https://doi.org/10.1055/s-0043-1774322</a>, <a href="https://doi.org/10.1055/s-0043-1774322" target="_blank" rel="noopener noreferrer">doi:10.1055/s-0043-1774322</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-wang2024clinicalanalysisand-pages-8-9"></a>(wang2024clinicalanalysisand pages 8-9): Wen Wang, Li Xu, Jingsheng Wu, Weiyong Liu, Jiao Jin, Jing Huang, Zhongjin Xu, Yali Huang, Bai Li, Yufeng Liu, Qing Zhang, Min Zhou, Jie Peng, and Qun Hu. Clinical analysis and quality of life survey of hemophilia b patients in the central and western regions of china. Frontiers in Pediatrics, May 2024. URL: <a href="https://doi.org/10.3389/fped.2024.1366990" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fped.2024.1366990</a>, <a href="https://doi.org/10.3389/fped.2024.1366990" target="_blank" rel="noopener noreferrer">doi:10.3389/fped.2024.1366990</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-wang2024clinicalanalysisand-pages-7-8"></a>(wang2024clinicalanalysisand pages 7-8): Wen Wang, Li Xu, Jingsheng Wu, Weiyong Liu, Jiao Jin, Jing Huang, Zhongjin Xu, Yali Huang, Bai Li, Yufeng Liu, Qing Zhang, Min Zhou, Jie Peng, and Qun Hu. Clinical analysis and quality of life survey of hemophilia b patients in the central and western regions of china. Frontiers in Pediatrics, May 2024. URL: <a href="https://doi.org/10.3389/fped.2024.1366990" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fped.2024.1366990</a>, <a href="https://doi.org/10.3389/fped.2024.1366990" target="_blank" rel="noopener noreferrer">doi:10.3389/fped.2024.1366990</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-croteau20212021clinicaltrials-pages-1-6"></a>(croteau20212021clinicaltrials pages 1-6): Stacy E. Croteau, Michael Wang, and Allison P. Wheeler. <scp>2021</scp> clinical trials update: innovations in hemophilia therapy. American Journal of Hematology, 96:128-144, Nov 2021. URL: <a href="https://doi.org/10.1002/ajh.26018" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajh.26018</a>, <a href="https://doi.org/10.1002/ajh.26018" target="_blank" rel="noopener noreferrer">doi:10.1002/ajh.26018</a>. This article has 56 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-croteau20212021clinicaltrials-pages-29-32"></a>(croteau20212021clinicaltrials pages 29-32): Stacy E. Croteau, Michael Wang, and Allison P. Wheeler. <scp>2021</scp> clinical trials update: innovations in hemophilia therapy. American Journal of Hematology, 96:128-144, Nov 2021. URL: <a href="https://doi.org/10.1002/ajh.26018" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajh.26018</a>, <a href="https://doi.org/10.1002/ajh.26018" target="_blank" rel="noopener noreferrer">doi:10.1002/ajh.26018</a>. This article has 56 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-levien2024valoctocogeneroxaparvovec-pages-2-3"></a>(levien2024valoctocogeneroxaparvovec pages 2-3): Terri L. Levien and Danial E. Baker. Valoctocogene roxaparvovec. Hospital Pharmacy, 59:254-263, Jan 2024. URL: <a href="https://doi.org/10.1177/00185787231222506" target="_blank" rel="noopener noreferrer">https://doi.org/10.1177/00185787231222506</a>, <a href="https://doi.org/10.1177/00185787231222506" target="_blank" rel="noopener noreferrer">doi:10.1177/00185787231222506</a>. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-levien2024valoctocogeneroxaparvovec-pages-3-5"></a>(levien2024valoctocogeneroxaparvovec pages 3-5): Terri L. Levien and Danial E. Baker. Valoctocogene roxaparvovec. Hospital Pharmacy, 59:254-263, Jan 2024. URL: <a href="https://doi.org/10.1177/00185787231222506" target="_blank" rel="noopener noreferrer">https://doi.org/10.1177/00185787231222506</a>, <a href="https://doi.org/10.1177/00185787231222506" target="_blank" rel="noopener noreferrer">doi:10.1177/00185787231222506</a>. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-anguela2024hemophiliaband-pages-2-3"></a>(anguela2024hemophiliaband pages 2-3): Xavier M. Anguela and Katherine A. High. Hemophilia b and gene therapy: a new chapter with etranacogene dezaparvovec. Blood Advances, 8:1796-1803, Apr 2024. URL: <a href="https://doi.org/10.1182/bloodadvances.2023010511" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/bloodadvances.2023010511</a>, <a href="https://doi.org/10.1182/bloodadvances.2023010511" target="_blank" rel="noopener noreferrer">doi:10.1182/bloodadvances.2023010511</a>. This article has 54 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-kaczmarek2024currentandemerging-pages-5-5"></a>(kaczmarek2024currentandemerging pages 5-5): Radoslaw Kaczmarek, Wolfgang Miesbach, Margareth C. Ozelo, and Pratima Chowdary. Current and emerging gene therapies for haemophilia a and b. Haemophilia, 30:12-20, Mar 2024. URL: <a href="https://doi.org/10.1111/hae.14984" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/hae.14984</a>, <a href="https://doi.org/10.1111/hae.14984" target="_blank" rel="noopener noreferrer">doi:10.1111/hae.14984</a>. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-anguela2024hemophiliaband-pages-4-5"></a>(anguela2024hemophiliaband pages 4-5): Xavier M. Anguela and Katherine A. High. Hemophilia b and gene therapy: a new chapter with etranacogene dezaparvovec. Blood Advances, 8:1796-1803, Apr 2024. URL: <a href="https://doi.org/10.1182/bloodadvances.2023010511" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/bloodadvances.2023010511</a>, <a href="https://doi.org/10.1182/bloodadvances.2023010511" target="_blank" rel="noopener noreferrer">doi:10.1182/bloodadvances.2023010511</a>. This article has 54 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct05608863-chunk-1"></a>(NCT05608863 chunk 1):  He-move-philia, Lifestyle Intervention for Patients With Hemophilia. Radboud University Medical Center. 2022. ClinicalTrials.gov Identifier: NCT05608863</p>
+</li>
+<li>
+<p><a id="ref-badulescu2024biomarkersinvolvedin-pages-11-13"></a>(badulescu2024biomarkersinvolvedin pages 11-13): Oana Viola Badulescu, Dragos-Viorel Scripcariu, Minerva Codruta Badescu, Manuela Ciocoiu, Maria Cristina Vladeanu, Carmen Elena Plesoianu, Andrei Bojan, Dan Iliescu-Halitchi, Razvan Tudor, Bogdan Huzum, Otilia Elena Frasinariu, and Iris Bararu-Bojan. Biomarkers involved in the pathogenesis of hemophilic arthropathy. International Journal of Molecular Sciences, 25:9897, Sep 2024. URL: <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25189897</a>, <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25189897</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-badulescu2024biomarkersinvolvedin-pages-3-5"></a>(badulescu2024biomarkersinvolvedin pages 3-5): Oana Viola Badulescu, Dragos-Viorel Scripcariu, Minerva Codruta Badescu, Manuela Ciocoiu, Maria Cristina Vladeanu, Carmen Elena Plesoianu, Andrei Bojan, Dan Iliescu-Halitchi, Razvan Tudor, Bogdan Huzum, Otilia Elena Frasinariu, and Iris Bararu-Bojan. Biomarkers involved in the pathogenesis of hemophilic arthropathy. International Journal of Molecular Sciences, 25:9897, Sep 2024. URL: <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25189897</a>, <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25189897</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-badulescu2024biomarkersinvolvedin-pages-5-6"></a>(badulescu2024biomarkersinvolvedin pages 5-6): Oana Viola Badulescu, Dragos-Viorel Scripcariu, Minerva Codruta Badescu, Manuela Ciocoiu, Maria Cristina Vladeanu, Carmen Elena Plesoianu, Andrei Bojan, Dan Iliescu-Halitchi, Razvan Tudor, Bogdan Huzum, Otilia Elena Frasinariu, and Iris Bararu-Bojan. Biomarkers involved in the pathogenesis of hemophilic arthropathy. International Journal of Molecular Sciences, 25:9897, Sep 2024. URL: <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25189897</a>, <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25189897</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-badulescu2024biomarkersinvolvedin-pages-8-10"></a>(badulescu2024biomarkersinvolvedin pages 8-10): Oana Viola Badulescu, Dragos-Viorel Scripcariu, Minerva Codruta Badescu, Manuela Ciocoiu, Maria Cristina Vladeanu, Carmen Elena Plesoianu, Andrei Bojan, Dan Iliescu-Halitchi, Razvan Tudor, Bogdan Huzum, Otilia Elena Frasinariu, and Iris Bararu-Bojan. Biomarkers involved in the pathogenesis of hemophilic arthropathy. International Journal of Molecular Sciences, 25:9897, Sep 2024. URL: <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25189897</a>, <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25189897</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-chernyi2024recentadvancesin-pages-3-4"></a>(chernyi2024recentadvancesin pages 3-4): Nikita Chernyi, Darina Gavrilova, Mane Saruhanyan, Ezekiel S. Oloruntimehin, Alexander Karabelsky, Evgeny Bezsonov, and Alexander Malogolovkin. Recent advances in gene therapy for hemophilia: projecting the perspectives. Jul 2024. URL: <a href="https://doi.org/10.3390/biom14070854" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/biom14070854</a>, <a href="https://doi.org/10.3390/biom14070854" target="_blank" rel="noopener noreferrer">doi:10.3390/biom14070854</a>. This article has 48 citations.</p>
+</li>
+<li>
+<p><a id="ref-badulescu2024biomarkersinvolvedin-pages-10-11"></a>(badulescu2024biomarkersinvolvedin pages 10-11): Oana Viola Badulescu, Dragos-Viorel Scripcariu, Minerva Codruta Badescu, Manuela Ciocoiu, Maria Cristina Vladeanu, Carmen Elena Plesoianu, Andrei Bojan, Dan Iliescu-Halitchi, Razvan Tudor, Bogdan Huzum, Otilia Elena Frasinariu, and Iris Bararu-Bojan. Biomarkers involved in the pathogenesis of hemophilic arthropathy. International Journal of Molecular Sciences, 25:9897, Sep 2024. URL: <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25189897</a>, <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25189897</a>. This article has 15 citations.</p>
+</li>
+<li>
+<p><a id="ref-nct07437404-chunk-1"></a>(NCT07437404 chunk 1):  Efficacy and Safety Evaluation Study of SCT800 in Previously Untreated Hemophilia A Patients.. Sinocelltech Ltd.. 2024. ClinicalTrials.gov Identifier: NCT07437404</p>
+</li>
+<li>
+<p><a id="ref-bai2021casereportidentification-pages-7-8"></a>(bai2021casereportidentification pages 7-8): Haiyan Bai, Xia Xue, Li Tian, Xi Tong Liu, and Qian Li. Case report: identification of a de novo missense mutation in the f8 gene, p.(phe690leu)/c.2070c &gt; a, causing hemophilia a: a case report. Frontiers in Genetics, Mar 2021. URL: <a href="https://doi.org/10.3389/fgene.2020.589899" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fgene.2020.589899</a>, <a href="https://doi.org/10.3389/fgene.2020.589899" target="_blank" rel="noopener noreferrer">doi:10.3389/fgene.2020.589899</a>. This article has 5 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-marchesini2021recentadvancesin-pages-10-12"></a>(marchesini2021recentadvancesin pages 10-12): Emanuela Marchesini, Massimo Morfini, and Leonard Valentino. Recent advances in the treatment of hemophilia: a review. Biologics : Targets &amp; Therapy, 15:221-235, Jun 2021. URL: <a href="https://doi.org/10.2147/btt.s252580" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/btt.s252580</a>, <a href="https://doi.org/10.2147/btt.s252580" target="_blank" rel="noopener noreferrer">doi:10.2147/btt.s252580</a>. This article has 86 citations.</p>
+</li>
+<li>
+<p><a id="ref-joshi2024hemostatsinthe-pages-22-23"></a>(joshi2024hemostatsinthe pages 22-23): Maithili Joshi, Zongmin Zhao, and Samir Mitragotri. Hemostats in the clinic. Bioengineering &amp; Translational Medicine, May 2024. URL: <a href="https://doi.org/10.1002/btm2.10673" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/btm2.10673</a>, <a href="https://doi.org/10.1002/btm2.10673" target="_blank" rel="noopener noreferrer">doi:10.1002/btm2.10673</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-nct06224907-chunk-2"></a>(NCT06224907 chunk 2):  Phase 3 Study for Efficacy and Safety Outcomes Data in Japanese Patients With Severe Hemophilia A. BioMarin Pharmaceutical. 2023. ClinicalTrials.gov Identifier: NCT06224907</p>
+</li>
+<li>
+<p><a id="ref-nct05662319-chunk-3"></a>(NCT05662319 chunk 3):  A Study to Test a Medicine (Fitusiran) Injected Under the Skin for Preventing Bleeding Episodes in Male Adolescent or Adult Participants With Severe Hemophilia. Sanofi. 2023. ClinicalTrials.gov Identifier: NCT05662319</p>
+</li>
+<li>
+<p><a id="ref-nct03974113-chunk-2"></a>(NCT03974113 chunk 2):  Fitusiran Prophylaxis in Male Pediatric Subjects Aged 1 to Less Than 12 Years With Hemophilia A or B. Genzyme, a Sanofi Company. 2020. ClinicalTrials.gov Identifier: NCT03974113</p>
+</li>
+<li>
+<p><a id="ref-nct06922045-chunk-1"></a>(NCT06922045 chunk 1):  Phase III Clinical Trial of STSP-0601 for Injection in Hemophilia Patients. Jiangsu BioJeTay Biotechnology Co., Ltd.. 2025. ClinicalTrials.gov Identifier: NCT06922045</p>
+</li>
+<li>
+<p><a id="ref-dodds2022onehealthanimal-pages-5-7"></a>(dodds2022onehealthanimal pages 5-7): W. Jean Dodds. One health: animal models of heritable human bleeding diseases. Animals : an Open Access Journal from MDPI, 13:87, Dec 2022. URL: <a href="https://doi.org/10.3390/ani13010087" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ani13010087</a>, <a href="https://doi.org/10.3390/ani13010087" target="_blank" rel="noopener noreferrer">doi:10.3390/ani13010087</a>. This article has 7 citations.</p>
+</li>
+<li>
+<p><a id="ref-dodds2022onehealthanimal-pages-11-12"></a>(dodds2022onehealthanimal pages 11-12): W. Jean Dodds. One health: animal models of heritable human bleeding diseases. Animals : an Open Access Journal from MDPI, 13:87, Dec 2022. URL: <a href="https://doi.org/10.3390/ani13010087" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ani13010087</a>, <a href="https://doi.org/10.3390/ani13010087" target="_blank" rel="noopener noreferrer">doi:10.3390/ani13010087</a>. This article has 7 citations.</p>
+</li>
+<li>
+<p><a id="ref-dodds2022onehealthanimal-pages-2-4"></a>(dodds2022onehealthanimal pages 2-4): W. Jean Dodds. One health: animal models of heritable human bleeding diseases. Animals : an Open Access Journal from MDPI, 13:87, Dec 2022. URL: <a href="https://doi.org/10.3390/ani13010087" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ani13010087</a>, <a href="https://doi.org/10.3390/ani13010087" target="_blank" rel="noopener noreferrer">doi:10.3390/ani13010087</a>. This article has 7 citations.</p>
+</li>
+<li>
+<p><a id="ref-badulescu2024biomarkersinvolvedin-pages-2-3"></a>(badulescu2024biomarkersinvolvedin pages 2-3): Oana Viola Badulescu, Dragos-Viorel Scripcariu, Minerva Codruta Badescu, Manuela Ciocoiu, Maria Cristina Vladeanu, Carmen Elena Plesoianu, Andrei Bojan, Dan Iliescu-Halitchi, Razvan Tudor, Bogdan Huzum, Otilia Elena Frasinariu, and Iris Bararu-Bojan. Biomarkers involved in the pathogenesis of hemophilic arthropathy. International Journal of Molecular Sciences, 25:9897, Sep 2024. URL: <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25189897</a>, <a href="https://doi.org/10.3390/ijms25189897" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25189897</a>. This article has 15 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Hemophilia-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>16</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>DOI:10.1177/00185787231222506</code> (5 mentions) - Valoctocogene Roxaparvovec</li>
+<li>shared terms: none</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>disease</code>, <code>hemophilia</code>, <code>gene</code>, <code>bleeding</code>, <code>fviii</code>, <code>clinical</code>, <code>variant</code>, <code>inhibitor</code>, <code>genetic</code>, <code>treatment</code>, <code>severe</code>, <code>activity</code>, <code>include</code>, <code>prophylaxis</code>, <code>fix</code>, <code>molecular</code>, <code>phenotype</code>, <code>therapy</code>, <code>model</code>, <code>joint</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Hemophagocytic_Lymphohistiocytosis-falcon.html">← Hemophagocytic Lymphohistiocytosis (Falcon)</a>
+                
+                
+                <a href="Hemophilia_A-falcon.html">Hemophilia A (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Hemophilia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Hemophilia-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
