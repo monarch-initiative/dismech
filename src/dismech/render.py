@@ -2901,6 +2901,10 @@ _PREPRINT_DOI_RE = re.compile(
 # `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
 _REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
 
+#: Frontmatter key a research recipe writes to record which revision of the
+#: prompt produced a report (issue #10183).
+STAMP_KEY_TEMPLATE_SHA = "template_sha"
+
 
 @lru_cache(maxsize=4096)
 def _reference_is_preprint(reference: str | None) -> bool:
@@ -3063,6 +3067,66 @@ def _research_report_template():
     return env.get_template("research_report.html.j2")
 
 
+def _prompt_provenance(metadata: dict) -> dict | None:
+    """Describe the prompt revision a report records, for the report page.
+
+    Args:
+        metadata: The report's parsed YAML frontmatter.
+
+    Returns:
+        A dict with ``sha``, ``short``, ``name`` and ``url``, or ``None`` when
+        the report carries no ``template_sha``.
+
+    Note:
+        Only a *stamped* hash is shown. Older reports predate stamping and their
+        revision is inferable from ``start_time`` against the template's commit
+        history, but inference is a reconstruction rather than a record -- see
+        issue #10183 -- and a page chip has no room to say which it is showing.
+        Displaying only what the generator recorded keeps the chip a fact.
+
+        ``name`` links to the template at ``main``, which is the file's *current*
+        content and so may differ from the revision the hash names. That is the
+        point of showing the hash beside it; the tooltip carries the lookup that
+        resolves it. The link can also 404 outright when a template has since
+        been deleted -- two committed reports name
+        ``disease_pathophysiology_research_scanner.md``, which no longer exists.
+        Nothing better is available: GitHub's ``/blob/<ref>/<path>`` needs a
+        commit-ish and a blob hash is not one, and the git-blobs API returns
+        base64 JSON rather than a page.
+
+        The unlinked branches are defensive rather than expected. ``stamp_report``
+        declines unless ``template_file`` resolves to a file on disk, so a
+        free-text label or an ephemeral ``/tmp`` path is never stamped by the
+        pipeline; reaching them takes a hand-written stamp. They are handled
+        anyway so that a hand-written one degrades to "shown but not linked"
+        rather than to a 404 dressed up as provenance.
+    """
+    raw = metadata.get(STAMP_KEY_TEMPLATE_SHA)
+    sha = raw.strip() if isinstance(raw, str) else ""
+    if not sha:
+        return None
+
+    template_file = metadata.get("template_file")
+    name = None
+    url = None
+    if isinstance(template_file, str) and template_file.strip():
+        # Reports written on Windows record backslashes; they name the same file.
+        normalized = template_file.strip().replace("\\", "/")
+        # A free-text label (``manual_curation``) is not a path and gets no link.
+        if normalized.startswith("templates/"):
+            name = normalized.rsplit("/", 1)[-1]
+            url = _github_blob_url(Path(normalized))
+        else:
+            name = normalized
+
+    return {
+        "sha": sha,
+        "short": sha[:12],
+        "name": name,
+        "url": url,
+    }
+
+
 def render_research_report(
     report: dict,
     siblings: list[dict],
@@ -3093,6 +3157,7 @@ def render_research_report(
             "mondo_url": _curie_url(report.get("mondo_id")),
             "model": metadata.get("model"),
             "citation_count": metadata.get("citation_count"),
+            "prompt": _prompt_provenance(metadata),
             "date": _format_report_date(
                 metadata.get("end_time") or metadata.get("start_time")
             ),
