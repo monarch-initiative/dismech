@@ -81,6 +81,19 @@ parented under "Retired Concept 2023"). `Mesothelial Neoplasm` is bound to
 **NCIT:C3786** instead, which is active and sits directly under NCIT's *Neoplasm
 by Morphology* axis.
 
+That retirement propagates into MONDO, and it is worth stating because it caught
+this review out. `MONDO:0005065` "mesothelioma" is the obvious-looking mapping
+and is the wrong one twice over: it still xrefs the retired `NCIT:C3234`, and
+its definition — "a **usually malignant** and aggressive neoplasm of the
+mesothelium" — is behaviour-leaning, which is precisely what a behaviour-neutral
+family value must not assert. The correct term is **`MONDO:0006856`
+"mesothelial neoplasm"**, which xrefs `NCIT:C3786` and is defined as "a benign
+or malignant neoplasm arising from mesothelial cells".
+
+The general check, which is cheap and worth running on any future addition:
+**the MONDO term should carry a `database_cross_reference` to the same NCIT code
+the value's `meaning` binds.** All thirteen values here satisfy it.
+
 ### No `Other` value
 
 #7548 suggested adding one. This review deliberately did not. The four prose
