@@ -36,6 +36,12 @@ from typing import Any
 
 import yaml
 
+from dismech.deep_research_policy import (
+    BIOMNI_DISABLED_DETAIL,
+    biomni_enabled,
+    deep_research_subprocess_environment,
+    explicitly_requests_biomni,
+)
 from dismech.hypothesis_analysis_run import iter_analysis_run_problems
 from dismech.research_reports import AlignmentError, align_report_provider
 from dismech.yaml_io import safe_load
@@ -693,6 +699,20 @@ def run_record(
             detail="",
         )
 
+    biomni_requested = normalized == "biomni" or explicitly_requests_biomni(extra_args)
+    if biomni_requested and not biomni_enabled():
+        return RunResult(
+            record=record,
+            provider=normalized,
+            status="PROVIDER_DISABLED",
+            returncode=2,
+            duration_seconds=0.0,
+            output_file=output_file,
+            citations_file=citations_file,
+            command=command,
+            detail=BIOMNI_DISABLED_DETAIL,
+        )
+
     if output_file.exists() and not overwrite:
         contract_status, contract_detail = analysis_contract_status(
             output_file,
@@ -733,6 +753,7 @@ def run_record(
             capture_output=True,
             text=True,
             timeout=timeout_seconds,
+            env=deep_research_subprocess_environment(),
         )
         duration = time.monotonic() - started
         output_ok = output_file.exists() and output_file.stat().st_size > 0
@@ -1060,6 +1081,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             template_overrides=cli_template_overrides(args),
         )
         print_run_result(result)
+        if result.status == "PROVIDER_DISABLED":
+            return 2
         return 0 if result.status in {"OK", "DRY_RUN", "SKIPPED_EXISTS"} else 1
 
     if args.command == "run-missing":
@@ -1071,6 +1094,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "hypothesis; use the run command, not run-missing",
                 file=sys.stderr,
             )
+            return 2
+        biomni_requested = provider == "biomni" or explicitly_requests_biomni(
+            args.research_args
+        )
+        if biomni_requested and not args.dry_run and not biomni_enabled():
+            print(BIOMNI_DISABLED_DETAIL, file=sys.stderr)
             return 2
         if args.disorder:
             records = extract_hypotheses(

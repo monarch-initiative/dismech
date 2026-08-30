@@ -28,6 +28,10 @@ reported as a **false unresolved reference**, and the guidance below tells you
 not to cite unresolved references. Do not call `deep-research-client` directly
 for anything that validates; go through the wrapper or the recipes.
 
+The wrapper also keeps Biomni out of provider discovery and automatic fallback
+unless `DISMECH_ENABLE_BIOMNI=1` is set. This positive opt-in is required even
+when the Biomni package and an underlying model credential are installed.
+
 - **Every PMID and DOI in the report body and citation list** is resolved
   against PubMed, Crossref and DataCite. An identifier that returns nothing is
   reported as unresolved (a possible confabulation).
@@ -280,8 +284,8 @@ read the section at the bottom; the frontmatter will not mention validation.
 For a non-destructive look, or JSON for tooling, call the underlying command:
 
 ```bash
-uv run deep-research-client validate-references research/Foo-deep-research-falcon.md
-uv run deep-research-client validate-references research/Foo.md --json /tmp/report.json
+scripts/run_deep_research_client.sh validate-references research/Foo-deep-research-falcon.md
+scripts/run_deep_research_client.sh validate-references research/Foo.md --json /tmp/report.json
 ```
 
 ## What this does **not** replace

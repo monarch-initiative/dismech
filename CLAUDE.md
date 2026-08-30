@@ -361,10 +361,17 @@ data, secrets, credentials, or signed URLs. Keep those external (for example a
 Biomni lake under `~/.biomni-lake`) and record a stable accession/URI, version,
 retrieval date, and checksum where available.
 
-The hypothesis deep-research runner defaults Biomni's persistent workspace to
-`$BIOMNI_DATA_PATH` when set, otherwise `~/.biomni-lake`; an explicit
-`--param path=...` wins. It also passes `skip_data_lake=false` unless explicitly
-overridden. The current full academic lake occupies roughly 14 GiB
+Biomni execution is opt-in because it runs model-generated code locally and can
+initialize a large data lake. Repository-supported deep-research entry points
+require `DISMECH_ENABLE_BIOMNI=1`; without it they also remove Biomni from
+automatic provider fallback. The hypothesis runner's dry-run command inspection
+remains available. Do not bypass this policy by invoking
+`deep-research-client` directly.
+
+After opt-in, the hypothesis deep-research runner defaults Biomni's persistent
+workspace to `$BIOMNI_DATA_PATH` when set, otherwise `~/.biomni-lake`; an
+explicit `--param path=...` wins. It also passes `skip_data_lake=false` unless
+explicitly overridden. The current full academic lake occupies roughly 14 GiB
 on disk, so check disk headroom before first use. The lake accelerates Biomni's
 built-in resources but does not imply that an arbitrary external study is
 present: required inputs still need an accession-level preflight and manifest.

@@ -303,8 +303,12 @@ identifier/checksum in
 `data_sources[].notes`, `analyses[].status_reason`, or `analyses[].limitations`;
 never put a nonexistent or machine-specific absolute path in an artifact slot.
 A local data lake such as `~/.biomni-lake` stays outside the repository.
-The hypothesis runner passes that persistent path to Biomni and explicitly
-enables lake use (`skip_data_lake=false`) unless the caller overrides it.
+Biomni execution is disabled by default and requires the explicit opt-in
+`DISMECH_ENABLE_BIOMNI=1`. Without that opt-in, repository-supported entry
+points also exclude Biomni from automatic provider fallback; dry-run command
+inspection remains available. After opt-in, the hypothesis runner passes the
+persistent path to Biomni and explicitly enables lake use
+(`skip_data_lake=false`) unless the caller overrides it.
 
 Review files selectively before staging. The repository does not blanket-ignore
 OpenScientist artifact bundles, because that would also hide manifests, code,

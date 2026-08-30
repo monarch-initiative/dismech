@@ -179,7 +179,7 @@ def test_biomni_defaults_to_persistent_lake_and_allows_override(
 
 
 def test_dataset_template_gets_canonical_artifact_dir_and_explicit_inputs(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch
 ) -> None:
     kb_dir = tmp_path / "kb" / "disorders"
     output_root = tmp_path / "kb" / "hypotheses"
@@ -191,6 +191,7 @@ def test_dataset_template_gets_canonical_artifact_dir_and_explicit_inputs(
         "canonical_persistence_immune_model",
     )
     template = ROOT / "templates" / "hypothesis_dataset_analysis.md"
+    monkeypatch.delenv("DISMECH_ENABLE_BIOMNI", raising=False)
 
     result = hypothesis_deep_research.run_record(
         record,
@@ -306,6 +307,42 @@ def test_run_missing_rejects_execution_gated_dataset_template(
 
     assert status == 2
     assert "use the run command" in capsys.readouterr().err
+
+
+def test_run_missing_rejects_named_biomni_fallback_before_writing_report(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    kb_dir = tmp_path / "kb" / "disorders"
+    output_root = tmp_path / "kb" / "hypotheses"
+    report_dir = tmp_path / "output"
+    template = tmp_path / "templates" / "literature.md"
+    kb_dir.mkdir(parents=True)
+    template.parent.mkdir(parents=True)
+    template.write_text("Write a literature report.\n", encoding="utf-8")
+    write_disorder(kb_dir)
+    monkeypatch.delenv("DISMECH_ENABLE_BIOMNI", raising=False)
+
+    status = hypothesis_deep_research.main(
+        [
+            "run-missing",
+            "openscientist",
+            "--kb-dir",
+            str(kb_dir),
+            "--output-root",
+            str(output_root),
+            "--template",
+            str(template),
+            "--report-dir",
+            str(report_dir),
+            "--",
+            "--fallback-provider",
+            "biomni",
+        ]
+    )
+
+    assert status == 2
+    assert "DISMECH_ENABLE_BIOMNI=1" in capsys.readouterr().err
+    assert not report_dir.exists()
 
 
 def test_existing_outputs_detects_citations_and_artifacts(tmp_path: Path) -> None:
@@ -445,7 +482,125 @@ def _run_with(monkeypatch, tmp_path: Path, returncode: int):
     )
 
 
-def test_run_record_does_not_skip_invalid_existing_analysis(tmp_path: Path) -> None:
+def test_biomni_execution_is_disabled_by_default_before_side_effects(
+    tmp_path: Path, monkeypatch
+) -> None:
+    kb_dir = tmp_path / "kb" / "disorders"
+    output_root = tmp_path / "kb" / "hypotheses"
+    template = tmp_path / "templates" / "hypothesis.md"
+    kb_dir.mkdir(parents=True)
+    template.parent.mkdir(parents=True)
+    template.write_text("Hypothesis {hypothesis_group_id}\n", encoding="utf-8")
+    write_disorder(kb_dir)
+    record = hypothesis_deep_research.find_hypothesis(
+        kb_dir,
+        "Long_COVID",
+        "canonical_persistence_immune_model",
+    )
+    monkeypatch.delenv("DISMECH_ENABLE_BIOMNI", raising=False)
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("disabled Biomni must not launch a subprocess")
+
+    monkeypatch.setattr(hypothesis_deep_research.subprocess, "run", fail_if_called)
+
+    result = hypothesis_deep_research.run_record(
+        record,
+        provider="biomni",
+        output_root=output_root,
+        template=template,
+        extra_args=[],
+        timeout_seconds=1,
+        dry_run=False,
+        overwrite=False,
+    )
+
+    assert result.status == "PROVIDER_DISABLED"
+    assert result.returncode == 2
+    assert "DISMECH_ENABLE_BIOMNI=1" in result.detail
+    assert not result.output_file.parent.exists()
+
+
+def test_other_provider_subprocess_disables_biomni_automatic_fallback(
+    tmp_path: Path, monkeypatch
+) -> None:
+    kb_dir = tmp_path / "kb" / "disorders"
+    output_root = tmp_path / "kb" / "hypotheses"
+    template = tmp_path / "templates" / "hypothesis.md"
+    kb_dir.mkdir(parents=True)
+    template.parent.mkdir(parents=True)
+    template.write_text("Hypothesis {hypothesis_group_id}\n", encoding="utf-8")
+    write_disorder(kb_dir)
+    record = hypothesis_deep_research.find_hypothesis(
+        kb_dir,
+        "Long_COVID",
+        "canonical_persistence_immune_model",
+    )
+    output_file = hypothesis_deep_research.output_file_for(
+        record, output_root, "openscientist"
+    )
+    monkeypatch.delenv("DISMECH_ENABLE_BIOMNI", raising=False)
+
+    def fake_run(command, **kwargs):
+        assert kwargs["env"]["DISABLE_BIOMNI_PROVIDER"] == "true"
+        output_file.write_text("# Literature report\n", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(hypothesis_deep_research.subprocess, "run", fake_run)
+
+    result = hypothesis_deep_research.run_record(
+        record,
+        provider="openscientist",
+        output_root=output_root,
+        template=template,
+        extra_args=["--fallback"],
+        timeout_seconds=1,
+        dry_run=False,
+        overwrite=False,
+    )
+
+    assert result.status == "OK"
+
+
+def test_named_biomni_fallback_requires_opt_in(tmp_path: Path, monkeypatch) -> None:
+    kb_dir = tmp_path / "kb" / "disorders"
+    output_root = tmp_path / "kb" / "hypotheses"
+    template = tmp_path / "templates" / "hypothesis.md"
+    kb_dir.mkdir(parents=True)
+    template.parent.mkdir(parents=True)
+    template.write_text("Hypothesis {hypothesis_group_id}\n", encoding="utf-8")
+    write_disorder(kb_dir)
+    record = hypothesis_deep_research.find_hypothesis(
+        kb_dir,
+        "Long_COVID",
+        "canonical_persistence_immune_model",
+    )
+    monkeypatch.delenv("DISMECH_ENABLE_BIOMNI", raising=False)
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("a disabled named Biomni fallback must not launch")
+
+    monkeypatch.setattr(hypothesis_deep_research.subprocess, "run", fail_if_called)
+
+    result = hypothesis_deep_research.run_record(
+        record,
+        provider="openscientist",
+        output_root=output_root,
+        template=template,
+        extra_args=["--fallback-provider", "biomni"],
+        timeout_seconds=1,
+        dry_run=False,
+        overwrite=False,
+    )
+
+    assert result.status == "PROVIDER_DISABLED"
+    assert "DISMECH_ENABLE_BIOMNI=1" in result.detail
+    assert not result.output_file.parent.exists()
+
+
+def test_run_record_does_not_skip_invalid_existing_analysis(
+    tmp_path: Path, monkeypatch
+) -> None:
     kb_dir = tmp_path / "kb" / "disorders"
     output_root = tmp_path / "kb" / "hypotheses"
     template = tmp_path / "templates" / "dataset.md"
@@ -466,6 +621,7 @@ def test_run_record_does_not_skip_invalid_existing_analysis(tmp_path: Path) -> N
     )
     output_file.parent.mkdir(parents=True)
     output_file.write_text("# Proposed analysis only\n", encoding="utf-8")
+    monkeypatch.setenv("DISMECH_ENABLE_BIOMNI", "1")
 
     result = hypothesis_deep_research.run_record(
         record,
@@ -505,6 +661,7 @@ def test_overwrite_quarantines_stale_artifacts_before_provider_run(
     (artifact_dir / "stale.tsv").write_text("old\n", encoding="utf-8")
     output_file.write_text("old report\n", encoding="utf-8")
     backup_root = tmp_path / "backup-root"
+    monkeypatch.setenv("DISMECH_ENABLE_BIOMNI", "1")
 
     def fake_mkdtemp(*, prefix: str) -> str:
         assert prefix.startswith("biomni_artifacts-pre-overwrite-")
@@ -514,6 +671,7 @@ def test_overwrite_quarantines_stale_artifacts_before_provider_run(
     def fake_run(command, **kwargs):
         assert not artifact_dir.exists()
         assert (backup_root / "biomni_artifacts" / "stale.tsv").exists()
+        assert "DISABLE_BIOMNI_PROVIDER" not in kwargs["env"]
         output_file.write_text("# Replacement literature report\n", encoding="utf-8")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
