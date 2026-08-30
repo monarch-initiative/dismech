@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +29,80 @@ def write_report(path: Path, **frontmatter: object) -> Path:
     lines.extend(["---", "", "# Body", "", "Some content.", ""])
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
+
+
+def git(repo: Path, *args: str, when: str | None = None) -> str:
+    """Run git in `repo` and return stdout.
+
+    Args:
+        repo: Working directory.
+        args: Arguments after ``git``.
+        when: Commit timestamp to force. Sets both the author and *committer*
+            dates -- ``git commit --date`` moves only the author date, while
+            :func:`template_history` reads the committer date, which is when the
+            revision actually landed and so when it was in effect for anyone
+            running a research recipe.
+    """
+    env = None
+    if when is not None:
+        env = {**os.environ, "GIT_AUTHOR_DATE": when, "GIT_COMMITTER_DATE": when}
+    return subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+        env=env,
+    ).stdout
+
+
+@pytest.fixture
+def repo_with_two_revisions(tmp_path: Path) -> tuple[Path, str, str]:
+    """A git repo whose template has two committed revisions.
+
+    Built rather than borrowed from the repository under test: CI checks out
+    with ``actions/checkout``'s default ``fetch-depth: 1``, so the real
+    repository has exactly one commit there and any test asserting on multi-
+    revision history would pass locally and fail in CI.
+
+    Returns:
+        The repo root, the older blob hash, and the newer one.
+    """
+    repo = tmp_path / "repo"
+    (repo / "templates").mkdir(parents=True)
+    git(repo.parent, "init", "--quiet", str(repo))
+    git(repo, "config", "user.email", "test@example.com")
+    git(repo, "config", "user.name", "Test")
+
+    template = repo / "templates" / "prompt.md"
+    template.write_text("first revision\n", encoding="utf-8")
+    git(repo, "add", "templates/prompt.md")
+    git(
+        repo,
+        "commit",
+        "--quiet",
+        "-m",
+        "add template",
+        when="2026-01-01T00:00:00+00:00",
+    )
+    old = blob_sha(template)
+
+    template.write_text("second revision, asks for a causal chain\n", encoding="utf-8")
+    git(repo, "add", "templates/prompt.md")
+    git(
+        repo, "commit", "--quiet", "-m", "restructure", when="2026-06-01T00:00:00+00:00"
+    )
+    new = blob_sha(template)
+
+    return repo, old, new
+
+
+def shallow(repo: Path = REPO_ROOT) -> bool:
+    """Whether `repo` is a shallow clone, as CI's checkout is."""
+    try:
+        return git(repo, "rev-parse", "--is-shallow-repository").strip() == "true"
+    except subprocess.SubprocessError:  # pragma: no cover - git always present
+        return False
 
 
 def test_blob_sha_matches_git_hash_object(tmp_path: Path) -> None:
@@ -153,32 +228,41 @@ def test_all_digit_hash_survives_a_write_read_round_trip(tmp_path: Path) -> None
     assert resolve_report(report).blob == digits
 
 
-def test_windows_separators_resolve_to_the_same_template(tmp_path: Path) -> None:
+def test_windows_separators_resolve_to_the_same_template(
+    repo_with_two_revisions: tuple[Path, str, str], tmp_path: Path
+) -> None:
     """Twenty committed reports record the path with backslashes (#10183)."""
+    repo, old_blob, _ = repo_with_two_revisions
     forward = write_report(
         tmp_path / "a.md",
-        template_file="templates/disease_pathophysiology_research.md",
-        start_time="'2026-06-19T11:45:54'",
+        template_file="templates/prompt.md",
+        start_time="'2026-03-15T12:00:00'",
     )
     backward = write_report(
         tmp_path / "b.md",
-        template_file="templates\\disease_pathophysiology_research.md",
-        start_time="'2026-06-19T11:45:54'",
+        template_file="templates\\prompt.md",
+        start_time="'2026-03-15T12:00:00'",
     )
 
-    assert resolve_report(forward).template == resolve_report(backward).template
-    assert resolve_report(forward).blob == resolve_report(backward).blob
+    resolved_forward = resolve_report(forward, repo_root=str(repo))
+    resolved_backward = resolve_report(backward, repo_root=str(repo))
+
+    assert resolved_forward.template == resolved_backward.template
+    assert resolved_backward.blob == old_blob, "must resolve, not merely tie at None"
 
 
-def test_report_predating_first_commit_is_unknown_not_wrong(tmp_path: Path) -> None:
+def test_report_predating_first_commit_is_unknown_not_wrong(
+    repo_with_two_revisions: tuple[Path, str, str], tmp_path: Path
+) -> None:
     """Never attribute a report to a revision that did not exist yet."""
+    repo, _, _ = repo_with_two_revisions
     report = write_report(
         tmp_path / "r.md",
-        template_file="templates/disease_pathophysiology_research.md",
+        template_file="templates/prompt.md",
         start_time="'1999-01-01T00:00:00'",
     )
 
-    resolution = resolve_report(report)
+    resolution = resolve_report(report, repo_root=str(repo))
 
     assert resolution.provenance is Provenance.UNKNOWN
     assert resolution.blob is None
@@ -217,15 +301,40 @@ def test_iter_reports_excludes_citation_sidecars(tmp_path: Path) -> None:
     assert found == ["X-deep-research-falcon.md"]
 
 
-def test_template_history_is_ordered_newest_first() -> None:
-    history = template_history(
-        "templates/disease_pathophysiology_research.md", str(REPO_ROOT)
-    )
+def test_template_history_is_ordered_newest_first(
+    repo_with_two_revisions: tuple[Path, str, str],
+) -> None:
+    repo, old, new = repo_with_two_revisions
 
-    assert len(history) >= 2, "the disease template has several committed revisions"
+    history = template_history("templates/prompt.md", str(repo))
+
+    assert [revision.blob for revision in history] == [new, old]
     dates = [revision.committed_at for revision in history]
     assert dates == sorted(dates, reverse=True)
     assert all(len(revision.blob) == 40 for revision in history)
+
+
+def test_inference_picks_the_revision_in_effect_when_the_report_ran(
+    repo_with_two_revisions: tuple[Path, str, str], tmp_path: Path
+) -> None:
+    """Between two revisions, a report belongs to the older one."""
+    repo, old, new = repo_with_two_revisions
+    between = write_report(
+        tmp_path / "between.md",
+        template_file="templates/prompt.md",
+        start_time="'2026-03-15T12:00:00'",
+    )
+    after = write_report(
+        tmp_path / "after.md",
+        template_file="templates/prompt.md",
+        start_time="'2026-09-15T12:00:00'",
+    )
+
+    assert resolve_report(between, repo_root=str(repo)).blob == old
+    assert (
+        resolve_report(between, repo_root=str(repo)).provenance is Provenance.INFERRED
+    )
+    assert resolve_report(after, repo_root=str(repo)).blob == new
 
 
 def test_history_for_unknown_path_is_empty_not_an_error() -> None:
@@ -233,6 +342,9 @@ def test_history_for_unknown_path_is_empty_not_an_error() -> None:
     assert template_history("templates/does_not_exist.md", str(REPO_ROOT)) == ()
 
 
+@pytest.mark.skipif(
+    shallow(), reason="a shallow checkout has no template history to resolve against"
+)
 def test_current_disease_template_resolves_to_its_own_blob() -> None:
     """End to end against the real repository."""
     template = REPO_ROOT / "templates" / "disease_pathophysiology_research.md"
@@ -247,20 +359,30 @@ def test_current_disease_template_resolves_to_its_own_blob() -> None:
     )
 
 
-def test_naive_start_time_is_treated_as_utc(tmp_path: Path) -> None:
-    """Reports record naive timestamps, so the comparison must not crash."""
+def test_naive_start_time_is_treated_as_utc(
+    repo_with_two_revisions: tuple[Path, str, str], tmp_path: Path
+) -> None:
+    """Reports record naive timestamps, so the comparison must not crash.
+
+    Git dates are timezone-aware; comparing them against a naive datetime
+    raises, and every committed report records a naive `start_time`.
+    """
+    repo, old_blob, _ = repo_with_two_revisions
     report = write_report(
         tmp_path / "r.md",
-        template_file="templates/disease_pathophysiology_research.md",
-        start_time="'2026-06-19T11:45:54.659338'",
+        template_file="templates/prompt.md",
+        start_time="'2026-03-15T11:45:54.659338'",
     )
 
-    resolution = resolve_report(report)
+    resolution = resolve_report(report, repo_root=str(repo))
 
     assert resolution.provenance is Provenance.INFERRED
-    assert resolution.blob is not None
+    assert resolution.blob == old_blob
 
 
+@pytest.mark.skipif(
+    shallow(), reason="a shallow checkout has no template history to resolve against"
+)
 def test_history_dates_are_timezone_aware() -> None:
     """Comparing aware and naive datetimes raises; guard the invariant."""
     history = template_history(
