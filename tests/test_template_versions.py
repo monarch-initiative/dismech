@@ -151,6 +151,56 @@ def test_stamp_writes_blob_hash_and_keeps_frontmatter_parseable(tmp_path: Path) 
     assert resolve_report(report).blob == written
 
 
+def test_stamp_when_template_file_is_the_last_frontmatter_line(
+    tmp_path: Path,
+) -> None:
+    """The boundary the frontmatter-bounded splice got wrong first time.
+
+    The newline before the closing delimiter is also the newline that ends the
+    last key line, so an end-exclusive search for it finds nothing and the
+    stamp is silently skipped.
+    """
+    template = tmp_path / "templates" / "t.md"
+    template.parent.mkdir()
+    template.write_text("prompt\n", encoding="utf-8")
+    report = write_report(
+        tmp_path / "r.md",
+        provider="falcon",
+        template_file="templates/t.md",  # deliberately last
+    )
+
+    written = stamp_report(report, repo_root=tmp_path)
+
+    assert written == blob_sha(template)
+    assert resolve_report(report).blob == written
+
+
+def test_stamp_ignores_a_template_file_line_in_the_body(tmp_path: Path) -> None:
+    """The splice must land in the frontmatter, never in prose below it."""
+    template = tmp_path / "templates" / "t.md"
+    template.parent.mkdir()
+    template.write_text("prompt\n", encoding="utf-8")
+    report = tmp_path / "r.md"
+    report.write_text(
+        "---\n"
+        "provider: falcon\n"
+        "template_file: templates/t.md\n"
+        "---\n"
+        "\n"
+        "# Body\n"
+        "\n"
+        "The report mentions template_file: something/else.md in prose.\n",
+        encoding="utf-8",
+    )
+
+    stamp_report(report, repo_root=tmp_path)
+
+    # Readable back through the frontmatter parser, which only sees the block.
+    assert resolve_report(report).blob == blob_sha(template)
+    body = report.read_text(encoding="utf-8").split("---\n", 2)[2]
+    assert "template_sha" not in body
+
+
 def test_stamp_is_idempotent(tmp_path: Path) -> None:
     """Re-running a recipe must not rewrite provenance already recorded."""
     template = tmp_path / "templates" / "t.md"

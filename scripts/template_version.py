@@ -35,6 +35,7 @@ from dismech.template_versions import (
     Provenance,
     Resolution,
     blob_sha,
+    is_shallow,
     iter_reports,
     resolve_report,
     stamp_report,
@@ -76,12 +77,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     audit.add_argument(
         "--out", type=Path, help="Write the output here instead of stdout."
     )
-    audit.add_argument(
+    # Mutually exclusive by construction, not by taste: an UNKNOWN resolution
+    # has `blob is None`, so `is_current()` returns None and never False. The
+    # two filters can never both match a report, and combining them would
+    # silently print an empty table rather than say so.
+    only = audit.add_mutually_exclusive_group()
+    only.add_argument(
         "--stale-only",
         action="store_true",
         help="Only reports generated from a superseded template revision.",
     )
-    audit.add_argument(
+    only.add_argument(
         "--unresolved-only",
         action="store_true",
         help="Only reports whose template revision could not be determined.",
@@ -212,6 +218,15 @@ def run_audit(args: argparse.Namespace) -> int:
         ]
     if args.unresolved_only:
         resolutions = [r for r in resolutions if r.provenance is Provenance.UNKNOWN]
+
+    if args.format == "summary" and is_shallow():
+        print(
+            "warning: this is a shallow clone, so there is no commit history to "
+            "infer from and every unstamped report resolves to `unknown`. That "
+            "is missing history, not an unresolvable corpus. Re-run in a full "
+            "checkout (`git fetch --unshallow`) for a meaningful census.",
+            file=sys.stderr,
+        )
 
     render = {
         "summary": _render_summary,

@@ -45,13 +45,14 @@ from enum import StrEnum
 from functools import cache
 from pathlib import Path
 
-from dismech.research_reports import read_frontmatter
+from dismech.research_reports import FRONTMATTER_DELIMITER, read_frontmatter
 
 __all__ = [
     "Provenance",
     "Resolution",
     "TemplateRevision",
     "blob_sha",
+    "is_shallow",
     "iter_reports",
     "resolve_report",
     "stamp_report",
@@ -205,6 +206,38 @@ def template_history(
     return tuple(revisions)
 
 
+def is_shallow(repo_root: str | Path = ".") -> bool:
+    """Whether the checkout is a shallow clone.
+
+    Args:
+        repo_root: Repository to inspect.
+
+    Returns:
+        ``True`` when git reports a shallow repository.
+
+    Note:
+        This matters because inference reads commit history, and a shallow
+        checkout has none: every report resolves to ``UNKNOWN``, which reads
+        identically to a corpus that genuinely cannot be resolved. Callers
+        should say which they are looking at. ``actions/checkout`` defaults to
+        ``fetch-depth: 1``, so CI is exactly this case.
+    """
+    try:
+        return (
+            subprocess.run(
+                ["git", "rev-parse", "--is-shallow-repository"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=30,
+            ).stdout.strip()
+            == "true"
+        )
+    except (subprocess.SubprocessError, OSError):
+        return False
+
+
 def _normalize_template_path(value: object) -> str | None:
     """Return a usable repository-relative template path, or ``None``.
 
@@ -248,7 +281,7 @@ def _as_utc(value: object) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
-def resolve_report(report: Path, repo_root: str = ".") -> Resolution:
+def resolve_report(report: Path, repo_root: str | Path = ".") -> Resolution:
     """Determine which template revision produced a report.
 
     Prefers the recorded stamp. Falls back to matching the report's
@@ -296,7 +329,7 @@ def resolve_report(report: Path, repo_root: str = ".") -> Resolution:
             detail="no usable start_time to date the report against",
         )
 
-    history = template_history(template, repo_root)
+    history = template_history(template, str(repo_root))
     if not history:
         return Resolution(
             report=report,
@@ -358,11 +391,25 @@ def stamp_report(report: Path, repo_root: Path = Path(".")) -> str | None:
 
     sha = blob_sha(template_path)
     text = report.read_text(encoding="utf-8")
-    marker = "template_file:"
-    index = text.find(marker)
+
+    # Search only inside the frontmatter block. `read_frontmatter` has already
+    # proved the file opens with the delimiter and that the key parses out of
+    # that block, but scanning the whole document would still splice into the
+    # body if the key were ever quoted there or appeared in prose -- and an
+    # insert below the closing delimiter is invisible to `read_frontmatter`, so
+    # the report would silently read as unstamped forever after.
+    opening = len(f"{FRONTMATTER_DELIMITER}\n")
+    closing = text.find(f"\n{FRONTMATTER_DELIMITER}\n", opening)
+    if closing == -1:
+        return None
+    index = text.find("template_file:", opening, closing)
     if index == -1:
         return None
-    line_end = text.find("\n", index)
+    # `closing` indexes the newline *before* the closing delimiter, which is
+    # also the newline terminating the last key line. Bound the search at
+    # `closing + 1` so a `template_file:` on that last line still finds its
+    # own line ending.
+    line_end = text.find("\n", index, closing + 1)
     if line_end == -1:
         return None
 

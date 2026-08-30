@@ -47,6 +47,15 @@ just template-version-audit --template templates/disease_pathophysiology_researc
 just template-version-audit --format tsv --out /tmp/versions.tsv
 ```
 
+`--stale-only` and `--unresolved-only` are mutually exclusive and argparse
+rejects the pair: an unresolved report has no revision to compare, so it can
+never also be stale.
+
+In a **shallow clone** there is no history to infer from, so every unstamped
+report resolves to `unknown`. The summary says so on stderr rather than letting
+missing history read as an unresolvable corpus — worth knowing because
+`actions/checkout` defaults to `fetch-depth: 1`.
+
 The summary reports how each answer was reached:
 
 ```
@@ -54,8 +63,8 @@ Reports scanned: 2645
 
 How the template revision was determined:
   stamped        0  0.0%
-  inferred    2153  81.4%
-  unknown      492  18.6%
+  inferred    2154  81.4%
+  unknown      491  18.6%
 ```
 
 The scan recurses: reports also live in `research/modules/`, `groupings/`,
@@ -114,10 +123,15 @@ At the time of writing, on 2,645 reports:
 |---|---:|
 | Generated from a superseded revision | 1,974 |
 | Undetermined | 491 |
-| Current | 177 |
+| Current | 180 |
+
+Those three partition the corpus — `is_current()` returns exactly `True`,
+`False` or `None` — so they sum to the 2,645 scanned. Undetermined can never
+fall below the `unknown` provenance count either, since every `UNKNOWN`
+resolution has no blob.
 
 **Every report generated from the disease template predates the current
-revision** — 980 from `630b0d5e4cd7`, 601 from `839c47271432`, 373 from
+revision** — 1,000 from `630b0d5e4cd7`, 601 from `839c47271432`, 373 from
 `c566b1bad3b8`, none from the current `1e7ea4ee817a`. This is expected: that
 template changed in #10182, after all of them were written.
 
@@ -145,7 +159,7 @@ lookup.
 ## Scope
 
 The mechanism is template-agnostic — it keys on whatever `template_file` a report
-records, so all seven templates under `templates/` are covered by the same code
+records, so all eight templates under `templates/` are covered by the same code
 with nothing per-template to maintain.
 
 ## Follow-ups not done here
