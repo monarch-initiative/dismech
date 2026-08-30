@@ -38657,6 +38657,88 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Bone Marrow Failure Syndrome 6",
+    "disease_id": "MONDO:0030015",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited bone marrow failure syndrome",
+      "Bone marrow failure syndrome"
+    ],
+    "creation_date": "2026-08-30T19:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bone marrow failure syndrome 6 (BMFS6; OMIM 618849) is an inherited bone marrow failure syndrome caused by germline heterozygous loss-of-function variants in MDM4, a negative regulator of p53. It was defined in 2020 in a single family with features suggestive of dyskeratosis congenita - marrow hypocellularity, short telomeres, tongue squamous cell carcinoma and acute myeloid leukaemia - carrying the p.T454M allele. A 2026 cohort of six further unrelated individuals with variable bone marrow failure and hypocellular myelodysplastic syndrome, presenting at a median age of 10 years across a range from four weeks to 53 years, established the gene at cohort scale and supplied the functional dissection.\nThe mechanism inverts the usual reading of the p53 pathway in haematology. MDM4 restrains p53; halving MDM4 therefore does not damage a repair pathway, it removes a brake. The consequence is p53 hyperactivity in haematopoietic stem and progenitor cells, with impaired colony formation, reduced engraftment and reduced erythroid and myeloid output. The authors name the category directly: MDM4 deficiency is a TP53-activating syndrome. Two orthogonal engineered systems support the chain - CRISPR deletion of MDM4 in healthy-donor HSPCs, and patient-specific variants knocked into iPSCs - and complementation shows that both the p53-binding domain and the RING-finger domain are required for MDM4's haematopoietic function.\nThe disease sits, on current evidence, inside the telomere biology disorders rather than beside them. The founding family had short telomeres, and the p.T454M knock-in mouse reproduces increased p53 activity, decreased telomere length and bone marrow failure together. The 2026 cohort paper does not report telomere measurements, so how consistent the telomere phenotype is across genotypes remains open - but the direction of travel is that p53 hyperactivity is itself a cause of telomere dysfunction, not merely a correlate of it.\nThe most striking single observation is evolutionary rather than developmental: one patient who progressed to MDS had acquired somatic loss-of-function TP53 mutations. Read against the germline lesion this is not a second hit in the ordinary tumour-suppressor sense but its opposite - a somatic event that relieves the very p53 hyperactivity the germline variant causes, buying clonal fitness at the cost of losing p53 tumour suppression. The source calls this maladaptive somatic rescue, and it is curated here as its own node.\n",
+    "pathophysiology": [
+      "Germline Heterozygous MDM4 Loss-of-Function Variants",
+      "Loss of MDM4-Mediated p53 Restraint",
+      "p53 Pathway Hyperactivation in Hematopoietic Stem and Progenitor Cells",
+      "Impaired HSPC Self-Renewal and Multilineage Output",
+      "Bone Marrow Failure with Hypocellular Marrow",
+      "Telomere Shortening",
+      "Somatic TP53 Loss-of-Function as Maladaptive Clonal Rescue",
+      "Progression to Myelodysplastic Syndrome and Leukemia"
+    ],
+    "cell_types": [
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "negative regulation of signal transduction by p53 class mediator",
+      "signal transduction by p53 class mediator",
+      "erythrocyte differentiation",
+      "myeloid cell differentiation",
+      "telomere maintenance"
+    ],
+    "phenotypes": [
+      "Bone Marrow Failure",
+      "Hypocellular Myelodysplastic Syndrome",
+      "Short Telomeres",
+      "Acute Myeloid Leukemia",
+      "Squamous Cell Carcinoma of the Tongue"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0005528",
+      "HP:0002863",
+      "HP:0031413",
+      "HP:0004808",
+      "HP:0030413"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MDM4",
+      "TP53"
+    ],
+    "treatments": [
+      "Hematopoietic Stem Cell Transplantation",
+      "Androgen Therapy (Danazol or Oxymetholone)",
+      "MDM2/MDMX inhibitors (nutlins and successors) - contraindicated on mechanistic grounds"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bone_Marrow_Failure_Syndrome_6.yaml",
+    "page_url": "../pages/disorders/Bone_Marrow_Failure_Syndrome_6.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Borderline Personality Disorder",
     "disease_id": "MONDO:0001156",
     "category": "Psychiatric",
@@ -68769,7 +68851,10 @@ window.searchData = [
       "Placental Infection",
       "Placental Architectural and Functional Disruption",
       "Fetal Growth Restriction",
-      "Maternal-Fetal Transmission and Neurotropic Viral Entry",
+      "Transplacental Viral Transfer to the Fetal Compartment",
+      "Neurotropic Entry into Fetal Neural Progenitors",
+      "Spinal Anterior Horn Motor Neuron Loss",
+      "Fetal Akinesia",
       "Antiviral Innate Immune Activation",
       "Viral Mitotic and Centrosome Cytopathy",
       "Neural Progenitor Apoptosis and Pool Depletion",
@@ -68777,19 +68862,26 @@ window.searchData = [
     ],
     "cell_types": [
       "trophoblast cell",
+      "Hofbauer cell (placental macrophage)",
+      "Cytotrophoblast",
       "Radial glial cell",
-      "Neural progenitor cell"
+      "Neural progenitor cell",
+      "Anterior horn motor neuron"
     ],
     "cell_type_ids": [
       "CL:0000351",
+      "CL:3000001",
+      "CL:0000523",
       "CL:0000681",
-      "CL:0011020"
+      "CL:0011020",
+      "CL:2000048"
     ],
     "biological_processes": [
       "tunneling nanotube formation",
       "TNT-shielded escape from maternal type III interferon control",
       "maternal type III interferon (IFN-lambda) signaling at the maternal-fetal interface",
       "placental architecture and efficiency",
+      "type III interferon production by trophoblast",
       "Viral entry into host cell",
       "Viral genome replication",
       "Innate immune response",
@@ -68809,12 +68901,31 @@ window.searchData = [
       "Microcephaly",
       "Lissencephaly",
       "Intracranial Calcification",
-      "Hydrocephalus"
+      "Hydrocephalus",
+      "Arthrogryposis",
+      "Sensorineural Hearing Loss",
+      "Chorioretinal Abnormalities",
+      "Cerebellar Hypoplasia",
+      "Ventriculomegaly",
+      "Seizures",
+      "Spastic Hypertonia",
+      "Dysphagia",
+      "Global Developmental Delay",
+      "Small for Gestational Age"
     ],
     "phenotype_categories": [
-      "Neurologic"
+      "Neurologic",
+      "Musculoskeletal",
+      "Auditory",
+      "Ophthalmologic",
+      "Gastrointestinal",
+      "Growth"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
       "Head and Neck",
       "Musculoskeletal",
       "Nervous System"
@@ -68823,9 +68934,23 @@ window.searchData = [
       "HP:0000252",
       "HP:0001339",
       "HP:0002514",
-      "HP:0000238"
+      "HP:0000238",
+      "HP:0002804",
+      "HP:0000407",
+      "HP:0000533",
+      "HP:0001321",
+      "HP:0002119",
+      "HP:0001250",
+      "HP:0001276",
+      "HP:0002015",
+      "HP:0001263",
+      "HP:0001518"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
     "genes": [],
     "treatments": [
       "Supportive Care",
@@ -68835,12 +68960,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Congenital_Zika_Syndrome.yaml",
     "page_url": "../pages/disorders/Congenital_Zika_Syndrome.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 12,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Congestive Splenomegaly",
@@ -256142,17 +256267,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2484,
+  "total_disorder_pages": 2485,
   "total_subtypes": 3529,
-  "total_disorders_and_subtypes": 6013,
-  "total_unique_evidence_sources": 35606,
-  "total_unique_publications": 33487,
+  "total_disorders_and_subtypes": 6014,
+  "total_unique_evidence_sources": 35624,
+  "total_unique_publications": 33505,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 266,
-  "total_pathographs": 2479,
-  "total_unique_pathological_events": 14390,
+  "total_pathographs": 2480,
+  "total_unique_pathological_events": 14400,
   "total_modules": 166,
-  "total_research_reports": 2601,
+  "total_research_reports": 2602,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 99
