@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
+from dismech.yaml_io import safe_load
 
-from dismech.yaml_io import safe_load  # noqa: E402
+ROOT = Path(__file__).parent.parent
 
 
 def _recipe_body(justfile: str, recipe: str) -> str:
