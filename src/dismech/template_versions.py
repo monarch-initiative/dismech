@@ -40,9 +40,9 @@ from __future__ import annotations
 import hashlib
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 from dismech.research_reports import read_frontmatter
@@ -146,7 +146,7 @@ def blob_sha(path: Path) -> str:
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
-@lru_cache(maxsize=None)
+@cache
 def template_history(
     template: str, repo_root: str = "."
 ) -> tuple[TemplateRevision, ...]:
@@ -236,14 +236,14 @@ def _as_utc(value: object) -> datetime | None:
         parsed = value
     elif isinstance(value, str):
         try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(value)
         except ValueError:
             return None
     else:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def resolve_report(report: Path, repo_root: str = ".") -> Resolution:

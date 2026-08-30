@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -268,6 +268,27 @@ def test_report_predating_first_commit_is_unknown_not_wrong(
     assert resolution.blob is None
 
 
+def test_zulu_start_time_still_parses(
+    repo_with_two_revisions: tuple[Path, str, str], tmp_path: Path
+) -> None:
+    """`fromisoformat` handles a trailing `Z` natively from 3.11 (we need 3.12).
+
+    The explicit `.replace("Z", "+00:00")` this once carried was dead weight,
+    but removing it changes parsing, so pin the behaviour rather than assume it.
+    """
+    repo, old_blob, _ = repo_with_two_revisions
+    report = write_report(
+        tmp_path / "r.md",
+        template_file="templates/prompt.md",
+        start_time="'2026-03-15T12:00:00Z'",
+    )
+
+    resolution = resolve_report(report, repo_root=str(repo))
+
+    assert resolution.provenance is Provenance.INFERRED
+    assert resolution.blob == old_blob
+
+
 def test_missing_start_time_is_unknown(tmp_path: Path) -> None:
     report = write_report(
         tmp_path / "r.md",
@@ -391,6 +412,4 @@ def test_history_dates_are_timezone_aware() -> None:
     assert history
     for revision in history:
         assert revision.committed_at.tzinfo is not None
-        assert revision.committed_at.astimezone(timezone.utc) <= datetime.now(
-            timezone.utc
-        )
+        assert revision.committed_at.astimezone(UTC) <= datetime.now(UTC)
