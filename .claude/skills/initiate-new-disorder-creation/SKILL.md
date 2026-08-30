@@ -488,12 +488,24 @@ you work from is still the report's and not your reading path's:
 grep -o "PMID:[0-9]*" research/DISORDER-deep-research-PROVIDER.md | sort -u
 ```
 
-That covers about four in five sidecar-less reports. It returns nothing on the
-rest — including every `falcon` report, which cites by author-year key
-(`martelli2024clinicalspectrumof`) and carries no PMID strings at all. Those keys
-are not identifiers and cannot be fetched; resolve each one by searching PubMed
-for its author, year and title words. If a `falcon` report is missing its
-sidecar, prefer re-running the report over transcribing keys by hand.
+That covers about four in five sidecar-less reports. Where it returns nothing,
+look for DOIs before giving up. `falcon` reports are the usual case: they cite
+by author-year key (`martelli2024clinicalspectrumof`), which is not a fetchable
+identifier, and the sidecar-less ones carry no PMID strings at all — but most
+do carry DOI links, which are fetchable.
+
+```bash
+grep -oE "doi\.org/10\.[^ ;|,)]+" research/DISORDER-deep-research-PROVIDER.md | sort -u
+```
+
+Fetch those with `just fetch-reference DOI:<id>`. Then look each one up in
+PubMed and cite the PMID in preference — a DOI-keyed item is not checked by the
+gating validator, so the PMID is worth the extra lookup. Only for keys with no
+DOI beside them do you have to search PubMed by author, year and title words.
+
+Re-running the report is the last resort, not the first: a sidecar-less report
+usually still names its sources, and a re-run costs a provider call for
+identifiers already sitting in the file.
 
 Let the *claims you are curating* choose the references, not a target count. Every
 assertion you write needs its own citation, so the number falls out of how much of

@@ -172,8 +172,8 @@ Reference prefixes in `skip_prefixes` within
 snippet-checked by default, and the `(N skipped by prefix)` tail of the summary
 line says how many were passed over.
 
-Skipped is not the same as uncheckable. Where the body is cached — every `DOI:`
-reference is — `--unskip-prefix` verifies it on demand:
+Skipped is not the same as uncheckable. Where the body is cached, as a `DOI:`
+reference's nearly always is, `--unskip-prefix` verifies it on demand:
 
 ```bash
 just count-verified-snippets --unskip-prefix DOI kb/disorders/YourFile.yaml
