@@ -62,7 +62,7 @@ recorded **only** where the bound NCIT concept itself carries an
 | Value | NCIT | ICD-O-3 | KB entries it unblocks |
 |---|---|---|---|
 | `Adenoma` | C2855 | 8140/0 | adrenal cortical adenoma, the five pituitary adenoma entries, mucinous cystadenoma, the adenomatous polyposis entries |
-| `Trophoblastic Tumor` | C3422 | — | choriocarcinoma, gestational trophoblastic neoplasm, hydatidiform mole |
+| `Trophoblastic Tumor` | C3422 | — | choriocarcinoma, gestational trophoblastic neoplasm |
 | `Mesothelial Neoplasm` | C3786 | — | pleural and peritoneal mesothelioma |
 | `Pericytic Neoplasm` | C6528 | — | glomus tumour |
 | `Nerve Sheath Neoplasm` | C4972 | — | schwannoma, neurofibroma, granular cell tumour, MPNST, the neurofibromatosis entries |
@@ -125,10 +125,10 @@ both under NCIT:C3708; the children of NCIT:C3264 (Embryonal Neoplasm) are the
 blastomas, the CNS embryonal tumours, Ewing sarcoma/pPNET, rhabdoid tumour and
 Wilms tumour. The old value was a name collision, not a classification.
 
-**Twenty-two exemplars** backfilled to exercise each new value, at least one per
+**Twenty-one exemplars** backfilled to exercise each new value, at least one per
 value, each carrying a `notes` line recording the NCIT ancestry it rests on:
 adrenal cortex adenoma, GNAS-related pituitary adenoma 3, gestational
-trophoblastic neoplasm, hydatidiform mole, malignant peritoneal mesothelioma,
+trophoblastic neoplasm, malignant peritoneal mesothelioma,
 glomus tumour, schwannoma, neurofibroma, granular cell tumour, meningioma,
 yolk sac tumour, testicular germ cell tumour, adult granulosa cell tumour of
 ovary, testicular sex cord-stromal neoplasm, pheochromocytoma-paraganglioma,
@@ -136,9 +136,28 @@ pancreatic neuroendocrine tumour, plasma cell neoplasm, multiple myeloma,
 myeloproliferative neoplasm unclassifiable, myelodysplastic syndrome,
 Langerhans cell histiocytosis, Rosai-Dorfman disease.
 
-Coverage went from 133 to 155 entries, and every one of the 23 values is now
-used by at least one entry — `Multiple Myeloma`, unused since the enum was
-written, went to the `Multiple_Myeloma` entry.
+**And one exemplar withdrawn.** `Hydatidiform_Mole` was assigned
+`Trophoblastic Tumor` in an earlier draft of this PR and the assignment has
+been removed, because it failed the same rule every other value passes.
+Hydatidiform mole does carry ICD-O morphology codes — 9100/0 for the mole NOS,
+9103/0 for the partial mole — which is what made it look assignable. But
+`NCIT:C3110` (Hydatidiform Mole) does not descend from `NCIT:C3422`
+(Trophoblastic Tumor): its parents are *Gestational Trophoblastic Disorder* and
+*Placenta Disorder*, NCIT asserts no `Neoplastic_Status` for it, and both
+`NCIT:C4871` (Complete) and `NCIT:C4293` (Partial Hydatidiform Mole) sit under
+*Placental Non-Neoplastic Disorder*. WHO agrees — gestational trophoblastic
+*neoplasia* is invasive mole, choriocarcinoma, PSTT and ETT, and a non-invasive
+mole is GTD but not GTN. This axis applies only to neoplastic diseases, so the
+entry now omits the slot and records why, which is the convention this review
+argues for. The molar pregnancies that do progress are covered by
+`Gestational_Trophoblastic_Neoplasm`, which carries the value correctly.
+
+Every one of the 23 values is now used by at least one entry — `Multiple
+Myeloma`, unused since the enum was written, went to the `Multiple_Myeloma`
+entry. The KB now carries 158 `icdo_morphology` assignments in total. (Note
+that the raw before/after pair is not a clean measure of this PR: the branch
+was rebased mid-review and picked up neoplastic entries added on `main` in the
+meantime, so the denominator moved underneath it.)
 
 The prose notes on Glomus Tumor, Choriocarcinoma,
 Pheochromocytoma-Paraganglioma and GNAS-related pituitary adenoma 3 were
