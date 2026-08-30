@@ -35,6 +35,7 @@ import re
 import sys
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,25 @@ _VERIFIABLE_PREFIXES = (
 #: quietly go back to failing on a flaky network. A test pins the coupling.
 UNPERFORMED_RESOLVE = "could not resolve"
 UNPERFORMED_ADAPTER = "could not load"
+
+#: Clinical-code vocabularies this repo can actually verify a `code`/`code_label`
+#: pair against, mapped to the cache directory holding the answers.
+#:
+#: `code` is a clinical code, not an ontology term, so OAK cannot resolve it and
+#: `conf/oak_config.yaml` has no entry for these. Left unverified, a
+#: plausible-looking wrong id passes every gate in the repo — the failure mode
+#: `--check-terms` exists to prevent one layer up, and not one an agent can be
+#: trusted to avoid by eye. So each verifiable vocabulary gets a cache under
+#: `cache/`, in the same `curie,label,retrieved_at` shape as the ontology term
+#: caches, checked by the same `just check-term-cache-integrity`.
+#:
+#: OMOP resolves through COHD, which this repo already depends on for
+#: comorbidity signals (`scripts/cohd_pair_to_signal.py`). Vocabularies absent
+#: here are reported as unverifiable rather than passing quietly.
+_CODE_AUTHORITIES = {"OMOP_CONCEPT_ID": ("omop", "omop")}
+
+#: Public COHD deployment, the same base URL `cohd_pair_to_signal.py` defaults to.
+COHD_BASE_URL = "https://cohd-api.transltr.io"
 
 _yaml = YAML(typ="safe")
 _yaml.allow_duplicate_keys = False
@@ -275,6 +295,195 @@ def iter_terms(node: Any, where: str = "set") -> Iterator[tuple[dict, str]]:
     elif isinstance(node, list):
         for i, item in enumerate(node):
             yield from iter_terms(item, f"{where}[{i}]")
+
+
+def _load_code_cache(path: Path) -> dict[str, str]:
+    """Read a `curie,label,retrieved_at` code cache into `{code: label}`."""
+    if not path.is_file():
+        return {}
+    import csv
+
+    with path.open(encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    return {
+        r["curie"].split(":", 1)[1]: r["label"]
+        for r in rows
+        if r.get("curie") and ":" in r["curie"] and r.get("label")
+    }
+
+
+def _resolve_omop(code: str, base_url: str = COHD_BASE_URL) -> str | None:
+    """Canonical concept name for an OMOP concept id, or None if unresolvable.
+
+    Raises on a transport failure so the caller can tell "this id is wrong"
+    (None) from "the lookup did not happen" (exception) — the same distinction
+    the OAK path draws, and the reason a flaky network must not read as a bad
+    code.
+    """
+    import httpx
+
+    with httpx.Client(timeout=25.0, follow_redirects=True) as client:
+        response = client.get(
+            f"{base_url}/api/omop/concepts", params={"q": code, "dataset_id": 1}
+        )
+        response.raise_for_status()
+        for row in (response.json() or {}).get("results", []):
+            if str(row.get("concept_id")) == str(code):
+                return str(row.get("concept_name") or "") or None
+    return None
+
+
+def check_codes(
+    collections: Iterable[Collection],
+    cache_root: Path = REPO_ROOT / "cache",
+    allow_network: bool = True,
+) -> list[Issue]:
+    """Verify every `code`/`code_label` pair against its vocabulary's authority.
+
+    Cache-first, like the ontology term check: a code already in
+    `cache/<vocab>/terms.csv` is answered offline, so CI is deterministic and
+    does not depend on a third-party API being up. Only a cache miss reaches the
+    network, and only when `allow_network` is set.
+
+    A vocabulary with no authority in `_CODE_AUTHORITIES` yields a WARNING
+    naming it, rather than nothing. Silence is the failure this whole check
+    exists to remove — an unverifiable code should say so.
+    """
+    issues: list[Issue] = []
+    caches: dict[str, dict[str, str]] = {}
+    fetched: dict[str, dict[str, str]] = {}
+    unresolvable: set[str] = set()
+
+    for coll in collections:
+        for profile in coll.profiles:
+            pid = str(profile.get("profile_id", ""))
+            for dist in profile.get("code_distributions") or []:
+                vocab = str(dist.get("code_vocabulary") or "")
+                authority = _CODE_AUTHORITIES.get(vocab)
+                if authority is None:
+                    issues.append(
+                        Issue(
+                            coll.path,
+                            pid,
+                            "WARNING",
+                            f"{vocab or 'unspecified'} codes have no configured "
+                            "authority, so their labels were not checked; a "
+                            "wrong code with a plausible label would pass",
+                        )
+                    )
+                    continue
+                subdir, prefix = authority
+                if subdir not in caches:
+                    caches[subdir] = _load_code_cache(cache_root / subdir / "terms.csv")
+                    fetched[subdir] = {}
+                cached = caches[subdir]
+
+                for entry in dist.get("weighted_codes") or []:
+                    code = str(entry.get("code") or "")
+                    label = str(entry.get("code_label") or "")
+                    if not code or not label:
+                        continue
+                    actual = cached.get(code) or fetched[subdir].get(code)
+                    if actual is None:
+                        if not allow_network or code in unresolvable:
+                            issues.append(
+                                Issue(
+                                    coll.path,
+                                    pid,
+                                    "WARNING",
+                                    f"{UNPERFORMED_RESOLVE} {prefix}:{code}; "
+                                    "code left unverified",
+                                )
+                            )
+                            continue
+                        try:
+                            actual = _resolve_omop(code)
+                        except Exception as exc:
+                            unresolvable.add(code)
+                            issues.append(
+                                Issue(
+                                    coll.path,
+                                    pid,
+                                    "WARNING",
+                                    f"{UNPERFORMED_RESOLVE} {prefix}:{code} "
+                                    f"({exc}); code left unverified",
+                                )
+                            )
+                            continue
+                        if actual:
+                            fetched[subdir][code] = actual
+                    if not actual:
+                        # WARNING, not ERROR, and the asymmetry is the point.
+                        # COHD knows the concepts present in its own EHR data,
+                        # a subset of OMOP, so absence is evidence of a bad code
+                        # rather than proof of one. Erroring here would fail
+                        # valid-but-uncommon codes — which trains curators to
+                        # ignore the check, costing more than the codes it
+                        # would catch. A contradiction (below) is different:
+                        # the authority knows that code and it means something
+                        # else, which no coverage gap explains.
+                        issues.append(
+                            Issue(
+                                coll.path,
+                                pid,
+                                "WARNING",
+                                f"{prefix}:{code} ({label!r}) is not in COHD, "
+                                "which covers a subset of OMOP; check it "
+                                "against Athena before relying on it",
+                            )
+                        )
+                    elif actual != label:
+                        issues.append(
+                            Issue(
+                                coll.path,
+                                pid,
+                                "ERROR",
+                                f"{prefix}:{code} is {actual!r}, not {label!r}",
+                            )
+                        )
+
+    for subdir, newly in fetched.items():
+        if newly:
+            _append_code_cache(cache_root / subdir / "terms.csv", subdir, newly)
+    return issues
+
+
+def _append_code_cache(path: Path, prefix: str, entries: dict[str, str]) -> None:
+    """Merge newly resolved codes into the cache, sorted and deduplicated.
+
+    Written by the resolver rather than by hand, which is the same contract the
+    ontology term caches keep: `cache/**` rows are derived artifacts, and a
+    hand-typed label is exactly the unverified claim the cache exists to hold
+    the answer to.
+    """
+    import csv
+    from datetime import datetime
+
+    rows = {}
+    if path.is_file():
+        with path.open(encoding="utf-8", newline="") as fh:
+            for row in csv.DictReader(fh):
+                if row.get("curie"):
+                    rows[row["curie"]] = row
+    now = datetime.now(UTC).isoformat(timespec="microseconds")
+    now = now.replace("+00:00", "")
+    for code, label in entries.items():
+        rows[f"{prefix}:{code}"] = {
+            "curie": f"{prefix}:{code}",
+            "label": label,
+            "retrieved_at": now,
+        }
+
+    def _key(curie: str) -> tuple[str, int | str]:
+        head, _, tail = curie.partition(":")
+        return (head, int(tail)) if tail.isdigit() else (head, tail)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=["curie", "label", "retrieved_at"])
+        writer.writeheader()
+        for curie in sorted(rows, key=_key):
+            writer.writerow(rows[curie])
 
 
 def check_terms(
@@ -858,6 +1067,7 @@ def main(argv: list[str] | None = None) -> int:
     result = lint_collections(collections)
     if args.check_terms:
         result.issues.extend(check_terms(collections))
+        result.issues.extend(check_codes(collections))
     for issue in result.issues:
         print(issue.format())
 

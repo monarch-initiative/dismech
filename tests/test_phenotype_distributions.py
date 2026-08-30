@@ -447,6 +447,81 @@ def test_unperformed_lookup_phrases_match_what_the_code_emits(
     )
 
 
+def test_clinical_codes_are_verified_against_a_cached_authority(
+    profile_set_path: Path, tmp_path: Path
+) -> None:
+    """`code`/`code_label` must be checkable, not merely plausible.
+
+    @cmungall's review point: if this is agentically curated it has to be
+    verifiable. Clinical codes are not ontology terms, so OAK cannot resolve
+    them and nothing in the repo could — a wrong id with a convincing label
+    passed every gate. It is not a hypothetical: the minimal example shipped
+    `4145356` for Wheezing (really "Severe persistent asthma") and survived two
+    reviews by eye, including one that checked it and called it right.
+
+    Offline here, against a fixture cache, because the real check is
+    cache-first for exactly this reason — CI must not depend on a third-party
+    API being up.
+    """
+    from dismech.phenotype_distribution import check_codes
+
+    cache = tmp_path / "omop"
+    cache.mkdir()
+    (cache / "terms.csv").write_text(
+        "curie,label,retrieved_at\n"
+        'omop:4148925,"Ehlers-Danlos syndrome, type 3",2026-08-30T00:00:00\n'
+        "omop:444070,Tachycardia,2026-08-30T00:00:00\n",
+        encoding="utf-8",
+    )
+
+    def relabel(data):
+        dist = data["profiles"][0]["code_distributions"][0]
+        dist["weighted_codes"] = [
+            {"code": "4148925", "code_label": "Tachycardia", "code_weight": 0.5}
+        ]
+
+    issues = check_codes([_mutate(profile_set_path, relabel)], tmp_path, False)
+    assert any(
+        i.severity == "ERROR" and "Ehlers-Danlos syndrome, type 3" in i.message
+        for i in issues
+    ), [i.message for i in issues]
+
+    # The correct pairing is silent.
+    def correct(data):
+        dist = data["profiles"][0]["code_distributions"][0]
+        dist["weighted_codes"] = [
+            {"code": "444070", "code_label": "Tachycardia", "code_weight": 0.5}
+        ]
+
+    assert not [
+        i
+        for i in check_codes([_mutate(profile_set_path, correct)], tmp_path, False)
+        if i.severity == "ERROR"
+    ]
+
+    # A code the authority does not know warns rather than errors: COHD covers
+    # a subset of OMOP, so absence is evidence of a bad code, not proof of one.
+    # Erroring would fail valid-but-uncommon codes and train curators to ignore
+    # the check — which costs more than the codes it would catch.
+    def unknown(data):
+        dist = data["profiles"][0]["code_distributions"][0]
+        dist["weighted_codes"] = [
+            {"code": "999999999", "code_label": "Nonesuch", "code_weight": 0.5}
+        ]
+
+    unknown_issues = check_codes([_mutate(profile_set_path, unknown)], tmp_path, False)
+    assert unknown_issues and all(i.severity == "WARNING" for i in unknown_issues)
+
+    # And a vocabulary with no authority says so, rather than passing quietly.
+    def other_vocab(data):
+        data["profiles"][0]["code_distributions"][0]["code_vocabulary"] = "SNOMED_CT"
+
+    assert any(
+        "no configured authority" in i.message
+        for i in check_codes([_mutate(profile_set_path, other_vocab)], tmp_path, False)
+    )
+
+
 def test_term_check_reports_a_wrong_label_without_a_local_ontology(
     profile_set_path: Path, monkeypatch
 ) -> None:
