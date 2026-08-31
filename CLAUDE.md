@@ -2131,6 +2131,47 @@ curation, and the two usually differ — one carries `notes`, the other cited
 both sets of values, then re-read the surviving prose: an `explanation` arguing
 for the narrower choice will contradict the merged result and needs trimming.
 
+## Retired Enum Values (dismech#10061)
+
+The sibling of the duplicate-key problem above, with the same merge-shaped
+cause. When a schema change **narrows** an enum, every PR already in flight
+carries values that were legal when written and are illegal on merge. Nothing
+either side runs can see it: the narrowing PR does not contain the curation
+files, and the curation PRs do not contain the narrowed enum. Only the merge
+result holds both.
+
+That is exactly how #10003 played out. It retired `supports: PARTIAL` and
+migrated every occurrence on its own base; ~15 open curation PRs then landed
+more. Nine invalid values reached `main` within 90 seconds of the merge, and
+100 within a day.
+
+```bash
+just check-enum-values                              # whole KB (~21s, offline)
+just check-enum-values kb/disorders/Asthma.yaml     # specific files
+```
+
+It runs in `just qc` and as an **ungated, whole-KB** CI step, for the same
+reason `check-duplicate-keys` is. The path-gated `just test-kb` sweep cannot
+cover it: that filter fires on schema changes, and the PRs that carry the stale
+value touch no schema.
+
+**Scope, and what it deliberately skips.** It checks one constraint — is this
+value permissible in this slot's enum — not conformance, which is what keeps it
+cheap enough to run everywhere. Dynamic (`reachable_from`) ontology enums are
+`linkml-term-validator`'s job and are skipped; so is any slot name that is
+enum-bound in one class and free text in another (`severity`), since flagging
+those would flag correct prose. `kb/hypotheses/` is checked against
+`hypothesis_assessment.yaml` / `hypothesis_reconciliation.yaml` rather than
+`dismech.yaml` — running the wrong schema there reports five legal values as
+errors.
+
+**When you narrow an enum, the values are only half the job.** #10003 migrated
+11,804 `PARTIAL` items to `SUPPORT` and left every `explanation` that argued for
+the retired grade in place, so ~3,600 evidence items still say "Marked PARTIAL
+because…" above a value the schema no longer has. Prose that names a retired
+value is not caught by any gate. Budget for it, or record it in a worklist the
+way #10003 did.
+
 ## Structured-Database Reference Sources
 
 In addition to fetched literature references (PMID, DOI, NCT), dismech ingests

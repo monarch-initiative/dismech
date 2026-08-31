@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -970,6 +970,18 @@ node-classes *args:
 [group('QC')]
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
+# Guard against KB values that are not permissible in their slot's enum (#10061).
+# The schema-narrowing twin of check-duplicate-keys: #10003 narrowed
+# EvidenceItemSupportEnum while ~15 curation PRs carrying the retired PARTIAL
+# were already open, each green against the base it branched from. Neither side
+# could see the collision -- only the merge result holds both -- so this sweeps
+# the whole KB, ungated, rather than only the files a PR changed. Checks one
+# constraint rather than conformance, which is what makes it cheap enough
+# (~21s, offline, no codegen) to run where `just test-kb` cannot.
+[group('QC')]
+check-enum-values *files:
+    uv run python scripts/check_enum_values.py "$@"
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
 # run in `test_entity_ref_foreign_keys`, but that test is selected by the
