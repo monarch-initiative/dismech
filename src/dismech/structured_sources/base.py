@@ -24,6 +24,7 @@ import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
 
@@ -50,6 +51,49 @@ class BulkFile:
     url: str
     sha256: str
     description: str = ""
+
+
+class ChecksumMismatchError(RuntimeError):
+    """A freshly downloaded bulk file does not match its pinned sha256.
+
+    Carries the remedy in its message. Nearly every occurrence of this in
+    practice is upstream having published a new release behind an unversioned
+    URL (issues #9687, #9897, #10150 for Orphadata; #10081 for ClinGen), which
+    is fixed by repinning the manifest rather than by investigating a download.
+    """
+
+    def __init__(self, *, name: str, url: str, expected: str, actual: str) -> None:
+        self.name = name
+        self.url = url
+        self.expected = expected
+        self.actual = actual
+        super().__init__(
+            f"checksum mismatch for {name} after download:\n"
+            f"  expected (manifest pin): {expected}\n"
+            f"  actual   (upstream now): {actual}\n"
+            f"  url: {url}\n"
+            "\nThis usually means upstream published a new release behind the same\n"
+            "URL, not that the download is corrupt. To accept the new release and\n"
+            "record it in the manifest (leaving a reviewable diff), re-run with\n"
+            "--repin, e.g.:\n"
+            "    just refresh-orphadata --repin\n"
+            "then rebuild the cache and review the diff before committing."
+        )
+
+
+@dataclass(frozen=True)
+class ChecksumChange:
+    """An observed difference between a manifest's pin and what upstream now serves.
+
+    Recorded (rather than raised) when :meth:`StructuredSource.refresh` is called
+    with ``repin=True``, so the caller can write the new values back to the
+    manifest and leave a reviewable diff.
+    """
+
+    name: str
+    old_sha256: str
+    new_sha256: str
+    size_bytes: int
 
 
 @dataclass
@@ -143,12 +187,31 @@ class StructuredSource(ABC):
 
     # ----- bulk data -----
 
-    def refresh(self, *, force: bool = False) -> None:
+    def refresh(
+        self, *, force: bool = False, repin: bool = False
+    ) -> list[ChecksumChange]:
         """Download bulk files into ``data_dir``, verifying sha256.
 
         Existing files with matching checksum are kept; mismatches re-download.
+
+        **On a post-download checksum mismatch there are two possibilities, and
+        they need different handling.** Most of these manifests pin a sha256
+        against a *rolling* upstream URL — ``en_product1.xml`` is always the
+        current Orphanet release, not a versioned artifact — so the pin is
+        guaranteed to go stale the next time upstream publishes. That is
+        ordinary release drift, not a problem with the download. The other
+        possibility, a truncated or substituted file, is a real fault.
+
+        The default (``repin=False``) refuses to proceed, because a source
+        silently changing under a curator is exactly what the pin exists to
+        catch. Passing ``repin=True`` instead *records* the new checksum and
+        returns it, so the caller can write it back to the manifest and leave a
+        diff a human reviews. Nothing is ever repinned implicitly.
+
+        Returns the checksum changes observed (always empty unless ``repin``).
         """
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        changes: list[ChecksumChange] = []
         for bf in self.bulk_files:
             target = self.data_dir / bf.name
             if not force and target.exists():
@@ -166,10 +229,25 @@ class StructuredSource(ABC):
             self._download(bf.url, target)
             actual = _sha256_of(target)
             if bf.sha256 and actual != bf.sha256:
-                raise RuntimeError(
-                    f"checksum mismatch for {bf.name} after download: "
-                    f"got {actual}, expected {bf.sha256}"
+                if not repin:
+                    raise ChecksumMismatchError(
+                        name=bf.name,
+                        url=bf.url,
+                        expected=bf.sha256,
+                        actual=actual,
+                    )
+                logger.warning(
+                    "repinning %s: %s -> %s", bf.name, bf.sha256[:12], actual[:12]
                 )
+                changes.append(
+                    ChecksumChange(
+                        name=bf.name,
+                        old_sha256=bf.sha256,
+                        new_sha256=actual,
+                        size_bytes=target.stat().st_size,
+                    )
+                )
+        return changes
 
     @staticmethod
     def _download(url: str, target: Path) -> None:
@@ -219,6 +297,61 @@ class StructuredSource(ABC):
         tmp.write_text(text, encoding="utf-8")
         tmp.replace(path)
         return path
+
+
+def repin_manifest(
+    manifest_path: Path,
+    changes: Iterable[ChecksumChange],
+    *,
+    snapshot_date: str | None = None,
+) -> list[str]:
+    """Write accepted checksums back into a source manifest.
+
+    Uses a ruamel round-trip load so the manifest's comments — which carry the
+    licence, the provenance notes, and the bump procedure — survive the edit,
+    and so the resulting git diff shows only the lines that actually changed.
+
+    ``snapshot_date`` defaults to today (UTC): a new checksum means a new
+    upstream release, so leaving the old date in place would misdescribe what
+    the manifest now pins.
+
+    Returns a human-readable description of each edit.
+    """
+    from ruamel.yaml import YAML
+
+    by_name = {c.name: c for c in changes}
+    if not by_name:
+        return []
+
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    # Match the manifests' committed layout (two-space block sequences indented
+    # under their key) so the diff shows only the checksum lines that changed.
+    yaml.indent(mapping=2, sequence=4, offset=2)
+    yaml.width = 4096
+    data = yaml.load(manifest_path)
+
+    notes: list[str] = []
+    for entry in data.get("bulk_files", []):
+        change = by_name.get(entry.get("name"))
+        if change is None:
+            continue
+        entry["sha256"] = change.new_sha256
+        if "size_bytes" in entry or change.size_bytes:
+            entry["size_bytes"] = change.size_bytes
+        notes.append(
+            f"{change.name}: {change.old_sha256[:12] or '(unpinned)'}"
+            f" -> {change.new_sha256[:12]} ({change.size_bytes} bytes)"
+        )
+
+    if notes:
+        new_date = snapshot_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if data.get("snapshot_date") != new_date:
+            notes.append(f"snapshot_date: {data.get('snapshot_date')} -> {new_date}")
+            data["snapshot_date"] = new_date
+        yaml.dump(data, manifest_path)
+
+    return notes
 
 
 def _sha256_of(path: Path, chunk_size: int = 1 << 16) -> str:
