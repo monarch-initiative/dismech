@@ -657,6 +657,82 @@ population level" row stands; there is no comparable organ-level gap.
 
 ---
 
+## Open schema questions
+
+Six things this project has surfaced that dismech's schema currently cannot express.
+They are recorded here as questions, with the observation that raises each one, and
+deliberately without a proposed answer — the shape of a slot is a decision for
+[`docs/explanation/design-decisions.md`](../docs/explanation/design-decisions.md) and its
+own issue, tracked at
+[#10272](https://github.com/monarch-initiative/dismech/issues/10272).
+
+Three come from the liver fibrosis NAM use case above and three restate rows already in
+the divergence table as dismech-side questions rather than as descriptions of how the two
+frameworks differ.
+
+### 1. Should a pathophysiology node be able to carry a Key Event cross-reference?
+
+Five of AOP 38's seven Key Events correspond to a named dismech mechanism node, and
+nothing in the schema can record that. No slot exists, and no AOP identifier appears
+anywhere in the schema, so there is nothing for a correspondence to point at and nowhere
+to put it.
+
+A prior question sits underneath this one: whether dismech recognizes a Key Event as an
+entity at all, or only as a label applied to something it already has.
+
+### 2. Where does an adverse outcome correspondence attach?
+
+AO 344, *Increase, Liver fibrosis*, corresponds to the `Liver_Cirrhosis` entry as a
+whole. No pathophysiology node in that entry is "liver fibrosis" — the disease is what
+the graph describes, not a step inside it. So whatever answers question 1 does not reach
+this row, and an adverse outcome correspondence is a different attachment point from a
+Key Event one.
+
+Questions 1 and 2 are separable but entangled: the same identifier, two levels.
+
+### 3. Should the AOP-Wiki prefixes be declared in the schema?
+
+`aop`, `aop.events`, `aop.relationships` and `aop.stressor` are registered in
+identifiers.org and Bioregistry, all with pattern `^\d+$`, and all four resolve —
+`https://identifiers.org/aop.events:265` lands on `https://aopwiki.org/events/265`
+(checked 2026-08-29).
+
+This is the smallest and most independent of the six, because declaring a prefix is a
+different act from citing an AOP page as evidence. Citation stays blocked: there is no
+fetcher and no cacheable body for a snippet to substring-match against, so an AOP or Key
+Event page cannot be an evidence `reference:`. Primary literature from the AOP's own
+`references` field can be, through the normal fetch-and-verify route.
+
+### 4. Should `BiologicalScaleEnum` gain a population level?
+
+AOP-Wiki's levels of biological organisation run Molecular, Cellular, Tissue, Organ,
+Individual, Population — 36 Events sit at Population in the 2026-08-06 export.
+`BiologicalScaleEnum` stops at `ORGANISM`.
+
+Note that Organ is *not* a second gap: `TISSUE` is defined as "tissue / organ scale" and
+its description names organ substrates explicitly, which is why AO 344 had somewhere to
+sit when the fibrosis nodes were tagged. Population is the only level with no counterpart.
+
+### 5. Should species applicability be recordable on a mechanism?
+
+AOPs qualify Events, KERs and whole pathways by NCBITaxon. dismech records species only
+at model level — on `animal_models` and `experimental_models` — and never on a
+pathophysiology node, so a mechanism carries no statement about which organisms it is
+claimed to hold in.
+
+### 6. Should a node be markable as toxicokinetic rather than as a mechanism step?
+
+ADME sits outside an AOP by design: it determines dose at the initiating event, and
+folding it in is what would make the pathway chemical-specific instead of serving many
+chemicals. A dismech chain runs absorption and distribution steps together with mechanism
+steps and marks neither, so the two cannot be told apart by a reader or by tooling.
+
+`Lead_Poisoning` is the case that shows it — lead absorption and systemic distribution are
+ADME, while `Inhibition of delta-aminolevulinic acid dehydratase` is the initiating-event-shaped
+node, and the entry draws them the same way.
+
+---
+
 ## Next Steps
 
 The end goal this project leads to is **dismech-derived AOPs** — dismech pathographs as
