@@ -511,7 +511,7 @@ unqualified by a module prefix are `Liver_Cirrhosis` pathophysiology nodes.
 | 1493 | Increased Pro-inflammatory mediators | Tissue | PAI-1, TGF-β1 ↑ | *(same node)* | partial — confounded with the stimulus |
 | 265 | Increase, Hepatic stellate cell activation | Cellular | ACTA2, COL1A1, COL3A1, FN1 ↑ | Hepatic Stellate Cell Activation → `fibrotic_response#Mesenchymal Cell Activation` | yes |
 | 68 | Increase, Collagen accumulation | Tissue | Pro-Collagen 1A1, CTGF ↑ | `fibrotic_response#Excessive ECM Deposition` | yes — but the readout is curated on the KE 265 node |
-| 344 | Increase, Liver fibrosis *(AO)* | Organ | — | `Liver_Cirrhosis`, the entry | none at node level |
+| 344 | Increase, Liver fibrosis *(AO)* | Organ | — | — | none — `Liver_Cirrhosis` is a later event, see below |
 
 **Five of seven Events map to a mechanism node, and the two that do not are the two
 endpoints.** That is a more useful statement of the fit than the count, and it is the
@@ -538,10 +538,19 @@ Worth carrying rather than reading the table as uniform.
 
 ### Both endpoints fall outside the node layer
 
-**AO 344 maps to `Liver_Cirrhosis`, the entry, not to any pathophysiology node.** No node
-in the entry is "liver fibrosis" — the disease is what the graph as a whole describes.
-Anything that records a KE correspondence on `Pathophysiology` alone therefore cannot
-hold the bottom row; an AO correspondence is disease-level.
+**AO 344 has no dismech node, and the nearest object is a different event.** Nothing in
+`Liver_Cirrhosis` represents liver fibrosis at organ scale — the entry's pathograph runs
+from stellate activation to portal hypertension and synthetic dysfunction without one.
+The tempting move is to match the adverse outcome to the `Liver_Cirrhosis` entry itself,
+and that is wrong: **fibrosis and cirrhosis are not the same event.** Fibrosis is
+extracellular matrix accumulation; cirrhosis is the architectural end-stage downstream of
+it, and a chronically fibrotic liver is not yet a cirrhotic one. `fibrotic_response`
+already keeps the two apart, separating `Excessive ECM Deposition` from `Architectural
+Distortion and Organ Dysfunction`, and collapsing them here would undo that distinction
+in the one place the mapping is meant to demonstrate it.
+
+So the empty AO row is a **curation gap** — the KB has no organ-level liver-fibrosis
+event — rather than a statement about where correspondences attach.
 
 **KE 244 has no node either**, which is the lead pilot's MIE result reached from the
 opposite direction: dismech has no node for a chemical's molecular initiating
@@ -638,7 +647,7 @@ correspondence checkable:
 | `fibrotic_response` Inflammatory Recruitment and Amplification | `TISSUE` | KE 1493 Tissue |
 | `fibrotic_response` Mesenchymal Cell Activation | `CELLULAR` | KE 265 Cellular |
 | `fibrotic_response` Excessive ECM Deposition | `TISSUE` | KE 68 Tissue |
-| `fibrotic_response` Architectural Distortion and Organ Dysfunction | `TISSUE` | KE 344 Organ |
+| `fibrotic_response` Architectural Distortion and Organ Dysfunction | `TISSUE` | — (cirrhosis-ward, downstream of AOP 38's AO) |
 
 Two things fell out of doing it.
 
@@ -652,8 +661,10 @@ what the mapping exposed. Splitting the node is a curation change with evidence 
 
 **AOP's Organ level is not the gap it looks like.** `BiologicalScaleEnum` has no `ORGAN`
 value, but `TISSUE` is defined as "tissue / organ scale" and its description names organ
-substrates explicitly, so KE 344 at Organ has a home. The divergence table's "no
-population level" row stands; there is no comparable organ-level gap.
+substrates explicitly, so an organ-level Event has a scale to sit at whenever a node
+exists for it. The divergence table's "no population level" row stands; there is no
+comparable organ-level gap. That KE 344 is unmapped is a missing node, not a missing
+scale value.
 
 ---
 
@@ -683,13 +694,18 @@ entity at all, or only as a label applied to something it already has.
 
 ### 2. Where does an adverse outcome correspondence attach?
 
-AO 344, *Increase, Liver fibrosis*, corresponds to the `Liver_Cirrhosis` entry as a
-whole. No pathophysiology node in that entry is "liver fibrosis" — the disease is what
-the graph describes, not a step inside it. So whatever answers question 1 does not reach
-this row, and an adverse outcome correspondence is a different attachment point from a
-Key Event one.
+AOP 38's adverse outcome, KE 344 *Increase, Liver fibrosis*, has no dismech node. The
+nearest object is the `Liver_Cirrhosis` entry, and matching it there would conflate two
+different events — fibrosis is matrix accumulation, cirrhosis is the architectural
+end-stage downstream of it.
 
-Questions 1 and 2 are separable but entangled: the same identifier, two levels.
+Two questions are tangled here and only one is about the schema. Whether the KB should
+carry an organ-level liver-fibrosis event is **curation**, and until it does this case
+cannot settle anything. The schema question is whether an adverse outcome correspondence
+attaches to a pathophysiology node, to the disease entry, or to both — and whether that
+is the same slot as question 1 or a different one.
+
+Questions 1 and 2 are separable but entangled: the same identifier, possibly two levels.
 
 ### 3. Should the AOP-Wiki prefixes be declared in the schema?
 
@@ -711,8 +727,8 @@ Individual, Population — 36 Events sit at Population in the 2026-08-06 export.
 `BiologicalScaleEnum` stops at `ORGANISM`.
 
 Note that Organ is *not* a second gap: `TISSUE` is defined as "tissue / organ scale" and
-its description names organ substrates explicitly, which is why AO 344 had somewhere to
-sit when the fibrosis nodes were tagged. Population is the only level with no counterpart.
+its description names organ substrates explicitly, so an organ-level Event has a scale to
+sit at wherever a node exists for it. Population is the only level with no counterpart.
 
 ### 5. Should species applicability be recordable on a mechanism?
 
