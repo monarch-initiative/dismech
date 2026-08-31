@@ -193,9 +193,17 @@ validate-schema file:
 # Example:
 #   just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
 #     --summary "Create: Asthma" --agent-tool claude-code --pr 5123 --details "..."
+#
+# Args are forwarded as real positional arguments ("$@"), NOT via `{{ARGS}}` text
+# interpolation (see `set positional-arguments` in the root justfile). This matters
+# because `--summary` and `--details` take free prose: `{{ARGS}}` pastes the raw
+# argument text into the generated shell line, so quoting is lost and the shell
+# re-splits it. That made a multi-word value ("Create: Asthma") arrive as two
+# arguments, an apostrophe ("Bell's Palsy") a fatal "unterminated quoted string",
+# and a `$VAR` or backtick in prose subject to expansion. Issues #9784, #10148, #10159.
 [group('QC')]
 new-history *ARGS:
-    uv run python scripts/new_history.py {{ARGS}}
+    uv run python scripts/new_history.py "$@"
 
 # Validate a single history record
 [group('QC')]
@@ -736,7 +744,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -992,6 +1000,49 @@ check-enum-values *files:
 [group('QC')]
 check-entity-refs *files:
     uv run python scripts/check_entity_refs.py "$@"
+
+# Resolve every BARE-name pathograph target in kb/ (#10112, #9697). Distinct from
+# check-entity-refs: `downstream[].target`, `sequelae[].target`,
+# `reports_on[].target` and `target_mechanisms[].target` hold a plain node name
+# matched verbatim by `dismech.graph`, NOT the `<kind>#<name>` grammar. A broken
+# one is completely silent -- the entry validates and the page renders, while the
+# pathograph gains a phantom duplicate node and loses the real one. Ungated and
+# whole-KB for the same reason as the two lanes above: a rename severs edges the
+# PR never touched.
+[group('QC')]
+check-causal-targets *files:
+    uv run python scripts/check_causal_targets.py "$@"
+
+# Full census of pathograph target findings (prefixed / dangling / self), exit 0.
+[group('QC')]
+list-causal-targets *files:
+    uv run python scripts/check_causal_targets.py --report "$@"
+
+# Regenerate the grandfathered dangling-target baseline. Only ever to REMOVE
+# entries as the backlog is burned down -- never to admit a new break.
+[group('QC')]
+update-causal-target-baseline:
+    uv run python scripts/check_causal_targets.py --update-baseline
+
+# Check ontology labels on terms nested inside `qualifiers` (#10197).
+# `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;
+# `Qualifier.predicate`/`value` are plain Descriptors with no such binding, so
+# every term under `qualifiers` is invisible to it -- a fabricated label there
+# passes `just validate-terms` outright. Offline, cache-first.
+[group('QC')]
+check-qualifier-terms *files:
+    uv run python scripts/check_qualifier_terms.py "$@"
+
+# Census of qualifier-term coverage, including what nothing can validate yet.
+[group('QC')]
+list-qualifier-terms *files:
+    uv run python scripts/check_qualifier_terms.py --report "$@"
+
+# Also resolve the uncached qualifier CURIEs against OAK. Needs network; run
+# when auditing, not in CI.
+[group('QC')]
+check-qualifier-terms-online *files:
+    uv run python scripts/check_qualifier_terms.py --resolve "$@"
 
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the
@@ -2396,18 +2447,18 @@ cohd-add-signal file *args="":
 
 # Refresh bulk Orphadata XML files (pinned by data/orphadata/MANIFEST.yaml)
 [group('Research')]
-refresh-orphadata:
-    uv run python -m dismech.structured_sources.cli refresh orphanet
+refresh-orphadata *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh orphanet "$@"
 
 # Refresh ClinGen Gene-Disease Validity CSV (pinned by data/clingen/MANIFEST.yaml)
 [group('Research')]
-clingen-refresh:
-    uv run python -m dismech.structured_sources.cli refresh clingen
+clingen-refresh *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh clingen "$@"
 
 # Refresh ClinGen Dosage Sensitivity TSV (pinned by data/clingen-dosage/MANIFEST.yaml)
 [group('Research')]
-clingen-dosage-refresh:
-    uv run python -m dismech.structured_sources.cli refresh clingen-dosage
+clingen-dosage-refresh *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh clingen-dosage "$@"
 
 # Refresh CIViC accepted assertion/evidence TSVs (pinned by data/civic/MANIFEST.yaml)
 [group('Research')]
