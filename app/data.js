@@ -121214,6 +121214,7 @@ window.searchData = [
       "Inflammatory Response"
     ],
     "phenotypes": [
+      "Prematurely aged appearance",
       "Failure to thrive",
       "Alopecia",
       "Sclerodermatous skin",
@@ -121221,6 +121222,7 @@ window.searchData = [
       "Accelerated coronary atherosclerosis"
     ],
     "phenotype_categories": [
+      "Constitutional",
       "Growth",
       "Dermatologic",
       "Musculoskeletal",
@@ -121233,13 +121235,16 @@ window.searchData = [
       "Musculoskeletal"
     ],
     "phenotype_ids": [
+      "HP:0007495",
       "HP:0001508",
       "HP:0001596",
       "HP:0100324",
       "HP:0034392",
       "HP:0001677"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
     "genes": [
       "LMNA"
     ],
@@ -121252,7 +121257,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Hutchinson-Gilford_Progeria_Syndrome.yaml",
     "page_url": "../pages/disorders/Hutchinson-Gilford_Progeria_Syndrome.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
@@ -171925,21 +171930,24 @@ window.searchData = [
     "cell_type_ids": [],
     "biological_processes": [],
     "phenotypes": [
+      "Prematurely aged appearance",
       "Growth delay",
       "Joint stiffness",
       "Skeletal abnormalities",
       "Reduced subcutaneous adipose tissue"
     ],
     "phenotype_categories": [
-      "Growth",
-      "Musculoskeletal",
-      "Constitutional"
-    ],
-    "phenotype_hpo_categories": [
+      "Constitutional",
       "Growth",
       "Musculoskeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Integument",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
+      "HP:0007495",
       "HP:0001510",
       "HP:0001387",
       "HP:0000924",
@@ -171954,7 +171962,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Nestor-Guillermo_progeria_syndrome.yaml",
     "page_url": "../pages/disorders/Nestor-Guillermo_progeria_syndrome.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 5,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
@@ -252547,6 +252555,7 @@ window.searchData = [
       "mitophagy"
     ],
     "phenotypes": [
+      "Prematurely Aged Appearance",
       "Bilateral Cataracts",
       "Premature Graying and Thinning of Hair",
       "Alopecia",
@@ -252575,6 +252584,7 @@ window.searchData = [
       "Osteosarcoma"
     ],
     "phenotype_categories": [
+      "Constitutional",
       "Ophthalmologic",
       "Integument",
       "Metabolic",
@@ -252602,6 +252612,7 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
+      "HP:0007495",
       "HP:0007787",
       "HP:0002216",
       "HP:0001596",
@@ -252649,7 +252660,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Werner_Syndrome.yaml",
     "page_url": "../pages/disorders/Werner_Syndrome.html",
-    "num_phenotypes": 26,
+    "num_phenotypes": 27,
     "num_pathophysiology": 17,
     "num_genes": 1,
     "num_treatments": 7,
@@ -257835,6 +257846,6 @@ window.searchMetrics = {
   "total_research_reports": 2616,
   "total_classifications": 19,
   "total_comorbidities": 25,
-  "total_groupings": 99
+  "total_groupings": 100
 };
 window.dispatchEvent(new Event('searchDataReady'));
