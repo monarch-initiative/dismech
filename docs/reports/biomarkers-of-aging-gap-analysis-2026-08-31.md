@@ -12,7 +12,12 @@ proper trigger→consequence node chains, and 63 disease-entry nodes conform to 
 of those eleven modules, exactly one — `cellular_senescence` — carries a `biochemical:`
 block. It is also the **only module of all 166 in `kb/modules/`** that carries one.
 
-The good news is that no schema work is needed. `BiomarkerReadout` already encodes the
+The larger gap, found after this report was first written, is one layer up: dismech has
+no representation of the **clinical endpoints** aging biomarkers would be surrogates for
+— disability-free survival, multimorbidity, frailty index. See *The endpoint layer*
+below; it is a bigger hole than the biomarker gap and it is partly a schema question.
+
+The good news on the biomarker layer is that no schema work is needed. `BiomarkerReadout` already encodes the
 qualification vocabulary that the NIA/Biomarkers of Aging Consortium literature asks
 for, and `ExperimentalReadout` on `modeled_mechanisms` is its model-system twin. Both
 carry a `biomarker_term` and both point at a pathophysiology `target`. The
@@ -196,6 +201,56 @@ evidence `HUMAN_CLINICAL` because the *claim* is about human aging. It is not:
 `MODEL_ORGANISM` however translatable the clock is. `just check-snippet-grading`
 enforces this per quoted sentence and will catch the drift.
 
+## The endpoint layer, and why it is the bigger gap
+
+Everything above treats aging biomarkers as the object. But a surrogate is only a
+surrogate *for* something, and dismech currently represents the "something" not at all.
+The `CANDIDATE_SURROGATE` values curated in the two finished modules point nowhere:
+`kb/surrogate_endpoints/fda_surrogate_endpoints.yaml` holds 225 FDA rows and not one of
+them is an aging endpoint.
+
+The field has converged on three endpoint families, each with a flagship trial:
+
+| Endpoint family | Definition as operationalized | Flagship |
+|---|---|---|
+| **Disability-free survival** | Composite of death, dementia, and persistent physical disability | **ASPREE** (PMID:30221596) |
+| **Multimorbidity** | Accumulation of new age-related diseases | **TAME** (PMID:30151729) |
+| **Deficit-accumulation frailty** | 36-item frailty index, fit / less fit / frail | **SPRINT** (PMID:26755682), **Look AHEAD** |
+
+The **TAME Biomarkers Workgroup report** is the document that ties this layer to the
+biomarker layer, and it should be read before any further biomarker curation. It states
+the purpose of a geroscience biomarker exactly: they exist to show an intervention is
+engaging aging biology *before* enough clinical events accrue to power the trial. Its
+panel — IL-6, TNFα-receptor I or II, CRP, GDF15, insulin, IGF1, cystatin C, NT-proBNP,
+HbA1c — is a third independent list to set against the NIA symposium's and the 2025
+Delphi consensus'. Where three such lists agree, that is about as close to a validated
+core as this field currently gets: **IL-6, CRP and GDF-15 appear on all three.**
+
+Two things follow that changed work already done:
+
+- **TAME selected the TNF *receptors*, not TNF-α.** The soluble receptors are the more
+  stable analytes. The `inflammaging` TNF entry is curated against the ligand and now
+  records that sTNFR-I/II should supersede or accompany it.
+- **The unqualified step is the one that matters.** None of these markers has been shown
+  to satisfy the condition that makes a surrogate legitimate — that a *treatment-induced
+  change* in the marker predicts a change in the endpoint. Association with the endpoint,
+  which is what the curated evidence supports, is a weaker claim and is not sufficient.
+
+TAME's own summary of the gap is the sharpest statement of it in the literature, and it
+is phrased in exactly dismech's terms: the work "revealed the scarcity of well-vetted
+biomarkers for human studies that reflect underlying biologic aging hallmarks." A
+hallmark module's `biochemical:` block is precisely that object.
+
+**What this implies for dismech.** Three of the endpoint families are clinical outcome
+assessments, not analytes, so none of them fits `Biochemical`. Frailty index and
+disability-free survival are composites over deficits and events; multimorbidity is a
+count of incident diseases. This is the same structural problem as composite biomarkers
+and epigenetic clocks, arriving from the outcome side rather than the measurement side,
+and it is now recorded as a knowledge gap in `inflammaging`. Whether dismech should carry
+a clinical-outcome-assessment class, extend `SurrogateEndpoint` beyond the FDA table, or
+represent these as `Grouping`s is an open design question and should go to the decision
+register rather than being settled by a curator mid-tranche.
+
 ## Ontology gaps
 
 `BiomarkerTerm` validates term existence against NCIT with no hierarchy constraint, so
@@ -309,9 +364,15 @@ with honest `fidelity` and `limitations`. That makes the reconciliation pattern 
 and reviewable rather than theoretical, and it is the thing to point at when the question
 comes up again.
 
-**Tier 4 — worth deciding, not yet doing.** A `Biomarkers_of_Aging` grouping over the
-progeroid and age-related entries; whether composite clocks belong in `biochemical:` or
-`computational_models:`; and an NCIT term request for epigenetic clock / biological age.
+**Tier 4 — worth deciding, not yet doing.** These are design-register questions, and
+they are now the critical path rather than a footnote: how dismech should represent
+**clinical outcome assessments** (disability-free survival, frailty index,
+multimorbidity) so that `CANDIDATE_SURROGATE` resolves to something; whether composite
+clocks belong in `biochemical:` or `computational_models:`; a `Biomarkers_of_Aging`
+grouping over the progeroid and age-related entries; and an NCIT term request for
+epigenetic clock / biological age. The first of these blocks the value of all further
+biomarker curation, so it should go to `docs/explanation/design-decisions.md` before the
+remaining eight modules are filled in.
 
 ## Caveats
 
@@ -329,5 +390,9 @@ bindings, and each still needs the normal `just fetch-reference` /
 - [Invigorating discovery and clinical translation of aging biomarkers](https://www.nature.com/articles/s43587-025-00838-w) — *Nature Aging*
 - [Validation of biomarkers of aging](https://www.nature.com/articles/s41591-023-02784-9) — *Nature Medicine*
 - [Biomarkers of aging for the identification and evaluation of longevity interventions](https://www.cell.com/cell/fulltext/S0092-8674(23)00857-7) — *Cell*
+- [A framework for selection of blood-based biomarkers for geroscience-guided clinical trials: report from the TAME Biomarkers Workgroup](https://pubmed.ncbi.nlm.nih.gov/30151729/) — PMID:30151729
+- [An Expert Consensus Statement on Biomarkers of Aging for Use in Intervention Studies](https://pubmed.ncbi.nlm.nih.gov/39708300/) — PMID:39708300
+- [Effect of Aspirin on Disability-free Survival in the Healthy Elderly (ASPREE)](https://pubmed.ncbi.nlm.nih.gov/30221596/) — PMID:30221596
+- [Characterizing Frailty Status in the Systolic Blood Pressure Intervention Trial (SPRINT)](https://pubmed.ncbi.nlm.nih.gov/26755682/) — PMID:26755682
 - [NIA Division of Aging Biology workshops and reports](https://www.nia.nih.gov/research/dab/workshops)
 - [Trans-NIH Geroscience Interest Group](https://www.nia.nih.gov/gsig)
