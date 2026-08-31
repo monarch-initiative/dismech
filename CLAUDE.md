@@ -580,6 +580,46 @@ members with `just list-modules`, do not assume this list is exhaustive):
   atheroma, amyloid deposit), using the OGMS + MPATH + UBERON anchor convention
   described in the `create-module` skill.
 
+**Module categories (`module_categories`):**
+
+A module may be tagged with the areas of study it is relevant to, using the
+enum-backed `module_categories` slot (`ModuleCategoryEnum`: `TOXICOLOGY`,
+`PHARMACOLOGY`, `ONCOLOGY`, `INFECTIOUS_DISEASE`, `IMMUNOLOGY`, `NEUROSCIENCE`,
+`DEVELOPMENTAL_BIOLOGY`, `METABOLISM`, `AGING`). Each value asserts *"this
+module is relevant to this area of study"* and renders as a coloured pill on the
+module index card and at the top of the module page, with the enum's own
+`description` as the hover text.
+
+```yaml
+name: Parkinsonism Dopaminergic Degeneration Module
+category: Module
+module_categories:
+- TOXICOLOGY
+- NEUROSCIENCE
+```
+
+- **It is a browsing aid, not a mechanistic claim.** The pill says a toxicologist
+  would find this module relevant; it does not assert that the module's diseases
+  are toxic in origin, and it is not a classification of conforming disorders
+  (those use `classifications`).
+- **Multivalued and non-exclusive.** A drug-toxicity module is both `TOXICOLOGY`
+  and `PHARMACOLOGY`; an antiviral drug-target module is both `PHARMACOLOGY` and
+  `INFECTIOUS_DISEASE`. Tag every area that genuinely applies.
+- **Leaving a module untagged is a legitimate outcome.** The starter vocabulary
+  is a set of disciplines, not a partition of the corpus — the cardiovascular,
+  dermatology, renal, GI and ophthalmology modules currently carry no category
+  because no value fits, and a wrong pill is worse than no pill. Add a value to
+  the enum rather than stretching an existing one.
+- **The vocabulary and its prose live only in the schema.** Labels come from each
+  permissible value's `title`, hover text from its `description`; pill colours are
+  generated from the value's position in the enum (golden-angle hues at fixed
+  saturation/lightness), so adding a category is a schema edit alone — no colour
+  to choose and no renderer change. Appending a value leaves existing hues
+  untouched; reordering or removing one reshuffles them.
+- The slot lives on the `Disease` class because modules validate against it. It is
+  intended for `kb/modules/` entries; disorder entries use the separate free-text
+  `categories` slot for nosological grouping, which is unrelated.
+
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
 - Causal edges opt into those groups with `downstream[].hypothesis_groups`. In conforming disorder entries, copy and specialize the same grouping only when the disease-specific causal edge belongs to that model.
