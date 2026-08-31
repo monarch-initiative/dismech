@@ -649,7 +649,7 @@ fetch-ontology-dbs *names="":
 # have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
 # curation PR deletes the stub and adds the kb/ entry. See docs/curation-stubs.md.
 
-# Gates only on a malformed file: unparseable YAML, a bad MONDO ID, a duplicate,
+# Gates only on a malformed file: unparsable YAML, a bad MONDO ID, a duplicate,
 # a bad enum value. Staleness (the disease got curated elsewhere, the term was
 # retired) is an advisory and never gates — stubs are informative, not curated
 # content, and an unrelated curation PR must not turn stub PRs red.
@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1217,6 +1217,47 @@ quick-test:
 list-disorders:
     @for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort
 
+# List mechanism modules with their node chains (the conformance targets).
+# This is the canonical way to discover what modules exist — CLAUDE.md
+# deliberately does NOT carry a hand-maintained module list.
+# Pass a substring to filter: `just list-modules inflamm`
+[group('KB')]
+list-modules filter="":
+    #!/usr/bin/env -S uv run python
+    import pathlib, textwrap, yaml
+    filt = {{ quote(filter) }}.lower()
+    # A filter is a targeted lookup, so it prints description AND notes in full:
+    # since the module registry left CLAUDE.md, those two fields are the only
+    # place a module's scope, sibling complementarity, drug-target pattern, key
+    # conformance target and curation guardrails live, and truncating them
+    # defeats the convention `create-module` now imposes on module authors.
+    # The unfiltered census stays clipped so ~130 modules remain scannable.
+    def emit(label, text, clip):
+        if not text:
+            return
+        kw = dict(max_lines=4, placeholder=" …") if clip else {}
+        print(textwrap.fill(text, 96, initial_indent=label, subsequent_indent="  ", **kw))
+    matched = 0
+    for path in sorted(pathlib.Path("kb/modules").glob("*.yaml")):
+        doc = yaml.safe_load(path.read_text()) or {}
+        nodes = [n.get("name", "?") for n in (doc.get("pathophysiology") or [])]
+        desc = " ".join((doc.get("description") or "").split())
+        notes = " ".join((doc.get("notes") or "").split())
+        if filt and filt not in f"{path.stem} {desc} {notes} {' '.join(nodes)}".lower():
+            continue
+        matched += 1
+        print(f"\n{path.stem}")
+        emit("  ", desc, clip=not filt)
+        if filt:
+            emit("  notes: ", notes, clip=False)
+        for node in nodes:
+            print(f"    - {path.stem}#{node}")
+    if not filt:
+        print(f"\n{matched} modules (descriptions clipped; pass a filter for the "
+              f"full description and notes, e.g. `just list-modules inflamm`)")
+    elif not matched:
+        print(f"no module matches {filt!r}")
+
 # Count disorders
 [group('KB')]
 count-disorders:
@@ -1685,6 +1726,7 @@ dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip
 # recipe writes `-cyberian-codex.md` for a run whose provider is `cyberian`.
 dr_fallback := ""
 dr_align := "uv run python scripts/align_research_provider.py"
+dr_stamp := "uv run python scripts/template_version.py stamp --quiet"
 
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
 # The report is a source of *candidate* accessions only: every accession it
@@ -1725,9 +1767,27 @@ research-datasets provider disorder *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
+
+# Report which revision of a research template produced each report, and how
+# many predate the current prompt. A report records `template_file:` as a bare
+# path, so the file behind it changes while the reference does not (#10183).
+# New reports are stamped with `template_sha` at generation time; older ones are
+# resolved from their start_time against the template's commit history, which is
+# why no backfill of committed reports is needed.
+# `stamped` is what the generator recorded; `inferred` is reconstructed and
+# assumes the working tree matched a committed revision. Do not read
+# "undetermined" as "stale" -- they are separate rows for that reason.
+# Examples:
+#   just template-version-audit --stale-only --format list
+#   just template-version-audit --template templates/disease_pathophysiology_research.md
+#   just template-version-audit
+[group('Research')]
+template-version-audit *args="":
+    @uv run python scripts/template_version.py audit {{args}}
 
 # Verify that datasets[].accession values resolve to real repository records.
 # Nothing else in the validation stack checks dataset accessions, so run this
@@ -1821,6 +1881,7 @@ research-disorder provider disorder *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
@@ -1898,6 +1959,7 @@ research-module provider module *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
@@ -1973,6 +2035,7 @@ research-comorbidity provider comorbidity *args="":
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
 	if [ -f "$output_file" ]; then
+	    {{dr_stamp}} "$output_file"
 	    {{dr_align}} "$output_file" --requested "$requested_provider"
 	fi
 	exit ${dr_status:-0}
@@ -2015,6 +2078,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
 	if [ -f "$output_file" ]; then
+	    {{dr_stamp}} "$output_file"
 	    {{dr_align}} "$output_file" --requested "$requested_provider"
 	fi
 	exit ${dr_status:-0}
@@ -2050,6 +2114,7 @@ research-disorder-cyberian-codex disorder *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
@@ -2277,6 +2342,22 @@ tag-references *args="":
 [group('Curation')]
 backfill-reference-titles *args="":
     uv run python scripts/backfill_reference_titles.py {{args}}
+
+# Re-sync KB publication titles that have DRIFTED from their cached publication
+# (the companion to backfill-reference-titles, which fills in a MISSING one).
+# Uses linkml-reference-validator's own normalize_text, so cosmetic differences
+# lrv tolerates are left alone. It does not consult `skip_prefixes`, so it also
+# re-syncs prefixes lrv never fetches (notably DOI:) — stricter than lrv, never
+# laxer. Titles are rewritten from references_cache/ frontmatter; nothing is
+# invented.
+# `reference_title` is lrv-checked, so a failure here is usually a wrong citation.
+#   just normalize-reference-titles                 # all of kb/
+#   just normalize-reference-titles --dry-run       # preview without writing
+#   just normalize-reference-titles --check         # exit 1 if any title has drifted
+#   just normalize-reference-titles kb/disorders/Asthma.yaml
+[group('Curation')]
+normalize-reference-titles *args="":
+    uv run python scripts/normalize_reference_titles.py {{args}}
 
 # Generate a COHD-based association_signals YAML block for a concept pair.
 # Examples:

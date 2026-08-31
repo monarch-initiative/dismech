@@ -27,6 +27,8 @@ Claude Code skills are available in `.claude/skills/`:
 
 - **dismech-terms**: Use when selecting, validating, or repairing ontology bindings and term caches.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **review-hypothesis-exploration**: Use when assessing or reconciling a
+  provider hypothesis report, including its datasets, analyses, and artifacts.
 
 ## Key Commands
 
@@ -321,6 +323,104 @@ Rules:
   These are generated, not "manually touched"; regenerate them via their script
   rather than hand-editing, and leave them in place.
 
+**Which prompt produced a report.** A report records `template_file:` as a bare
+path, so the file behind it changes while the reference does not. New reports are
+stamped with a `template_sha` (the template's git blob hash) by the research
+recipes; older ones are resolved from `start_time` against the template's commit
+history, so committed reports were deliberately **not** backfilled.
+
+```bash
+just template-version-audit                          # census across research/
+just template-version-audit --stale-only --format list
+git log --find-object=<sha> -- templates/            # what that hash was
+```
+
+`stamped` (recorded by the generator) and `inferred` (reconstructed from
+timestamps) are different claims — do not report an inferred answer as a recorded
+one. `undetermined` is not `stale`. Staleness is reported, never gated: every
+report predating a prompt edit is superseded by construction, so a gate would go
+red for the whole corpus on every edit. See
+[`docs/deep-research-template-versioning.md`](docs/deep-research-template-versioning.md)
+and issue #10183.
+
+### Hypothesis Provider Data and Analysis Artifacts
+
+A hypothesis exploration under
+`kb/hypotheses/<Disease>/<hypothesis_id>/` is a research **run**, not just a
+Markdown report. When it names datasets or claims computations, its assessment
+must inventory `data_sources` and `analyses`; see
+`docs/hypothesis-report-assessments.md` and use the
+`review-hypothesis-exploration` skill.
+
+- Distinguish `ACCESSED`, `SEARCHED_NO_RESULT`, `CITED_NOT_ACCESSED`, and
+  `UNVERIFIABLE`. A future analysis proposal is not data access. `ACCESSED` and
+  `SEARCHED_NO_RESULT` require a committed, sanitized input/query-response or
+  search-log artifact; prose alone is not an access record.
+- Verify supported accessions with `just verify-datasets --accession <CURIE>`,
+  then separately check disease/entity, organism, tissue, cohort, assay, and
+  comparison relevance. Resolution alone does not establish relevance.
+- Trace each computed claim from input data source through method, versioned
+  software, material parameters, code/environment, and output artifact. Use
+  `SUCCEEDED` only for a reproducible, artifact-backed run; otherwise record
+  `PARTIAL`, `FAILED`, `SKIPPED`, or `REPORTED_ONLY` honestly.
+- Tool failure and fallback are provenance. If a scientific package, database,
+  or data lake is unavailable, record the failure and any fallback; never
+  silently relabel literature synthesis or model knowledge as provider analysis.
+- Reconciliation follows data lineage as well as claim lineage. Shared input,
+  code, seed-derived results, or prior-provider output is not independent
+  replication. `PROVIDER_ANALYSIS` records that a report attributes a claim to a
+  linked analysis; it may describe `REPORTED_ONLY` lineage, but that remains
+  unverified execution and is not independent computational support. Failed or
+  skipped analyses cannot originate a provider position.
+
+Provider bundles normally use `<provider>_artifacts/` beside the report. Commit
+manifests, code/queries/configuration, environment specifications, sanitized
+logs, and small derived tables/figures needed to inspect the result. Never commit
+large recoverable raw downloads, provider data lakes, controlled or patient-level
+data, secrets, credentials, or signed URLs. Keep those external (for example a
+Biomni lake under `~/.biomni-lake`) and record a stable accession/URI, version,
+retrieval date, and checksum where available.
+
+Biomni execution is opt-in because it runs model-generated code locally and can
+initialize a large data lake. Repository-supported deep-research entry points
+require `DISMECH_ENABLE_BIOMNI=1`; without it they also remove Biomni from
+automatic provider fallback. The hypothesis runner's dry-run command inspection
+remains available. Do not bypass this policy by invoking
+`deep-research-client` directly.
+
+After opt-in, the hypothesis deep-research runner defaults Biomni's persistent
+workspace to `$BIOMNI_DATA_PATH` when set, otherwise `~/.biomni-lake`; an
+explicit `--param path=...` wins. It also passes `skip_data_lake=false` unless
+explicitly overridden. The current full academic lake occupies roughly 14 GiB
+on disk, so check disk headroom before first use. The lake accelerates Biomni's
+built-in resources but does not imply that an arbitrary external study is
+present: required inputs still need an accession-level preflight and manifest.
+
+Artifact path fields name files that are actually committed inside the
+hypothesis directory. Record an external, local-only, missing, or not-produced
+artifact in the data source `notes` or analysis `status_reason`/`limitations`;
+never put a nonexistent or machine-specific absolute path in an artifact slot.
+Stage provider artifacts selectively after inspecting them.
+
+Computational bundles use a canonical `MANIFEST.yaml` (`schema_version: '1.0'`)
+with status/fallback/direct-execution flags, checksummed inputs and outputs, and
+clean-replay results. Gate them before promotion with
+`just validate-hypothesis-analysis-run <report> <artifact_dir>` and separately
+replay saved code in a clean output directory; the gate never executes generated
+code, although it does require and checksum replay copies for every tabular
+result. An assessment that declares structured artifacts must set
+`artifact_root: ../<provider>_artifacts`, and its code/environment/output roles
+must be distinct non-empty files below that root. The execution-gated dataset
+template requires an exact analysis status marker; marker-free fallback is an
+invalid run. On overwrite, the runner quarantines existing provider artifacts
+before launch so a new report cannot validate against stale files.
+
+An assessor correction after the provider response does not retroactively make
+the corrected bytes a provider success. Record the precise correction and
+before/after hashes, replay it, classify the provider analysis as at most
+`PARTIAL` until provider rerun/attestation, and leave the old report-manifest
+binding stale rather than manually rebinding it.
+
 ### Dataset Curation (`datasets:` records)
 
 Dataset accessions are the one identifier class with no validator in the core
@@ -421,22 +521,64 @@ schema shape, the trigger→consequence node chain, the treatment
 + MPATH entity + UBERON site; SNOMED as guide-only). See also the primer
 `docs/primers/modules-and-conformance.md`.
 
-**Discovering modules:**
-
-`kb/modules/` is the source of truth; do not maintain a static module catalog here.
-Probe the directory directly for the current set and inspect likely matches before
-creating a new module:
+**Discovering modules:** the set of modules changes constantly, so this file
+deliberately does **not** carry a hand-maintained list — it drifted behind
+`kb/modules/` and is not scalable. List the directory, or use the recipe that
+prints each module's description plus its node chain (the `module#Node Name`
+strings you need for `conforms_to`):
 
 ```bash
-rg --files kb/modules -g "*.yaml" | sort
-rg -il "<mechanism term>" kb/modules
-rg -n "^(name|description|category):" kb/modules/*.yaml
-sed -n "1,40p" kb/modules/fibrotic_response.yaml
+just list-modules            # all modules, clipped, with conformance targets
+just list-modules inflamm    # filter: prints description AND notes in full
+ls kb/modules/               # bare names only
+
+# Probing module contents directly (complements the recipe above)
+rg -il "<mechanism term>" kb/modules          # which module already covers this?
 rg -n "conforms_to:.*fibrotic_response#" kb/disorders kb/comorbidities kb/modules
 ```
 
-The `fibrotic_response` header is a compact example of module metadata; inspect
-its full YAML or another relevant peer for the actual node and edge pattern.
+Inspect likely matches before creating a new module — a mechanism is often
+already covered by a module under a name you did not guess.
+
+A module's own `description` is the authoritative statement of its scope,
+complementarity with sibling modules, worked conformers, and key conformance
+target. Read it before conforming to it, and keep it current when you change the
+module — that description is now the *only* place that information lives.
+
+Thematic families to be aware of when picking a conformance target (find their
+members with `just list-modules`, do not assume this list is exhaustive):
+
+- **Hallmarks of cancer** (Hanahan & Weinberg, PMID:21376230) — a coherent set
+  covering the hallmark capabilities and enabling characteristics. A neoplastic
+  entry may declare `conforms_to` against several in parallel, one per capability
+  it manifests, substituting tumor-type-specific drivers. Flagship multi-hallmark
+  conformers: Hepatocellular_Carcinoma, Non-Small_Cell_Lung_Cancer,
+  Glioblastoma_IDH_Wildtype, Pancreatic_Ductal_Adenocarcinoma.
+- **Hallmarks of aging** (Lopez-Otin et al.) — the senescence, telomere,
+  proteostasis, autophagy, nutrient-sensing, epigenetic, mitochondrial,
+  stem-cell, dysbiosis, and inflammaging modules.
+- **Treatment toxicity / "side effect as mechanism"** — adverse-drug-reaction
+  pathophysiology recurring across culprit drugs, so a drug-toxicity entry can
+  conform rather than re-derive the chain. Note that several general mechanism
+  modules already double as toxicity targets without a separate "side effect"
+  class (`peripheral_axonal_degeneration` for chemotherapy-induced peripheral
+  neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline
+  cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT).
+- **Antimicrobial drug mechanisms** — antibacterial target modules (cell wall,
+  ribosome, topoisomerase, RNA polymerase, folate), antifungal and antiviral
+  counterparts, plus pharmacokinetic *gating* modules such as
+  `intracellular_pathogen_persistence`. A disease usually conforms to a gating
+  module **and** a target module. See `projects/ANTIMICROBIAL.md`.
+- **"Disease-like phenotypes"** — final-common-pathway modules for phenotypes
+  that are themselves diseases, carrying both an HP and a MONDO identifier
+  (osteoporosis, glaucoma, cataract, epilepsy, nephrotic syndrome, …). Each is a
+  recurrent downstream convergence point across many disorders.
+- **Serial homology** — bundled multi-element malformations from one lesion in a
+  serially reused developmental program (limb/digit, pharyngeal arch, axial
+  segmentation).
+- **Xogenesis** — pathological-structure formation (granuloma, thrombus,
+  atheroma, amyloid deposit), using the OGMS + MPATH + UBERON anchor convention
+  described in the `create-module` skill.
 
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
@@ -1178,6 +1320,66 @@ Use OAK to search for terms:
 ```bash
 uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 ```
+
+**Devices are not clinical actions, and NCIT has terms for both.** `TreatmentTerm` is
+rooted at `NCIT:C25218` (Clinical Intervention or Procedure), so a term naming the
+*equipment* cannot be the `term:` of a `TreatmentTerm`, no matter how exactly it matches
+the treatment's name. The worked case is cochlear implantation: `NCIT:C157820` "Cochlear
+Implant" is the obvious term, is defined as "a two part electronic device...", and has
+**no** `C25218` ancestor. Bind the clinical action instead — `NCIT:C15329` (Surgical
+Procedure) for the implantation itself — and carry the specificity in `preferred_term`
+(`cochlear device implantation`). This is the case the
+[Ontology Term Contract](#ontology-term-contract) covers — `preferred_term` may be more
+specific than the best available ontology term — and it generalizes: hearing aids,
+pumps, stents, and shunts all have NCIT device terms that cannot sit in that slot.
+
+**Better still, keep the device term queryable.** `preferred_term` is free text, so
+binding the action alone throws the device concept away. Attach it as a `qualifiers`
+predicate-value pair instead — `NCIT:C16830` (Medical Device) as the predicate,
+the device term as the value — which validates today and leaves `NCIT:C157820`
+searchable. `qualifiers` is deprecated for the common clinical qualifiers that have
+dedicated slots (see [Descriptor Qualifier Slots](#descriptor-qualifier-slots)), but a
+device attached to an action is exactly the predicate-value pattern that section
+reserves it for, so this use is the carve-out and not a regression:
+
+```yaml
+  treatment_term:
+    preferred_term: cochlear device implantation
+    term:
+      id: NCIT:C15329
+      label: Surgical Procedure
+    qualifiers:
+    - predicate:
+        preferred_term: medical device
+        term:
+          id: NCIT:C16830
+          label: Medical Device
+      value:
+        preferred_term: cochlear implant
+        term:
+          id: NCIT:C157820
+          label: Cochlear Implant
+```
+
+Worked examples: `Labyrinthitis`, `Otofacial_Neurodevelopmental_Syndrome`,
+`Autosomal_Recessive_Nonsyndromic_Hearing_Loss_104`,
+`Jervell_and_Lange-Nielsen_Syndrome_1`.
+
+Two things follow that are easy to get wrong:
+
+- **When the binding is broader than the treatment, `preferred_term` must not echo the
+  ontology label.** A treatment named `Cochlear Implantation and Auditory Rehabilitation`
+  bound to `NCIT:C15315` whose `preferred_term` is just `Rehabilitation` has thrown away
+  every bit of information the binding lost. This is *not* a rule against ever matching
+  the label: where the term already says what the treatment is, echoing it is correct
+  and is what `dismech-terms` recommends (`preferred_term: Pharmacotherapy` against
+  `NCIT:C15986` is right). The test is whether the label is narrower than, or as narrow
+  as, the treatment being described.
+- **A divergent binding is not automatically drift.** A treatment that bundles
+  amplification *or* implantation *with* rehabilitation is genuinely a rehabilitation
+  intervention, and one whose disease has no reported surgical case should not assert
+  a surgical term. Check what the treatment actually is before normalizing it to the
+  majority binding, and record the reason in `notes` when you leave one alone.
 
 #### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
 
@@ -2309,11 +2511,12 @@ had approved three other PRs, and acting on it removed a blocking review.
 
 ### Deterministic auto-merge of ready PRs
 
-The `pr-shepherd` workflow ends with a **deterministic** sweep
+The `pr-shepherd` workflow has a separate, fresh-runner **deterministic** sweep
 (`scripts/auto_merge_ready_prs.py`) that squash-merges any open PR — **by any
 author, human or agent** — once it is simultaneously:
 
-- reviewer **approved**, and **not** a draft
+- reviewer **approved**; draft status is ignored as a lifecycle signal (an
+  otherwise eligible draft is marked ready immediately before final verification)
 - **unassigned** (no assignees)
 - **conflict-free** (`mergeable == MERGEABLE`)
 - **green** (`mergeStateStatus == CLEAN` *and* a status-check rollup with at
@@ -2323,11 +2526,22 @@ author, human or agent** — once it is simultaneously:
   drops the age requirement entirely, negatives are rejected). Scheduled runs
   always use 3.
 - targeting `main`
+- the required GitHub Actions-owned `test (3.13)` check is successful on the
+  exact current `main` SHA, GitHub's compare API proves that SHA is an ancestor
+  of the PR head (`behind_by == 0` and `merge_base_commit.sha == main`), and
+  `main` still has it after the final PR-state read. `baseRefOid` is not an
+  ancestry signal and must not be used as this proof.
+- not in a separately managed `auto/` branch lane
 
 Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
 outcome is reproducible from the API response alone. This is separate from the
-LLM agent step earlier in the same workflow, whose guardrails still forbid it
-from *editing* human-authored PRs — the sweep only merges already-approved work.
+LLM agent job in the same workflow, whose guardrails still forbid it from
+*editing* human-authored PRs. The jobs never share a runner, and the controller
+mints a separate write token that is not exposed to the LLM runner. The LLM's
+own App token still has contents-write capability for branch repair, so its
+no-merge rule is prompt-enforced rather than a GitHub permission boundary;
+enforcing that boundary requires a separate identity, broker, or ruleset. The
+sweep itself only merges already-approved work.
 
 **"Approved" here usually means an agent approved it.** `claude-code-review.yml`
 has the `ai4c-reviewer` GitHub App submit `gh pr review --approve`, so for
@@ -2342,9 +2556,31 @@ shepherd's own agent step — can never be swept up on the strength of that olde
 review. If that protection setting is ever turned off, the sweep needs an explicit
 "approving review's commit == head SHA" check added.
 
-**To stop a PR being auto-merged, assign it to someone.** An assigned PR is
-treated as somebody's active work and is never swept. Converting to draft or
-leaving a CHANGES_REQUESTED review also blocks it.
+**To stop a PR being auto-merged, assign it to someone or leave a
+CHANGES_REQUESTED review.** An assigned PR is treated as somebody's active work
+and is never swept. Draft status is not a hold: anything opened as a PR is in
+the review queue. The controller marks an eligible draft ready, re-reads every
+guard, and restores draft state if that merge attempt aborts.
+
+Each run merges at most one PR. Immediately before it does, the controller checks
+the required build on the current `main`, re-reads every PR guard, proves by
+exact commit comparison that the PR head contains that `main`, and confirms that
+`main` has not moved. A red, pending, unobserved, or changed `main` opens the
+circuit. GitHub's merge API can pin the PR head but not an expected base SHA, so
+eliminating the final sub-second base race requires strict branch protection or
+a merge queue; this controller minimizes that race but does not claim atomicity.
+The LLM lane updates at most one approved-behind branch per run; updating a batch
+would only dismiss several approvals and start several CI runs before the first
+merge makes the rest stale again. Under the `slow` profile that intentionally
+bounds freshness tending to six runs per day. Higher safe throughput needs a
+real merge queue (plus `merge_group` CI), not wider update batches.
+
+Do not enable GitHub auto-merge on ordinary PRs: it is a separate server-side
+path and bypasses this controller's health, ancestry, age, assignment, and
+one-merge guards. The shepherd agent never arms it, and weekly-compliance PRs use
+this common controller rather than a separate merge path. The separately owned
+`auto/` lanes may manage their own auto-merge; a maintainer who manually arms
+another PR is making an explicit human override.
 
 Preview what the next sweep would do (read-only):
 
