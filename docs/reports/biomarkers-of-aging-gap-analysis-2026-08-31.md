@@ -318,8 +318,35 @@ adding markers gives curators a reason to conform to it.
 > which the `READOUT_OF` relationship deliberately does not assert away.
 >
 > **`mitochondrial_dysfunction` is also done** — GDF-15, FGF-21 and blood mtDNA copy
-> number, plus a knowledge gap on the disease-vs-aging scope limit. Both modules also
-> carry `KNOWLEDGE_GAP` discussions now; see the next section, which the gaps changed.
+> number, plus a knowledge gap on the disease-vs-aging scope limit.
+>
+> **`telomere_attrition`, `epigenetic_alterations` and `deregulated_nutrient_sensing`
+> followed**, which completes this KB's coverage of the TAME panel and most of the 2025
+> Delphi consensus list. **Six of eleven hallmark modules now carry biomarkers**, against
+> one when this report was written. Notable cases from that tranche:
+>
+> - **IGF-1 runs backwards.** Lower predicts longer survival, and only in females
+>   (PMID:24618355). Curated `direction: NEGATIVE` with the sex-dependence as its own
+>   evidence item rather than averaged away. Any automated reading of biomarker direction
+>   will get this one wrong.
+> - **HbA1c and hsCRP carry `REFUTE` items** recording that they failed consensus
+>   agreement on predicting biological age. The limitation travels with the marker.
+> - **Telomere length's gap is about measurement, not biology.** The population
+>   association is settled over 121,749 individuals; whether one person's measurement
+>   means anything is not. That is an assay-standardization problem.
+> - **The epigenetic clock entry documents the NCIT gap in place** — assay bound,
+>   clock identity in `preferred_term`, with `NCIT:C17961` and `NCIT:C16269` considered
+>   and rejected as not-the-measurement.
+>
+> Eight `KNOWLEDGE_GAP` discussions now exist across five modules. Four of them —
+> composite biomarkers, clinical endpoints, epigenetic clocks, and the frailty index —
+> are the same absence seen from different sides: **dismech has no class for a computed
+> index over other measurements.** That is the decision-register item.
+>
+> One loop closed: PhenoAge's transcriptional analysis ties epigenetic age acceleration
+> to pro-inflammatory and interferon programmes, which is the DNAm-age/inflammaging link
+> Franceschi called uninvestigated in 2018 and which this report declined to curate as a
+> gap. Declining it was right.
 
 ### A correction to this report's framing
 
