@@ -12,6 +12,9 @@ proper trigger→consequence node chains, and 63 disease-entry nodes conform to 
 of those eleven modules, exactly one — `cellular_senescence` — carries a `biochemical:`
 block. It is also the **only module of all 166 in `kb/modules/`** that carries one.
 
+*(Status at time of writing. All eleven are now curated — see the status note under
+Recommendations for what changed and what the tail taught.)*
+
 The larger gap, found after this report was first written, is one layer up: dismech has
 no representation of the **clinical endpoints** aging biomarkers would be surrogates for
 — disability-free survival, multimorbidity, frailty index. See *The endpoint layer*
@@ -361,6 +364,42 @@ adding markers gives curators a reason to conform to it.
 > to pro-inflammatory and interferon programmes, which is the DNAm-age/inflammaging link
 > Franceschi called uninvestigated in 2018 and which this report declined to curate as a
 > gap. Declining it was right.
+>
+> **The sweep is complete. All eleven hallmark modules are curated** — ten with
+> biomarker blocks, one (`disabled_macroautophagy`) deliberately without. The tail
+> behaved as predicted, and the negative results are the most useful part of it:
+>
+> - **`disabled_macroautophagy` gets no biomarkers, and that is the finding.** It is the
+>   only hallmark where the search returns nothing usable, because autophagy is a *flux,
+>   not a level*: LC3-II and p62 are steady-state abundances of proteins the process
+>   consumes, so a raised value is equally consistent with more autophagosome formation
+>   and with blocked degradation. Telling them apart needs a lysosomal clamp or a tandem
+>   reporter, and the cited methods review scopes those to cell culture and animal models.
+>   Recorded with an empty-section anchor and an explicit instruction not to import a
+>   single LC3 or p62 reading, which would have no defensible `direction`.
+> - **CHIP is curated twice, deliberately.** In `genomic_instability_aging` it reports
+>   accumulated somatic mutation; in `stem_cell_exhaustion` it reports hematopoietic
+>   stem-cell clonal dominance. Different claims about one measurement, so the readouts
+>   and interpretations differ and each entry names the other. It is also the KB's
+>   cleanest cross-species case: human association plus mouse bone-marrow-transplant
+>   evidence that *Tet2*-deficient marrow enlarges atherosclerotic lesions.
+> - **Alpha diversity does not survive the data.** The `gut_dysbiosis` gap carries a
+>   `REFUTE` item: in centenarians followed to death, alpha diversity did not differ
+>   before death while ten individual species did. `NCIT:C68564` (Microbiome) exists and
+>   would validate, but binding it would assert *that the microbiome is the biomarker*
+>   without saying what is measured — so it is deliberately left unbound.
+> - **Three gaps that look alike are three different kinds.** `loss_of_proteostasis` —
+>   marker exists, scoped to one protein in one disease. `stem_cell_exhaustion` — marker
+>   exists, scoped to one compartment for a structural reason (blood is the only tissue
+>   where a clone is sequenceable without biopsy). `disabled_macroautophagy` — the
+>   quantity is not measurable by any accessible means, so no further curation closes it.
+>
+> Final tally, counted from the tree rather than from memory: **eleven hallmark modules,
+> 20 curated biomarkers, and 13 `KNOWLEDGE_GAP` discussions across 10 of the 11** (two of
+> those gaps pre-date this work, in `cellular_senescence` and `deregulated_nutrient_sensing`).
+> `genomic_instability_aging` is the only module with a marker and no open gap, because
+> CHIP is the one aging biomarker here with human, prognostic, and interventional
+> cross-species evidence all present.
 
 ### A correction to this report's framing
 
