@@ -220440,6 +220440,124 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Sarcopenia",
+    "disease_id": null,
+    "category": "Complex",
+    "parents": [
+      "Musculoskeletal Disease"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Primary",
+      "Secondary",
+      "T2DM-related",
+      "Sarcopenic obesity"
+    ],
+    "description": "Sarcopenia is a progressive, generalised skeletal muscle disorder in which muscle strength, mass, and quality decline together, producing weakness, slow gait, falls, fractures, disability, and excess mortality. Contemporary consensus (EWGSOP2, AWGS 2019) treats it as a muscle disease \u2014 \"muscle failure\" \u2014 rather than an inevitable feature of ageing, and places low muscle strength, not low muscle mass, at the centre of the diagnosis. Primary (age-related) sarcopenia is diagnosed when ageing is the only apparent cause; secondary sarcopenia is driven by inactivity, undernutrition, or chronic disease (organ failure, malignancy, inflammatory disease), and is the more common form. Mechanistically the entry models a convergent chain in which motor neuron loss and neuromuscular junction transmission failure, mitochondrial dysfunction, inflammaging, satellite-cell exhaustion, anabolic resistance, and ubiquitin-proteasome proteolysis together tip muscle protein balance negative and preferentially destroy type II fibers.",
+    "pathophysiology": [
+      "Alpha Motor Neuron Loss and Muscle Fiber Denervation",
+      "Neuromuscular Junction Transmission Failure",
+      "Postsynaptic NaV1.4 Depletion",
+      "Failure of Compensatory Motor Unit Remodeling",
+      "Mitochondrial Dysfunction and Oxidative Stress",
+      "Chronic Low-Grade Inflammation",
+      "Muscle Satellite Cell Exhaustion",
+      "Declining Anabolic Hormone Signalling",
+      "Anabolic Resistance",
+      "Myostatin and Activin Receptor Signalling",
+      "Ubiquitin-Proteasome Myofibrillar Proteolysis",
+      "Negative Net Muscle Protein Balance",
+      "Type II Myofiber Atrophy and Fiber-Type Shift",
+      "Myosteatosis and Intramuscular Fibro-Adipogenic Infiltration",
+      "Loss of Skeletal Muscle Mass, Strength and Quality"
+    ],
+    "cell_types": [
+      "alpha motor neuron",
+      "skeletal muscle fiber",
+      "skeletal muscle satellite cell",
+      "type II (fast) skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008038",
+      "CL:0008002",
+      "CL:0000594",
+      "CL:0000190"
+    ],
+    "biological_processes": [
+      "response to denervation",
+      "cellular respiration",
+      "positive regulation of NF-kappaB signalling",
+      "skeletal muscle satellite cell proliferation",
+      "skeletal muscle tissue regeneration",
+      "TORC1 signaling",
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "skeletal muscle atrophy"
+    ],
+    "phenotypes": [
+      "Low Muscle Strength",
+      "Decreased Muscle Mass",
+      "Type 2 Muscle Fiber Atrophy",
+      "Impaired Physical Performance",
+      "Falls",
+      "Frailty",
+      "Physical Disability and Loss of Independence"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurological",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003324",
+      "HP:0003199",
+      "HP:0003554",
+      "HP:0001288",
+      "HP:0002527",
+      "HP:0033675"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "ACTN3",
+      "MSTN",
+      "SCN4A",
+      "Polygenic sarcopenia risk loci (UK Biobank)"
+    ],
+    "treatments": [
+      "Progressive Resistance Exercise Training",
+      "Dietary Protein and Leucine Supplementation",
+      "Vitamin D Repletion",
+      "Bimagrumab (Anti-Activin Type II Receptor Antibody)",
+      "RANK-Ligand Inhibition (Denosumab)",
+      "ClC-1 Chloride Channel Inhibition"
+    ],
+    "environmental": [
+      "Sedentary lifestyle and physical inactivity",
+      "Inadequate dietary protein intake",
+      "Regular resistance exercise"
+    ],
+    "biochemical": [
+      "Interleukin-6",
+      "Tumor necrosis factor alpha",
+      "Insulin-like growth factor 1"
+    ],
+    "source_file": "Sarcopenia.yaml",
+    "page_url": "../pages/disorders/Sarcopenia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 15,
+    "num_genes": 4,
+    "num_treatments": 6,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Satoyoshi Syndrome",
     "disease_id": "MONDO:0010922",
     "category": "Autoimmune",
@@ -257833,17 +257951,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2499,
-  "total_subtypes": 3555,
-  "total_disorders_and_subtypes": 6054,
-  "total_unique_evidence_sources": 35845,
-  "total_unique_publications": 33718,
+  "total_disorder_pages": 2500,
+  "total_subtypes": 3559,
+  "total_disorders_and_subtypes": 6059,
+  "total_unique_evidence_sources": 35871,
+  "total_unique_publications": 33743,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2494,
-  "total_unique_pathological_events": 14511,
+  "total_pathographs": 2495,
+  "total_unique_pathological_events": 14524,
   "total_modules": 166,
-  "total_research_reports": 2616,
+  "total_research_reports": 2617,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
