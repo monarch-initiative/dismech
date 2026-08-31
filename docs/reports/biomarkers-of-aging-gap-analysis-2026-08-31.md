@@ -338,10 +338,24 @@ adding markers gives curators a reason to conform to it.
 >   clock identity in `preferred_term`, with `NCIT:C17961` and `NCIT:C16269` considered
 >   and rejected as not-the-measurement.
 >
-> Eight `KNOWLEDGE_GAP` discussions now exist across five modules. Four of them —
-> composite biomarkers, clinical endpoints, epigenetic clocks, and the frailty index —
-> are the same absence seen from different sides: **dismech has no class for a computed
-> index over other measurements.** That is the decision-register item.
+> Eight `KNOWLEDGE_GAP` discussions now exist across five modules, and the recurring one
+> is now recorded in the decision register (§12, *Computed indices and composite endpoints
+> in aging biology*).
+>
+> **A correction to how this report first framed it.** Earlier drafts called composite
+> biomarkers, clinical endpoints, epigenetic clocks and the frailty index "one absence."
+> Working it through for the register, they are **two**, and merging them would produce
+> the wrong schema:
+>
+> 1. **Computed indices over measurements** — epigenetic clock, composite biomarker panel,
+>    frailty index. Fitted estimators whose output is a number. Not analytes, so not
+>    `Biochemical`.
+> 2. **Composite clinical outcome endpoints** — disability-free survival (a time-to-event
+>    composite), multimorbidity (a count of incident diseases). *Outcomes*, not
+>    measurements, and the thing a candidate surrogate is surrogate **for**.
+>
+> The frailty index straddles both, being a computed index used as an outcome. That is
+> what makes it look like one problem from a distance.
 >
 > One loop closed: PhenoAge's transcriptional analysis ties epigenetic age acceleration
 > to pro-inflammatory and interferon programmes, which is the DNAm-age/inflammaging link
@@ -391,15 +405,16 @@ with honest `fidelity` and `limitations`. That makes the reconciliation pattern 
 and reviewable rather than theoretical, and it is the thing to point at when the question
 comes up again.
 
-**Tier 4 — worth deciding, not yet doing.** These are design-register questions, and
-they are now the critical path rather than a footnote: how dismech should represent
-**clinical outcome assessments** (disability-free survival, frailty index,
-multimorbidity) so that `CANDIDATE_SURROGATE` resolves to something; whether composite
-clocks belong in `biochemical:` or `computational_models:`; a `Biomarkers_of_Aging`
-grouping over the progeroid and age-related entries; and an NCIT term request for
-epigenetic clock / biological age. The first of these blocks the value of all further
-biomarker curation, so it should go to `docs/explanation/design-decisions.md` before the
-remaining eight modules are filled in.
+**Tier 4 — the design question, now filed.** The representation question is recorded in
+the decision register as *Computed indices and composite endpoints in aging biology*
+(`docs/explanation/design-decisions.md` §12), with the two gaps separated, the candidate
+shapes laid out, and the NCIT sub-gap noted. It is **undecided, not proposed** — three
+candidate shapes are named and none is worked through, because picking one is a
+maintainer call, not a curator's.
+
+Still outstanding and not filed: an **NCIT term request** for epigenetic clock /
+biological age, and a `Biomarkers_of_Aging` grouping over the progeroid and age-related
+entries. Neither blocks further module curation.
 
 ## Caveats
 

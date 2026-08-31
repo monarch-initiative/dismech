@@ -556,7 +556,17 @@ members with `just list-modules`, do not assume this list is exhaustive):
   Glioblastoma_IDH_Wildtype, Pancreatic_Ductal_Adenocarcinoma.
 - **Hallmarks of aging** (Lopez-Otin et al.) — the senescence, telomere,
   proteostasis, autophagy, nutrient-sensing, epigenetic, mitochondrial,
-  stem-cell, dysbiosis, and inflammaging modules.
+  stem-cell, dysbiosis, and inflammaging modules. Six of these carry a
+  `biochemical:` biomarker block with `BiomarkerReadout` links; `cellular_senescence`
+  and `inflammaging` are the pattern to copy. **Before adding a composite marker
+  here** — an epigenetic clock, a multi-analyte panel, a frailty index — read the
+  decision register entry *Computed indices and composite endpoints in aging biology*
+  (`docs/explanation/design-decisions.md` §12). dismech has no class for a value
+  computed over other measurements, the question is undecided, and the interim
+  conventions (bind the assay, carry the index identity in `preferred_term`) are
+  recorded there rather than being rederived per module. NCIT has no term for an
+  epigenetic clock or biological age; do not bind one to `NCIT:C17961` or
+  `NCIT:C16269`. Background: [biomarkers-of-aging gap analysis](docs/reports/biomarkers-of-aging-gap-analysis-2026-08-31.md).
 - **Treatment toxicity / "side effect as mechanism"** — adverse-drug-reaction
   pathophysiology recurring across culprit drugs, so a drug-toxicity entry can
   conform rather than re-derive the chain. Note that several general mechanism
