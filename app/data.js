@@ -61218,7 +61218,8 @@ window.searchData = [
       "NLRP3 Inflammasome Activation",
       "Cellular Senescence",
       "SIRT1-Mediated NAD+ Signaling and Protective Deacetylation",
-      "Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)"
+      "Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)",
+      "Cuproptosis-Driven Cell Death"
     ],
     "cell_types": [
       "Epithelial Cell",
@@ -61231,7 +61232,9 @@ window.searchData = [
       "goblet cell",
       "club cell",
       "fibroblast",
-      "Airway Epithelial Cell"
+      "Airway Epithelial Cell",
+      "alveolar type II cell",
+      "anti-inflammatory M2 macrophage"
     ],
     "cell_type_ids": [
       "CL:0000066",
@@ -61243,7 +61246,9 @@ window.searchData = [
       "CL:0002368",
       "CL:0000160",
       "CL:0000158",
-      "CL:0000057"
+      "CL:0000057",
+      "CL:0002063",
+      "CL:0000890"
     ],
     "biological_processes": [
       "inflammatory response",
@@ -61263,7 +61268,12 @@ window.searchData = [
       "negative regulation of inflammatory response",
       "Proteolysis",
       "Extracellular Matrix Disassembly",
-      "Response to Oxidative Stress"
+      "Response to Oxidative Stress",
+      "copper homeostasis",
+      "stress response to copper ion",
+      "cuproptosis",
+      "mitochondrial proteotoxic stress",
+      "oxidative phosphorylation"
     ],
     "phenotypes": [
       "Dyspnea",
@@ -61342,10 +61352,10 @@ window.searchData = [
     "source_file": "Chronic_Obstructive_Pulmonary_Disease.yaml",
     "page_url": "../pages/disorders/Chronic_Obstructive_Pulmonary_Disease.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 7,
     "num_treatments": 11,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "4"
   },
   {
@@ -162571,7 +162581,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
   },
   {
@@ -256836,12 +256846,12 @@ window.searchMetrics = {
   "total_disorder_pages": 2489,
   "total_subtypes": 3550,
   "total_disorders_and_subtypes": 6039,
-  "total_unique_evidence_sources": 35718,
-  "total_unique_publications": 33596,
+  "total_unique_evidence_sources": 35720,
+  "total_unique_publications": 33598,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 266,
   "total_pathographs": 2484,
-  "total_unique_pathological_events": 14445,
+  "total_unique_pathological_events": 14446,
   "total_modules": 166,
   "total_research_reports": 2606,
   "total_classifications": 19,
