@@ -359,6 +359,23 @@ jobs:
       - name: Check for duplicate YAML keys
         run: uv run python scripts/check_duplicate_yaml_keys.py
 
+      # Ungated and whole-KB on purpose, and for the same merge-shaped reason as
+      # the duplicate-key step above -- this is its schema-narrowing twin.
+      # #10003 narrowed EvidenceItemSupportEnum from five values to three while
+      # ~15 curation PRs carrying the retired `PARTIAL` were already open. Every
+      # one was green: the narrowing PR did not contain their files, and they did
+      # not contain the narrowed enum. Only the merge result holds both, and 100
+      # invalid values reached main within a day (issue #10061).
+      #
+      # The existing whole-KB sweep (`just test-kb`) is gated on schema changes,
+      # reasoning that only a schema edit can flip a KB file's validity. That
+      # misses the half of the window where the schema edit has already landed
+      # and the offending file has not: those PRs touch no schema, so no filter
+      # fires. ~21s over 2,860 files, offline, no codegen -- one constraint
+      # rather than conformance, which is what makes it affordable here.
+      - name: Check enum values are permissible
+        run: uv run python scripts/check_enum_values.py
+
       # Ungated and whole-KB on purpose, and for a sharper reason than the
       # checks around it: the entity-ref rules ARE covered by pytest
       # (`test_entity_ref_foreign_keys`), but that test is selected by the
@@ -509,8 +526,13 @@ jobs:
         run: just test-search
 
       # The whole-KB conformance sweep runs only when the schema itself (or the
-      # conformance-test logic) changes — the only edits that can flip a KB
-      # file's validity. Parallelized with xdist inside `just test-kb`.
+      # conformance-test logic) changes. That covers the case where a schema
+      # edit flips an existing KB file's validity, but NOT the case where it
+      # flips the validity of a file still in flight on another branch: those
+      # PRs touch no schema, so this filter never fires for them (issue #10061).
+      # The ungated `check_enum_values.py` step above covers that half of the
+      # window for enum values specifically. Parallelized with xdist inside
+      # `just test-kb`.
       - name: Run whole-KB schema-conformance sweep
         if: steps.changes.outputs.schema == 'true'
         run: just test-kb
