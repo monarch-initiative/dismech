@@ -106,6 +106,15 @@ disorders. A disorder node declares `conforms_to: "module_name#Node Name"`. This
 content and substitute organ-specific cell types/genes. Modules deliberately do not act
 as a base class that disorders inherit from.
 
+**Module collections are navigation, not disease groupings.** Records in
+`kb/module_collections/` organize modules into published frameworks or broad
+mechanistic families without claiming that the collection is itself a mechanism. They
+use the dedicated `ModuleCollection` class and module filename stems as foreign keys.
+`Grouping` remains reserved for explicit unions of diseases (and nested disease
+groupings); it may refer to a module in membership criteria or a differentiating
+mechanism, but a module cannot be one of its members. This separation prevents framework
+navigation such as the Hallmarks of Aging from acquiring disease-membership semantics.
+
 **Causal graph / pathograph.** Pathophysiology nodes connect via `downstream` causal
 edges with a `causal_link_type`, forming a directed graph from etiology to phenotypes.
 This graph backs the rendered pathographs and the computational-model integration
@@ -133,7 +142,7 @@ granularity, which the Mendelian rule never contemplated.
 | **Stage / metastasis** | `stages:` on the parent entry, progression records, and `conforms_to` on the `invasion_and_metastasis` module | **Never a `Disease` entry.** TNM stage is orthogonal to taxonomy in every classification system |
 | **Etiologic stratum** (HPV± oropharyngeal SCC, EBV-associated gastric cancer) | Case-by-case via the same L4 promotion test | HPV-positive oropharyngeal SCC passes (distinct mechanism, AJCC 8 stages it separately); EBV-GC is a TCGA molecular subgroup and sits closer to a subtype |
 | **Tissue-agnostic biomarker indication** (NTRK fusion-positive cancer) | One MONDO-anchored entry per biomarker, categorized `Tumor-Agnostic Indication` | Do not also stamp it as a subtype of every organ cancer; organ-specific entries reference it |
-| **Pathway / hallmark biology** (MAPK, PI3K, the Hanahan–Weinberg hallmarks) | `kb/modules/` + mechanism `Grouping` only | **Never a `Disease` entry** — pathways recur across entities and across the cancer/non-cancer boundary (cf. RASopathies) |
+| **Pathway / hallmark biology** (MAPK, PI3K, the Hanahan–Weinberg hallmarks) | `kb/modules/`; use `ModuleCollection` when several modules form a named framework | **Never a `Disease` entry** — pathways recur across entities and across the cancer/non-cancer boundary (cf. RASopathies) |
 
 **Germline cancer-predisposition syndromes** (Li-Fraumeni, Lynch, FAP, VHL, HBOC…) are
 Mendelian diseases and stay under the plain §3 rules; this clause governs the somatic
