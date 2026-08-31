@@ -70861,6 +70861,117 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Cranial Neuralgia",
+    "disease_id": "MONDO:0016374",
+    "category": "Complex",
+    "parents": [
+      "neuralgia",
+      "cranial nerve neuropathy"
+    ],
+    "creation_date": "2026-08-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Trigeminal",
+      "Glossopharyngeal",
+      "Nervus Intermedius",
+      "Occipital"
+    ],
+    "description": "Cranial neuralgia is paroxysmal, severe, lancinating pain confined to the sensory territory of a cranial (or, by clinical convention, an upper cervical) nerve, characteristically provoked by innocuous stimulation of a trigger zone. In the nerve-defined forms that dominate the category \u2014 trigeminal neuralgia by a wide margin, then glossopharyngeal and nervus intermedius neuralgia \u2014 the best-supported mechanism is chronic pulsatile compression of the nerve root by an overlying artery close to its entry into the brainstem. That compression produces focal demyelination and juxtaposition of bare axons, which favours ectopic impulse generation and ephaptic cross-talk between large tactile afferents and nociceptive fibres; synchronized high-frequency afterdischarge is then experienced as an abrupt shock-like paroxysm. The same demyelinating lesion is reached by other routes in secondary disease, most often a pontine multiple sclerosis plaque or a posterior fossa tumour compressing the root. Sodium-channel-blocking anticonvulsants (carbamazepine, oxcarbazepine) suppress the high-frequency firing and are first-line; microvascular decompression removes the compressive lesion itself and gives the most durable medication-free relief.",
+    "pathophysiology": [
+      "Neurovascular Compression at the Nerve Root Entry Zone",
+      "Focal Demyelination and Axonal Juxtaposition",
+      "Dysregulated Voltage-Gated Sodium Channel Expression",
+      "Ectopic Discharge and Ephaptic Cross-Excitation",
+      "Paroxysmal Neuralgiform Pain",
+      "Trigger Zone Mechanical Provocation",
+      "Central Demyelinating Plaque in Multiple Sclerosis",
+      "Posterior Fossa Mass Compressing the Nerve Root",
+      "Extracranial Entrapment of the Occipital Nerves"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "trigeminal ganglion sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:4023169"
+    ],
+    "biological_processes": [
+      "myelin maintenance",
+      "regulation of membrane potential",
+      "neuronal action potential",
+      "action potential propagation",
+      "sensory perception of pain",
+      "detection of mechanical stimulus involved in sensory perception"
+    ],
+    "phenotypes": [
+      "Paroxysmal Lancinating Facial Pain",
+      "Unilateral Pain Distribution",
+      "Concomitant Persistent Background Pain",
+      "Trigger-Evoked Attacks",
+      "Sensory Deficit in the Affected Territory",
+      "Cranial Autonomic Features",
+      "Deep Ear Pain",
+      "Occipital Scalp Pain",
+      "Reflex Bradycardia and Cardiac Syncope During Attacks"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100661",
+      "HP:0012532",
+      "HP:0033748",
+      "HP:0031731",
+      "HP:0030766",
+      "HP:0012318",
+      "HP:0001279"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "C8B",
+      "MFGE8"
+    ],
+    "treatments": [
+      "Carbamazepine",
+      "Oxcarbazepine",
+      "Second-Line and Add-On Anticonvulsant Therapy",
+      "Intravenous Therapy for Acute Exacerbation",
+      "Microvascular Decompression",
+      "Percutaneous Ablative Procedures",
+      "Stereotactic Radiosurgery",
+      "Botulinum Toxin Type A Injection",
+      "Occipital Nerve Block",
+      "Psychological and Nursing Support"
+    ],
+    "environmental": [
+      "Chronic arterial hypertension"
+    ],
+    "biochemical": [],
+    "source_file": "Cranial_Neuralgia.yaml",
+    "page_url": "../pages/disorders/Cranial_Neuralgia.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 10,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Cranioectodermal Dysplasia",
     "disease_id": "MONDO:0009032",
     "category": "Mendelian",
@@ -80503,6 +80614,171 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Diphtheria",
+    "disease_id": "MONDO:0005504",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Bacterial Respiratory Infection"
+    ],
+    "creation_date": "2026-08-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Faucial",
+      "Laryngeal",
+      "Anterior nasal",
+      "Nasopharyngeal",
+      "Cutaneous"
+    ],
+    "description": "Diphtheria is an acute, toxin-mediated infection of the upper respiratory mucosa or the skin caused by toxigenic strains of Corynebacterium diphtheriae and, less often, by toxigenic C. ulcerans. Toxigenicity is conferred by a lysogenic corynebacteriophage carrying the tox gene, whose transcription is derepressed when the iron-dependent repressor DtxR loses its ferrous cofactor. The secreted exotoxin binds the membrane-anchored heparin-binding EGF-like growth factor precursor (proHB-EGF), is taken up by receptor-mediated endocytosis, and delivers its catalytic domain to the cytosol, where it ADP-ribosylates the diphthamide residue of eukaryotic elongation factor 2. Translational arrest and host cell death produce the adherent grey-white pseudomembrane at the site of colonization and, after toxin dissemination, myocarditis with conduction disturbance and a descending demyelinating polyneuropathy at distant sites. Antitoxin neutralizes only toxin that has not yet entered cells, which is why the outcome depends on how early it is given.",
+    "pathophysiology": [
+      "Lysogenic Conversion by a tox-Bearing Corynebacteriophage",
+      "Iron-Regulated Diphtheria Toxin Expression",
+      "Mucosal Colonization and Adherence",
+      "Diphtheria Toxin Binding to the proHB-EGF Receptor",
+      "Endocytosis and Catalytic Domain Translocation",
+      "eEF2 Diphthamide ADP-Ribosylation",
+      "Translational Arrest and Host Cell Death",
+      "Pseudomembrane Formation",
+      "Upper Airway Obstruction",
+      "Systemic Toxin Dissemination",
+      "Diphtheritic Myocarditis",
+      "Cardiac Conduction System Injury",
+      "Toxin-Mediated Schwann Cell Injury and Demyelination",
+      "Absent or Waning Antitoxin Immunity",
+      "Bacterial mRNA Translation by the Ribosome (Macrolide Target)",
+      "Bacterial Peptidoglycan Cross-Linking (Beta-Lactam Target)"
+    ],
+    "cell_types": [
+      "nasopharyngeal epithelial cell",
+      "cardiac muscle cell",
+      "myelinating Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001573",
+      "CL:0000746",
+      "CL:0000218"
+    ],
+    "biological_processes": [
+      "cellular response to iron ion starvation",
+      "cell adhesion",
+      "receptor-mediated endocytosis",
+      "translational elongation",
+      "negative regulation of translation",
+      "apoptotic process",
+      "inflammatory response",
+      "myelination",
+      "adaptive immune response",
+      "translation",
+      "cell wall organization"
+    ],
+    "phenotypes": [
+      "Pharyngeal Pseudomembrane",
+      "Pharyngitis",
+      "Cervical Lymphadenopathy",
+      "Bull Neck (Anterior Cervical Swelling)",
+      "Stridor",
+      "Hoarse Voice",
+      "Upper Airway Obstruction",
+      "Nasal Discharge",
+      "Skin Ulcer",
+      "Myocarditis",
+      "Fever",
+      "Congestive Heart Failure",
+      "Atrioventricular Block",
+      "Palatal Palsy",
+      "Nasal Regurgitation and Hypernasal Speech",
+      "Dysphagia",
+      "Impaired Visual Accommodation",
+      "Peripheral Demyelination",
+      "Polyneuropathy",
+      "Tetraparesis",
+      "Acute Kidney Injury",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Lymphatic",
+      "Head and Neck",
+      "Dermatologic",
+      "Cardiovascular",
+      "Constitutional",
+      "Neurologic",
+      "Ophthalmologic",
+      "Renal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0033151",
+      "HP:0025439",
+      "HP:0025289",
+      "HP:6000176",
+      "HP:0010307",
+      "HP:0001609",
+      "HP:0002781",
+      "HP:0031417",
+      "HP:0200042",
+      "HP:0012819",
+      "HP:0001945",
+      "HP:0001635",
+      "HP:0001678",
+      "HP:0001283",
+      "HP:0001611",
+      "HP:0002015",
+      "HP:0030801",
+      "HP:0011096",
+      "HP:0001271",
+      "HP:0002273",
+      "HP:0001919",
+      "HP:0001873"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Diphtheria Antitoxin",
+      "Macrolide Antibiotic Therapy",
+      "Benzylpenicillin",
+      "Diphtheria Toxoid Vaccination",
+      "Tracheotomy"
+    ],
+    "environmental": [
+      "Person-to-person respiratory transmission of toxigenic Corynebacterium diphtheriae",
+      "Contact with companion or farm animals carrying toxigenic Corynebacterium ulcerans"
+    ],
+    "biochemical": [
+      "Serum diphtheria antitoxin titre",
+      "Brain natriuretic peptide and creatine kinase MB"
+    ],
+    "source_file": "Diphtheria.yaml",
+    "page_url": "../pages/disorders/Diphtheria.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 16,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Disorder of Catecholamine Synthesis",
@@ -144842,6 +145118,182 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "47",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Lethal Congenital Contracture Syndrome",
+    "disease_id": "MONDO:0017436",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder"
+    ],
+    "creation_date": "2026-08-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "LCCS1",
+      "LCCS2",
+      "LCCS3",
+      "LCCS4",
+      "LCCS5",
+      "LCCS6",
+      "LCCS7",
+      "LCCS8",
+      "LCCS9",
+      "LCCS10",
+      "LCCS11",
+      "LCCS12"
+    ],
+    "description": "Lethal congenital contracture syndrome (LCCS) is a genetically heterogeneous group of autosomal recessive fetal akinesia deformation sequence disorders in which developmental failure of the fetal motor unit abolishes fetal movement. The numbered forms (LCCS1-LCCS12) place the primary lesion at different levels of that motor unit - anterior horn motor neuron survival in LCCS1-LCCS3, Schwann cell myelination and node-of-Ranvier assembly in LCCS2 and LCCS7-LCCS9 and LCCS11, and the sarcomere and neuromuscular junction in LCCS4-LCCS6 - but they converge on the same downstream sequence: absent fetal movement, multiple joint contractures, muscle hypoplasia, micrognathia, polyhydramnios, pulmonary hypoplasia, and prenatal or early neonatal death. \"Lethal\" is a historical label rather than an invariant outcome: some GLDN-related infants survive the neonatal period with intensive respiratory and nutritional support.",
+    "pathophysiology": [
+      "Nuclear mRNA Export Failure",
+      "PI3K-Akt Signaling Loss",
+      "Phosphoinositide Synthesis Deficiency",
+      "cAMP Synthesis Deficiency",
+      "Mitotic and Ciliary Regulatory Failure",
+      "Anterior Horn Motor Neuron Loss",
+      "Schwann Cell Myelination Failure",
+      "Node of Ranvier Assembly Failure",
+      "Impaired Motor Nerve Conduction",
+      "Myofibril Assembly Failure",
+      "Endocytic Trafficking Failure",
+      "Neurogenic Skeletal Muscle Atrophy and Hypoplasia",
+      "Absent Fetal Movement",
+      "Joint Contracture Formation",
+      "Impaired Swallowing",
+      "Pulmonary Hypoplasia",
+      "Neonatal Respiratory Failure"
+    ],
+    "cell_types": [
+      "spinal cord motor neuron",
+      "Schwann cell",
+      "Schwann cell precursor",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0011001",
+      "CL:0002573",
+      "CL:0002375",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "mRNA export from nucleus",
+      "phosphatidylinositol 3-kinase/protein kinase B signal transduction",
+      "cAMP biosynthetic process",
+      "cilium assembly",
+      "spinal cord motor neuron differentiation",
+      "peripheral nervous system myelin formation",
+      "neuronal action potential propagation",
+      "myofibril assembly",
+      "endocytosis",
+      "skeletal muscle tissue development",
+      "lung development"
+    ],
+    "phenotypes": [
+      "Absent Fetal Movement",
+      "Multiple Congenital Joint Contractures",
+      "Pulmonary Hypoplasia",
+      "Neonatal Respiratory Failure",
+      "Polyhydramnios",
+      "Hydrops Fetalis",
+      "Micrognathia",
+      "Intrauterine Growth Restriction",
+      "Skeletal Muscle Atrophy",
+      "Pterygia",
+      "Reduced Motor Nerve Conduction Velocity",
+      "Neurogenic Bladder",
+      "Intracranial Hemorrhage",
+      "Retinal Hemorrhage",
+      "Talipes Equinovarus",
+      "Areflexia",
+      "Dysphagia",
+      "Overlapping Fingers",
+      "Vocal Cord Paresis",
+      "Severe Hypotonia"
+    ],
+    "phenotype_categories": [
+      "Prenatal",
+      "Musculoskeletal",
+      "Respiratory",
+      "Craniofacial",
+      "Growth",
+      "Neurologic",
+      "Genitourinary",
+      "Ophthalmologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0001558",
+      "HP:0002828",
+      "HP:0002089",
+      "HP:0002878",
+      "HP:0001561",
+      "HP:0001789",
+      "HP:0000347",
+      "HP:0001511",
+      "HP:0003202",
+      "HP:0001059",
+      "HP:0003431",
+      "HP:0000011",
+      "HP:0002170",
+      "HP:0000573",
+      "HP:0001762",
+      "HP:0001284",
+      "HP:0002015",
+      "HP:0010557",
+      "HP:0001604",
+      "HP:0001290"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GLE1",
+      "ERBB3",
+      "PIP5K1C",
+      "MYBPC1",
+      "DNM2",
+      "ZBTB42",
+      "CNTNAP1",
+      "ADCY6",
+      "ADGRG6",
+      "NEK9",
+      "GLDN",
+      "DST"
+    ],
+    "treatments": [
+      "Mechanical Ventilation and Chronic Respiratory Support",
+      "Enteral Nutritional Support",
+      "Genetic Counseling and Prenatal Testing",
+      "Palliative and Supportive Care",
+      "Contracture Management and Rehabilitation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lethal_Congenital_Contracture_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lethal_Congenital_Contracture_Syndrome.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 17,
+    "num_genes": 12,
+    "num_treatments": 5,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Leukocyte Adhesion Deficiency Type II",
@@ -256381,17 +256833,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2486,
-  "total_subtypes": 3529,
-  "total_disorders_and_subtypes": 6015,
-  "total_unique_evidence_sources": 35628,
-  "total_unique_publications": 33509,
+  "total_disorder_pages": 2489,
+  "total_subtypes": 3550,
+  "total_disorders_and_subtypes": 6039,
+  "total_unique_evidence_sources": 35718,
+  "total_unique_publications": 33596,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 266,
-  "total_pathographs": 2481,
-  "total_unique_pathological_events": 14406,
+  "total_pathographs": 2484,
+  "total_unique_pathological_events": 14445,
   "total_modules": 166,
-  "total_research_reports": 2603,
+  "total_research_reports": 2606,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 99
