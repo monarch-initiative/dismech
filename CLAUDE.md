@@ -1219,6 +1219,45 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
 
+### Terms Inside `qualifiers` Are Not Covered by `validate-terms`
+
+**`linkml-term-validator` does not look inside `qualifiers`.** It validates slots
+whose range is bound to an ontology-backed dynamic enum; `Qualifier.predicate`
+and `Qualifier.value` are plain `Descriptor`s with no such binding, so their
+`term:` blocks are invisible to it. A fabricated label there passes
+`just validate-terms` outright — verified by putting
+`label: Totally Bogus Fabricated Label` on one and watching it report
+"✅ Validation passed" (#10197).
+
+That blind spot had already admitted 31 wrong bindings across 10 entries, all
+plausible-looking codes naming the wrong concept:
+
+| Curated as | `NCIT` code actually means |
+|---|---|
+| vancomycin | Azacitidine (an antineoplastic) |
+| Broad Spectrum Antibiotic | Arthritis |
+| Tooth Extraction | Breast Extraskeletal Osteosarcoma |
+| Tracheostomy | Ambulation Difficulty |
+| Budesonide | Panobinostat |
+| fidaxomicin | Cellular Changes Resembling Foveolar Epithelium Cells |
+
+```bash
+just check-qualifier-terms          # gate (offline, in `just qc`)
+just list-qualifier-terms           # census, including what nothing can check
+just check-qualifier-terms-online   # also resolve uncached CURIEs via OAK
+```
+
+The gate is offline and cache-first, so it only sees CURIEs already cached from
+elsewhere in the KB. **Run `just check-qualifier-terms-online` after adding a
+qualifier term** — a qualifier-only CURIE is never cached by anything else, so
+the offline gate has no opinion on it. `RO` and `PR` (109 terms) have no adapter
+in `conf/oak_config.yaml` and cannot be validated by any current tooling; the
+census reports them separately.
+
+Given all this, prefer a dedicated slot over `qualifiers` wherever one exists —
+see the next section, and note that `therapeutic_agent` already covers most of
+what these qualifier pairs were expressing.
+
 ### Descriptor Qualifier Slots
 
 Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
@@ -2057,6 +2096,7 @@ just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
 just check-causal-targets kb/disorders/MyDisease.yaml
+just check-qualifier-terms kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 

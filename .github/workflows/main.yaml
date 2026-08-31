@@ -410,6 +410,22 @@ jobs:
       - name: Check pathograph targets resolve
         run: uv run python scripts/check_causal_targets.py
 
+      # Terms nested under `qualifiers` are a blind spot in the anti-hallucination
+      # stack. `linkml-term-validator` validates slots whose range is bound to an
+      # ontology-backed dynamic enum; `Qualifier.predicate`/`value` are plain
+      # Descriptors with no such binding, so their `term:` blocks are never looked
+      # at. Confirmed by putting "Totally Bogus Fabricated Label" on one and
+      # watching `just validate-terms` report "Validation passed" (#10197).
+      #
+      # It had already admitted a real defect: NCIT:C288 was curated as
+      # "vancomycin" when that code is Azacitidine, an antineoplastic.
+      #
+      # Offline and cache-first, so this adds no network dependency: it compares
+      # each label against the committed cache/<prefix>/terms.csv. Terms absent
+      # from the caches are reported, not gated -- see the script docstring.
+      - name: Check qualifier ontology terms
+        run: uv run python scripts/check_qualifier_terms.py
+
       # Ungated for the same reason as the entity-ref step above, and the
       # argument is if anything sharper. The contract IS covered by pytest
       # (`test_existing_repo_caches_match_frontmatter_contract`), but that lane
