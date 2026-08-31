@@ -235,6 +235,19 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    if args.update_baseline and args.paths:
+        # `write_baseline` records only what was scanned, so combining these
+        # truncates the committed baseline to the given subset -- 126 rows to 0
+        # for a single file. Same subset-vs-whole-tree conflation the stale
+        # detector had. The baseline is only meaningful over the whole tree, and
+        # `just update-causal-target-baseline` takes no paths, so refuse rather
+        # than silently rewrite. (The damage would be loud -- an emptied baseline
+        # makes the gate stricter, not laxer -- but it costs a confusing hour.)
+        parser.error(
+            "--update-baseline rewrites the whole baseline and cannot be scoped "
+            "to individual files; re-run it with no paths."
+        )
+
     findings = collect(args.paths)
     by_kind: dict[str, list[Finding]] = {"prefixed": [], "dangling": [], "self": []}
     for f in findings:

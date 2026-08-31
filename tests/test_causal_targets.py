@@ -28,6 +28,7 @@ from check_causal_targets import BARE_TARGET_SLOTS, find_in
 
 ROOT = Path(__file__).parent.parent
 SCRIPT = ROOT / "scripts" / "check_causal_targets.py"
+BASELINE = ROOT / "tests" / "causal_target_baseline.txt"
 
 
 def _entry(**sections):
@@ -167,6 +168,30 @@ def test_single_file_invocation_reports_no_stale_rows(tmp_path, monkeypatch, cap
         ]
     )
     assert f"({real} dangling target(s) grandfathered)" in out
+
+
+def test_update_baseline_refuses_to_be_scoped_to_paths():
+    """The baseline is only meaningful over the whole tree.
+
+    `write_baseline` records what was scanned, so combining `--update-baseline`
+    with paths truncated the committed file to that subset — 126 rows to 0 for a
+    single file. The damage is loud rather than silent (an emptied baseline makes
+    the gate stricter), but it is the same subset-vs-tree conflation the stale
+    detector had, so it is refused outright.
+    """
+    before = BASELINE.read_bytes()
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--update-baseline", "kb/disorders/Asthma.yaml"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "cannot be scoped" in result.stderr
+    assert BASELINE.read_bytes() == before, "the committed baseline must be untouched"
 
 
 def test_committed_kb_has_no_new_broken_targets():
