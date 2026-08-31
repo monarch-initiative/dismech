@@ -10,6 +10,8 @@ description: >-
 tags: [FRAMEWORK_ALIGNMENT, EVIDENCE, EXTERNAL_COLLABORATION, ENVIRONMENTAL_EXPOSURE, SCHEMA_EVOLUTION]
 diseases:
   - Lead_Poisoning
+  - Liver_Cirrhosis
+  - Idiopathic_Pulmonary_Fibrosis
 modules:
   - cardiac_ion_channel_repolarization
   - cardiomyopathy_maladaptive_remodeling
@@ -20,6 +22,7 @@ modules:
   - drug_induced_liver_injury
   - drug_induced_nephrotoxicity
   - diabetic_vascular_complications
+  - fibrotic_response
 ---
 
 # AOP EMOD Framework Alignment
@@ -272,6 +275,11 @@ describes a conserved process rather than one disease. Where an AOP reuses one E
 several pathways, dismech writes the process once in `kb/modules/` and has each entry
 declare conformance to it.
 
+The first row is the cheapest bridge and the one worked through below:
+[The liver fibrosis NAM use case](#the-liver-fibrosis-nam-use-case) maps a curated
+`ExperimentalModel` onto the seven Key Events of AOP 38 and records what does and does
+not land on a mechanism node.
+
 ### What blocks integration until resolved
 
 | Divergence | Detail |
@@ -461,6 +469,191 @@ of the question stays a query over the XML export.
 for the AOP side; whether it is still the right comparator is open, given the assessment
 recorded in
 [`AOP_EMOD_ALIGNMENT/assessments/`](AOP_EMOD_ALIGNMENT/assessments/openscientist-assessment-by-claude-code.yaml).
+
+---
+
+## The liver fibrosis NAM use case
+
+The lead pilot enters from the stressor: start from a chemical, collect the AOPs naming
+it a prototypical stressor, compare those against a dismech entry. This second case
+enters from the assay — start from a NAM built to measure Key Events and ask what it
+maps onto. It crosses the first row of the enabler table, Assay/NAM to
+`ExperimentalModel`, which nothing had exercised, and it meets different obstacles than
+the stressor-first pass because a NAM's readouts are Key Event measurements before they
+are anything about a chemical.
+
+The system is the Akura Twin 384-well liver fibrosis microphysiological system
+([PMID:40754287](https://pubmed.ncbi.nlm.nih.gov/40754287/), Schmidt & Suter-Dick,
+*Toxicology* 2025), curated in `Liver_Cirrhosis` and `drug_induced_liver_injury` as an
+`experimental_models` entry with `namo_type: namo:CoCulture`. HepaRG hepatocyte
+microtissues, with or without THP-1 monocytic cells, occupy one compartment of each of
+168 interconnected well pairs and hTERT-HSC stellate microtissues the other; TGF-β1,
+methotrexate and acetaminophen are the three challenges. The paper states its own purpose
+in AOP terms — built "to quantify the key events of the liver fibrosis AOP" — so the AOP
+framing is the authors', not applied afterwards.
+
+Its target is **AOP 38, Protein Alkylation leading to Liver Fibrosis**: OECD WPHA/WNT
+Endorsed, 94.12% record completion in the 2026-08-06 export. Of the eight lead AOPs only
+one is endorsed, so confidence in the AOP side is higher here than in the lead use case — though
+endorsement raises confidence in a hypothesis about a causal chain and does not make the
+chain a finding.
+
+### The correspondence
+
+Levels of biological organisation are AOP-Wiki's, from the 2026-08-06 export. Node names
+unqualified by a module prefix are `Liver_Cirrhosis` pathophysiology nodes.
+
+| KE | Event | LoBO | Akura Twin readout | dismech node | Fit |
+|---|---|---|---|---|---|
+| 244 | Alkylation, Protein *(MIE)* | Molecular | — | — | none — see below |
+| 55 | Increase, Cell injury/death | Cellular | albumin ↓ | Hepatocyte Injury and Death | yes |
+| 1492 | Tissue resident cell activation | Cellular | ALOX5AP, TREM2 ↑ | Kupffer Cell and Inflammatory Response | partial — THP-1 is not tissue-resident |
+| 1493 | Increased Pro-inflammatory mediators | Tissue | PAI-1, TGF-β1 ↑ | *(same node)* | partial — confounded with the stimulus |
+| 265 | Increase, Hepatic stellate cell activation | Cellular | ACTA2, COL1A1, COL3A1, FN1 ↑ | Hepatic Stellate Cell Activation → `fibrotic_response#Mesenchymal Cell Activation` | yes |
+| 68 | Increase, Collagen accumulation | Tissue | Pro-Collagen 1A1, CTGF ↑ | `fibrotic_response#Excessive ECM Deposition` | yes — but the readout is curated on the KE 265 node |
+| 344 | Increase, Liver fibrosis *(AO)* | Organ | — | `Liver_Cirrhosis`, the entry | none at node level |
+
+**Five of seven Events map to a mechanism node, and the two that do not are the two
+endpoints.** That is a more useful statement of the fit than the count, and it is the
+same shape the lead pilot found from the other direction.
+
+#### Three rows are weaker than the other two
+
+Worth carrying rather than reading the table as uniform.
+
+- **KE 1492 says "tissue resident" and THP-1 is not.** Kupffer cells are yolk-sac-derived
+  and self-renewing; THP-1 is a monocytic line standing in for them, so the surrogacy sits
+  precisely on the word that defines the Event. The curated link already grades this
+  `PARTIALLY_RECAPITULATES` with `fidelity: LOW`, and the mapping inherits that grade
+  rather than overriding it.
+- **KE 1493 is confounded with the stimulus.** One of its two analytes is TGF-β1 measured
+  under exogenous TGF-β1 challenge — autoinduction. The other, PAI-1, is a canonical
+  TGF-β target gene and is not among the mediators KE 1493 itself lists (TNF-α, IL-1/6/8,
+  IFN-γ, chemokines, GM-CSF, PGE2, ROS/RNS, TGF-β). This is the thinnest row.
+- **The KE 68 readout hangs off the KE 265 node.** Pro-Collagen 1A1 and CTGF are curated
+  as readouts on `Hepatic Stellate Cell Activation`, whose `interpretation` calls them
+  the downstream consequence the node feeds. So the measurement instrumenting KE 68 is
+  attached to the node mapping KE 265, and KE 68 itself is reachable only through
+  `conforms_to` into the module.
+
+### Both endpoints fall outside the node layer
+
+**AO 344 maps to `Liver_Cirrhosis`, the entry, not to any pathophysiology node.** No node
+in the entry is "liver fibrosis" — the disease is what the graph as a whole describes.
+Anything that records a KE correspondence on `Pathophysiology` alone therefore cannot
+hold the bottom row; an AO correspondence is disease-level.
+
+**KE 244 has no node either**, which is the lead pilot's MIE result reached from the
+opposite direction: dismech has no node for a chemical's molecular initiating
+interaction in this entry.
+
+#### Does the acetaminophen arm reach KE 244?
+
+The issue asks because NAPQI, acetaminophen's reactive metabolite, alkylates protein, and
+KE 244 is the one empty row. **This is not settled here** — the full text is
+subscription-only (`content_type: abstract_only` in `references_cache/PMID_40754287.md`;
+not open access, not in PMC), and the abstract does not say alkylation. Two things point
+against it:
+
+- **KE 244's own measurement methods are adduct mass spectrometry** — HPLC-ESI-MS/MS and
+  MALDI-TOF/MS. The abstract's readouts are albumin, glucose and lactate sensors, qPCR
+  and protein ELISA, and its only acetaminophen result is reduced albumin production,
+  which is KE 55.
+- **AOP 38 itself excludes acetaminophen.** Its `overall-assessment` field names APAP
+  among hepatotoxicants that do *not* produce the adverse outcome — "there is a wide
+  range of hepatotoxic chemicals (like Acetaminophen, Aflatoxin or Chlorpromazine) for
+  which liver fibrosis cannot be observed" — and acetaminophen is not among the AOP's five
+  prototypical stressors (allyl alcohol, carbon tetrachloride, retinol, dimethylnitrosamine,
+  thioacetamide).
+
+So the likely reading is that the acetaminophen arm is a KE 55 challenge, and that a
+system built expressly to quantify AOP 38 instruments it from KE 55 downward and leaves
+the MIE unmeasured. That is a statement about where a NAM sits on a pathway, not a defect
+in the assay or in the mapping — a partial AOP with unmeasured Events is explicitly useful
+for setting priorities and identifying what to test next. What would overturn it is a
+Methods section reporting GSH depletion, an APAP-protein adduct immunoassay, or CYP2E1
+activity; an author query (Suter-Dick, FHNW) or an institutional-repository copy would
+settle it.
+
+### Which layer the correspondence sits at
+
+Recorded as an observation; the structural question the issue raises belongs in its own
+decision, per this page's scope.
+
+An AOP Event is stressor-agnostic and reused across pathways, which is what the enabler
+table already pairs with `kb/modules/` plus `conforms_to`. The counts make the difference
+concrete. In the KB as of this writing, `fibrotic_response#Mesenchymal Cell Activation`
+is conformed to by **28** pathophysiology nodes and `fibrotic_response#Excessive ECM
+Deposition` by **21** — so a KE 265 or KE 68 correspondence asserted on the module node
+reaches every one of them, while the same correspondence asserted on
+`Liver_Cirrhosis` reaches one entry and has to be re-asserted on the next fibrotic
+disease.
+
+`Idiopathic_Pulmonary_Fibrosis` is the case that tests this rather than assuming it: its
+microengineered alveolar lung-on-chip
+([PMID:41406599](https://pubmed.ncbi.nlm.nih.gov/41406599/), `namo_type:
+namo:OrganOnChip`) links to `Fibroblast activation and myofibroblast differentiation` and
+`Excessive extracellular matrix deposition`, which conform to those same two module
+nodes. Two NAMs, two organs, one pair of module nodes — the module layer already holds
+what a KE correspondence would need to travel across.
+
+### Cross-reference is separable from citation
+
+The constraint that AOP-Wiki is not citable in dismech's validation stack — no fetcher,
+no cacheable body for a snippet to substring-match against — is about *citation*. It does
+not by itself settle *cross-reference*, and the two are separable because AOP-Wiki
+identifiers are registered and resolvable:
+
+| Prefix | Registry name | Resolves to |
+|---|---|---|
+| `aop` | AOPWiki | `aopwiki.org/aops/$1` |
+| `aop.events` | AOPWiki (Key Event) | `aopwiki.org/events/$1` |
+| `aop.relationships` | AOPWiki (Key Event Relationship) | `aopwiki.org/relationships/$1` |
+| `aop.stressor` | AOPWiki (Stressor) | `aopwiki.org/stressors/$1` |
+
+All four are in identifiers.org and Bioregistry with pattern `^\d+$`, and all four
+resolve — `https://identifiers.org/aop.events:265` lands on
+`https://aopwiki.org/events/265` (checked 2026-08-29).
+
+This is recorded as a fact about the identifiers, not as a proposal. Declaring any of
+these in the schema's `prefixes:`, and whether a `Pathophysiology` or disease-level
+cross-reference slot should exist to carry them, are decisions for
+`docs/explanation/design-decisions.md` and their own issue. No `aop*:` CURIE appears
+anywhere in `kb/`.
+
+### What the scale axis showed
+
+AOP-Wiki gives every Event a Level of Biological Organisation and dismech's counterpart
+is `biological_scale`, so it is the one axis both sides already carry — and it was empty
+on almost every node this use case touches. Tagging them is schema-free and makes the
+correspondence checkable:
+
+| dismech node | `biological_scale` | AOP LoBO it aligns with |
+|---|---|---|
+| `Liver_Cirrhosis` Hepatocyte Injury and Death | `CELLULAR` | KE 55 Cellular |
+| `Liver_Cirrhosis` Hepatic Stellate Cell Activation | `CELLULAR` | KE 265 Cellular |
+| `Liver_Cirrhosis` TGF-beta Signaling in Fibrogenesis | `MOLECULAR` | — (the stimulus arm; no KE) |
+| `Liver_Cirrhosis` Kupffer Cell and Inflammatory Response | *left unset* | KE 1492 Cellular **and** KE 1493 Tissue |
+| `fibrotic_response` Tissue Injury | `TISSUE` | KE 55's module counterpart |
+| `fibrotic_response` Inflammatory Recruitment and Amplification | `TISSUE` | KE 1493 Tissue |
+| `fibrotic_response` Mesenchymal Cell Activation | `CELLULAR` | KE 265 Cellular |
+| `fibrotic_response` Excessive ECM Deposition | `TISSUE` | KE 68 Tissue |
+| `fibrotic_response` Architectural Distortion and Organ Dysfunction | `TISSUE` | KE 344 Organ |
+
+Two things fell out of doing it.
+
+**One node was left unset, and the reason is the finding.** `Kupffer Cell and
+Inflammatory Response` maps to two Events at two different levels — KE 1492 is Cellular
+and KE 1493 is Tissue — so no single value describes it. `biological_scale` is
+single-valued by design, and CLAUDE.md reads a node that would naturally take two as a
+signal that it bundles two mechanistic claims. Guessing one would have hidden exactly
+what the mapping exposed. Splitting the node is a curation change with evidence and
+`modeled_mechanisms` readouts attached to it and is not made here.
+
+**AOP's Organ level is not the gap it looks like.** `BiologicalScaleEnum` has no `ORGAN`
+value, but `TISSUE` is defined as "tissue / organ scale" and its description names organ
+substrates explicitly, so KE 344 at Organ has a home. The divergence table's "no
+population level" row stands; there is no comparable organ-level gap.
 
 ---
 
