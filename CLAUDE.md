@@ -563,7 +563,12 @@ members with `just list-modules`, do not assume this list is exhaustive):
   modules already double as toxicity targets without a separate "side effect"
   class (`peripheral_axonal_degeneration` for chemotherapy-induced peripheral
   neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline
-  cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT).
+  cardiotoxicity). `cardiac_ion_channel_repolarization` is **not** one of them,
+  despite drug-induced long QT being a real entity: that module scopes itself to
+  inherited arrhythmia syndromes *in structurally normal hearts*, its notes list
+  only heritable syndromes, and its sole mention of acquired repolarization
+  change sits inside a quoted snippet. An acquired drug-induced long-QT module
+  would be a new module, not a second use of that one.
 - **Antimicrobial drug mechanisms** — antibacterial target modules (cell wall,
   ribosome, topoisomerase, RNA polymerase, folate), antifungal and antiviral
   counterparts, plus pharmacokinetic *gating* modules such as
@@ -616,6 +621,12 @@ module_categories:
   saturation/lightness), so adding a category is a schema edit alone — no colour
   to choose and no renderer change. Appending a value leaves existing hues
   untouched; reordering or removing one reshuffles them.
+- **That holds up to 13 categories.** The golden-angle walk keeps a minimum
+  separation of ~20° through the 13th value and drops to ~12° at the 14th, where
+  `test_every_category_gets_a_visually_distinct_hue` goes red. That test is the
+  tripwire, not a nuisance: at 14 the palette needs a real decision (a second
+  visual dimension, or grouping categories into families), and the enum has
+  outgrown "just append a value".
 - The slot lives on the `Disease` class because modules validate against it. It is
   intended for `kb/modules/` entries; disorder entries use the separate free-text
   `categories` slot for nosological grouping, which is unrelated.

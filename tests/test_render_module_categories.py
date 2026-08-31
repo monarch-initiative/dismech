@@ -1,5 +1,6 @@
 """Tests for module study-area category pills (module index + module pages)."""
 
+from itertools import pairwise
 from pathlib import Path
 
 import yaml
@@ -39,7 +40,7 @@ def test_display_records_come_from_the_schema_enum() -> None:
 
 def test_every_category_gets_a_visually_distinct_hue() -> None:
     hues = sorted(int(record["hue"]) for record in _module_category_display().values())
-    gaps = [b - a for a, b in zip(hues, hues[1:])] + [360 - hues[-1] + hues[0]]
+    gaps = [b - a for a, b in pairwise(hues)] + [360 - hues[-1] + hues[0]]
     assert min(gaps) >= 20, f"hues crowd together: {hues}"
 
 
@@ -105,6 +106,27 @@ def test_index_legend_omits_categories_no_module_uses(tmp_path: Path) -> None:
     )
 
     assert "What do the category labels mean?" not in output_path.read_text()
+
+
+def test_module_categories_stays_off_disorder_entries() -> None:
+    """`module_categories` is schema-legal on any Disease, but is for modules.
+
+    The slot hangs off the Disease class because modules validate against it, so
+    nothing in the schema stops it appearing in kb/disorders/ — where it would
+    render nowhere and quietly compete with the unrelated free-text `categories`
+    slot disorders actually use. This keeps that from starting.
+    """
+    offenders = [
+        path.name
+        for path in sorted(Path("kb/disorders").glob("*.yaml"))
+        if not path.name.endswith(".history.yaml")
+        and (safe_load_path(path) or {}).get("module_categories")
+    ]
+
+    assert not offenders, (
+        "module_categories belongs on kb/modules/ entries; disorder entries use "
+        f"the free-text `categories` slot: {offenders}"
+    )
 
 
 def test_committed_modules_use_only_schema_defined_categories() -> None:
