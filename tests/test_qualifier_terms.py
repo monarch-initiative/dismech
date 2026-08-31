@@ -137,15 +137,24 @@ def test_a_transport_failure_is_not_reported_as_a_wrong_binding():
 
     term = Term("x.yaml", "value", "NCIT:C925", "Vancomycin")
     with mock.patch("oaklib.get_adapter", return_value=_Unreachable()):
-        wrong, unresolved = check_qualifier_terms.resolve_remote([term], attempts=2)
+        wrong, missing, unreachable = check_qualifier_terms.resolve_remote(
+            [term], attempts=2
+        )
 
     assert wrong == [], "a network failure is not evidence about the binding"
-    assert [t.curie for t, _ in unresolved] == ["NCIT:C925"]
-    assert "could not be reached" in unresolved[0][1]
+    assert missing == [], "unreachable is not the same claim as nonexistent"
+    assert [t.curie for t, _ in unreachable] == ["NCIT:C925"]
+    assert "could not be reached" in unreachable[0][1]
 
 
 def test_a_404_is_reported_as_a_nonexistent_curie():
-    """A definitive not-found is the most serious thing this check can say."""
+    """A definitive not-found is the most serious thing this check can say.
+
+    So it gets its own bucket rather than sharing one with transport failures:
+    it is definitive, it is about the binding, and it has to gate. Sharing the
+    bucket meant `--resolve` could be handed two invented CURIEs, name them
+    correctly, and still exit 0 on a line reading `OK: ... match the ontology`.
+    """
     from requests.exceptions import HTTPError
     from requests.models import Response
 
@@ -158,10 +167,61 @@ def test_a_404_is_reported_as_a_nonexistent_curie():
 
     term = Term("x.yaml", "value", "NCIT:C99999999", "Nonexistent")
     with mock.patch("oaklib.get_adapter", return_value=_NotFound()):
-        wrong, unresolved = check_qualifier_terms.resolve_remote([term], attempts=2)
+        wrong, missing, unreachable = check_qualifier_terms.resolve_remote(
+            [term], attempts=2
+        )
 
-    assert wrong == []
-    assert "does not exist" in unresolved[0][1]
+    assert wrong == [], "a 404 is not a label mismatch; there is no label"
+    assert unreachable == [], "a 404 is definitive, not a failed lookup"
+    assert [t.curie for t, _ in missing] == ["NCIT:C99999999"]
+    assert "does not exist" in missing[0][1]
+
+
+def test_a_nonexistent_curie_makes_the_run_fail(tmp_path, capsys):
+    """The class the docstring calls most serious has to actually gate.
+
+    It previously shared the advisory bucket with transport failures, so a run
+    against two fabricated CURIEs printed them and then exited 0 under
+    `OK: 0 qualifier term label(s) match the ontology`.
+    """
+    from requests.exceptions import HTTPError
+    from requests.models import Response
+
+    response = Response()
+    response.status_code = 404
+
+    class _NotFound:
+        def label(self, curie):
+            raise HTTPError(response=response)
+
+    entry = tmp_path / "Probe.yaml"
+    entry.write_text(
+        "name: Probe\n"
+        "treatments:\n"
+        "- name: T\n"
+        "  treatment_term:\n"
+        "    preferred_term: t\n"
+        "    qualifiers:\n"
+        "    - predicate:\n"
+        "        preferred_term: p\n"
+        "        term: {id: NCIT:C99999999, label: Invented}\n"
+        "      value:\n"
+        "        preferred_term: v\n"
+        "        term: {id: NCIT:C88888888, label: Also Invented}\n"
+    )
+
+    argv = ["check_qualifier_terms.py", str(entry), "--resolve"]
+    with (
+        mock.patch("oaklib.get_adapter", return_value=_NotFound()),
+        mock.patch.object(check_qualifier_terms.sys, "argv", argv),
+    ):
+        rc = check_qualifier_terms.main()
+
+    out = capsys.readouterr().out
+    assert rc == 1, "two fabricated CURIEs must not finish on exit 0"
+    assert "do not exist in the ontology" in out
+    assert "2 finding(s)." in out
+    assert "OK:" not in out, "the summary must not read as a pass"
 
 
 def test_not_found_classification_walks_the_exception_chain():
