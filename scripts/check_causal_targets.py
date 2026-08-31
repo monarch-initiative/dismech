@@ -258,13 +258,22 @@ def main() -> int:
         return 0
 
     baseline = load_baseline()
-    live = {f.key() for f in by_kind["dangling"]}
     new_dangling = [f for f in by_kind["dangling"] if f.key() not in baseline]
     # Rows left behind after their target was fixed. Never a failure -- the tree
     # is strictly better than the baseline records -- but the baseline's whole
     # value is that its size is an honest measure of remaining debt, and a stale
     # row silently inflates it. Reported so the count can be trusted.
-    stale = sorted(baseline - live)
+    #
+    # Only computable on a full-tree scan. `live` covers just the files scanned,
+    # so under explicit paths every row outside that subset looks stale -- which
+    # made a single-file run report all 126 rows as fixed and then print "0
+    # grandfathered", i.e. an empty backlog. Gating is unaffected either way,
+    # since `new_dangling` tests membership rather than absence.
+    if args.paths:
+        stale: list[str] = []
+    else:
+        live = {f.key() for f in by_kind["dangling"]}
+        stale = sorted(baseline - live)
     failures = by_kind["prefixed"] + new_dangling
 
     if by_kind["self"]:

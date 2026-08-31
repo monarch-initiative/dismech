@@ -141,6 +141,34 @@ def test_stale_baseline_rows_are_reported_without_failing(
     assert f"({real} dangling target(s) grandfathered)" in out
 
 
+def test_single_file_invocation_reports_no_stale_rows(tmp_path, monkeypatch, capsys):
+    """Stale detection is only meaningful over the whole tree.
+
+    `live` covers only the files scanned, so under explicit paths every baseline
+    row outside that subset looks fixed. Before this was gated, a single-file run
+    reported all 126 rows as stale and then printed "0 grandfathered" — reading
+    as an empty backlog, which is the opposite of what the count is for.
+    """
+    import check_causal_targets as mod
+
+    monkeypatch.setattr(
+        sys, "argv", ["check_causal_targets.py", "kb/disorders/Asthma.yaml"]
+    )
+    exit_code = mod.main()
+    out = capsys.readouterr().out
+
+    assert exit_code == 0
+    assert "no longer match" not in out, "per-file mode cannot judge staleness"
+    real = len(
+        [
+            line
+            for line in mod.BASELINE_PATH.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
+    )
+    assert f"({real} dangling target(s) grandfathered)" in out
+
+
 def test_committed_kb_has_no_new_broken_targets():
     """The gate itself, over the real KB."""
     result = subprocess.run(
