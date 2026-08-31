@@ -790,6 +790,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="What gets checked">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataset-and-computation-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset and computation boundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -982,7 +999,7 @@
   <span class="md-ellipsis">
     
   
-    Hypothesis Report Assessments
+    Hypothesis Report Assessments & Reconciliation
   
 
     
@@ -23829,6 +23846,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="What gets checked">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataset-and-computation-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset and computation boundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -23958,6 +23992,9 @@ record whose frontmatter contains a literal <code>---</code> is truncated on rea
 reported as a <strong>false unresolved reference</strong>, and the guidance below tells you
 not to cite unresolved references. Do not call <code>deep-research-client</code> directly
 for anything that validates; go through the wrapper or the recipes.</p>
+<p>The wrapper also keeps Biomni out of provider discovery and automatic fallback
+unless <code>DISMECH_ENABLE_BIOMNI=1</code> is set. This positive opt-in is required even
+when the Biomni package and an underlying model credential are installed.</p>
 <ul>
 <li><strong>Every PMID and DOI in the report body and citation list</strong> is resolved
   against PubMed, Crossref and DataCite. An identifier that returns nothing is
@@ -23996,6 +24033,28 @@ reassuring <code>confabulation_rate</code>.</p>
 <p>Lookups are cached into <code>references_cache/</code>, the same directory the KB
 validators read. A reference checked at report time does not need re-fetching
 when it is later cited from a <code>kb/</code> entry.</p>
+<h3 id="dataset-and-computation-boundary">Dataset and computation boundary</h3>
+<p>Reference validation is intentionally literature-focused. It does not establish
+that a dataset accession exists, that the dataset is about the right disease, or
+that a provider downloaded or analyzed it. Dataset identifiers skipped by the
+reference resolver are not thereby validated.</p>
+<p>For a provider report or hypothesis assessment, verify supported accessions
+separately:</p>
+<div class="highlight"><pre><span></span><code>just<span class="w"> </span>verify-datasets<span class="w"> </span>--accession<span class="w"> </span>geo:GSE197406
+</code></pre></div>
+<p>Then inspect the repository metadata for disease/entity identity, organism,
+tissue, cohort, assay, and comparison relevance. The resolver answers "does this
+record exist?", not "is it the correct input?" A real gene-only or sibling-
+disease record can pass accession verification and still be unsuitable.</p>
+<p>Nor does citation validation prove that a reported computation ran. Preserve an
+input -&gt; method/software/parameters -&gt; code/environment -&gt; output chain in the
+provider artifacts and structured hypothesis assessment. Distinguish a source
+that was cited but not accessed, a scoped search with no result, and data that
+were actually accessed. An accessed source or negative search needs a committed
+query response, input manifest, or search log; prose alone is not an auditable
+access record. Distinguish a successful analysis from a partial, failed,
+skipped, or prose-only reported run. See
+<a href="../hypothesis-report-assessments/">Hypothesis Report Assessments and Reconciliation</a>.</p>
 <h2 id="where-to-read-the-results">Where to read the results</h2>
 <h3 id="in-the-reports-frontmatter">In the report's frontmatter</h3>
 <p>A report generated with validation carries a machine-readable summary at the
@@ -24100,6 +24159,10 @@ just<span class="w"> </span>research-comorbidity<span class="w"> </span>openai<s
 </code></pre></div>
 <p>The report is written to disk <strong>before</strong> validation runs, so a network failure
 during validation costs you the validation section, never the report.</p>
+<p>That preservation behavior is not permission for weak fallback. If a provider's
+scientific tools, data lake, or dataset access fail, retain the report but make
+the failure and any literature/model-knowledge fallback explicit. Do not present
+the fallback as a completed computational analysis.</p>
 <p>To skip it — quick iteration, or no network:</p>
 <div class="highlight"><pre><span></span><code>just<span class="w"> </span><span class="nv">dr_validation</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="w"> </span>research-disorder<span class="w"> </span>falcon<span class="w"> </span>Marfan_Syndrome
 </code></pre></div>
@@ -24162,11 +24225,11 @@ a frontmatter summary that is already there, deliberately — so that a tool ask
 to check citations never reformats a file's frontmatter. On a legacy report,
 read the section at the bottom; the frontmatter will not mention validation.</p>
 <p>For a non-destructive look, or JSON for tooling, call the underlying command:</p>
-<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>deep-research-client<span class="w"> </span>validate-references<span class="w"> </span>research/Foo-deep-research-falcon.md
-uv<span class="w"> </span>run<span class="w"> </span>deep-research-client<span class="w"> </span>validate-references<span class="w"> </span>research/Foo.md<span class="w"> </span>--json<span class="w"> </span>/tmp/report.json
+<div class="highlight"><pre><span></span><code>scripts/run_deep_research_client.sh<span class="w"> </span>validate-references<span class="w"> </span>research/Foo-deep-research-falcon.md
+scripts/run_deep_research_client.sh<span class="w"> </span>validate-references<span class="w"> </span>research/Foo.md<span class="w"> </span>--json<span class="w"> </span>/tmp/report.json
 </code></pre></div>
 <h2 id="what-this-does-not-replace">What this does <strong>not</strong> replace</h2>
-<p>A clean counts table is not permission to skip the evidence SOP. Three distinct
+<p>A clean counts table is not permission to skip the evidence SOP. Four distinct
 things stay exactly as they were:</p>
 <p><strong>1. KB snippet validation.</strong> This checks the <em>report's</em> citations. It says
 nothing about the snippet you later paste into <code>kb/disorders/*.yaml</code> — that is a
@@ -24191,14 +24254,20 @@ gene/OMIM/synonym preflight is unchanged and still mandatory:</p>
 make survives an existence check untouched. Quote checking catches some of this
 where the report actually quotes its source, but a report that <em>paraphrases</em> a
 paper into a claim the paper never made is not detectable here (issue #7791).</p>
+<p><strong>4. Dataset and analysis provenance.</strong> A report can cite a real GEO accession
+without accessing it, or report a numerical result without preserving code or
+outputs. Reference validation does not detect either problem. Verify accessions
+and relevance separately, inventory the provider's data sources and analyses,
+and downgrade any computation that lacks an auditable input-to-output chain.</p>
 <p>The one-line version: this closes the "does the citation exist" gap and part of
 the "does the quote appear in it" gap, at report time instead of hours later. It
-does not close "is it about the right disease" or "does it say what the report
-claims".</p>
+does not close "is it about the right disease", "does it say what the report
+claims", or "did the provider actually run the reported analysis".</p>
 <h2 id="related">Related</h2>
 <ul>
 <li>CLAUDE.md §2a (DR outputs need extra verification) and §2b (Named Entity
   Confusion)</li>
+<li><a href="../hypothesis-report-assessments/">Hypothesis Report Assessments and Reconciliation</a></li>
 <li><a href="../quality-control/">Quality Control &amp; Compliance</a></li>
 <li>Issue #8432 (this integration), #8685 (the 0.2.10 relevance check),
   #4525 (recording hallucinated DR citation IDs), #7791 (misattribution the
