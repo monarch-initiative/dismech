@@ -24,7 +24,7 @@ import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import ClassVar
 
@@ -345,7 +345,7 @@ def repin_manifest(
         )
 
     if notes:
-        new_date = snapshot_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        new_date = snapshot_date or datetime.now(UTC).strftime("%Y-%m-%d")
         if data.get("snapshot_date") != new_date:
             notes.append(f"snapshot_date: {data.get('snapshot_date')} -> {new_date}")
             data["snapshot_date"] = new_date

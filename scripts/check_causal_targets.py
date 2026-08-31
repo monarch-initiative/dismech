@@ -84,7 +84,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 BASELINE_PATH = ROOT / "tests" / "causal_target_baseline.txt"
 

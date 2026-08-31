@@ -72,7 +72,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 DEFAULT_ROOTS = ("kb/disorders", "kb/modules", "kb/comorbidities", "kb/groupings")
 
@@ -208,7 +208,7 @@ def resolve_remote(terms: list[Term]) -> list[tuple[Term, str]]:
         # a nonexistent code is the most serious finding this check can make.
         try:
             actual = adapters[prefix].label(term.curie)
-        except Exception:  # noqa: BLE001 - any lookup failure is a finding
+        except Exception:  # any lookup failure is itself a finding
             actual = None
         checked += 1
         if actual is None:

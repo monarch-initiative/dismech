@@ -19,16 +19,18 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+# See the note in test_causal_targets.py: the `sys.path` preamble must sit
+# directly before the import for ruff's E402 allowance to apply.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_qualifier_terms import (  # noqa: E402
+from check_qualifier_terms import (
     UNCONFIGURED_PREFIXES,
     Term,
     classify,
     iter_qualifier_terms,
 )
 
+ROOT = Path(__file__).parent.parent
 SCRIPT = ROOT / "scripts" / "check_qualifier_terms.py"
 
 CACHE = {"NCIT:C925": "Vancomycin", "NCIT:C2259": "Therapeutic Agent"}
@@ -59,7 +61,7 @@ def test_finds_terms_on_both_qualifier_roles():
 def test_label_disagreeing_with_the_ontology_is_a_finding():
     """The defect that reached main: a CURIE naming a different concept."""
     terms = [Term("x.yaml", "value", "NCIT:C925", "azacitidine")]
-    wrong, unverified, unconfigured, ok = classify(terms, CACHE)
+    wrong, _unverified, _unconfigured, ok = classify(terms, CACHE)
     assert [(t.curie, actual) for t, actual in wrong] == [("NCIT:C925", "Vancomycin")]
     assert ok == 0
 
@@ -100,6 +102,10 @@ def test_unconfigured_prefixes_are_counted_separately():
 def test_committed_kb_qualifier_labels_are_correct():
     """The gate itself, over the real KB."""
     result = subprocess.run(
-        [sys.executable, str(SCRIPT)], capture_output=True, text=True, cwd=ROOT
+        [sys.executable, str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr

@@ -16,11 +16,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Inline the path rather than assigning ROOT first: ruff's E402 allows an
+# import preceded by a `sys.path` preamble, but an intervening assignment
+# breaks that allowance, and the two ruff versions this repo sees disagree
+# about whether an E402 suppression is then required or itself unused (#9964).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from check_causal_targets import BARE_TARGET_SLOTS, find_in
+
 ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
-
-from check_causal_targets import BARE_TARGET_SLOTS, find_in  # noqa: E402
-
 SCRIPT = ROOT / "scripts" / "check_causal_targets.py"
 
 
@@ -100,6 +104,10 @@ def test_experiment_readout_targets_are_not_checked_here():
 def test_committed_kb_has_no_new_broken_targets():
     """The gate itself, over the real KB."""
     result = subprocess.run(
-        [sys.executable, str(SCRIPT)], capture_output=True, text=True, cwd=ROOT
+        [sys.executable, str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
