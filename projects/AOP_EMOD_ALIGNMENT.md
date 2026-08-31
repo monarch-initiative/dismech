@@ -617,8 +617,8 @@ resolve — `https://identifiers.org/aop.events:265` lands on
 
 This is recorded as a fact about the identifiers, not as a proposal. Declaring any of
 these in the schema's `prefixes:`, and whether a `Pathophysiology` or disease-level
-cross-reference slot should exist to carry them, are decisions for
-`docs/explanation/design-decisions.md` and their own issue. No `aop*:` CURIE appears
+cross-reference slot should exist to carry them, are open questions — see
+[Open schema questions](#open-schema-questions) below. No `aop*:` CURIE appears
 anywhere in `kb/`.
 
 ### What the scale axis showed
@@ -661,10 +661,11 @@ population level" row stands; there is no comparable organ-level gap.
 
 Six things this project has surfaced that dismech's schema currently cannot express.
 They are recorded here as questions, with the observation that raises each one, and
-deliberately without a proposed answer — the shape of a slot is a decision for
-[`docs/explanation/design-decisions.md`](../docs/explanation/design-decisions.md) and its
-own issue, tracked at
-[#10272](https://github.com/monarch-initiative/dismech/issues/10272).
+deliberately without a proposed answer. Working them is tracked at
+[#10272](https://github.com/monarch-initiative/dismech/issues/10272); an answer belongs
+on this page, next to the question it resolves. The list is a first pass at naming what
+is missing, so a question may be reworded, split, merged, or dropped as the project
+develops.
 
 Three come from the liver fibrosis NAM use case above and three restate rows already in
 the divergence table as dismech-side questions rather than as descriptions of how the two
