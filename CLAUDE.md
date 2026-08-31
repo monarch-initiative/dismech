@@ -662,13 +662,19 @@ pathophysiology:
 - name: Failure of Primary Hemostatic Plug Formation
   downstream:
   - target: Bleeding tendency          # correct — bare name
-  # - target: phenotypes#Bleeding tendency   # WRONG — edge silently not drawn
+  # - target: phenotypes#Bleeding tendency   # WRONG — draws a phantom node
 ```
 
 Writing `phenotypes#Bleeding tendency` there is not a validation error, a term
-error, or a rendering error. The entry validates, the page builds, and the edge
-simply does not exist. Issue #10112 found 175 such targets across 32 entries;
-one had lost every phenotype edge it had (0 of 7 connected).
+error, or a rendering error. The entry validates and the page builds.
+
+**The symptom is not a missing arrow, so do not go looking for one.** The edge is
+still appended, so the edge count never moves. The unresolved target lands in
+`orphan_targets`, and the renderer draws it as a *phantom duplicate node* — red
+fill, dashed red border, labelled with the literal `phenotypes#Bleeding tendency`
+string — while the real `Bleeding tendency` node drops out of the graph entirely.
+So the chain is fragmented and carries a bogus node. Issue #10112 found 175 such
+targets across 32 entries; one was left with 0 of 7 phenotypes connected.
 
 The mirror-image failure is a **rename**: change a node's `name` and every bare
 target pointing at it dangles, just as silently (#9697). Search the file for the

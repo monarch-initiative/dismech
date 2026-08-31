@@ -3,10 +3,12 @@
 `dismech.graph` builds edges by matching a `target` string verbatim against
 another item's `name`. Nothing resolves it, so a broken target is silent in a
 way a broken `attaches_to` is not: the entry passes LinkML validation, term
-validation and snippet verification, the page renders, and the only symptom is
-an edge that is not drawn. Issue #10112 found 175 such targets across 32
+validation and snippet verification, and the page renders. The edge is still
+appended, so the edge count never moves; the unresolved target lands in
+`orphan_targets` and the renderer draws it as a phantom duplicate node, orphaning
+the real node out of the graph. Issue #10112 found 175 such targets across 32
 entries — written with the `<kind>#<name>` entity-reference grammar, which this
-slot does not accept — including one entry that had lost every phenotype edge.
+slot does not accept — including one entry left with 0 of 7 phenotypes connected.
 
 These tests pin the classification, because the three classes have different
 causes and must not collapse into each other.

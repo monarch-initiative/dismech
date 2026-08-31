@@ -157,6 +157,18 @@ def refresh_cmd(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
 
+    if repin and not changes:
+        # `refresh` skips the download entirely when a local file already matches
+        # the pin, so `--repin` on an up-to-date checkout has nothing to record.
+        # Say so: a silent no-op reads like the repin failed.
+        typer.echo(
+            "--repin: nothing to repin. Every bulk file either matches the pinned "
+            "checksum already or was re-downloaded and still matches, so the "
+            "manifest is current.\n"
+            "If you expected a change, the local copy may predate the upstream "
+            "release; re-run with --force to download regardless."
+        )
+
     if changes:
         manifest = _manifest_path(source)
         if manifest is None:

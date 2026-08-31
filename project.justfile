@@ -1005,9 +1005,10 @@ check-entity-refs *files:
 # check-entity-refs: `downstream[].target`, `sequelae[].target`,
 # `reports_on[].target` and `target_mechanisms[].target` hold a plain node name
 # matched verbatim by `dismech.graph`, NOT the `<kind>#<name>` grammar. A broken
-# one is completely silent -- the entry validates, the page renders, and the edge
-# is simply not drawn. Ungated and whole-KB for the same reason as the two lanes
-# above: a rename severs edges the PR never touched.
+# one is completely silent -- the entry validates and the page renders, while the
+# pathograph gains a phantom duplicate node and loses the real one. Ungated and
+# whole-KB for the same reason as the two lanes above: a rename severs edges the
+# PR never touched.
 [group('QC')]
 check-causal-targets *files:
     uv run python scripts/check_causal_targets.py "$@"

@@ -15,9 +15,16 @@ Unlike ``attaches_to``, these are **bare names** — the schema says so in as ma
 words ("Must match a pathophysiology or phenotype name in the same disease
 file"). They are matched verbatim, with no resolution step, which makes a broken
 one completely silent: LinkML validation, term validation and snippet
-verification all pass, the page still renders, and the only symptom is an edge
-that quietly is not drawn. An entry can lose every one of its phenotype edges
-and still be green (issue #10112 found one at 0 of 7).
+verification all pass, and the page still renders.
+
+What actually happens is worse than a missing edge. ``build_causal_graph``
+appends every declared edge unconditionally, so the edge count never moves; the
+unresolved target instead lands in ``orphan_targets``, and the renderer draws it
+as a **phantom duplicate node** -- red fill, dashed red border, reached by a
+dashed edge, labelled with the literal ``phenotypes#Bleeding tendency`` string.
+The real node it should have connected to drops out of the graph entirely. So
+the chain is fragmented and carries a bogus node, rather than quietly losing an
+arrow (issue #10112 found one entry at 0 of 7 phenotypes connected).
 
 Why this needs its own ungated, whole-KB pass
 ---------------------------------------------
@@ -274,7 +281,6 @@ def main() -> int:
         print()
 
     if not failures:
-        n = len(findings) - len(by_kind["self"])
         print(
             f"OK: no new broken pathograph targets "
             f"({len(baseline)} dangling target(s) grandfathered)."
@@ -284,8 +290,12 @@ def main() -> int:
     print("Broken pathograph target(s) detected in KB YAML.\n")
     print(
         "These slots hold BARE node names matched verbatim against the `name` of\n"
-        "another item in the same entry. A broken one is silent: the entry still\n"
-        "validates and still renders, but the edge is simply not drawn.\n"
+        "another item in the same entry. A broken one is silent to every other\n"
+        "check: the entry validates and the page renders. What it does to the\n"
+        "pathograph is draw a PHANTOM duplicate node -- red, dashed, labelled with\n"
+        "the raw target string -- and orphan the real node out of the graph. So\n"
+        "do not go looking for a missing arrow; look for a red node that should\n"
+        "not be there.\n"
     )
     if by_kind["prefixed"]:
         print(
