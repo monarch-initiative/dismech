@@ -649,7 +649,7 @@ fetch-ontology-dbs *names="":
 # have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
 # curation PR deletes the stub and adds the kb/ entry. See docs/curation-stubs.md.
 
-# Gates only on a malformed file: unparseable YAML, a bad MONDO ID, a duplicate,
+# Gates only on a malformed file: unparsable YAML, a bad MONDO ID, a duplicate,
 # a bad enum value. Staleness (the disease got curated elsewhere, the term was
 # retired) is an advisory and never gates — stubs are informative, not curated
 # content, and an unrelated curation PR must not turn stub PRs red.
@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1726,6 +1726,7 @@ dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip
 # recipe writes `-cyberian-codex.md` for a run whose provider is `cyberian`.
 dr_fallback := ""
 dr_align := "uv run python scripts/align_research_provider.py"
+dr_stamp := "uv run python scripts/template_version.py stamp --quiet"
 
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
 # The report is a source of *candidate* accessions only: every accession it
@@ -1766,9 +1767,27 @@ research-datasets provider disorder *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
+
+# Report which revision of a research template produced each report, and how
+# many predate the current prompt. A report records `template_file:` as a bare
+# path, so the file behind it changes while the reference does not (#10183).
+# New reports are stamped with `template_sha` at generation time; older ones are
+# resolved from their start_time against the template's commit history, which is
+# why no backfill of committed reports is needed.
+# `stamped` is what the generator recorded; `inferred` is reconstructed and
+# assumes the working tree matched a committed revision. Do not read
+# "undetermined" as "stale" -- they are separate rows for that reason.
+# Examples:
+#   just template-version-audit --stale-only --format list
+#   just template-version-audit --template templates/disease_pathophysiology_research.md
+#   just template-version-audit
+[group('Research')]
+template-version-audit *args="":
+    @uv run python scripts/template_version.py audit {{args}}
 
 # Verify that datasets[].accession values resolve to real repository records.
 # Nothing else in the validation stack checks dataset accessions, so run this
@@ -1862,6 +1881,7 @@ research-disorder provider disorder *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
@@ -1939,6 +1959,7 @@ research-module provider module *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
@@ -2014,6 +2035,7 @@ research-comorbidity provider comorbidity *args="":
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
 	if [ -f "$output_file" ]; then
+	    {{dr_stamp}} "$output_file"
 	    {{dr_align}} "$output_file" --requested "$requested_provider"
 	fi
 	exit ${dr_status:-0}
@@ -2056,6 +2078,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
 	if [ -f "$output_file" ]; then
+	    {{dr_stamp}} "$output_file"
 	    {{dr_align}} "$output_file" --requested "$requested_provider"
 	fi
 	exit ${dr_status:-0}
@@ -2091,6 +2114,7 @@ research-disorder-cyberian-codex disorder *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}

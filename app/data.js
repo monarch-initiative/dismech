@@ -38657,6 +38657,88 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Bone Marrow Failure Syndrome 6",
+    "disease_id": "MONDO:0030015",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited bone marrow failure syndrome",
+      "Bone marrow failure syndrome"
+    ],
+    "creation_date": "2026-08-30T19:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bone marrow failure syndrome 6 (BMFS6; OMIM 618849) is an inherited bone marrow failure syndrome caused by germline heterozygous loss-of-function variants in MDM4, a negative regulator of p53. It was defined in 2020 in a single family with features suggestive of dyskeratosis congenita - marrow hypocellularity, short telomeres, tongue squamous cell carcinoma and acute myeloid leukaemia - carrying the p.T454M allele. A 2026 cohort of six further unrelated individuals with variable bone marrow failure and hypocellular myelodysplastic syndrome, presenting at a median age of 10 years across a range from four weeks to 53 years, established the gene at cohort scale and supplied the functional dissection.\nThe mechanism inverts the usual reading of the p53 pathway in haematology. MDM4 restrains p53; halving MDM4 therefore does not damage a repair pathway, it removes a brake. The consequence is p53 hyperactivity in haematopoietic stem and progenitor cells, with impaired colony formation, reduced engraftment and reduced erythroid and myeloid output. The authors name the category directly: MDM4 deficiency is a TP53-activating syndrome. Two orthogonal engineered systems support the chain - CRISPR deletion of MDM4 in healthy-donor HSPCs, and patient-specific variants knocked into iPSCs - and complementation shows that both the p53-binding domain and the RING-finger domain are required for MDM4's haematopoietic function.\nThe disease sits, on current evidence, inside the telomere biology disorders rather than beside them. The founding family had short telomeres, and the p.T454M knock-in mouse reproduces increased p53 activity, decreased telomere length and bone marrow failure together. The 2026 cohort paper does not report telomere measurements, so how consistent the telomere phenotype is across genotypes remains open - but the direction of travel is that p53 hyperactivity is itself a cause of telomere dysfunction, not merely a correlate of it.\nThe most striking single observation is evolutionary rather than developmental: one patient who progressed to MDS had acquired somatic loss-of-function TP53 mutations. Read against the germline lesion this is not a second hit in the ordinary tumour-suppressor sense but its opposite - a somatic event that relieves the very p53 hyperactivity the germline variant causes, buying clonal fitness at the cost of losing p53 tumour suppression. The source calls this maladaptive somatic rescue, and it is curated here as its own node.\n",
+    "pathophysiology": [
+      "Germline Heterozygous MDM4 Loss-of-Function Variants",
+      "Loss of MDM4-Mediated p53 Restraint",
+      "p53 Pathway Hyperactivation in Hematopoietic Stem and Progenitor Cells",
+      "Impaired HSPC Self-Renewal and Multilineage Output",
+      "Bone Marrow Failure with Hypocellular Marrow",
+      "Telomere Shortening",
+      "Somatic TP53 Loss-of-Function as Maladaptive Clonal Rescue",
+      "Progression to Myelodysplastic Syndrome and Leukemia"
+    ],
+    "cell_types": [
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "negative regulation of signal transduction by p53 class mediator",
+      "signal transduction by p53 class mediator",
+      "erythrocyte differentiation",
+      "myeloid cell differentiation",
+      "telomere maintenance"
+    ],
+    "phenotypes": [
+      "Bone Marrow Failure",
+      "Hypocellular Myelodysplastic Syndrome",
+      "Short Telomeres",
+      "Acute Myeloid Leukemia",
+      "Squamous Cell Carcinoma of the Tongue"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0005528",
+      "HP:0002863",
+      "HP:0031413",
+      "HP:0004808",
+      "HP:0030413"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MDM4",
+      "TP53"
+    ],
+    "treatments": [
+      "Hematopoietic Stem Cell Transplantation",
+      "Androgen Therapy (Danazol or Oxymetholone)",
+      "MDM2/MDMX inhibitors (nutlins and successors) - contraindicated on mechanistic grounds"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bone_Marrow_Failure_Syndrome_6.yaml",
+    "page_url": "../pages/disorders/Bone_Marrow_Failure_Syndrome_6.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Borderline Personality Disorder",
     "disease_id": "MONDO:0001156",
     "category": "Psychiatric",
@@ -61136,7 +61218,8 @@ window.searchData = [
       "NLRP3 Inflammasome Activation",
       "Cellular Senescence",
       "SIRT1-Mediated NAD+ Signaling and Protective Deacetylation",
-      "Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)"
+      "Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)",
+      "Cuproptosis-Driven Cell Death"
     ],
     "cell_types": [
       "Epithelial Cell",
@@ -61149,7 +61232,9 @@ window.searchData = [
       "goblet cell",
       "club cell",
       "fibroblast",
-      "Airway Epithelial Cell"
+      "Airway Epithelial Cell",
+      "alveolar type II cell",
+      "anti-inflammatory M2 macrophage"
     ],
     "cell_type_ids": [
       "CL:0000066",
@@ -61161,7 +61246,9 @@ window.searchData = [
       "CL:0002368",
       "CL:0000160",
       "CL:0000158",
-      "CL:0000057"
+      "CL:0000057",
+      "CL:0002063",
+      "CL:0000890"
     ],
     "biological_processes": [
       "inflammatory response",
@@ -61181,7 +61268,12 @@ window.searchData = [
       "negative regulation of inflammatory response",
       "Proteolysis",
       "Extracellular Matrix Disassembly",
-      "Response to Oxidative Stress"
+      "Response to Oxidative Stress",
+      "copper homeostasis",
+      "stress response to copper ion",
+      "cuproptosis",
+      "mitochondrial proteotoxic stress",
+      "oxidative phosphorylation"
     ],
     "phenotypes": [
       "Dyspnea",
@@ -61260,10 +61352,10 @@ window.searchData = [
     "source_file": "Chronic_Obstructive_Pulmonary_Disease.yaml",
     "page_url": "../pages/disorders/Chronic_Obstructive_Pulmonary_Disease.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 7,
     "num_treatments": 11,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "4"
   },
   {
@@ -68769,7 +68861,10 @@ window.searchData = [
       "Placental Infection",
       "Placental Architectural and Functional Disruption",
       "Fetal Growth Restriction",
-      "Maternal-Fetal Transmission and Neurotropic Viral Entry",
+      "Transplacental Viral Transfer to the Fetal Compartment",
+      "Neurotropic Entry into Fetal Neural Progenitors",
+      "Spinal Anterior Horn Motor Neuron Loss",
+      "Fetal Akinesia",
       "Antiviral Innate Immune Activation",
       "Viral Mitotic and Centrosome Cytopathy",
       "Neural Progenitor Apoptosis and Pool Depletion",
@@ -68777,19 +68872,26 @@ window.searchData = [
     ],
     "cell_types": [
       "trophoblast cell",
+      "Hofbauer cell (placental macrophage)",
+      "Cytotrophoblast",
       "Radial glial cell",
-      "Neural progenitor cell"
+      "Neural progenitor cell",
+      "Anterior horn motor neuron"
     ],
     "cell_type_ids": [
       "CL:0000351",
+      "CL:3000001",
+      "CL:0000523",
       "CL:0000681",
-      "CL:0011020"
+      "CL:0011020",
+      "CL:2000048"
     ],
     "biological_processes": [
       "tunneling nanotube formation",
       "TNT-shielded escape from maternal type III interferon control",
       "maternal type III interferon (IFN-lambda) signaling at the maternal-fetal interface",
       "placental architecture and efficiency",
+      "type III interferon production by trophoblast",
       "Viral entry into host cell",
       "Viral genome replication",
       "Innate immune response",
@@ -68809,12 +68911,31 @@ window.searchData = [
       "Microcephaly",
       "Lissencephaly",
       "Intracranial Calcification",
-      "Hydrocephalus"
+      "Hydrocephalus",
+      "Arthrogryposis",
+      "Sensorineural Hearing Loss",
+      "Chorioretinal Abnormalities",
+      "Cerebellar Hypoplasia",
+      "Ventriculomegaly",
+      "Seizures",
+      "Spastic Hypertonia",
+      "Dysphagia",
+      "Global Developmental Delay",
+      "Small for Gestational Age"
     ],
     "phenotype_categories": [
-      "Neurologic"
+      "Neurologic",
+      "Musculoskeletal",
+      "Auditory",
+      "Ophthalmologic",
+      "Gastrointestinal",
+      "Growth"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
       "Head and Neck",
       "Musculoskeletal",
       "Nervous System"
@@ -68823,9 +68944,23 @@ window.searchData = [
       "HP:0000252",
       "HP:0001339",
       "HP:0002514",
-      "HP:0000238"
+      "HP:0000238",
+      "HP:0002804",
+      "HP:0000407",
+      "HP:0000533",
+      "HP:0001321",
+      "HP:0002119",
+      "HP:0001250",
+      "HP:0001276",
+      "HP:0002015",
+      "HP:0001263",
+      "HP:0001518"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
     "genes": [],
     "treatments": [
       "Supportive Care",
@@ -68835,12 +68970,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Congenital_Zika_Syndrome.yaml",
     "page_url": "../pages/disorders/Congenital_Zika_Syndrome.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 12,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Congestive Splenomegaly",
@@ -70734,6 +70869,117 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Cranial Neuralgia",
+    "disease_id": "MONDO:0016374",
+    "category": "Complex",
+    "parents": [
+      "neuralgia",
+      "cranial nerve neuropathy"
+    ],
+    "creation_date": "2026-08-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Trigeminal",
+      "Glossopharyngeal",
+      "Nervus Intermedius",
+      "Occipital"
+    ],
+    "description": "Cranial neuralgia is paroxysmal, severe, lancinating pain confined to the sensory territory of a cranial (or, by clinical convention, an upper cervical) nerve, characteristically provoked by innocuous stimulation of a trigger zone. In the nerve-defined forms that dominate the category \u2014 trigeminal neuralgia by a wide margin, then glossopharyngeal and nervus intermedius neuralgia \u2014 the best-supported mechanism is chronic pulsatile compression of the nerve root by an overlying artery close to its entry into the brainstem. That compression produces focal demyelination and juxtaposition of bare axons, which favours ectopic impulse generation and ephaptic cross-talk between large tactile afferents and nociceptive fibres; synchronized high-frequency afterdischarge is then experienced as an abrupt shock-like paroxysm. The same demyelinating lesion is reached by other routes in secondary disease, most often a pontine multiple sclerosis plaque or a posterior fossa tumour compressing the root. Sodium-channel-blocking anticonvulsants (carbamazepine, oxcarbazepine) suppress the high-frequency firing and are first-line; microvascular decompression removes the compressive lesion itself and gives the most durable medication-free relief.",
+    "pathophysiology": [
+      "Neurovascular Compression at the Nerve Root Entry Zone",
+      "Focal Demyelination and Axonal Juxtaposition",
+      "Dysregulated Voltage-Gated Sodium Channel Expression",
+      "Ectopic Discharge and Ephaptic Cross-Excitation",
+      "Paroxysmal Neuralgiform Pain",
+      "Trigger Zone Mechanical Provocation",
+      "Central Demyelinating Plaque in Multiple Sclerosis",
+      "Posterior Fossa Mass Compressing the Nerve Root",
+      "Extracranial Entrapment of the Occipital Nerves"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "trigeminal ganglion sensory neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:4023169"
+    ],
+    "biological_processes": [
+      "myelin maintenance",
+      "regulation of membrane potential",
+      "neuronal action potential",
+      "action potential propagation",
+      "sensory perception of pain",
+      "detection of mechanical stimulus involved in sensory perception"
+    ],
+    "phenotypes": [
+      "Paroxysmal Lancinating Facial Pain",
+      "Unilateral Pain Distribution",
+      "Concomitant Persistent Background Pain",
+      "Trigger-Evoked Attacks",
+      "Sensory Deficit in the Affected Territory",
+      "Cranial Autonomic Features",
+      "Deep Ear Pain",
+      "Occipital Scalp Pain",
+      "Reflex Bradycardia and Cardiac Syncope During Attacks"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0100661",
+      "HP:0012532",
+      "HP:0033748",
+      "HP:0031731",
+      "HP:0030766",
+      "HP:0012318",
+      "HP:0001279"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "C8B",
+      "MFGE8"
+    ],
+    "treatments": [
+      "Carbamazepine",
+      "Oxcarbazepine",
+      "Second-Line and Add-On Anticonvulsant Therapy",
+      "Intravenous Therapy for Acute Exacerbation",
+      "Microvascular Decompression",
+      "Percutaneous Ablative Procedures",
+      "Stereotactic Radiosurgery",
+      "Botulinum Toxin Type A Injection",
+      "Occipital Nerve Block",
+      "Psychological and Nursing Support"
+    ],
+    "environmental": [
+      "Chronic arterial hypertension"
+    ],
+    "biochemical": [],
+    "source_file": "Cranial_Neuralgia.yaml",
+    "page_url": "../pages/disorders/Cranial_Neuralgia.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 10,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Cranioectodermal Dysplasia",
@@ -80378,6 +80624,171 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Diphtheria",
+    "disease_id": "MONDO:0005504",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Bacterial Respiratory Infection"
+    ],
+    "creation_date": "2026-08-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Faucial",
+      "Laryngeal",
+      "Anterior nasal",
+      "Nasopharyngeal",
+      "Cutaneous"
+    ],
+    "description": "Diphtheria is an acute, toxin-mediated infection of the upper respiratory mucosa or the skin caused by toxigenic strains of Corynebacterium diphtheriae and, less often, by toxigenic C. ulcerans. Toxigenicity is conferred by a lysogenic corynebacteriophage carrying the tox gene, whose transcription is derepressed when the iron-dependent repressor DtxR loses its ferrous cofactor. The secreted exotoxin binds the membrane-anchored heparin-binding EGF-like growth factor precursor (proHB-EGF), is taken up by receptor-mediated endocytosis, and delivers its catalytic domain to the cytosol, where it ADP-ribosylates the diphthamide residue of eukaryotic elongation factor 2. Translational arrest and host cell death produce the adherent grey-white pseudomembrane at the site of colonization and, after toxin dissemination, myocarditis with conduction disturbance and a descending demyelinating polyneuropathy at distant sites. Antitoxin neutralizes only toxin that has not yet entered cells, which is why the outcome depends on how early it is given.",
+    "pathophysiology": [
+      "Lysogenic Conversion by a tox-Bearing Corynebacteriophage",
+      "Iron-Regulated Diphtheria Toxin Expression",
+      "Mucosal Colonization and Adherence",
+      "Diphtheria Toxin Binding to the proHB-EGF Receptor",
+      "Endocytosis and Catalytic Domain Translocation",
+      "eEF2 Diphthamide ADP-Ribosylation",
+      "Translational Arrest and Host Cell Death",
+      "Pseudomembrane Formation",
+      "Upper Airway Obstruction",
+      "Systemic Toxin Dissemination",
+      "Diphtheritic Myocarditis",
+      "Cardiac Conduction System Injury",
+      "Toxin-Mediated Schwann Cell Injury and Demyelination",
+      "Absent or Waning Antitoxin Immunity",
+      "Bacterial mRNA Translation by the Ribosome (Macrolide Target)",
+      "Bacterial Peptidoglycan Cross-Linking (Beta-Lactam Target)"
+    ],
+    "cell_types": [
+      "nasopharyngeal epithelial cell",
+      "cardiac muscle cell",
+      "myelinating Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001573",
+      "CL:0000746",
+      "CL:0000218"
+    ],
+    "biological_processes": [
+      "cellular response to iron ion starvation",
+      "cell adhesion",
+      "receptor-mediated endocytosis",
+      "translational elongation",
+      "negative regulation of translation",
+      "apoptotic process",
+      "inflammatory response",
+      "myelination",
+      "adaptive immune response",
+      "translation",
+      "cell wall organization"
+    ],
+    "phenotypes": [
+      "Pharyngeal Pseudomembrane",
+      "Pharyngitis",
+      "Cervical Lymphadenopathy",
+      "Bull Neck (Anterior Cervical Swelling)",
+      "Stridor",
+      "Hoarse Voice",
+      "Upper Airway Obstruction",
+      "Nasal Discharge",
+      "Skin Ulcer",
+      "Myocarditis",
+      "Fever",
+      "Congestive Heart Failure",
+      "Atrioventricular Block",
+      "Palatal Palsy",
+      "Nasal Regurgitation and Hypernasal Speech",
+      "Dysphagia",
+      "Impaired Visual Accommodation",
+      "Peripheral Demyelination",
+      "Polyneuropathy",
+      "Tetraparesis",
+      "Acute Kidney Injury",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Lymphatic",
+      "Head and Neck",
+      "Dermatologic",
+      "Cardiovascular",
+      "Constitutional",
+      "Neurologic",
+      "Ophthalmologic",
+      "Renal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0033151",
+      "HP:0025439",
+      "HP:0025289",
+      "HP:6000176",
+      "HP:0010307",
+      "HP:0001609",
+      "HP:0002781",
+      "HP:0031417",
+      "HP:0200042",
+      "HP:0012819",
+      "HP:0001945",
+      "HP:0001635",
+      "HP:0001678",
+      "HP:0001283",
+      "HP:0001611",
+      "HP:0002015",
+      "HP:0030801",
+      "HP:0011096",
+      "HP:0001271",
+      "HP:0002273",
+      "HP:0001919",
+      "HP:0001873"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Diphtheria Antitoxin",
+      "Macrolide Antibiotic Therapy",
+      "Benzylpenicillin",
+      "Diphtheria Toxoid Vaccination",
+      "Tracheotomy"
+    ],
+    "environmental": [
+      "Person-to-person respiratory transmission of toxigenic Corynebacterium diphtheriae",
+      "Contact with companion or farm animals carrying toxigenic Corynebacterium ulcerans"
+    ],
+    "biochemical": [
+      "Serum diphtheria antitoxin titre",
+      "Brain natriuretic peptide and creatine kinase MB"
+    ],
+    "source_file": "Diphtheria.yaml",
+    "page_url": "../pages/disorders/Diphtheria.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 16,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Disorder of Catecholamine Synthesis",
@@ -144719,6 +145130,182 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Lethal Congenital Contracture Syndrome",
+    "disease_id": "MONDO:0017436",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder"
+    ],
+    "creation_date": "2026-08-28T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "LCCS1",
+      "LCCS2",
+      "LCCS3",
+      "LCCS4",
+      "LCCS5",
+      "LCCS6",
+      "LCCS7",
+      "LCCS8",
+      "LCCS9",
+      "LCCS10",
+      "LCCS11",
+      "LCCS12"
+    ],
+    "description": "Lethal congenital contracture syndrome (LCCS) is a genetically heterogeneous group of autosomal recessive fetal akinesia deformation sequence disorders in which developmental failure of the fetal motor unit abolishes fetal movement. The numbered forms (LCCS1-LCCS12) place the primary lesion at different levels of that motor unit - anterior horn motor neuron survival in LCCS1-LCCS3, Schwann cell myelination and node-of-Ranvier assembly in LCCS2 and LCCS7-LCCS9 and LCCS11, and the sarcomere and neuromuscular junction in LCCS4-LCCS6 - but they converge on the same downstream sequence: absent fetal movement, multiple joint contractures, muscle hypoplasia, micrognathia, polyhydramnios, pulmonary hypoplasia, and prenatal or early neonatal death. \"Lethal\" is a historical label rather than an invariant outcome: some GLDN-related infants survive the neonatal period with intensive respiratory and nutritional support.",
+    "pathophysiology": [
+      "Nuclear mRNA Export Failure",
+      "PI3K-Akt Signaling Loss",
+      "Phosphoinositide Synthesis Deficiency",
+      "cAMP Synthesis Deficiency",
+      "Mitotic and Ciliary Regulatory Failure",
+      "Anterior Horn Motor Neuron Loss",
+      "Schwann Cell Myelination Failure",
+      "Node of Ranvier Assembly Failure",
+      "Impaired Motor Nerve Conduction",
+      "Myofibril Assembly Failure",
+      "Endocytic Trafficking Failure",
+      "Neurogenic Skeletal Muscle Atrophy and Hypoplasia",
+      "Absent Fetal Movement",
+      "Joint Contracture Formation",
+      "Impaired Swallowing",
+      "Pulmonary Hypoplasia",
+      "Neonatal Respiratory Failure"
+    ],
+    "cell_types": [
+      "spinal cord motor neuron",
+      "Schwann cell",
+      "Schwann cell precursor",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0011001",
+      "CL:0002573",
+      "CL:0002375",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "mRNA export from nucleus",
+      "phosphatidylinositol 3-kinase/protein kinase B signal transduction",
+      "cAMP biosynthetic process",
+      "cilium assembly",
+      "spinal cord motor neuron differentiation",
+      "peripheral nervous system myelin formation",
+      "neuronal action potential propagation",
+      "myofibril assembly",
+      "endocytosis",
+      "skeletal muscle tissue development",
+      "lung development"
+    ],
+    "phenotypes": [
+      "Absent Fetal Movement",
+      "Multiple Congenital Joint Contractures",
+      "Pulmonary Hypoplasia",
+      "Neonatal Respiratory Failure",
+      "Polyhydramnios",
+      "Hydrops Fetalis",
+      "Micrognathia",
+      "Intrauterine Growth Restriction",
+      "Skeletal Muscle Atrophy",
+      "Pterygia",
+      "Reduced Motor Nerve Conduction Velocity",
+      "Neurogenic Bladder",
+      "Intracranial Hemorrhage",
+      "Retinal Hemorrhage",
+      "Talipes Equinovarus",
+      "Areflexia",
+      "Dysphagia",
+      "Overlapping Fingers",
+      "Vocal Cord Paresis",
+      "Severe Hypotonia"
+    ],
+    "phenotype_categories": [
+      "Prenatal",
+      "Musculoskeletal",
+      "Respiratory",
+      "Craniofacial",
+      "Growth",
+      "Neurologic",
+      "Genitourinary",
+      "Ophthalmologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0001558",
+      "HP:0002828",
+      "HP:0002089",
+      "HP:0002878",
+      "HP:0001561",
+      "HP:0001789",
+      "HP:0000347",
+      "HP:0001511",
+      "HP:0003202",
+      "HP:0001059",
+      "HP:0003431",
+      "HP:0000011",
+      "HP:0002170",
+      "HP:0000573",
+      "HP:0001762",
+      "HP:0001284",
+      "HP:0002015",
+      "HP:0010557",
+      "HP:0001604",
+      "HP:0001290"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GLE1",
+      "ERBB3",
+      "PIP5K1C",
+      "MYBPC1",
+      "DNM2",
+      "ZBTB42",
+      "CNTNAP1",
+      "ADCY6",
+      "ADGRG6",
+      "NEK9",
+      "GLDN",
+      "DST"
+    ],
+    "treatments": [
+      "Mechanical Ventilation and Chronic Respiratory Support",
+      "Enteral Nutritional Support",
+      "Genetic Counseling and Prenatal Testing",
+      "Palliative and Supportive Care",
+      "Contracture Management and Rehabilitation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lethal_Congenital_Contracture_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lethal_Congenital_Contracture_Syndrome.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 17,
+    "num_genes": 12,
+    "num_treatments": 5,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Leukocyte Adhesion Deficiency Type II",
     "disease_id": "MONDO:0009953",
     "category": "Mendelian",
@@ -161994,7 +162581,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
   },
   {
@@ -193748,6 +194335,120 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 4,
     "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Peroxisome Biogenesis Disorder 4A (Zellweger)",
+    "disease_id": "MONDO:0013930",
+    "category": "Mendelian",
+    "parents": [
+      "Peroxisome Biogenesis Disorder",
+      "Zellweger Spectrum Disorder"
+    ],
+    "creation_date": "2026-08-29T16:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Peroxisome biogenesis disorder 4A is the severe, neonatal-lethal end of the PEX6-related Zellweger spectrum - historically complementation group 4 (also catalogued as group C), which is where the \"4\" in the name comes from. PEX6 is an AAA-ATPase that heterohexamerises with PEX1 to form the receptor export module: the ATP-driven motor that pulls monoubiquitinated PEX5 back out of the peroxisomal membrane so the receptor can carry another load of matrix enzymes into the organelle. PEX6 defects are the second most common cause of Zellweger spectrum disease after PEX1.\nWhat separates PBD4A from PBD4B is not the gene but how much peroxin-6 activity the genotype leaves behind. Biallelic null or severely truncating PEX6 alleles abolish the export motor outright, PEX5 recycling stops, and matrix protein import collapses. The peroxisomal membrane is still made - patient cells contain \"peroxisomal ghosts\", membrane compartments with no matrix enzymes inside - so this is a disorder of biogenesis rather than of any one peroxisomal enzyme. The biochemical signature is correspondingly broad in both directions: very-long-chain fatty acids, phytanic and pristanic acid and C27 bile-acid intermediates accumulate because nothing is left to degrade them, while plasmalogens are missing because nothing is left to synthesise them.\nBoth halves of that lesion damage the developing brain, the liver and the kidney simultaneously, and they do so before birth: the neuronal migration defect that produces perisylvian polymicrogyria is complete by the time the child is born, which is the reason no post-natal therapy changes the neurological outcome. Affected newborns are profoundly hypotonic, feed poorly, seize, and have distinctive facies, renal cysts, epiphyseal stippling and severe liver disease. Survival is usually less than a year.\nThis entry is the severity counterpart of Peroxisome Biogenesis Disorder 4B at the same locus, and the PEX6 counterpart of Peroxisome Biogenesis Disorder 3A (PEX12) and 11A (PEX26). The gene-agnostic downstream cascade shared by the whole spectrum is curated on the Zellweger Spectrum Disorders entry; what is carried here is what is PEX6- and classic-Zellweger-specific.",
+    "pathophysiology": [
+      "Biallelic Null PEX6 Genotype",
+      "Receptor Export Module Failure",
+      "Collapse of Peroxisomal Matrix Protein Import",
+      "Loss of Peroxisomal Fatty Acid Oxidation",
+      "Plasmalogen Biosynthesis Failure",
+      "C27 Bile Acid Intermediate Accumulation",
+      "Cholestatic Liver Injury",
+      "Defective Neuronal Migration in the Developing Cortex"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein import into peroxisome matrix",
+      "peroxisome organization",
+      "fatty acid beta-oxidation",
+      "fatty acid alpha-oxidation",
+      "ether lipid biosynthetic process",
+      "bile acid metabolic process",
+      "cerebral cortex cell migration",
+      "neuron migration"
+    ],
+    "phenotypes": [
+      "Severe Neonatal Hypotonia",
+      "Neonatal Seizures",
+      "Neuronal Migration Defect",
+      "Feeding Difficulties",
+      "Hepatomegaly and Neonatal Cholestasis",
+      "Hyperbilirubinemia",
+      "Renal Cysts",
+      "Epiphyseal Stippling",
+      "Distinctive Facies",
+      "Sensorineural Hearing Loss",
+      "Cataract",
+      "Absence of Developmental Progress"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Gastrointestinal",
+      "Hepatic",
+      "Renal",
+      "Skeletal",
+      "Craniofacial",
+      "Auditory",
+      "Ophthalmologic",
+      "Developmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001290",
+      "HP:0032807",
+      "HP:0002269",
+      "HP:0011968",
+      "HP:0002240",
+      "HP:0002904",
+      "HP:0000107",
+      "HP:0010655",
+      "HP:0000348",
+      "HP:0000407",
+      "HP:0000518",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PEX6"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Management",
+      "Oral Cholic Acid",
+      "Docosahexaenoic Acid Supplementation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Very-long-chain fatty acids",
+      "Erythrocyte plasmalogens"
+    ],
+    "source_file": "Peroxisome_Biogenesis_Disorder_4A_Zellweger.yaml",
+    "page_url": "../pages/disorders/Peroxisome_Biogenesis_Disorder_4A_Zellweger.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
   },
   {
@@ -256142,17 +256843,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2484,
-  "total_subtypes": 3529,
-  "total_disorders_and_subtypes": 6013,
-  "total_unique_evidence_sources": 35606,
-  "total_unique_publications": 33487,
+  "total_disorder_pages": 2489,
+  "total_subtypes": 3550,
+  "total_disorders_and_subtypes": 6039,
+  "total_unique_evidence_sources": 35720,
+  "total_unique_publications": 33598,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 266,
-  "total_pathographs": 2479,
-  "total_unique_pathological_events": 14390,
+  "total_pathographs": 2484,
+  "total_unique_pathological_events": 14446,
   "total_modules": 166,
-  "total_research_reports": 2601,
+  "total_research_reports": 2606,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 99
