@@ -121,6 +121,39 @@ def test_repin_manifest_updates_only_the_drifted_lines(tmp_path):
     assert reloaded["bulk_files"][0]["sha256"] == NEW_SHA
 
 
+def test_repin_refuses_a_download_that_lost_most_of_its_content(tmp_path):
+    """A truncated transfer and a new release look identical by checksum.
+
+    Size is the one cheap discriminator: these sources grow or shrink by a few
+    percent between releases, not by half. Recording a truncated file's checksum
+    would pin the corruption as if it were upstream's intent.
+    """
+    manifest = tmp_path / "MANIFEST.yaml"
+    manifest.write_text(MANIFEST.replace("size_bytes: 1", "size_bytes: 1000000"))
+
+    with pytest.raises(RuntimeError, match="refusing to repin"):
+        repin_manifest(
+            manifest,
+            [ChecksumChange("data.xml", STALE_SHA, NEW_SHA, 1234)],
+        )
+
+    # The manifest must be untouched when the guard fires.
+    assert STALE_SHA in manifest.read_text()
+
+
+def test_repin_accepts_an_ordinary_release_size_change(tmp_path):
+    """The guard must not block a normal release, which moves by a few percent."""
+    manifest = tmp_path / "MANIFEST.yaml"
+    manifest.write_text(MANIFEST.replace("size_bytes: 1", "size_bytes: 1000000"))
+
+    notes = repin_manifest(
+        manifest,
+        [ChecksumChange("data.xml", STALE_SHA, NEW_SHA, 1_050_000)],
+    )
+
+    assert notes and NEW_SHA in manifest.read_text()
+
+
 def test_repin_manifest_is_a_noop_without_changes(tmp_path):
     manifest = tmp_path / "MANIFEST.yaml"
     manifest.write_text(MANIFEST)

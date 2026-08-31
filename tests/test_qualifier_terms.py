@@ -24,9 +24,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from check_qualifier_terms import (
-    UNCONFIGURED_PREFIXES,
     Term,
     classify,
+    configured_prefixes,
     iter_qualifier_terms,
 )
 
@@ -84,7 +84,7 @@ def test_uncached_curie_is_reported_not_failed():
     assert [t.curie for t in unverified] == ["NCIT:C99999"]
 
 
-def test_unconfigured_prefixes_are_counted_separately():
+def test_prefixes_without_an_adapter_are_counted_separately():
     """RO and PR have no adapter, so no tooling can check them at all.
 
     Kept apart from `unverified` because the fix is a config decision, not a
@@ -96,7 +96,25 @@ def test_unconfigured_prefixes_are_counted_separately():
     ]
     wrong, unverified, unconfigured, _ = classify(terms, CACHE)
     assert wrong == [] and unverified == []
-    assert {t.curie.split(":")[0] for t in unconfigured} == UNCONFIGURED_PREFIXES
+    assert {t.curie.split(":")[0] for t in unconfigured} == {"RO", "PR"}
+
+
+def test_unconfigured_set_is_derived_from_oak_config_not_hardcoded():
+    """Adding an adapter must move a prefix out of the unvalidatable bucket.
+
+    A hardcoded list fails quietly: close the RO gap this script reports, and a
+    stale constant keeps excusing those terms until somebody notices.
+    """
+    real = configured_prefixes()
+    assert "NCIT" in real and "CHEBI" in real
+    assert "RO" not in real and "PR" not in real
+
+    term = [Term("x.yaml", "predicate", "RO:0000057", "has participant")]
+    # With RO configured, it is no longer excused — it becomes an ordinary
+    # uncached term instead.
+    _, unverified, unconfigured, _ = classify(term, CACHE, configured=real | {"RO"})
+    assert unconfigured == []
+    assert [t.curie for t in unverified] == ["RO:0000057"]
 
 
 def test_committed_kb_qualifier_labels_are_correct():

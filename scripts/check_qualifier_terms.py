@@ -76,8 +76,30 @@ from dismech.yaml_io import safe_load
 
 DEFAULT_ROOTS = ("kb/disorders", "kb/modules", "kb/comorbidities", "kb/groupings")
 
-# Prefixes with no adapter in conf/oak_config.yaml: unvalidatable by construction.
-UNCONFIGURED_PREFIXES = {"RO", "PR"}
+OAK_CONFIG = ROOT / "conf" / "oak_config.yaml"
+
+
+def configured_prefixes() -> frozenset[str]:
+    """Prefixes that ``conf/oak_config.yaml`` gives a usable OAK adapter.
+
+    Read from the config rather than restated here. A prefix outside this set
+    cannot be validated by any current tooling, online or off -- today that is
+    ``RO`` and ``PR`` (109 terms). Deriving it matters because the failure mode
+    of a hardcoded list is quiet: add an ``RO`` adapter to close the very gap
+    this script reports, and a stale constant would keep excusing those terms
+    until somebody remembered it existed. It also means a prefix nobody has
+    thought about yet is reported rather than silently treated as checkable.
+
+    An empty adapter string means "deliberately skip this prefix" (the config
+    uses it for ``linkml``, ``xsd``, ``rdf`` and friends), which is a different
+    thing from having no adapter, so those are excluded too.
+    """
+    import yaml as _yaml
+
+    adapters = _yaml.safe_load(OAK_CONFIG.read_text(encoding="utf-8"))[
+        "ontology_adapters"
+    ]
+    return frozenset(prefix for prefix, spec in adapters.items() if spec)
 
 
 class Term(NamedTuple):
@@ -162,16 +184,20 @@ def collect(paths: list[str]) -> list[Term]:
 
 
 def classify(
-    terms: list[Term], cache: dict[str, str]
+    terms: list[Term],
+    cache: dict[str, str],
+    configured: frozenset[str] | None = None,
 ) -> tuple[list[tuple[Term, str]], list[Term], list[Term], int]:
     """-> (wrong_label, unverified, unconfigured, ok_count)"""
+    if configured is None:
+        configured = configured_prefixes()
     wrong: list[tuple[Term, str]] = []
     unverified: list[Term] = []
     unconfigured: list[Term] = []
     ok = 0
     for term in terms:
         prefix = term.curie.split(":", 1)[0]
-        if prefix in UNCONFIGURED_PREFIXES:
+        if prefix not in configured:
             unconfigured.append(term)
         elif term.curie not in cache:
             unverified.append(term)

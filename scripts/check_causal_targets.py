@@ -91,6 +91,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from dismech.graph import collect_graph_nodes
 from dismech.yaml_io import safe_load
 
 BASELINE_PATH = ROOT / "tests" / "causal_target_baseline.txt"
@@ -111,17 +112,12 @@ BARE_TARGET_SLOTS: tuple[tuple[str, str], ...] = (
     ("environmental", "influences_mechanisms"),
 )
 
-# Sections contributing named nodes, mirroring `graph.build_causal_graph`.
-NODE_SECTIONS = (
-    "pathophysiology",
-    "phenotypes",
-    "environmental",
-    "genetic",
-    "treatments",
-    "biochemical",
-    "experimental_models",
-    "computational_models",
-)
+# The node set is taken from `dismech.graph` rather than restated here. A
+# hand-copied list had already drifted from the real one: it mirrored the eight
+# sections but not the animal-model labels or the nested variants the graph also
+# adds, leaving 1,813 real node names KB-wide invisible to this gate. Nothing
+# was mis-baselined as a result, but a bare target legitimately naming one would
+# have failed CI pointing at a defect that did not exist.
 
 
 class Finding(NamedTuple):
@@ -137,12 +133,7 @@ class Finding(NamedTuple):
 
 
 def node_names(data: dict[str, Any]) -> set[str]:
-    names: set[str] = set()
-    for section in NODE_SECTIONS:
-        for item in data.get(section) or []:
-            if isinstance(item, dict) and item.get("name"):
-                names.add(item["name"])
-    return names
+    return set(collect_graph_nodes(data))
 
 
 def find_in(data: dict[str, Any], display: str) -> list[Finding]:

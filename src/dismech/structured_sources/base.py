@@ -299,6 +299,34 @@ class StructuredSource(ABC):
         return path
 
 
+# A new upstream release and a truncated download are indistinguishable by
+# checksum alone -- that is the honest limitation of repinning against an
+# unversioned URL. Size is the one cheap discriminator: releases of these
+# sources grow or shrink by a few percent, while a truncated transfer loses
+# most of the file. Below this fraction of the pinned size, refuse rather than
+# record.
+_MIN_REPIN_SIZE_RATIO = 0.5
+
+
+def _refuse_suspicious_shrink(entry: dict, change: ChecksumChange) -> None:
+    """Guard against repinning a truncated download as if it were a release."""
+    old_size = entry.get("size_bytes")
+    if not isinstance(old_size, int) or old_size <= 0 or not change.size_bytes:
+        return
+    if change.size_bytes >= old_size * _MIN_REPIN_SIZE_RATIO:
+        return
+    raise RuntimeError(
+        f"refusing to repin {change.name}: the downloaded file is "
+        f"{change.size_bytes} bytes against a pinned {old_size} "
+        f"({change.size_bytes / old_size:.1%} of the previous release).\n"
+        "A new release does not usually lose most of its content, so this looks "
+        "more like a truncated or partial download than an upstream change.\n"
+        "Re-run the refresh to get a clean copy. If upstream really did publish "
+        "a much smaller file, verify it and update this entry's sha256 and "
+        "size_bytes by hand -- that is deliberately not automated."
+    )
+
+
 def repin_manifest(
     manifest_path: Path,
     changes: Iterable[ChecksumChange],
@@ -336,6 +364,7 @@ def repin_manifest(
         change = by_name.get(entry.get("name"))
         if change is None:
             continue
+        _refuse_suspicious_shrink(entry, change)
         entry["sha256"] = change.new_sha256
         if "size_bytes" in entry or change.size_bytes:
             entry["size_bytes"] = change.size_bytes
