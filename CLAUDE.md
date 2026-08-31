@@ -27,6 +27,8 @@ Claude Code skills are available in `.claude/skills/`:
 
 - **dismech-terms**: Use when selecting, validating, or repairing ontology bindings and term caches.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **review-hypothesis-exploration**: Use when assessing or reconciling a
+  provider hypothesis report, including its datasets, analyses, and artifacts.
 
 ## Key Commands
 
@@ -340,6 +342,84 @@ report predating a prompt edit is superseded by construction, so a gate would go
 red for the whole corpus on every edit. See
 [`docs/deep-research-template-versioning.md`](docs/deep-research-template-versioning.md)
 and issue #10183.
+
+### Hypothesis Provider Data and Analysis Artifacts
+
+A hypothesis exploration under
+`kb/hypotheses/<Disease>/<hypothesis_id>/` is a research **run**, not just a
+Markdown report. When it names datasets or claims computations, its assessment
+must inventory `data_sources` and `analyses`; see
+`docs/hypothesis-report-assessments.md` and use the
+`review-hypothesis-exploration` skill.
+
+- Distinguish `ACCESSED`, `SEARCHED_NO_RESULT`, `CITED_NOT_ACCESSED`, and
+  `UNVERIFIABLE`. A future analysis proposal is not data access. `ACCESSED` and
+  `SEARCHED_NO_RESULT` require a committed, sanitized input/query-response or
+  search-log artifact; prose alone is not an access record.
+- Verify supported accessions with `just verify-datasets --accession <CURIE>`,
+  then separately check disease/entity, organism, tissue, cohort, assay, and
+  comparison relevance. Resolution alone does not establish relevance.
+- Trace each computed claim from input data source through method, versioned
+  software, material parameters, code/environment, and output artifact. Use
+  `SUCCEEDED` only for a reproducible, artifact-backed run; otherwise record
+  `PARTIAL`, `FAILED`, `SKIPPED`, or `REPORTED_ONLY` honestly.
+- Tool failure and fallback are provenance. If a scientific package, database,
+  or data lake is unavailable, record the failure and any fallback; never
+  silently relabel literature synthesis or model knowledge as provider analysis.
+- Reconciliation follows data lineage as well as claim lineage. Shared input,
+  code, seed-derived results, or prior-provider output is not independent
+  replication. `PROVIDER_ANALYSIS` records that a report attributes a claim to a
+  linked analysis; it may describe `REPORTED_ONLY` lineage, but that remains
+  unverified execution and is not independent computational support. Failed or
+  skipped analyses cannot originate a provider position.
+
+Provider bundles normally use `<provider>_artifacts/` beside the report. Commit
+manifests, code/queries/configuration, environment specifications, sanitized
+logs, and small derived tables/figures needed to inspect the result. Never commit
+large recoverable raw downloads, provider data lakes, controlled or patient-level
+data, secrets, credentials, or signed URLs. Keep those external (for example a
+Biomni lake under `~/.biomni-lake`) and record a stable accession/URI, version,
+retrieval date, and checksum where available.
+
+Biomni execution is opt-in because it runs model-generated code locally and can
+initialize a large data lake. Repository-supported deep-research entry points
+require `DISMECH_ENABLE_BIOMNI=1`; without it they also remove Biomni from
+automatic provider fallback. The hypothesis runner's dry-run command inspection
+remains available. Do not bypass this policy by invoking
+`deep-research-client` directly.
+
+After opt-in, the hypothesis deep-research runner defaults Biomni's persistent
+workspace to `$BIOMNI_DATA_PATH` when set, otherwise `~/.biomni-lake`; an
+explicit `--param path=...` wins. It also passes `skip_data_lake=false` unless
+explicitly overridden. The current full academic lake occupies roughly 14 GiB
+on disk, so check disk headroom before first use. The lake accelerates Biomni's
+built-in resources but does not imply that an arbitrary external study is
+present: required inputs still need an accession-level preflight and manifest.
+
+Artifact path fields name files that are actually committed inside the
+hypothesis directory. Record an external, local-only, missing, or not-produced
+artifact in the data source `notes` or analysis `status_reason`/`limitations`;
+never put a nonexistent or machine-specific absolute path in an artifact slot.
+Stage provider artifacts selectively after inspecting them.
+
+Computational bundles use a canonical `MANIFEST.yaml` (`schema_version: '1.0'`)
+with status/fallback/direct-execution flags, checksummed inputs and outputs, and
+clean-replay results. Gate them before promotion with
+`just validate-hypothesis-analysis-run <report> <artifact_dir>` and separately
+replay saved code in a clean output directory; the gate never executes generated
+code, although it does require and checksum replay copies for every tabular
+result. An assessment that declares structured artifacts must set
+`artifact_root: ../<provider>_artifacts`, and its code/environment/output roles
+must be distinct non-empty files below that root. The execution-gated dataset
+template requires an exact analysis status marker; marker-free fallback is an
+invalid run. On overwrite, the runner quarantines existing provider artifacts
+before launch so a new report cannot validate against stale files.
+
+An assessor correction after the provider response does not retroactively make
+the corrected bytes a provider success. Record the precise correction and
+before/after hashes, replay it, classify the provider analysis as at most
+`PARTIAL` until provider rerun/attestation, and leave the old report-manifest
+binding stale rather than manually rebinding it.
 
 ### Dataset Curation (`datasets:` records)
 
