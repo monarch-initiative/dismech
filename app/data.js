@@ -3984,7 +3984,7 @@ window.searchData = [
   },
   {
     "name": "AIP-related pituitary adenoma predisposition",
-    "disease_id": null,
+    "disease_id": "MONDO:1060231",
     "category": "Mendelian",
     "parents": [
       "hereditary cancer-predisposing syndrome"
@@ -109520,7 +109520,7 @@ window.searchData = [
   },
   {
     "name": "Green Tobacco Sickness",
-    "disease_id": null,
+    "disease_id": "MONDO:1060229",
     "category": "Environmental",
     "parents": [
       "Occupational Disease",
@@ -225300,7 +225300,7 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "36",
     "causal_graph_longest_path": "7"
   },
   {
