@@ -147,6 +147,14 @@ too — gait speed and grip strength are excellent human markers with no faithfu
 equivalent. Meanwhile epigenetic clocks *do* cross species (pan-mammalian clocks,
 EnsembleAge HumanMouse), which is exactly why they dominate the field.
 
+A useful worked case sits in the `inflammaging` block added alongside this report: the
+IgG N-glycome is reported in healthy old people, centenarians and their offspring **and**
+in calorie-restricted mice (PMID:22353383). That is a marker satisfying AFAR's
+cross-species criterion on its face — and it is still not a clean case, because IgG-G0 is
+itself pro-inflammatory, so a mouse-to-human concordance in the marker is partly a
+concordance in the mechanism. Cross-species agreement in a marker that is also a mechanism
+is weaker evidence of a shared clock than it first appears.
+
 So "reconciliation" is not one problem but three:
 
 1. **Same marker, both species** (DNAm age, p16, IL-6) — needs a concordance claim.
@@ -242,6 +250,17 @@ behind them:
 
 `inflammaging` first: best-evidenced markers, worst conformance uptake (1 disease), and
 adding markers gives curators a reason to conform to it.
+
+> **Status update.** `inflammaging` is **done** — a five-marker block (IL-6, hsCRP, TNF,
+> cf-mtDNA, IgG-G0 N-glycans) with `BiomarkerReadout` links was added on the same branch
+> as this report, grounded in Franceschi 2018 (PMID:30046148), Harris 1999
+> (PMID:10335721), Pinti 2014 (PMID:24470107) and Dall'Olio 2013 (PMID:22353383). It is
+> now the second module in the KB with a `biochemical:` block and the worked example for
+> the rest of Tier 1. Two patterns established there are worth copying: IL-6 carries
+> **two** readouts against different nodes to show one marker serving distinct contexts of
+> use (`MONITORING` on the mechanism, `PROGNOSTIC` on the outcome), and cf-mtDNA/IgG-G0
+> are annotated as **both marker and mechanism**, which is common in aging biology and
+> which the `READOUT_OF` relationship deliberately does not assert away.
 
 **Tier 2 — the progeroid pilot.** Give `Werner_Syndrome` and
 `Hutchinson-Gilford_Progeria_Syndrome` biochemical blocks with readouts to the hallmark
