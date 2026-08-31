@@ -261,6 +261,40 @@ adding markers gives curators a reason to conform to it.
 > use (`MONITORING` on the mechanism, `PROGNOSTIC` on the outcome), and cf-mtDNA/IgG-G0
 > are annotated as **both marker and mechanism**, which is common in aging biology and
 > which the `READOUT_OF` relationship deliberately does not assert away.
+>
+> **`mitochondrial_dysfunction` is also done** — GDF-15, FGF-21 and blood mtDNA copy
+> number, plus a knowledge gap on the disease-vs-aging scope limit. Both modules also
+> carry `KNOWLEDGE_GAP` discussions now; see the next section, which the gaps changed.
+
+### A correction to this report's framing
+
+Curating the first two modules surfaced a 2025 Delphi expert consensus statement
+([PMID:39708300](https://pubmed.ncbi.nlm.nih.gov/39708300/), *J Gerontol A*) that
+postdates the NIA symposium summarized above and is more directly useful than anything
+else cited here. It reached 70–98% agreement on **14 biomarkers**: IGF-1, GDF-15, hsCRP,
+IL-6, muscle mass, muscle strength, grip strength, Timed-Up-and-Go, gait speed, standing
+balance, frailty index, cognitive health, blood pressure, and DNA methylation/epigenetic
+clocks. Three findings in it bear directly on the recommendations above:
+
+- **hsCRP, TNF-α, HbA1c and blood pressure did *not* reach agreement that they predict
+  biological age better than chronological age.** They are accepted as measures of state,
+  and unresolved as measures of *rate*. That is a sharper claim than "unvalidated" and it
+  is now recorded as a gap on the markers themselves.
+- **Physiological markers dominate the consensus list** — grip strength had the highest
+  agreement of all 14, at 98%, against IGF-1's lowest at 70%. The panel notes this may
+  reflect its own composition, but it cuts against this report's molecular emphasis, and
+  it is a problem for cross-species work, since grip strength and TUG are exactly the
+  human-only measures that do not translate to mice.
+- **Composites are preferred and no consensus composite exists** — the paper calls this a
+  research priority in as many words. This is the same structural question flagged under
+  ontology gaps: a composite is a model over features, not an analyte.
+
+A further process note. The gap this section originally intended to record was
+Franceschi 2018's statement that the DNAm-age/inflammaging relationship "has not been
+investigated." A PubMed check found 51 papers on epigenetic age acceleration and
+inflammaging, so that claim is eight years stale and was deliberately **not** curated.
+Recording a knowledge gap from a review's own framing without checking whether the field
+has since closed it is a failure mode worth naming.
 
 **Tier 2 — the progeroid pilot.** Give `Werner_Syndrome` and
 `Hutchinson-Gilford_Progeria_Syndrome` biochemical blocks with readouts to the hallmark
