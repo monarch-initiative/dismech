@@ -193876,6 +193876,120 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Peroxisome Biogenesis Disorder 4A (Zellweger)",
+    "disease_id": "MONDO:0013930",
+    "category": "Mendelian",
+    "parents": [
+      "Peroxisome Biogenesis Disorder",
+      "Zellweger Spectrum Disorder"
+    ],
+    "creation_date": "2026-08-29T16:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Peroxisome biogenesis disorder 4A is the severe, neonatal-lethal end of the PEX6-related Zellweger spectrum - historically complementation group 4 (also catalogued as group C), which is where the \"4\" in the name comes from. PEX6 is an AAA-ATPase that heterohexamerises with PEX1 to form the receptor export module: the ATP-driven motor that pulls monoubiquitinated PEX5 back out of the peroxisomal membrane so the receptor can carry another load of matrix enzymes into the organelle. PEX6 defects are the second most common cause of Zellweger spectrum disease after PEX1.\nWhat separates PBD4A from PBD4B is not the gene but how much peroxin-6 activity the genotype leaves behind. Biallelic null or severely truncating PEX6 alleles abolish the export motor outright, PEX5 recycling stops, and matrix protein import collapses. The peroxisomal membrane is still made - patient cells contain \"peroxisomal ghosts\", membrane compartments with no matrix enzymes inside - so this is a disorder of biogenesis rather than of any one peroxisomal enzyme. The biochemical signature is correspondingly broad in both directions: very-long-chain fatty acids, phytanic and pristanic acid and C27 bile-acid intermediates accumulate because nothing is left to degrade them, while plasmalogens are missing because nothing is left to synthesise them.\nBoth halves of that lesion damage the developing brain, the liver and the kidney simultaneously, and they do so before birth: the neuronal migration defect that produces perisylvian polymicrogyria is complete by the time the child is born, which is the reason no post-natal therapy changes the neurological outcome. Affected newborns are profoundly hypotonic, feed poorly, seize, and have distinctive facies, renal cysts, epiphyseal stippling and severe liver disease. Survival is usually less than a year.\nThis entry is the severity counterpart of Peroxisome Biogenesis Disorder 4B at the same locus, and the PEX6 counterpart of Peroxisome Biogenesis Disorder 3A (PEX12) and 11A (PEX26). The gene-agnostic downstream cascade shared by the whole spectrum is curated on the Zellweger Spectrum Disorders entry; what is carried here is what is PEX6- and classic-Zellweger-specific.",
+    "pathophysiology": [
+      "Biallelic Null PEX6 Genotype",
+      "Receptor Export Module Failure",
+      "Collapse of Peroxisomal Matrix Protein Import",
+      "Loss of Peroxisomal Fatty Acid Oxidation",
+      "Plasmalogen Biosynthesis Failure",
+      "C27 Bile Acid Intermediate Accumulation",
+      "Cholestatic Liver Injury",
+      "Defective Neuronal Migration in the Developing Cortex"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein import into peroxisome matrix",
+      "peroxisome organization",
+      "fatty acid beta-oxidation",
+      "fatty acid alpha-oxidation",
+      "ether lipid biosynthetic process",
+      "bile acid metabolic process",
+      "cerebral cortex cell migration",
+      "neuron migration"
+    ],
+    "phenotypes": [
+      "Severe Neonatal Hypotonia",
+      "Neonatal Seizures",
+      "Neuronal Migration Defect",
+      "Feeding Difficulties",
+      "Hepatomegaly and Neonatal Cholestasis",
+      "Hyperbilirubinemia",
+      "Renal Cysts",
+      "Epiphyseal Stippling",
+      "Distinctive Facies",
+      "Sensorineural Hearing Loss",
+      "Cataract",
+      "Absence of Developmental Progress"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Gastrointestinal",
+      "Hepatic",
+      "Renal",
+      "Skeletal",
+      "Craniofacial",
+      "Auditory",
+      "Ophthalmologic",
+      "Developmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001290",
+      "HP:0032807",
+      "HP:0002269",
+      "HP:0011968",
+      "HP:0002240",
+      "HP:0002904",
+      "HP:0000107",
+      "HP:0010655",
+      "HP:0000348",
+      "HP:0000407",
+      "HP:0000518",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PEX6"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Management",
+      "Oral Cholic Acid",
+      "Docosahexaenoic Acid Supplementation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Very-long-chain fatty acids",
+      "Erythrocyte plasmalogens"
+    ],
+    "source_file": "Peroxisome_Biogenesis_Disorder_4A_Zellweger.yaml",
+    "page_url": "../pages/disorders/Peroxisome_Biogenesis_Disorder_4A_Zellweger.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Peroxisome Biogenesis Disorder 4B",
     "disease_id": "MONDO:0013931",
     "category": "Mendelian",
@@ -256267,17 +256381,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2485,
+  "total_disorder_pages": 2486,
   "total_subtypes": 3529,
-  "total_disorders_and_subtypes": 6014,
-  "total_unique_evidence_sources": 35624,
-  "total_unique_publications": 33505,
+  "total_disorders_and_subtypes": 6015,
+  "total_unique_evidence_sources": 35628,
+  "total_unique_publications": 33509,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 266,
-  "total_pathographs": 2480,
-  "total_unique_pathological_events": 14400,
+  "total_pathographs": 2481,
+  "total_unique_pathological_events": 14406,
   "total_modules": 166,
-  "total_research_reports": 2602,
+  "total_research_reports": 2603,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 99
