@@ -50,6 +50,7 @@ from dismech.research_reports import FRONTMATTER_DELIMITER, read_frontmatter
 __all__ = [
     "Provenance",
     "Resolution",
+    "STAMP_KEY",
     "TemplateRevision",
     "blob_sha",
     "is_shallow",

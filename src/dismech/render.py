@@ -36,6 +36,7 @@ from dismech.graph import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.template_versions import STAMP_KEY
 from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.yaml_io import safe_load, safe_load_path
@@ -2901,10 +2902,6 @@ _PREPRINT_DOI_RE = re.compile(
 # `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
 _REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
 
-#: Frontmatter key a research recipe writes to record which revision of the
-#: prompt produced a report (issue #10183).
-STAMP_KEY_TEMPLATE_SHA = "template_sha"
-
 
 @lru_cache(maxsize=4096)
 def _reference_is_preprint(reference: str | None) -> bool:
@@ -3094,14 +3091,15 @@ def _prompt_provenance(metadata: dict) -> dict | None:
         commit-ish and a blob hash is not one, and the git-blobs API returns
         base64 JSON rather than a page.
 
-        The unlinked branches are defensive rather than expected. ``stamp_report``
-        declines unless ``template_file`` resolves to a file on disk, so a
-        free-text label or an ephemeral ``/tmp`` path is never stamped by the
-        pipeline; reaching them takes a hand-written stamp. They are handled
-        anyway so that a hand-written one degrades to "shown but not linked"
-        rather than to a 404 dressed up as provenance.
+        The unlinked branches are defensive rather than expected.
+        :func:`dismech.template_versions.stamp_report` writes a stamp only when
+        ``template_file`` resolves to a file on disk, so a free-text label or an
+        ephemeral ``/tmp`` path is never stamped by the pipeline; reaching those
+        branches takes a hand-written stamp. They are handled anyway so that a
+        hand-written one degrades to "shown but not linked" rather than to a 404
+        dressed up as provenance.
     """
-    raw = metadata.get(STAMP_KEY_TEMPLATE_SHA)
+    raw = metadata.get(STAMP_KEY)
     sha = raw.strip() if isinstance(raw, str) else ""
     if not sha:
         return None

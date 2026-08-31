@@ -154,9 +154,9 @@ def test_tooltip_drops_the_pathspec_for_an_unlinked_prompt(tmp_path: Path) -> No
     """A label's blob is not under `templates/`.
 
     Scoping the lookup there would return nothing, which reads as "this hash is
-    not in the repo" rather than "wrong directory". Defensive: `stamp_report`
-    declines unless the template is a file on disk, so a label is never stamped
-    by the pipeline.
+    not in the repo" rather than "wrong directory". Defensive:
+    `template_versions.stamp_report` writes a stamp only when the template
+    resolves to a file on disk, so a label is never stamped by the pipeline.
     """
     html = _render(
         tmp_path,
