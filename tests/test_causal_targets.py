@@ -1,0 +1,105 @@
+"""The pathograph's bare-name targets need their own guard.
+
+`dismech.graph` builds edges by matching a `target` string verbatim against
+another item's `name`. Nothing resolves it, so a broken target is silent in a
+way a broken `attaches_to` is not: the entry passes LinkML validation, term
+validation and snippet verification, the page renders, and the only symptom is
+an edge that is not drawn. Issue #10112 found 175 such targets across 32
+entries — written with the `<kind>#<name>` entity-reference grammar, which this
+slot does not accept — including one entry that had lost every phenotype edge.
+
+These tests pin the classification, because the three classes have different
+causes and must not collapse into each other.
+"""
+
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from check_causal_targets import BARE_TARGET_SLOTS, find_in  # noqa: E402
+
+SCRIPT = ROOT / "scripts" / "check_causal_targets.py"
+
+
+def _entry(**sections):
+    return sections
+
+
+def test_prefixed_target_that_would_resolve_is_a_hard_finding():
+    """The #10112 defect: entity-ref grammar in a bare-name slot."""
+    data = _entry(
+        pathophysiology=[
+            {"name": "Node A", "downstream": [{"target": "phenotypes#Bleeding"}]}
+        ],
+        phenotypes=[{"name": "Bleeding"}],
+    )
+    findings = find_in(data, "x.yaml")
+    assert [(f.kind, f.target) for f in findings] == [
+        ("prefixed", "phenotypes#Bleeding")
+    ]
+
+
+def test_bare_target_naming_a_real_node_is_clean():
+    data = _entry(
+        pathophysiology=[{"name": "Node A", "downstream": [{"target": "Bleeding"}]}],
+        phenotypes=[{"name": "Bleeding"}],
+    )
+    assert find_in(data, "x.yaml") == []
+
+
+def test_renamed_node_leaves_a_dangling_target():
+    """The #9697 defect: a rename silently severs the graph."""
+    data = _entry(
+        pathophysiology=[{"name": "Node A", "downstream": [{"target": "Bleeding"}]}],
+        phenotypes=[{"name": "Bleeding diathesis"}],
+    )
+    findings = find_in(data, "x.yaml")
+    assert [(f.kind, f.target) for f in findings] == [("dangling", "Bleeding")]
+
+
+def test_prefixed_target_that_would_not_resolve_is_dangling_not_prefixed():
+    """A prefix is only 'mechanically fixable' if the bare form names something.
+
+    `imaging_findings#...` in Charcot-Marie-Tooth_Disease_Type_4K points at a
+    real curated item, but `imaging_findings` is not a graph node section, so
+    stripping the prefix would convert a visible error into a silent one. It is
+    a curator's call, so it is classified as dangling (and baselined) rather
+    than reported as a mechanical fix.
+    """
+    data = _entry(
+        pathophysiology=[
+            {"name": "Node A", "downstream": [{"target": "imaging_findings#Lesion"}]}
+        ],
+    )
+    findings = find_in(data, "x.yaml")
+    assert [f.kind for f in findings] == ["dangling"]
+
+
+def test_self_referential_target_is_its_own_class():
+    """#9896 — reported, never gated; see the script docstring for why."""
+    data = _entry(
+        pathophysiology=[{"name": "Node A", "downstream": [{"target": "Node A"}]}]
+    )
+    assert [f.kind for f in find_in(data, "x.yaml")] == ["self"]
+
+
+def test_experiment_readout_targets_are_not_checked_here():
+    """`proposed_experiments` readouts/perturbations use the ref grammar legitimately.
+
+    Including them would flag ~650 correct references; `check_entity_refs.py`
+    owns that slot.
+    """
+    slots = {slot for _, slot in BARE_TARGET_SLOTS}
+    assert "readouts" not in slots
+    assert "perturbations" not in slots
+
+
+def test_committed_kb_has_no_new_broken_targets():
+    """The gate itself, over the real KB."""
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT)], capture_output=True, text=True, cwd=ROOT
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
