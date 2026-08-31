@@ -14,6 +14,7 @@ year: '2025'
 doi: 10.3390/jcm14238442
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Neurodevelopmental Disorder with Psychomotor Delay, Hearing Loss, and Spasticity Caused by Compound Heterozygous SPATA5L1 Variants—Expanding Phenotype

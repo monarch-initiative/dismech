@@ -35,6 +35,7 @@ year: '2023'
 doi: 10.1158/1078-0432.CCR-23-0411
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Efficacy of Nivolumab in Pediatric Cancers with High Mutation Burden and Mismatch Repair Deficiency

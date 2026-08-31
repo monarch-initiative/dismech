@@ -8,6 +8,7 @@ year: '2024'
 doi: 10.5812/rro-142195
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Role of Transcriptomics in Precision Oncology

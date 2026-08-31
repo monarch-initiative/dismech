@@ -11,6 +11,7 @@ year: '2021'
 doi: 10.3390/cells10113175
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Inherited and Acquired Rhythm Disturbances in Sick Sinus Syndrome, Brugada Syndrome, and Atrial Fibrillation: Lessons from Preclinical Modeling

@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.3390/ijms25179343
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Placental Origins of Preeclampsia: Insights from Multi-Omic Studies

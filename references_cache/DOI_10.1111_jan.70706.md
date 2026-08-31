@@ -11,6 +11,7 @@ year: '2026'
 doi: 10.1111/jan.70706
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Nurse‐Led Multicomponent Interventions for Delirium Prevention in Hospitalised Older Adults: A Systematic Review and Meta‐Analysis

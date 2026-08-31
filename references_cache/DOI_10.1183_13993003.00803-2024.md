@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1183/13993003.00803-2024
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Fungal lung disease

@@ -18,6 +18,7 @@ year: '2012'
 doi: 10.1093/brain/aws036
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Oxidative stress and successful antioxidant treatment in models of RYR1-related myopathy

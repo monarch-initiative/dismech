@@ -16,6 +16,7 @@ year: '2016'
 doi: 10.1179/1607845415Y.0000000017
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Methionine synthase reductase deficiency (CblE): A report of two patients and a novel mutation

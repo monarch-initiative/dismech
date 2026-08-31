@@ -15,6 +15,7 @@ year: '2019'
 doi: 10.1111/cge.13458
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel <i>exostosin‐2</i> missense variants in a family with autosomal recessive exostosin‐2‐related syndrome: further evidences on the phenotype

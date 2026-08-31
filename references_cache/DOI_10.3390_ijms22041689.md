@@ -15,6 +15,7 @@ year: '2021'
 doi: 10.3390/ijms22041689
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Novel Triplet-Primed PCR Assay to Detect the Full Range of Trinucleotide CAG Repeats in the Huntingtin Gene (HTT)

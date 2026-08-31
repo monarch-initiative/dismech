@@ -35,6 +35,7 @@ year: '2022'
 doi: 10.1016/j.gim.2021.09.012
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Clinical Genome Resource (ClinGen) Familial Hypercholesterolemia Variant Curation Expert Panel consensus guidelines for LDLR variant classification

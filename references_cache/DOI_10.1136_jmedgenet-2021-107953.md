@@ -36,6 +36,7 @@ year: '2022'
 doi: 10.1136/jmedgenet-2021-107953
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Myasthenia gravis genome-wide association study implicates AGRN as a risk locus

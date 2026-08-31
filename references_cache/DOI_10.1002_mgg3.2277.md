@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.1002/mgg3.2277
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Familial gigantiform cementoma with recurrent <scp>ANO5</scp> p.<scp>Cys356Tyr</scp> mutations: Clinicopathological and genetic study with literature review

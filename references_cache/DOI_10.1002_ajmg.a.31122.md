@@ -17,6 +17,7 @@ year: '2006'
 doi: 10.1002/ajmg.a.31122
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypoparathyroidism‐retardation‐dysmorphism syndrome in a girl: A new variant not caused by a <i>TBCE</i> mutation—clinical report and review

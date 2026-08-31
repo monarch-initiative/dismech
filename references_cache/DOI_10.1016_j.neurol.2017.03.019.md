@@ -10,6 +10,7 @@ year: '2017'
 doi: 10.1016/j.neurol.2017.03.019
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Kennedy disease (X-linked recessive bulbospinal neuronopathy): A comprehensive review from pathophysiology to therapy

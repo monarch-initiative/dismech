@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1111/cge.13243
-title: "Truncating variants of the
-                    <i>DLG4</i>
-                    gene are responsible for intellectual disability with marfanoid features"
+title: "Truncating variants of the <i>DLG4</i> gene are responsible for intellectual disability with marfanoid features"
 authors:
 - S. Moutton
 - A.‐L. Bruel
@@ -27,11 +25,10 @@ year: '2018'
 doi: 10.1111/cge.13243
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Truncating variants of the
-                    <i>DLG4</i>
-                    gene are responsible for intellectual disability with marfanoid features
+# Truncating variants of the <i>DLG4</i> gene are responsible for intellectual disability with marfanoid features
 **Authors:** S. Moutton, A.‐L. Bruel, M. Assoum, M. Chevarin, E. Sarrazin, C. Goizet, A.‐M. Guerrot, A. Charollais, P. Charles, D. Heron, A. Faudet, N. Houcinat, A. Vitobello, F. Tran‐Mau‐Them, C. Philippe, Y. Duffourd, C. Thauvin‐Robinet, L. Faivre
 **Journal:** Clinical Genetics (2018)
 **DOI:** [10.1111/cge.13243](https://doi.org/10.1111/cge.13243)

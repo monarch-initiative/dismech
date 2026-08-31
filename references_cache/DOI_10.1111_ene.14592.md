@@ -30,6 +30,7 @@ year: '2021'
 doi: 10.1111/ene.14592
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical correlations and long‐term follow‐up in 100 patients with sarcoglycanopathies

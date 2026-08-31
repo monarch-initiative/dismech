@@ -16,6 +16,7 @@ year: '2020'
 doi: 10.1002/ana.25681
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical and Molecular Aspects of Senataxin Mutations in Amyotrophic Lateral Sclerosis 4

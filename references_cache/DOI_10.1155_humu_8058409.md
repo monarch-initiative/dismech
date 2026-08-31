@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1155/humu/8058409
-title: "<i>TRMT10A</i>
-                    ‐Related Neurodevelopmental Disorder Without Metabolic Findings"
+title: "<i>TRMT10A</i> ‐Related Neurodevelopmental Disorder Without Metabolic Findings"
 authors:
 - Döndü Ülker Üstebay
 - İrem Aksu Şahin
@@ -13,10 +12,10 @@ year: '2026'
 doi: 10.1155/humu/8058409
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# <i>TRMT10A</i>
-                    ‐Related Neurodevelopmental Disorder Without Metabolic Findings
+# <i>TRMT10A</i> ‐Related Neurodevelopmental Disorder Without Metabolic Findings
 **Authors:** Döndü Ülker Üstebay, İrem Aksu Şahin, Sefer Üstebay, Gül Ünsel Bolat, Hilmi Bolat
 **Journal:** Human Mutation (2026)
 **DOI:** [10.1155/humu/8058409](https://doi.org/10.1155/humu/8058409)

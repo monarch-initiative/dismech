@@ -11,6 +11,7 @@ year: '2015'
 doi: 10.1159/000442323
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Overview of the Pathogenesis of ANCA-Associated Vasculitis

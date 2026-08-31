@@ -13,6 +13,7 @@ year: '2025'
 doi: 10.1136/bmjgh-2025-018998
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Spatiotemporal epidemiology and clinical manifestations of two decades of scrub typhus in India: a systematic review and meta-analysis

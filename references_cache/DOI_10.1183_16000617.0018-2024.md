@@ -16,6 +16,7 @@ year: '2024'
 doi: 10.1183/16000617.0018-2024
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Common single nucleotide polymorphisms associated with idiopathic pulmonary fibrosis: a systematic review

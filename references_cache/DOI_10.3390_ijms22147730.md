@@ -12,6 +12,7 @@ year: '2021'
 doi: 10.3390/ijms22147730
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Modelling Mitochondrial Disease in Human Pluripotent Stem Cells: What Have We Learned?

@@ -38,6 +38,7 @@ year: '2025'
 doi: 10.3390/genes16060619
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetics of Darier’s Disease: New Insights into Pathogenic Mechanisms

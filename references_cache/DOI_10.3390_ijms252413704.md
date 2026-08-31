@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/ijms252413704
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Childhood-Onset ANCA-Associated Vasculitis: From Genetic Studies to Advances in Pathogenesis, Classification and Novel Therapeutic Approaches

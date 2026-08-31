@@ -22,6 +22,7 @@ year: '2004'
 doi: 10.1086/421527
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Novel Gene Encoding a Putative Transmembrane Protein Is Mutated in Gnathodiaphyseal Dysplasia (GDD)

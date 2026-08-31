@@ -9,6 +9,7 @@ year: '2023'
 doi: 10.1002/mgg3.2066
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The effect of growth hormone treatment in children with novel <i>BPTF</i> gene variants: A report of two cases and literature review

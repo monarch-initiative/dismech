@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1016/j.heliyon.2024.e35126
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Methylome analysis of endothelial cells suggests new insights on sporadic brain arteriovenous malformation

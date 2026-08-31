@@ -11,6 +11,7 @@ year: '2023'
 doi: 10.1007/s11886-023-01885-8
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Emerging Signaling Regulation of Sinoatrial Node Dysfunction

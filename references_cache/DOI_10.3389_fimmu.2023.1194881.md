@@ -16,6 +16,7 @@ year: '2023'
 doi: 10.3389/fimmu.2023.1194881
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Brain transcriptomics reveal the activation of neuroinflammation pathways during acute Orientia tsutsugamushi infection in mice

@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.1590/2526-8910.ctoAR291837922
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Interventions to improve independence in basic and instrumental activities of daily living in individuals with myelomeningocele: an integrative literature review

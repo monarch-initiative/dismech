@@ -17,6 +17,7 @@ year: '2013'
 doi: 10.1074/jbc.M113.479642
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Glycoprotein Biosynthesis in a Eukaryote Lacking the Membrane Protein Rft1

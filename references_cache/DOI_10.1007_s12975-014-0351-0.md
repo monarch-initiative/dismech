@@ -11,6 +11,7 @@ year: '2014'
 doi: 10.1007/s12975-014-0351-0
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hemorrhage Rates and Risk Factors in the Natural History Course of Brain Arteriovenous Malformations

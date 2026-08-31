@@ -10,6 +10,7 @@ year: '2025'
 doi: 10.3390/jcm14103448
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # From Circulating Biomarkers to Polymorphic Variants: A Narrative Review of Challenges in Thrombophilia Evaluation

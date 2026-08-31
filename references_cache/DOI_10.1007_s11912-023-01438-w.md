@@ -14,6 +14,7 @@ year: '2023'
 doi: 10.1007/s11912-023-01438-w
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Managing Metastatic Extrapulmonary Neuroendocrine Carcinoma After First-Line Treatment

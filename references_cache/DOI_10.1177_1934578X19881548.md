@@ -1,7 +1,6 @@
 ---
 reference_id: DOI:10.1177/1934578X19881548
-title: "Quantification and Simplified Detoxification Investigation on Fuzi, Root of
-                    <i>Aconitum carmichaelii</i>"
+title: "Quantification and Simplified Detoxification Investigation on Fuzi, Root of <i>Aconitum carmichaelii</i>"
 authors:
 - Yun-Chien Lai
 - Chi-Jung Tai
@@ -18,10 +17,10 @@ year: '2019'
 doi: 10.1177/1934578X19881548
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Quantification and Simplified Detoxification Investigation on Fuzi, Root of
-                    <i>Aconitum carmichaelii</i>
+# Quantification and Simplified Detoxification Investigation on Fuzi, Root of <i>Aconitum carmichaelii</i>
 **Authors:** Yun-Chien Lai, Chi-Jung Tai, Mohamed El-Shazly, Yu-Che Chuang, Shu-Tuan Chiang, Yi-Hong Tsai, Dezső Csupor, Judith Hohmann, Yang-Chang Wu, Fang-Rong Chang
 **Journal:** Natural Product Communications (2019)
 **DOI:** [10.1177/1934578X19881548](https://doi.org/10.1177/1934578X19881548)

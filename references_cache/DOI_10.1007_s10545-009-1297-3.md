@@ -17,6 +17,7 @@ year: '2009'
 doi: 10.1007/s10545-009-1297-3
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # RFT1‐CDG: Deafness as a novel feature of congenital disorders of glycosylation

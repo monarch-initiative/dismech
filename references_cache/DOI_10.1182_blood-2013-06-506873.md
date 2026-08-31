@@ -24,6 +24,7 @@ year: '2013'
 doi: 10.1182/blood-2013-06-506873
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Enrichment of FLI1 and RUNX1 mutations in families with excessive bleeding and platelet dense granule secretion defects

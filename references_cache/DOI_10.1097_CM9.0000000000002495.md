@@ -11,6 +11,7 @@ year: '2023'
 doi: 10.1097/CM9.0000000000002495
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical feature difference between juvenile amyotrophic lateral sclerosis with SPTLC1 and FUS mutations

@@ -9,6 +9,7 @@ year: '2025'
 doi: 10.1177/02676591241280163
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Extracorporeal membrane oxygenation combined with hemoperfusion to assist in the rescue of aconitine poisoning: A case report

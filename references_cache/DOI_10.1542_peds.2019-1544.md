@@ -25,6 +25,7 @@ year: '2020'
 doi: 10.1542/peds.2019-1544
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Prenatal Repair of Myelomeningocele and School-age Functional Outcomes

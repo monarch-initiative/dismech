@@ -15,6 +15,7 @@ year: '2023'
 doi: 10.1096/fj.202202119R
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Gigaxonin is required for intermediate filament transport

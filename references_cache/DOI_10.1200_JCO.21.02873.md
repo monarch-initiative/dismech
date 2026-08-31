@@ -55,6 +55,7 @@ year: '2023'
 doi: 10.1200/JCO.21.02873
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genomic Microsatellite Signatures Identify Germline Mismatch Repair Deficiency and Risk of Cancer Onset

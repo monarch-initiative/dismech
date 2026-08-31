@@ -28,6 +28,7 @@ year: '2022'
 doi: 10.1056/nejmoa2200587
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # In Utero Enzyme-Replacement Therapy for Infantile-Onset Pompe’s Disease

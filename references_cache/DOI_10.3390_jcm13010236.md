@@ -17,6 +17,7 @@ year: '2023'
 doi: 10.3390/jcm13010236
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Incidence of Myasthenia Gravis in the Province of Ferrara, Italy, in the Period of 2008–2022: An Update on a 40-Year Observation and the Influence of the COVID-19 Pandemic

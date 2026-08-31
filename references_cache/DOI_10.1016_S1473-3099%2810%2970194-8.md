@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/S1473-3099%2810%2970194-8"
+reference_id: DOI:10.1016/S1473-3099%2810%2970194-8
 title: "Virology, epidemiology, pathogenesis, and control of enterovirus 71"
 authors:
 - Tom Solomon
@@ -12,6 +12,7 @@ journal: The Lancet Infectious Diseases
 year: '2010'
 doi: 10.1016/S1473-3099%2810%2970194-8
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Virology, epidemiology, pathogenesis, and control of enterovirus 71

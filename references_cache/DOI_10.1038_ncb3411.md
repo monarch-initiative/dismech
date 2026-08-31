@@ -24,6 +24,7 @@ year: '2016'
 doi: 10.1038/ncb3411
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # iPSC-derived cardiomyocytes reveal abnormal TGF-β signalling in left ventricular non-compaction cardiomyopathy

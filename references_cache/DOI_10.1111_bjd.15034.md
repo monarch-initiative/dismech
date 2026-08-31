@@ -8,6 +8,7 @@ year: '2017'
 doi: 10.1111/bjd.15034
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Intercellular IgA dermatosis

@@ -40,6 +40,7 @@ year: '2016'
 doi: 10.1210/jc.2015-3250
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Rare Causes of Primary Adrenal Insufficiency: Genetic and Clinical Characterization of a Large Nationwide Cohort

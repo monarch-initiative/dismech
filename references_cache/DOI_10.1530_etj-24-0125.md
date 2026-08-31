@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.1530/etj-24-0125
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # 2024 European Thyroid Association Guidelines on diagnosis and management of genetic disorders of thyroid hormone transport, metabolism and action

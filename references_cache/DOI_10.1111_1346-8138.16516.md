@@ -14,6 +14,7 @@ year: '2023'
 doi: 10.1111/1346-8138.16516
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Subcorneal pustular dermatosis‐type IgA pemphigus associated with multiple myeloma: A case report and literature review

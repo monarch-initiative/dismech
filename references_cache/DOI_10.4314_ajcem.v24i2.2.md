@@ -13,6 +13,7 @@ year: '2023'
 doi: 10.4314/ajcem.v24i2.2
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A review of the current diphtheria outbreaks

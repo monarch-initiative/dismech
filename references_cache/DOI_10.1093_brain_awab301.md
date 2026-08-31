@@ -35,6 +35,7 @@ year: '2022'
 doi: 10.1093/brain/awab301
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical and genetic spectrum of a large cohort of patients with δ-sarcoglycan muscular dystrophy

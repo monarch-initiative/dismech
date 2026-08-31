@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.3390/ijms252413329
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # TRAPPopathies: Severe Multisystem Disorders Caused by Variants in Genes of the Transport Protein Particle (TRAPP) Complexes

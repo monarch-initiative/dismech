@@ -13,6 +13,7 @@ year: '2025'
 doi: 10.3390/jcm14176164
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # High-Resolution CT Findings in Interstitial Lung Disease Associated with Connective Tissue Diseases: Differentiating Patterns for Clinical Practice—A Systematic Review with Meta-Analysis
