@@ -12763,6 +12763,140 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Ageing Associated Decline in Intrinsic Capacity",
+    "disease_id": null,
+    "category": "Complex",
+    "parents": [
+      "general symptoms, signs or clinical findings",
+      "ageing-related functional decline"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Locomotor",
+      "Vitality",
+      "Cognitive",
+      "Psychological",
+      "Sensory"
+    ],
+    "description": "Ageing associated decline in intrinsic capacity (ICD-11 MG2A) is the age-related erosion of intrinsic capacity - the composite of all the physical and mental capacities an individual can draw on at any point in time. Intrinsic capacity is one of the two determinants (with the environment) of functional ability in the WHO healthy-ageing model, and is operationalised across five domains: locomotion, vitality, cognition, psychological capacity, and sensory capacity. Decline is graded rather than binary, is usually insidious and multi-domain, and typically precedes and predicts frailty, care dependence, and death. Mechanistically the entry treats the condition as the clinical convergence point of the molecular and cellular hallmarks of ageing: accumulating damage drives mitochondrial bioenergetic decline, senescent-cell accumulation, inflammaging, and loss of regenerative reserve, which together erode physiological reserve across organ systems and surface as domain-specific capacity loss. Unlike a single-organ disease, the entity is defined at the level of the whole organism, and its principal management is multidomain and person-centred rather than pharmacological. This entry deliberately models the construct as WHO and ICD-11 define it, and does not treat it as a synonym for frailty, sarcopenia, or disability, each of which is modelled separately.",
+    "pathophysiology": [
+      "Accumulation of Hallmark Ageing Damage",
+      "Mitochondrial Bioenergetic Decline",
+      "Senescent Cell Accumulation in Ageing Tissue",
+      "Chronic Low-Grade Sterile Inflammation",
+      "Decline in Tissue Regenerative Reserve",
+      "Loss of Physiological Reserve Across Organ Systems",
+      "Vitality Capacity Decline",
+      "Locomotor Capacity Decline",
+      "Cognitive Capacity Decline",
+      "Psychological Capacity Decline",
+      "Sensory Capacity Decline",
+      "Composite Intrinsic Capacity Decline",
+      "Loss of Functional Ability and Care Dependence"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "leukocyte",
+      "stem cell",
+      "skeletal muscle fiber",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000738",
+      "CL:0000034",
+      "CL:0008002",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "DNA damage response",
+      "oxidative phosphorylation",
+      "reactive oxygen species metabolic process",
+      "cellular senescence",
+      "inflammatory response",
+      "cytokine production",
+      "stem cell population maintenance",
+      "tissue regeneration",
+      "skeletal muscle atrophy",
+      "cognition"
+    ],
+    "phenotypes": [
+      "Muscle weakness",
+      "Impaired gait and balance",
+      "Memory impairment",
+      "Cognitive impairment",
+      "Malnutrition",
+      "Unintentional weight loss and appetite loss",
+      "Depressive symptoms",
+      "Hearing impairment",
+      "Visual impairment"
+    ],
+    "phenotype_categories": [
+      "Locomotor",
+      "Cognitive",
+      "Vitality",
+      "Psychological",
+      "Sensory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001324",
+      "HP:0001288",
+      "HP:0002354",
+      "HP:0100543",
+      "HP:0004395",
+      "HP:0001824",
+      "HP:0000716",
+      "HP:0000365",
+      "HP:0000505"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "Polygenic background of intrinsic capacity",
+      "APOE"
+    ],
+    "treatments": [
+      "Multicomponent Physical Activity with Nutritional Counselling",
+      "In-Hospital Multicomponent Exercise Training",
+      "Combined Exercise and Cognitive Stimulation Therapy",
+      "Group-Based Multidomain Intervention with Brain-Structure Outcomes",
+      "Multidomain Lifestyle Intervention for Cognitive Decline",
+      "ICOPE Integrated Person-Centred Care Pathway",
+      "Hearing Intervention with Hearing Aid Provision",
+      "Systematic ICOPE Step 1 Screening in Primary Care"
+    ],
+    "environmental": [
+      "Ambient and household air pollution",
+      "Chronic pain",
+      "Acute hospitalisation"
+    ],
+    "biochemical": [
+      "Plasma interleukin-6",
+      "Plasma growth differentiation factor-15 (GDF-15)",
+      "C-reactive protein and tumor necrosis factor-alpha"
+    ],
+    "source_file": "Ageing_Associated_Decline_in_Intrinsic_Capacity.yaml",
+    "page_url": "../pages/disorders/Ageing_Associated_Decline_in_Intrinsic_Capacity.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 13,
+    "num_genes": 2,
+    "num_treatments": 8,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Agenesis of the Corpus Callosum with Peripheral Neuropathy",
     "disease_id": "MONDO:0000902",
     "category": "Mendelian",
@@ -257688,17 +257822,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2498,
-  "total_subtypes": 3550,
-  "total_disorders_and_subtypes": 6048,
-  "total_unique_evidence_sources": 35794,
-  "total_unique_publications": 33672,
+  "total_disorder_pages": 2499,
+  "total_subtypes": 3555,
+  "total_disorders_and_subtypes": 6054,
+  "total_unique_evidence_sources": 35845,
+  "total_unique_publications": 33718,
   "total_unique_disease_categories": 52,
-  "total_unique_phenotype_categories": 266,
-  "total_pathographs": 2493,
-  "total_unique_pathological_events": 14498,
+  "total_unique_phenotype_categories": 268,
+  "total_pathographs": 2494,
+  "total_unique_pathological_events": 14511,
   "total_modules": 166,
-  "total_research_reports": 2615,
+  "total_research_reports": 2616,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 99
