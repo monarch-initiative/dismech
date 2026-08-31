@@ -18,11 +18,13 @@ Vancomycin is NCIT:C925.
 import subprocess
 import sys
 from pathlib import Path
+from unittest import mock
 
 # See the note in test_causal_targets.py: the `sys.path` preamble must sit
 # directly before the import for ruff's E402 allowance to apply.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+import check_qualifier_terms
 from check_qualifier_terms import (
     Term,
     classify,
@@ -115,6 +117,74 @@ def test_unconfigured_set_is_derived_from_oak_config_not_hardcoded():
     _, unverified, unconfigured, _ = classify(term, CACHE, configured=real | {"RO"})
     assert unconfigured == []
     assert [t.curie for t in unverified] == ["RO:0000057"]
+
+
+def test_a_transport_failure_is_not_reported_as_a_wrong_binding():
+    """ "We could not check this" and "this is wrong" are different claims.
+
+    `--resolve` used to catch every lookup failure and print it as
+    `<CURIE DOES NOT RESOLVE>` under the wrong-label heading, so a flaky link
+    accused correct bindings of being fabricated. Six consecutive runs against an
+    unchanged tree once produced 8, 2, 2, 0, 9 and 12 "findings", every one a
+    transport error and not one a real mismatch. This script already keeps that
+    distinction for prefixes with no adapter; it owes the same honesty here.
+    """
+    from requests.exceptions import ConnectionError as RequestsConnectionError
+
+    class _Unreachable:
+        def label(self, curie):
+            raise RequestsConnectionError("connection reset")
+
+    term = Term("x.yaml", "value", "NCIT:C925", "Vancomycin")
+    with mock.patch("oaklib.get_adapter", return_value=_Unreachable()):
+        wrong, unresolved = check_qualifier_terms.resolve_remote([term], attempts=2)
+
+    assert wrong == [], "a network failure is not evidence about the binding"
+    assert [t.curie for t, _ in unresolved] == ["NCIT:C925"]
+    assert "could not be reached" in unresolved[0][1]
+
+
+def test_a_404_is_reported_as_a_nonexistent_curie():
+    """A definitive not-found is the most serious thing this check can say."""
+    from requests.exceptions import HTTPError
+    from requests.models import Response
+
+    response = Response()
+    response.status_code = 404
+
+    class _NotFound:
+        def label(self, curie):
+            raise HTTPError(response=response)
+
+    term = Term("x.yaml", "value", "NCIT:C99999999", "Nonexistent")
+    with mock.patch("oaklib.get_adapter", return_value=_NotFound()):
+        wrong, unresolved = check_qualifier_terms.resolve_remote([term], attempts=2)
+
+    assert wrong == []
+    assert "does not exist" in unresolved[0][1]
+
+
+def test_not_found_classification_walks_the_exception_chain():
+    """OAK wraps the underlying HTTP error, so the 404 is not the outer type."""
+    from requests.exceptions import ConnectionError as RequestsConnectionError
+    from requests.exceptions import HTTPError
+    from requests.models import Response
+
+    not_found = Response()
+    not_found.status_code = 404
+    server_error = Response()
+    server_error.status_code = 503
+
+    wrapped = RuntimeError("adapter failed")
+    wrapped.__cause__ = HTTPError(response=not_found)
+
+    assert check_qualifier_terms._is_not_found(wrapped) is True
+    assert (
+        check_qualifier_terms._is_not_found(HTTPError(response=server_error)) is False
+    )
+    assert (
+        check_qualifier_terms._is_not_found(RequestsConnectionError("reset")) is False
+    )
 
 
 def test_committed_kb_qualifier_labels_are_correct():

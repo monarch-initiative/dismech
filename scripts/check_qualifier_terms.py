@@ -206,14 +206,51 @@ def classify(
     return wrong, unverified, unconfigured, ok
 
 
-def resolve_remote(terms: list[Term]) -> list[tuple[Term, str]]:
-    """Check uncached CURIEs against the configured OAK adapters. Needs network."""
+def _is_not_found(exc: BaseException) -> bool:
+    """True only for a definitive "this CURIE does not exist" answer.
+
+    OLS answers 404 for a code that is not in the ontology, which is a real and
+    serious finding. Everything else -- a timeout, a reset connection, a 5xx --
+    says nothing about the binding, only about the link. Walks the exception
+    chain because OAK wraps the underlying HTTP error.
+    """
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        response = getattr(exc, "response", None)
+        status = getattr(response, "status_code", None)
+        if status == 404:
+            return True
+        if status is not None:
+            return False
+        exc = exc.__cause__ or exc.__context__
+    return False
+
+
+def resolve_remote(
+    terms: list[Term], *, attempts: int = 3
+) -> tuple[list[tuple[Term, str]], list[tuple[Term, str]]]:
+    """Check uncached CURIEs against the configured OAK adapters. Needs network.
+
+    Returns ``(wrong_label, unresolved)``. The split matters: a CURIE that does
+    not exist and a CURIE we could not reach are different claims, and folding
+    them together makes the tool accuse correct bindings whenever the network is
+    flaky. This script already keeps that distinction for prefixes with no
+    adapter, and the same honesty is owed here -- six consecutive runs against an
+    unchanged tree once produced 8, 2, 2, 0, 9 and 12 "findings", every one a
+    transport failure and not one a real mismatch.
+
+    Transport failures are retried; a 404 is definitive and is not.
+    """
+    import time
+
     from oaklib import get_adapter
 
     conf = yaml.safe_load((ROOT / "conf" / "oak_config.yaml").read_text())
     adapters_conf = conf["ontology_adapters"]
     adapters: dict[str, Any] = {}
     wrong: list[tuple[Term, str]] = []
+    unresolved: list[tuple[Term, str]] = []
     checked = 0
     for term in terms:
         prefix = term.curie.split(":", 1)[0]
@@ -226,20 +263,31 @@ def resolve_remote(terms: list[Term]) -> list[tuple[Term, str]]:
             continue
         if prefix not in adapters:
             adapters[prefix] = get_adapter(spec)
-        # A CURIE that does not exist surfaces as an adapter exception (OLS
-        # answers 404) rather than a None label, so both have to be caught --
-        # a nonexistent code is the most serious finding this check can make.
-        try:
-            actual = adapters[prefix].label(term.curie)
-        except Exception:  # any lookup failure is itself a finding
-            actual = None
+
+        actual: str | None = None
+        reason = ""
+        for attempt in range(attempts):
+            try:
+                actual = adapters[prefix].label(term.curie)
+                reason = ""
+                break
+            except Exception as exc:  # classified by _is_not_found below
+                if _is_not_found(exc):
+                    reason = "does not exist in the ontology (404)"
+                    break
+                reason = f"could not be reached ({type(exc).__name__})"
+                if attempt + 1 < attempts:
+                    time.sleep(2**attempt)
         checked += 1
-        if actual is None:
-            wrong.append((term, "<CURIE DOES NOT RESOLVE>"))
+
+        if reason:
+            unresolved.append((term, reason))
+        elif actual is None:
+            unresolved.append((term, "the adapter returned no label"))
         elif actual != term.label:
             wrong.append((term, actual))
     print(f"resolved {checked} uncached CURIE(s) against OAK.", file=sys.stderr)
-    return wrong
+    return wrong, unresolved
 
 
 def main() -> int:
@@ -258,14 +306,16 @@ def main() -> int:
     wrong, unverified, unconfigured, ok = classify(terms, cache)
 
     resolved = 0
+    unresolved: list[tuple[Term, str]] = []
     if args.resolve:
-        remote_wrong = resolve_remote(unverified)
+        remote_wrong, unresolved = resolve_remote(unverified)
         resolved = len(unverified)
         wrong = wrong + remote_wrong
         # Everything resolved and not flagged is now verified, just against the
         # ontology rather than the cache. Fold it into `ok` so the summary counts
         # what was actually checked instead of only the cache-backed subset.
-        ok += resolved - len(remote_wrong)
+        # Terms we could not reach are neither verified nor wrong.
+        ok += resolved - len(remote_wrong) - len(unresolved)
         unverified = []
 
     if args.report:
@@ -297,6 +347,19 @@ def main() -> int:
             f"note: {len(unconfigured)} qualifier term(s) use prefixes with no adapter "
             f"in conf/oak_config.yaml ({prefixes}); no tooling can validate them.\n"
         )
+
+    if unresolved:
+        # Deliberately not folded into the wrong-label findings below. "We could
+        # not check this" and "this binding is wrong" are different claims, and
+        # conflating them is what made a flaky link look like a fabricated CURIE.
+        print(
+            f"note: {len(unresolved)} qualifier term(s) could not be resolved. A 404 "
+            "means the CURIE does not exist and is worth acting on; anything else "
+            "says only that the lookup failed, so re-run before believing it.\n"
+        )
+        for term, reason in unresolved:
+            print(f"  {term.path}\n     {term.curie} ({term.label!r}): {reason}")
+        print()
 
     if not wrong:
         source = "the ontology" if args.resolve else "the ontology cache"

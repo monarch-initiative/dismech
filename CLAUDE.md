@@ -689,7 +689,7 @@ just list-causal-targets                               # full census, exit 0
 The pre-existing dangling backlog is grandfathered in
 `tests/causal_target_baseline.txt`; new breakage fails. Only ever shrink that
 file. A **self-referential** target (a node listed as its own downstream) is
-reported but never gated: both committed cases are a pathophysiology node and a
+reported but never gated: every committed case is a pathophysiology node and a
 phenotype sharing one name, which the flat node namespace collapses into a
 single node — a graph-model bug (#9896), not a curation error, and the edges
 carry their own evidence.
