@@ -103,6 +103,44 @@ def test_experiment_readout_targets_are_not_checked_here():
     assert "perturbations" not in slots
 
 
+def test_stale_baseline_rows_are_reported_without_failing(
+    tmp_path, monkeypatch, capsys
+):
+    """A fixed target's row must not silently inflate the grandfathered count.
+
+    The baseline's value is that its size measures remaining debt. A row left
+    behind after its target was repaired makes the backlog look larger than it
+    is, and before this nothing would ever have said so.
+    """
+    import check_causal_targets as mod
+
+    committed = mod.BASELINE_PATH.read_text(encoding="utf-8")
+    real = len(
+        [
+            line
+            for line in committed.splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
+    )
+
+    ghost = "kb/disorders/Nonexistent.yaml\tpathophysiology.downstream\tGhost\tTarget"
+    padded = tmp_path / "baseline.txt"
+    padded.write_text(committed + ghost + "\n")
+    monkeypatch.setattr(mod, "BASELINE_PATH", padded)
+    monkeypatch.setattr(sys, "argv", ["check_causal_targets.py"])
+
+    exit_code = mod.main()
+    out = capsys.readouterr().out
+
+    assert exit_code == 0, (
+        "a stale row is not a failure — the tree is better, not worse"
+    )
+    assert "1 baseline row(s) no longer match" in out
+    assert "Ghost" in out
+    # The reported count must exclude the stale row rather than inflate by it.
+    assert f"({real} dangling target(s) grandfathered)" in out
+
+
 def test_committed_kb_has_no_new_broken_targets():
     """The gate itself, over the real KB."""
     result = subprocess.run(

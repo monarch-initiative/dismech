@@ -258,7 +258,13 @@ def main() -> int:
         return 0
 
     baseline = load_baseline()
+    live = {f.key() for f in by_kind["dangling"]}
     new_dangling = [f for f in by_kind["dangling"] if f.key() not in baseline]
+    # Rows left behind after their target was fixed. Never a failure -- the tree
+    # is strictly better than the baseline records -- but the baseline's whole
+    # value is that its size is an honest measure of remaining debt, and a stale
+    # row silently inflates it. Reported so the count can be trusted.
+    stale = sorted(baseline - live)
     failures = by_kind["prefixed"] + new_dangling
 
     if by_kind["self"]:
@@ -271,10 +277,23 @@ def main() -> int:
             print(f"  {f.path}: {f.source!r} -> itself")
         print()
 
+    if stale:
+        print(
+            f"note: {len(stale)} baseline row(s) no longer match anything in the "
+            "KB, so their targets have since been fixed. Not a failure, but the "
+            "grandfathered count overstates the remaining backlog by that much. "
+            "Shrink it with `just update-causal-target-baseline`:\n"
+        )
+        for key in stale:
+            path, slot, source, target = key.split("\t")
+            print(f"  {path}\n     {slot}: {source!r} -> {target!r}")
+        print()
+
     if not failures:
+        remaining = len(baseline) - len(stale)
         print(
             f"OK: no new broken pathograph targets "
-            f"({len(baseline)} dangling target(s) grandfathered)."
+            f"({remaining} dangling target(s) grandfathered)."
         )
         return 0
 

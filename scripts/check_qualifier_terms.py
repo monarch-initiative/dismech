@@ -94,9 +94,7 @@ def configured_prefixes() -> frozenset[str]:
     uses it for ``linkml``, ``xsd``, ``rdf`` and friends), which is a different
     thing from having no adapter, so those are excluded too.
     """
-    import yaml as _yaml
-
-    adapters = _yaml.safe_load(OAK_CONFIG.read_text(encoding="utf-8"))[
+    adapters = yaml.safe_load(OAK_CONFIG.read_text(encoding="utf-8"))[
         "ontology_adapters"
     ]
     return frozenset(prefix for prefix, spec in adapters.items() if spec)
@@ -210,10 +208,9 @@ def classify(
 
 def resolve_remote(terms: list[Term]) -> list[tuple[Term, str]]:
     """Check uncached CURIEs against the configured OAK adapters. Needs network."""
-    import yaml as _yaml
     from oaklib import get_adapter
 
-    conf = _yaml.safe_load((ROOT / "conf" / "oak_config.yaml").read_text())
+    conf = yaml.safe_load((ROOT / "conf" / "oak_config.yaml").read_text())
     adapters_conf = conf["ontology_adapters"]
     adapters: dict[str, Any] = {}
     wrong: list[tuple[Term, str]] = []

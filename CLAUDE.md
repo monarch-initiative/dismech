@@ -1235,7 +1235,8 @@ and `Qualifier.value` are plain `Descriptor`s with no such binding, so their
 `label: Totally Bogus Fabricated Label` on one and watching it report
 "✅ Validation passed" (#10197).
 
-That blind spot had already admitted 31 wrong bindings across 10 entries, all
+That blind spot had already admitted 32 wrong bindings across 10 entries — 31
+CURIE corrections plus one where the code was right and only the label wrong — all
 plausible-looking codes naming the wrong concept:
 
 | Curated as | `NCIT` code actually means |
