@@ -37,8 +37,15 @@ module — consider a `Grouping` (`SHARED_PHENOTYPE`) instead.
 
 - Validates against the **`Disease`** class with `category: Module`.
 - Top-level: `name`, `description`, `category: Module`, `creation_date`,
-  `notes`, `pathophysiology`. Optional: `treatments`, `mechanistic_hypotheses`,
-  `discussions`.
+  `notes`, `pathophysiology`. Optional: `module_categories`, `treatments`,
+  `mechanistic_hypotheses`, `discussions`.
+- **`module_categories`** tags the areas of study the module is relevant to
+  (`ModuleCategoryEnum` — TOXICOLOGY, PHARMACOLOGY, ONCOLOGY,
+  INFECTIOUS_DISEASE, IMMUNOLOGY, NEUROSCIENCE, DEVELOPMENTAL_BIOLOGY,
+  METABOLISM, AGING) and renders as coloured pills on the module pages. It is a
+  browsing aid, so tag every area that genuinely applies and leave it off when
+  none fits — a wrong pill is worse than no pill. See the *Module categories*
+  section of `CLAUDE.md`.
 - Nodes bind **GO and CL terms only** (plus UBERON `locations`, GO
   `cellular_components`). **No** CHEBI/MONDO term bindings in nodes — describe
   chemistry/disease in prose. (Exception: a `treatments` block's
