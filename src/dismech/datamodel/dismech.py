@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-08-31T16:53:12
+# Generation date: 2026-08-31T23:26:40
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -3850,6 +3850,7 @@ class Disease(YAMLRoot):
     environmental: Optional[Union[dict[Union[str, EnvironmentalName], Union[dict, Environmental]], list[Union[dict, Environmental]]]] = empty_dict()
     treatments: Optional[Union[dict[Union[str, TreatmentName], Union[dict, "Treatment"]], list[Union[dict, "Treatment"]]]] = empty_dict()
     categories: Optional[Union[str, list[str]]] = empty_list()
+    module_categories: Optional[Union[Union[str, "ModuleCategoryEnum"], list[Union[str, "ModuleCategoryEnum"]]]] = empty_list()
     infectious_agent: Optional[Union[dict[Union[str, InfectiousAgentName], Union[dict, "InfectiousAgent"]], list[Union[dict, "InfectiousAgent"]]]] = empty_dict()
     agent_life_cycle: Optional[Union[dict, "AgentLifeCycle"]] = None
     transmission: Optional[Union[dict[Union[str, TransmissionName], Union[dict, "Transmission"]], list[Union[dict, "Transmission"]]]] = empty_dict()
@@ -3941,6 +3942,10 @@ class Disease(YAMLRoot):
         if not isinstance(self.categories, list):
             self.categories = [self.categories] if self.categories is not None else []
         self.categories = [v if isinstance(v, str) else str(v) for v in self.categories]
+
+        if not isinstance(self.module_categories, list):
+            self.module_categories = [self.module_categories] if self.module_categories is not None else []
+        self.module_categories = [v if isinstance(v, ModuleCategoryEnum) else ModuleCategoryEnum(v) for v in self.module_categories]
 
         self._normalize_inlined_as_list(slot_name="infectious_agent", slot_type=InfectiousAgent, key_name="name", keyed=True)
 
@@ -9558,6 +9563,56 @@ class ModuleCollectionTypeEnum(EnumDefinitionImpl):
         description="""The organizing principle for a curated collection of mechanism modules. Collections are navigation and framework records, not mechanism modules themselves and not disease groupings.""",
     )
 
+class ModuleCategoryEnum(EnumDefinitionImpl):
+    """
+    Areas of study a mechanism module is relevant to. A category asserts "this module is relevant to this area of
+    study" — it is a discovery and browsing aid, not a mechanistic claim and not a classification of the diseases that
+    conform to the module. Multivalued and deliberately non-exclusive: a drug-toxicity module is both TOXICOLOGY and
+    PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY and INFECTIOUS_DISEASE. Applied through the
+    `module_categories` slot, which is intended for entries under `kb/modules/`.
+    """
+    TOXICOLOGY = PermissibleValue(
+        text="TOXICOLOGY",
+        title="Toxicology",
+        description="""Injury caused by exposure to a xenobiotic — environmental toxicants, poisons, occupational and dietary exposures, and adverse drug reactions modelled as mechanism rather than as an outcome. Includes drug-toxicity modules and any module whose trigger arm carries a toxicant or drug exposure.""")
+    PHARMACOLOGY = PermissibleValue(
+        text="PHARMACOLOGY",
+        title="Pharmacology",
+        description="""Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern.""")
+    ONCOLOGY = PermissibleValue(
+        text="ONCOLOGY",
+        title="Oncology",
+        description="""Tumor biology and cancer therapeutics — the hallmark-of-cancer capability modules, tumor-microenvironment mechanisms, and cancer-specific therapeutic vulnerabilities and resistance patterns.""")
+    INFECTIOUS_DISEASE = PermissibleValue(
+        text="INFECTIOUS_DISEASE",
+        title="Infectious disease",
+        description="""Host-pathogen mechanism and antimicrobial therapy: pathogen entry, replication, persistence and immune evasion, together with the antibacterial, antifungal, and antiviral drug-target modules.""")
+    IMMUNOLOGY = PermissibleValue(
+        text="IMMUNOLOGY",
+        title="Immunology",
+        description="""Immune-mediated mechanism — innate and adaptive immune activation, autoimmunity, hypersensitivity, chronic inflammation, and the immune contribution to tissue injury and repair.""")
+    NEUROSCIENCE = PermissibleValue(
+        text="NEUROSCIENCE",
+        title="Neuroscience",
+        description="""Nervous-system mechanism across the central, peripheral, and sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability, neurodevelopmental patterning of the brain, and neural waste clearance.""")
+    DEVELOPMENTAL_BIOLOGY = PermissibleValue(
+        text="DEVELOPMENTAL_BIOLOGY",
+        title="Developmental biology",
+        description="""Morphogenesis and embryonic patterning — signalling gradients, segmentation, cell-fate specification, and migration defects whose lesion acts during development rather than in mature tissue.""")
+    METABOLISM = PermissibleValue(
+        text="METABOLISM",
+        title="Metabolism",
+        description="""Intermediary metabolism, bioenergetics, and cellular quality control of metabolic substrate: inborn errors of metabolism, mitochondrial and lysosomal function, nutrient sensing, and storage or intoxication phenotypes.""")
+    AGING = PermissibleValue(
+        text="AGING",
+        title="Aging",
+        description="""Geroscience mechanism — the hallmarks of aging and the age-associated processes (senescence, telomere attrition, stem-cell exhaustion, proteostasis and genome-maintenance decline) that drive late-onset disease.""")
+
+    _defn = EnumDefinition(
+        name="ModuleCategoryEnum",
+        description="""Areas of study a mechanism module is relevant to. A category asserts \"this module is relevant to this area of study\" — it is a discovery and browsing aid, not a mechanistic claim and not a classification of the diseases that conform to the module. Multivalued and deliberately non-exclusive: a drug-toxicity module is both TOXICOLOGY and PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY and INFECTIOUS_DISEASE. Applied through the `module_categories` slot, which is intended for entries under `kb/modules/`.""",
+    )
+
 class ReferenceTagEnum(EnumDefinitionImpl):
     """
     Controlled vocabulary for tagging top-level references by authoritative source type. Enables queries like "which
@@ -12590,6 +12645,9 @@ slots.treatments = Slot(uri=DISMECH.treatments, name="treatments", curie=DISMECH
 
 slots.categories = Slot(uri=DISMECH.categories, name="categories", curie=DISMECH.curie('categories'),
                    model_uri=DISMECH.categories, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.module_categories = Slot(uri=DISMECH.module_categories, name="module_categories", curie=DISMECH.curie('module_categories'),
+                   model_uri=DISMECH.module_categories, domain=None, range=Optional[Union[Union[str, "ModuleCategoryEnum"], list[Union[str, "ModuleCategoryEnum"]]]])
 
 slots.infectious_agent = Slot(uri=DISMECH.infectious_agent, name="infectious_agent", curie=DISMECH.curie('infectious_agent'),
                    model_uri=DISMECH.infectious_agent, domain=None, range=Optional[Union[dict[Union[str, InfectiousAgentName], Union[dict, InfectiousAgent]], list[Union[dict, InfectiousAgent]]]])

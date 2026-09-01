@@ -5569,6 +5569,48 @@ class ModuleCollectionTypeEnum(str, Enum):
     """
 
 
+class ModuleCategoryEnum(str, Enum):
+    """
+    Areas of study a mechanism module is relevant to. A category asserts "this module is relevant to this area of study" — it is a discovery and browsing aid, not a mechanistic claim and not a classification of the diseases that conform to the module. Multivalued and deliberately non-exclusive: a drug-toxicity module is both TOXICOLOGY and PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY and INFECTIOUS_DISEASE. Applied through the `module_categories` slot, which is intended for entries under `kb/modules/`.
+    """
+    Toxicology = "TOXICOLOGY"
+    """
+    Injury caused by exposure to a xenobiotic — environmental toxicants, poisons, occupational and dietary exposures, and adverse drug reactions modelled as mechanism rather than as an outcome. Includes drug-toxicity modules and any module whose trigger arm carries a toxicant or drug exposure.
+    """
+    Pharmacology = "PHARMACOLOGY"
+    """
+    Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern.
+    """
+    Oncology = "ONCOLOGY"
+    """
+    Tumor biology and cancer therapeutics — the hallmark-of-cancer capability modules, tumor-microenvironment mechanisms, and cancer-specific therapeutic vulnerabilities and resistance patterns.
+    """
+    Infectious_disease = "INFECTIOUS_DISEASE"
+    """
+    Host-pathogen mechanism and antimicrobial therapy: pathogen entry, replication, persistence and immune evasion, together with the antibacterial, antifungal, and antiviral drug-target modules.
+    """
+    Immunology = "IMMUNOLOGY"
+    """
+    Immune-mediated mechanism — innate and adaptive immune activation, autoimmunity, hypersensitivity, chronic inflammation, and the immune contribution to tissue injury and repair.
+    """
+    Neuroscience = "NEUROSCIENCE"
+    """
+    Nervous-system mechanism across the central, peripheral, and sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability, neurodevelopmental patterning of the brain, and neural waste clearance.
+    """
+    Developmental_biology = "DEVELOPMENTAL_BIOLOGY"
+    """
+    Morphogenesis and embryonic patterning — signalling gradients, segmentation, cell-fate specification, and migration defects whose lesion acts during development rather than in mature tissue.
+    """
+    Metabolism = "METABOLISM"
+    """
+    Intermediary metabolism, bioenergetics, and cellular quality control of metabolic substrate: inborn errors of metabolism, mitochondrial and lysosomal function, nutrient sensing, and storage or intoxication phenotypes.
+    """
+    Aging = "AGING"
+    """
+    Geroscience mechanism — the hallmarks of aging and the age-associated processes (senescence, telomere attrition, stem-cell exhaustion, proteostasis and genome-maintenance decline) that drive late-onset disease.
+    """
+
+
 class ReferenceTagEnum(str, Enum):
     """
     Controlled vocabulary for tagging top-level references by authoritative source type. Enables queries like "which disorders lack a GeneReviews citation?"
@@ -17023,6 +17065,7 @@ class Disease(ConfiguredBaseModel):
     environmental: Optional[list[Environmental]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     treatments: Optional[list[Treatment]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     categories: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
+    module_categories: Optional[list[ModuleCategoryEnum]] = Field(default=None, description="""Areas of study this mechanism module is relevant to, drawn from ModuleCategoryEnum. Each value asserts \"this module is relevant to this area of study\" and is rendered as a labelled pill on the module index and module detail pages, so the categories are a browsing and discovery aid rather than a mechanistic assertion. Intended for entries under `kb/modules/`, which validate against the Disease class; disorder entries use the free-text `categories` slot for nosological grouping instead.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease'], 'examples': [{'value': 'TOXICOLOGY'}]} })
     infectious_agent: Optional[list[InfectiousAgent]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     agent_life_cycle: Optional[AgentLifeCycle] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     transmission: Optional[list[Transmission]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })

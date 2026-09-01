@@ -3984,7 +3984,7 @@ window.searchData = [
   },
   {
     "name": "AIP-related pituitary adenoma predisposition",
-    "disease_id": null,
+    "disease_id": "MONDO:1060231",
     "category": "Mendelian",
     "parents": [
       "hereditary cancer-predisposing syndrome"
@@ -12761,6 +12761,140 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Ageing Associated Decline in Intrinsic Capacity",
+    "disease_id": null,
+    "category": "Complex",
+    "parents": [
+      "general symptoms, signs or clinical findings",
+      "ageing-related functional decline"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Locomotor",
+      "Vitality",
+      "Cognitive",
+      "Psychological",
+      "Sensory"
+    ],
+    "description": "Ageing associated decline in intrinsic capacity (ICD-11 MG2A) is the age-related erosion of intrinsic capacity - the composite of all the physical and mental capacities an individual can draw on at any point in time. Intrinsic capacity is one of the two determinants (with the environment) of functional ability in the WHO healthy-ageing model, and is operationalised across five domains: locomotion, vitality, cognition, psychological capacity, and sensory capacity. Decline is graded rather than binary, is usually insidious and multi-domain, and typically precedes and predicts frailty, care dependence, and death. Mechanistically the entry treats the condition as the clinical convergence point of the molecular and cellular hallmarks of ageing: accumulating damage drives mitochondrial bioenergetic decline, senescent-cell accumulation, inflammaging, and loss of regenerative reserve, which together erode physiological reserve across organ systems and surface as domain-specific capacity loss. Unlike a single-organ disease, the entity is defined at the level of the whole organism, and its principal management is multidomain and person-centred rather than pharmacological. This entry deliberately models the construct as WHO and ICD-11 define it, and does not treat it as a synonym for frailty, sarcopenia, or disability, each of which is modelled separately.",
+    "pathophysiology": [
+      "Accumulation of Hallmark Ageing Damage",
+      "Mitochondrial Bioenergetic Decline",
+      "Senescent Cell Accumulation in Ageing Tissue",
+      "Chronic Low-Grade Sterile Inflammation",
+      "Decline in Tissue Regenerative Reserve",
+      "Loss of Physiological Reserve Across Organ Systems",
+      "Vitality Capacity Decline",
+      "Locomotor Capacity Decline",
+      "Cognitive Capacity Decline",
+      "Psychological Capacity Decline",
+      "Sensory Capacity Decline",
+      "Composite Intrinsic Capacity Decline",
+      "Loss of Functional Ability and Care Dependence"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "leukocyte",
+      "stem cell",
+      "skeletal muscle fiber",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000738",
+      "CL:0000034",
+      "CL:0008002",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "DNA damage response",
+      "oxidative phosphorylation",
+      "reactive oxygen species metabolic process",
+      "cellular senescence",
+      "inflammatory response",
+      "cytokine production",
+      "stem cell population maintenance",
+      "tissue regeneration",
+      "skeletal muscle atrophy",
+      "cognition"
+    ],
+    "phenotypes": [
+      "Muscle weakness",
+      "Impaired gait and balance",
+      "Memory impairment",
+      "Cognitive impairment",
+      "Malnutrition",
+      "Unintentional weight loss and appetite loss",
+      "Depressive symptoms",
+      "Hearing impairment",
+      "Visual impairment"
+    ],
+    "phenotype_categories": [
+      "Locomotor",
+      "Cognitive",
+      "Vitality",
+      "Psychological",
+      "Sensory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001324",
+      "HP:0001288",
+      "HP:0002354",
+      "HP:0100543",
+      "HP:0004395",
+      "HP:0001824",
+      "HP:0000716",
+      "HP:0000365",
+      "HP:0000505"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "Polygenic background of intrinsic capacity",
+      "APOE"
+    ],
+    "treatments": [
+      "Multicomponent Physical Activity with Nutritional Counselling",
+      "In-Hospital Multicomponent Exercise Training",
+      "Combined Exercise and Cognitive Stimulation Therapy",
+      "Group-Based Multidomain Intervention with Brain-Structure Outcomes",
+      "Multidomain Lifestyle Intervention for Cognitive Decline",
+      "ICOPE Integrated Person-Centred Care Pathway",
+      "Hearing Intervention with Hearing Aid Provision",
+      "Systematic ICOPE Step 1 Screening in Primary Care"
+    ],
+    "environmental": [
+      "Ambient and household air pollution",
+      "Chronic pain",
+      "Acute hospitalisation"
+    ],
+    "biochemical": [
+      "Plasma interleukin-6",
+      "Plasma growth differentiation factor-15 (GDF-15)",
+      "C-reactive protein and tumor necrosis factor-alpha"
+    ],
+    "source_file": "Ageing_Associated_Decline_in_Intrinsic_Capacity.yaml",
+    "page_url": "../pages/disorders/Ageing_Associated_Decline_in_Intrinsic_Capacity.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 13,
+    "num_genes": 2,
+    "num_treatments": 8,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Agenesis of the Corpus Callosum with Peripheral Neuropathy",
@@ -60423,6 +60557,7 @@ window.searchData = [
       "Supportive care"
     ],
     "environmental": [
+      "Dermal beryllium exposure",
       "Occupational beryllium inhalation"
     ],
     "biochemical": [],
@@ -60432,7 +60567,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "9"
   },
   {
@@ -109386,7 +109521,7 @@ window.searchData = [
   },
   {
     "name": "Green Tobacco Sickness",
-    "disease_id": null,
+    "disease_id": "MONDO:1060229",
     "category": "Environmental",
     "parents": [
       "Occupational Disease",
@@ -121080,6 +121215,7 @@ window.searchData = [
       "Inflammatory Response"
     ],
     "phenotypes": [
+      "Prematurely aged appearance",
       "Failure to thrive",
       "Alopecia",
       "Sclerodermatous skin",
@@ -121087,6 +121223,7 @@ window.searchData = [
       "Accelerated coronary atherosclerosis"
     ],
     "phenotype_categories": [
+      "Constitutional",
       "Growth",
       "Dermatologic",
       "Musculoskeletal",
@@ -121099,13 +121236,16 @@ window.searchData = [
       "Musculoskeletal"
     ],
     "phenotype_ids": [
+      "HP:0007495",
       "HP:0001508",
       "HP:0001596",
       "HP:0100324",
       "HP:0034392",
       "HP:0001677"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
     "genes": [
       "LMNA"
     ],
@@ -121118,7 +121258,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Hutchinson-Gilford_Progeria_Syndrome.yaml",
     "page_url": "../pages/disorders/Hutchinson-Gilford_Progeria_Syndrome.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
@@ -143719,6 +143859,9 @@ window.searchData = [
       "Hemolytic erythrocyte injury",
       "Calcium mimicry in neuronal signaling",
       "Protein kinase C dysregulation",
+      "NMDA receptor blockade in glutamatergic neurons",
+      "Reduced NMDA receptor-mediated calcium signaling",
+      "Reduced BDNF-TrkB signaling",
       "Mitochondrial dysfunction",
       "Oxidative stress response",
       "Proximal tubular lead accumulation",
@@ -143728,12 +143871,16 @@ window.searchData = [
       "osteoblast",
       "erythrocyte",
       "neuron",
+      "glutamatergic neuron",
+      "hippocampal neuron",
       "proximal tubule cell"
     ],
     "cell_type_ids": [
       "CL:0000062",
       "CL:0000232",
       "CL:0000540",
+      "CL:0000679",
+      "CL:0002608",
       "CL:0002306"
     ],
     "biological_processes": [
@@ -143741,6 +143888,9 @@ window.searchData = [
       "calcium ion homeostasis",
       "heme biosynthetic process",
       "pyrimidine-containing compound biosynthetic process",
+      "calcium ion transmembrane transport",
+      "BDNF gene expression",
+      "BDNF-TrkB signaling",
       "mitochondrion organization",
       "response to oxidative stress",
       "renal absorption"
@@ -143821,11 +143971,11 @@ window.searchData = [
     "source_file": "Lead_Poisoning.yaml",
     "page_url": "../pages/disorders/Lead_Poisoning.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 12,
+    "num_pathophysiology": 15,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "29",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Leber-like Hereditary Optic Neuropathy, Autosomal Recessive 1",
@@ -171791,21 +171941,24 @@ window.searchData = [
     "cell_type_ids": [],
     "biological_processes": [],
     "phenotypes": [
+      "Prematurely aged appearance",
       "Growth delay",
       "Joint stiffness",
       "Skeletal abnormalities",
       "Reduced subcutaneous adipose tissue"
     ],
     "phenotype_categories": [
-      "Growth",
-      "Musculoskeletal",
-      "Constitutional"
-    ],
-    "phenotype_hpo_categories": [
+      "Constitutional",
       "Growth",
       "Musculoskeletal"
     ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Integument",
+      "Musculoskeletal"
+    ],
     "phenotype_ids": [
+      "HP:0007495",
       "HP:0001510",
       "HP:0001387",
       "HP:0000924",
@@ -171820,7 +171973,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Nestor-Guillermo_progeria_syndrome.yaml",
     "page_url": "../pages/disorders/Nestor-Guillermo_progeria_syndrome.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 5,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
@@ -185220,6 +185373,9 @@ window.searchData = [
     "subtypes": [],
     "description": "Osteoporosis results from an imbalance in bone remodeling, with osteoclast-mediated resorption outpacing osteoblast-mediated formation. An increased RANKL-to-osteoprotegerin ratio, accelerated by estrogen deficiency and aging, promotes osteoclastogenesis and net bone loss. Progressive loss of bone mass and microarchitectural deterioration reduce bone strength and predispose to fragility fractures.",
     "pathophysiology": [
+      "Osteocyte SASP Acquisition",
+      "Senescent Cell Accumulation in the Bone Microenvironment",
+      "Marrow Stromal Lineage Shift Toward Adipogenesis",
       "Bone Remodeling Imbalance",
       "RANKL/OPG Dysregulation",
       "Microarchitectural Deterioration",
@@ -185228,16 +185384,25 @@ window.searchData = [
       "Spaceflight-Induced Mitochondrial Stress in Bone"
     ],
     "cell_types": [
+      "Osteocyte",
+      "Bone marrow mesenchymal stromal cell",
+      "Marrow adipocyte",
       "Osteoclast",
-      "Osteoblast",
-      "Osteocyte"
+      "Osteoblast"
     ],
     "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000134",
+      "CL:0000136",
       "CL:0000092",
-      "CL:0000062",
-      "CL:0000137"
+      "CL:0000062"
     ],
     "biological_processes": [
+      "SASP cytokine production by senescent osteocytes",
+      "Inflammatory response in the bone microenvironment",
+      "Cellular Senescence",
+      "Fat Cell Differentiation",
+      "Osteoblast Differentiation",
       "Bone Remodeling",
       "Osteoclast Differentiation",
       "Cellular Response to Mechanical Stimulus",
@@ -185264,7 +185429,7 @@ window.searchData = [
       "HP:0002953",
       "HP:0031846",
       "HP:0002808",
-      "HP:0004322"
+      "HP:0000002"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -185304,11 +185469,11 @@ window.searchData = [
     "source_file": "Osteoporosis.yaml",
     "page_url": "../pages/disorders/Osteoporosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Osteosarcoma",
@@ -211962,6 +212127,131 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Rhabdoid Tumor Predisposition Syndrome 1",
+    "disease_id": "MONDO:0012252",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rhabdoid tumor predisposition syndrome 1 (RTPS1) is an autosomal dominant cancer predisposition caused by heterozygous germline loss-of-function variants in SMARCB1, which encodes a core subunit of the SWI/SNF (BAF) ATP-dependent chromatin remodelling complex. Carriers develop malignant rhabdoid tumours in infancy and early childhood at central nervous system, renal and extrarenal soft tissue sites, frequently synchronously at more than one site. Roughly a third of children with a rhabdoid tumour carry a germline SMARCB1 variant; germline cases present at a younger age and have a worse outcome than sporadic cases. Tumours arise by classical two-hit inactivation, and are otherwise notable for a near-silent somatic mutational landscape, so that SMARCB1 loss is close to the entire oncogenic mechanism.",
+    "pathophysiology": [
+      "Germline SMARCB1 Loss-of-Function",
+      "Somatic Inactivation of the Second SMARCB1 Allele",
+      "SWI/SNF Chromatin Remodelling Complex Dysfunction",
+      "Failure of Enhancer-Mediated Differentiation",
+      "Rhabdoid Tumorigenesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Atypical Teratoid Rhabdoid Tumor",
+      "Rhabdoid Tumor of the Kidney",
+      "Extrarenal Extracranial Rhabdoid Tumor",
+      "Synchronous Multifocal Rhabdoid Tumors",
+      "Schwannomatosis",
+      "Choroid Plexus Carcinoma"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0034401",
+      "HP:0034402",
+      "HP:0034557",
+      "HP:0100008",
+      "HP:0030392"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMARCB1"
+    ],
+    "treatments": [
+      "Multimodal Therapy for Atypical Teratoid Rhabdoid Tumor",
+      "Age-Stratified Tumor Surveillance",
+      "Germline SMARCB1 Testing and Family Surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rhabdoid_Tumor_Predisposition_Syndrome_1.yaml",
+    "page_url": "../pages/disorders/Rhabdoid_Tumor_Predisposition_Syndrome_1.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Rhabdoid Tumor Predisposition Syndrome 2",
+    "disease_id": "MONDO:0013224",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rhabdoid tumor predisposition syndrome 2 (RTPS2) is an autosomal dominant cancer predisposition caused by heterozygous germline loss-of-function variants in SMARCA4, the ATPase subunit that powers the SWI/SNF (BAF) chromatin remodelling complex. It is considerably rarer than the SMARCB1 form and carries a broader tumour spectrum: alongside infantile rhabdoid tumours of the brain and kidney, carriers develop small cell carcinoma of the ovary, hypercalcemic type, a tumour of adolescents and young women now recognised as a rhabdoid tumour rather than a carcinoma. The later-onset ovarian risk means the surveillance window does not close at the end of early childhood, which distinguishes management from RTPS1.",
+    "pathophysiology": [
+      "Germline SMARCA4 Loss-of-Function",
+      "Somatic Inactivation of the Second SMARCA4 Allele",
+      "Loss of BAF Complex ATPase Activity",
+      "Failure of Enhancer-Mediated Differentiation",
+      "Rhabdoid Tumorigenesis",
+      "Ovarian Small Cell Carcinoma Hypercalcemic Type Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Atypical Teratoid Rhabdoid Tumor",
+      "Rhabdoid Tumor of the Kidney",
+      "Small Cell Carcinoma of the Ovary Hypercalcemic Type",
+      "Paraneoplastic Hypercalcemia"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0034401",
+      "HP:0034402",
+      "HP:0100615",
+      "HP:0003072"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMARCA4"
+    ],
+    "treatments": [
+      "Risk-Reducing Bilateral Salpingo-Oophorectomy",
+      "Germline SMARCA4 Testing and Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rhabdoid_Tumor_Predisposition_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Rhabdoid_Tumor_Predisposition_Syndrome_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Rheumatic Heart Disease",
     "disease_id": "MONDO:0006955",
     "category": "Complex",
@@ -220298,6 +220588,124 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Sarcopenia",
+    "disease_id": null,
+    "category": "Complex",
+    "parents": [
+      "Musculoskeletal Disease"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Primary",
+      "Secondary",
+      "T2DM-related",
+      "Sarcopenic obesity"
+    ],
+    "description": "Sarcopenia is a progressive, generalised skeletal muscle disorder in which muscle strength, mass, and quality decline together, producing weakness, slow gait, falls, fractures, disability, and excess mortality. Contemporary consensus (EWGSOP2, AWGS 2019) treats it as a muscle disease \u2014 \"muscle failure\" \u2014 rather than an inevitable feature of ageing, and places low muscle strength, not low muscle mass, at the centre of the diagnosis. Primary (age-related) sarcopenia is diagnosed when ageing is the only apparent cause; secondary sarcopenia is driven by inactivity, undernutrition, or chronic disease (organ failure, malignancy, inflammatory disease), and is the more common form. Mechanistically the entry models a convergent chain in which motor neuron loss and neuromuscular junction transmission failure, mitochondrial dysfunction, inflammaging, satellite-cell exhaustion, anabolic resistance, and ubiquitin-proteasome proteolysis together tip muscle protein balance negative and preferentially destroy type II fibers.",
+    "pathophysiology": [
+      "Alpha Motor Neuron Loss and Muscle Fiber Denervation",
+      "Neuromuscular Junction Transmission Failure",
+      "Postsynaptic NaV1.4 Depletion",
+      "Failure of Compensatory Motor Unit Remodeling",
+      "Mitochondrial Dysfunction and Oxidative Stress",
+      "Chronic Low-Grade Inflammation",
+      "Muscle Satellite Cell Exhaustion",
+      "Declining Anabolic Hormone Signalling",
+      "Anabolic Resistance",
+      "Myostatin and Activin Receptor Signalling",
+      "Ubiquitin-Proteasome Myofibrillar Proteolysis",
+      "Negative Net Muscle Protein Balance",
+      "Type II Myofiber Atrophy and Fiber-Type Shift",
+      "Myosteatosis and Intramuscular Fibro-Adipogenic Infiltration",
+      "Loss of Skeletal Muscle Mass, Strength and Quality"
+    ],
+    "cell_types": [
+      "alpha motor neuron",
+      "skeletal muscle fiber",
+      "skeletal muscle satellite cell",
+      "type II (fast) skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008038",
+      "CL:0008002",
+      "CL:0000594",
+      "CL:0000190"
+    ],
+    "biological_processes": [
+      "response to denervation",
+      "cellular respiration",
+      "positive regulation of NF-kappaB signalling",
+      "skeletal muscle satellite cell proliferation",
+      "skeletal muscle tissue regeneration",
+      "TORC1 signaling",
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "skeletal muscle atrophy"
+    ],
+    "phenotypes": [
+      "Low Muscle Strength",
+      "Decreased Muscle Mass",
+      "Type 2 Muscle Fiber Atrophy",
+      "Impaired Physical Performance",
+      "Falls",
+      "Frailty",
+      "Physical Disability and Loss of Independence"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurological",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003324",
+      "HP:0003199",
+      "HP:0003554",
+      "HP:0001288",
+      "HP:0002527",
+      "HP:0033675"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "ACTN3",
+      "MSTN",
+      "SCN4A",
+      "Polygenic sarcopenia risk loci (UK Biobank)"
+    ],
+    "treatments": [
+      "Progressive Resistance Exercise Training",
+      "Dietary Protein and Leucine Supplementation",
+      "Vitamin D Repletion",
+      "Bimagrumab (Anti-Activin Type II Receptor Antibody)",
+      "RANK-Ligand Inhibition (Denosumab)",
+      "ClC-1 Chloride Channel Inhibition"
+    ],
+    "environmental": [
+      "Sedentary lifestyle and physical inactivity",
+      "Inadequate dietary protein intake",
+      "Regular resistance exercise"
+    ],
+    "biochemical": [
+      "Interleukin-6",
+      "Tumor necrosis factor alpha",
+      "Insulin-like growth factor 1"
+    ],
+    "source_file": "Sarcopenia.yaml",
+    "page_url": "../pages/disorders/Sarcopenia.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 15,
+    "num_genes": 4,
+    "num_treatments": 6,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Satoyoshi Syndrome",
     "disease_id": "MONDO:0010922",
     "category": "Autoimmune",
@@ -225158,7 +225566,7 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "36",
     "causal_graph_longest_path": "7"
   },
   {
@@ -252413,6 +252821,7 @@ window.searchData = [
       "mitophagy"
     ],
     "phenotypes": [
+      "Prematurely Aged Appearance",
       "Bilateral Cataracts",
       "Premature Graying and Thinning of Hair",
       "Alopecia",
@@ -252441,6 +252850,7 @@ window.searchData = [
       "Osteosarcoma"
     ],
     "phenotype_categories": [
+      "Constitutional",
       "Ophthalmologic",
       "Integument",
       "Metabolic",
@@ -252468,6 +252878,7 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
+      "HP:0007495",
       "HP:0007787",
       "HP:0002216",
       "HP:0001596",
@@ -252515,7 +252926,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Werner_Syndrome.yaml",
     "page_url": "../pages/disorders/Werner_Syndrome.html",
-    "num_phenotypes": 26,
+    "num_phenotypes": 27,
     "num_pathophysiology": 17,
     "num_genes": 1,
     "num_treatments": 7,
@@ -257688,19 +258099,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2498,
-  "total_subtypes": 3550,
-  "total_disorders_and_subtypes": 6048,
-  "total_unique_evidence_sources": 35794,
-  "total_unique_publications": 33672,
+  "total_disorder_pages": 2502,
+  "total_subtypes": 3559,
+  "total_disorders_and_subtypes": 6061,
+  "total_unique_evidence_sources": 35918,
+  "total_unique_publications": 33790,
   "total_unique_disease_categories": 52,
-  "total_unique_phenotype_categories": 266,
-  "total_pathographs": 2493,
-  "total_unique_pathological_events": 14498,
-  "total_modules": 166,
-  "total_research_reports": 2615,
+  "total_unique_phenotype_categories": 268,
+  "total_pathographs": 2497,
+  "total_unique_pathological_events": 14539,
+  "total_modules": 167,
+  "total_research_reports": 2619,
   "total_classifications": 19,
   "total_comorbidities": 25,
-  "total_groupings": 99
+  "total_groupings": 100
 };
 window.dispatchEvent(new Event('searchDataReady'));
