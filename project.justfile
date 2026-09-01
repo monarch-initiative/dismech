@@ -1306,10 +1306,17 @@ list-modules filter="":
         nodes = [n.get("name", "?") for n in (doc.get("pathophysiology") or [])]
         desc = " ".join((doc.get("description") or "").split())
         notes = " ".join((doc.get("notes") or "").split())
-        if filt and filt not in f"{path.stem} {desc} {notes} {' '.join(nodes)}".lower():
+        cats = doc.get("module_categories") or []
+        # Categories join the filter haystack so `just list-modules toxicology`
+        # answers "which modules would a toxicologist care about?" from the
+        # console, the same question the index-page pills answer in the browser.
+        hay = f"{path.stem} {desc} {notes} {' '.join(nodes)} {' '.join(cats)}".lower()
+        if filt and filt not in hay:
             continue
         matched += 1
         print(f"\n{path.stem}")
+        if cats:
+            print("  categories: " + ", ".join(cats))
         emit("  ", desc, clip=not filt)
         if filt:
             emit("  notes: ", notes, clip=False)

@@ -556,14 +556,30 @@ members with `just list-modules`, do not assume this list is exhaustive):
   Glioblastoma_IDH_Wildtype, Pancreatic_Ductal_Adenocarcinoma.
 - **Hallmarks of aging** (Lopez-Otin et al.) — the senescence, telomere,
   proteostasis, autophagy, nutrient-sensing, epigenetic, mitochondrial,
-  stem-cell, dysbiosis, and inflammaging modules.
+  stem-cell, dysbiosis, and inflammaging modules. Most carry a `biochemical:`
+  biomarker block with `BiomarkerReadout` links (`grep -l '^biochemical:'
+  kb/modules/*.yaml` for the current set); `cellular_senescence` and `inflammaging`
+  are the pattern to copy. **Before adding a composite marker
+  here** — an epigenetic clock, a multi-analyte panel, a frailty index — read the
+  decision register entry *Computed indices and composite endpoints in aging biology*
+  (`docs/explanation/design-decisions.md` §12). dismech has no class for a value
+  computed over other measurements, the question is undecided, and the interim
+  conventions (bind the assay, carry the index identity in `preferred_term`) are
+  recorded there rather than being rederived per module. NCIT has no term for an
+  epigenetic clock or biological age; do not bind one to `NCIT:C17961` or
+  `NCIT:C16269`. Background: [biomarkers-of-aging gap analysis](docs/reports/biomarkers-of-aging-gap-analysis-2026-08-31.md).
 - **Treatment toxicity / "side effect as mechanism"** — adverse-drug-reaction
   pathophysiology recurring across culprit drugs, so a drug-toxicity entry can
   conform rather than re-derive the chain. Note that several general mechanism
   modules already double as toxicity targets without a separate "side effect"
   class (`peripheral_axonal_degeneration` for chemotherapy-induced peripheral
   neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline
-  cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT).
+  cardiotoxicity). `cardiac_ion_channel_repolarization` is **not** one of them,
+  despite drug-induced long QT being a real entity: that module scopes itself to
+  inherited arrhythmia syndromes *in structurally normal hearts*, its notes list
+  only heritable syndromes, and its sole mention of acquired repolarization
+  change sits inside a quoted snippet. An acquired drug-induced long-QT module
+  would be a new module, not a second use of that one.
 - **Antimicrobial drug mechanisms** — antibacterial target modules (cell wall,
   ribosome, topoisomerase, RNA polymerase, folate), antifungal and antiviral
   counterparts, plus pharmacokinetic *gating* modules such as
@@ -579,6 +595,52 @@ members with `just list-modules`, do not assume this list is exhaustive):
 - **Xogenesis** — pathological-structure formation (granuloma, thrombus,
   atheroma, amyloid deposit), using the OGMS + MPATH + UBERON anchor convention
   described in the `create-module` skill.
+
+**Module categories (`module_categories`):**
+
+A module may be tagged with the areas of study it is relevant to, using the
+enum-backed `module_categories` slot (`ModuleCategoryEnum`: `TOXICOLOGY`,
+`PHARMACOLOGY`, `ONCOLOGY`, `INFECTIOUS_DISEASE`, `IMMUNOLOGY`, `NEUROSCIENCE`,
+`DEVELOPMENTAL_BIOLOGY`, `METABOLISM`, `AGING`). Each value asserts *"this
+module is relevant to this area of study"* and renders as a coloured pill on the
+module index card and at the top of the module page, with the enum's own
+`description` as the hover text.
+
+```yaml
+name: Parkinsonism Dopaminergic Degeneration Module
+category: Module
+module_categories:
+- TOXICOLOGY
+- NEUROSCIENCE
+```
+
+- **It is a browsing aid, not a mechanistic claim.** The pill says a toxicologist
+  would find this module relevant; it does not assert that the module's diseases
+  are toxic in origin, and it is not a classification of conforming disorders
+  (those use `classifications`).
+- **Multivalued and non-exclusive.** A drug-toxicity module is both `TOXICOLOGY`
+  and `PHARMACOLOGY`; an antiviral drug-target module is both `PHARMACOLOGY` and
+  `INFECTIOUS_DISEASE`. Tag every area that genuinely applies.
+- **Leaving a module untagged is a legitimate outcome.** The starter vocabulary
+  is a set of disciplines, not a partition of the corpus — the cardiovascular,
+  dermatology, renal, GI and ophthalmology modules currently carry no category
+  because no value fits, and a wrong pill is worse than no pill. Add a value to
+  the enum rather than stretching an existing one.
+- **The vocabulary and its prose live only in the schema.** Labels come from each
+  permissible value's `title`, hover text from its `description`; pill colours are
+  generated from the value's position in the enum (golden-angle hues at fixed
+  saturation/lightness), so adding a category is a schema edit alone — no colour
+  to choose and no renderer change. Appending a value leaves existing hues
+  untouched; reordering or removing one reshuffles them.
+- **That holds up to 13 categories.** The golden-angle walk keeps a minimum
+  separation of ~20° through the 13th value and drops to ~12° at the 14th, where
+  `test_every_category_gets_a_visually_distinct_hue` goes red. That test is the
+  tripwire, not a nuisance: at 14 the palette needs a real decision (a second
+  visual dimension, or grouping categories into families), and the enum has
+  outgrown "just append a value".
+- The slot lives on the `Disease` class because modules validate against it. It is
+  intended for `kb/modules/` entries; disorder entries use the separate free-text
+  `categories` slot for nosological grouping, which is unrelated.
 
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.

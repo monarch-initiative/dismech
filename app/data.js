@@ -9994,7 +9994,11 @@ window.searchData = [
       "Neuromuscular Blockade for Early Severe ARDS",
       "Venovenous Extracorporeal Membrane Oxygenation"
     ],
-    "environmental": [],
+    "environmental": [
+      "Inhalation of chlorine gas",
+      "Inhalation of bromine gas",
+      "Smoke inhalation"
+    ],
     "biochemical": [
       "Alveolar and circulating lactate",
       "Alveolar succinate"
@@ -10005,7 +10009,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 0,
     "num_treatments": 8,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "7"
   },
   {
@@ -57552,6 +57556,7 @@ window.searchData = [
     "description": "Chemotherapy-induced neutropenia is a treatment-related hematologic toxicity of cytotoxic antineoplastic therapy. Myelosuppressive chemotherapy damages proliferating hematopoietic progenitors in the bone marrow, suppressing granulopoiesis and producing a fall in the circulating neutrophil count. It is the single-lineage-predominant expression of the conserved myelosuppression mechanism, and its principal danger is febrile neutropenia and infection, which drives dose delays and reductions that can compromise antitumor treatment.",
     "pathophysiology": [
       "Cytotoxic chemotherapy exposure and hematopoietic progenitor injury",
+      "Cell-cycle-dependent vulnerability of proliferating progenitors",
       "Bone marrow granulopoietic suppression",
       "Peripheral neutropenia",
       "Febrile neutropenia and infection susceptibility"
@@ -57568,6 +57573,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "apoptotic process",
+      "cell cycle",
       "hemopoiesis",
       "myeloid cell homeostasis",
       "leukocyte mediated immunity"
@@ -57590,6 +57596,7 @@ window.searchData = [
       "UGT1A1 pharmacogenomic susceptibility"
     ],
     "treatments": [
+      "Trilaciclib",
       "Granulocyte colony-stimulating factor (G-CSF)"
     ],
     "environmental": [],
@@ -57597,11 +57604,11 @@ window.searchData = [
     "source_file": "Chemotherapy_Induced_Neutropenia.yaml",
     "page_url": "../pages/disorders/Chemotherapy-Induced_Neutropenia.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cherubism",
@@ -60557,6 +60564,7 @@ window.searchData = [
       "Supportive care"
     ],
     "environmental": [
+      "Dermal beryllium exposure",
       "Occupational beryllium inhalation"
     ],
     "biochemical": [],
@@ -60566,7 +60574,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "9"
   },
   {
@@ -143858,6 +143866,9 @@ window.searchData = [
       "Hemolytic erythrocyte injury",
       "Calcium mimicry in neuronal signaling",
       "Protein kinase C dysregulation",
+      "NMDA receptor blockade in glutamatergic neurons",
+      "Reduced NMDA receptor-mediated calcium signaling",
+      "Reduced BDNF-TrkB signaling",
       "Mitochondrial dysfunction",
       "Oxidative stress response",
       "Proximal tubular lead accumulation",
@@ -143867,12 +143878,16 @@ window.searchData = [
       "osteoblast",
       "erythrocyte",
       "neuron",
+      "glutamatergic neuron",
+      "hippocampal neuron",
       "proximal tubule cell"
     ],
     "cell_type_ids": [
       "CL:0000062",
       "CL:0000232",
       "CL:0000540",
+      "CL:0000679",
+      "CL:0002608",
       "CL:0002306"
     ],
     "biological_processes": [
@@ -143880,6 +143895,9 @@ window.searchData = [
       "calcium ion homeostasis",
       "heme biosynthetic process",
       "pyrimidine-containing compound biosynthetic process",
+      "calcium ion transmembrane transport",
+      "BDNF gene expression",
+      "BDNF-TrkB signaling",
       "mitochondrion organization",
       "response to oxidative stress",
       "renal absorption"
@@ -143960,11 +143978,11 @@ window.searchData = [
     "source_file": "Lead_Poisoning.yaml",
     "page_url": "../pages/disorders/Lead_Poisoning.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 12,
+    "num_pathophysiology": 15,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "29",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Leber-like Hereditary Optic Neuropathy, Autosomal Recessive 1",
@@ -155690,44 +155708,62 @@ window.searchData = [
     "subtypes": [],
     "description": "Manganism is an acquired, environmentally caused extrapyramidal movement disorder produced by chronic excessive exposure to manganese (Mn), classically occupational (welding, mining, ferroalloy and battery manufacture, and contaminated water or total parenteral nutrition). Inhaled or ingested manganese accumulates preferentially in the basal ganglia \u2014 initially the globus pallidus \u2014 producing a parkinsonism-like syndrome with bradykinesia, rigidity, dystonia (the characteristic \"cock-walk\"), gait disturbance, and neuropsychiatric features. Manganism is clinically and pathophysiologically distinct from idiopathic Parkinson disease: the lesion is predominantly pallidal rather than nigrostriatal, and it characteristically responds poorly to levodopa. It is a paradigm environmental-neurotoxicity cause of secondary parkinsonism and converges on basal-ganglia motor-circuit dysfunction.",
     "pathophysiology": [
+      "Manganese Overexposure and Failure of Hepatobiliary Clearance",
+      "Transporter-Mediated Manganese Uptake into the Central Nervous System",
       "Chronic Manganese Accumulation in the Basal Ganglia",
+      "Mitochondrial Complex II-Dependent Reactive Oxygen Species Production",
       "Basal Ganglia Circuit Dysfunction and Extrapyramidal Parkinsonism"
     ],
     "cell_types": [
+      "microglial cell",
       "GABAergic neuron"
     ],
     "cell_type_ids": [
+      "CL:0000129",
       "CL:0000617"
     ],
     "biological_processes": [
       "response to oxidative stress",
+      "reactive oxygen species biosynthetic process",
       "GABAergic synaptic transmission"
     ],
     "phenotypes": [
-      "Extrapyramidal Parkinsonism"
+      "Extrapyramidal Parkinsonism",
+      "Dystonia",
+      "Limb rigidity",
+      "Gait disturbance",
+      "Cognitive and psychiatric disturbance"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0001300"
+      "HP:0001300",
+      "HP:0001332",
+      "HP:0002063",
+      "HP:0001288",
+      "HP:0100543"
     ],
     "frequencies": [],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Removal from Manganese Exposure",
+      "Levodopa"
+    ],
     "environmental": [
       "Occupational and Environmental Manganese Exposure"
     ],
     "biochemical": [],
     "source_file": "Manganism.yaml",
     "page_url": "../pages/disorders/Manganism.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Mantle Cell Lymphoma",
@@ -159020,6 +159056,7 @@ window.searchData = [
     "description": "Metabolic dysfunction-associated steatotic liver disease (MASLD) is hepatic steatosis occurring in the presence of at least one cardiometabolic risk factor and in the absence of another identified cause of steatosis. It is the most prevalent chronic liver disease worldwide. Adipose-tissue insulin resistance and overnutrition deliver free fatty acids to the liver and drive de novo lipogenesis, so that hepatocyte lipid inflow exceeds the capacity for fatty acid oxidation and very-low-density lipoprotein export. Accumulating toxic lipid species, together with impaired mitochondrial quality control (mitophagy), provoke endoplasmic reticulum and oxidative stress, hepatocyte death, Kupffer-cell and macrophage inflammatory activation (metabolic dysfunction-associated steatohepatitis, MASH), hepatic stellate cell activation, and progressive fibrosis that can culminate in cirrhosis and hepatocellular carcinoma. Fibrosis stage, not steatosis or inflammation grade, is the histologic feature that tracks long-term outcome. Management centres on weight loss and cardiometabolic risk reduction, with resmetirom the first agent approved specifically for MASH with fibrosis.",
     "pathophysiology": [
       "Cardiometabolic Dysfunction and Adipose Insulin Resistance",
+      "Transporter-Mediated Hepatic Fatty Acid Uptake",
       "Hepatocyte Lipid Overload",
       "Impaired Hepatocyte Mitophagy",
       "Lipotoxic Stress and Organelle Dysfunction",
@@ -159052,6 +159089,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "cellular response to insulin stimulus",
+      "long-chain fatty acid import into hepatocytes",
       "triglyceride biosynthetic process",
       "lipid storage",
       "fatty acid beta-oxidation",
@@ -159117,10 +159155,10 @@ window.searchData = [
     "source_file": "Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.yaml",
     "page_url": "../pages/disorders/Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 12,
+    "num_pathophysiology": 13,
     "num_genes": 5,
     "num_treatments": 6,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "41",
     "causal_graph_longest_path": "8"
   },
   {
@@ -185362,6 +185400,9 @@ window.searchData = [
     "subtypes": [],
     "description": "Osteoporosis results from an imbalance in bone remodeling, with osteoclast-mediated resorption outpacing osteoblast-mediated formation. An increased RANKL-to-osteoprotegerin ratio, accelerated by estrogen deficiency and aging, promotes osteoclastogenesis and net bone loss. Progressive loss of bone mass and microarchitectural deterioration reduce bone strength and predispose to fragility fractures.",
     "pathophysiology": [
+      "Osteocyte SASP Acquisition",
+      "Senescent Cell Accumulation in the Bone Microenvironment",
+      "Marrow Stromal Lineage Shift Toward Adipogenesis",
       "Bone Remodeling Imbalance",
       "RANKL/OPG Dysregulation",
       "Microarchitectural Deterioration",
@@ -185370,16 +185411,25 @@ window.searchData = [
       "Spaceflight-Induced Mitochondrial Stress in Bone"
     ],
     "cell_types": [
+      "Osteocyte",
+      "Bone marrow mesenchymal stromal cell",
+      "Marrow adipocyte",
       "Osteoclast",
-      "Osteoblast",
-      "Osteocyte"
+      "Osteoblast"
     ],
     "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000134",
+      "CL:0000136",
       "CL:0000092",
-      "CL:0000062",
-      "CL:0000137"
+      "CL:0000062"
     ],
     "biological_processes": [
+      "SASP cytokine production by senescent osteocytes",
+      "Inflammatory response in the bone microenvironment",
+      "Cellular Senescence",
+      "Fat Cell Differentiation",
+      "Osteoblast Differentiation",
       "Bone Remodeling",
       "Osteoclast Differentiation",
       "Cellular Response to Mechanical Stimulus",
@@ -185406,7 +185456,7 @@ window.searchData = [
       "HP:0002953",
       "HP:0031846",
       "HP:0002808",
-      "HP:0004322"
+      "HP:0000002"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -185446,11 +185496,11 @@ window.searchData = [
     "source_file": "Osteoporosis.yaml",
     "page_url": "../pages/disorders/Osteoporosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Osteosarcoma",
@@ -212102,6 +212152,131 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Rhabdoid Tumor Predisposition Syndrome 1",
+    "disease_id": "MONDO:0012252",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rhabdoid tumor predisposition syndrome 1 (RTPS1) is an autosomal dominant cancer predisposition caused by heterozygous germline loss-of-function variants in SMARCB1, which encodes a core subunit of the SWI/SNF (BAF) ATP-dependent chromatin remodelling complex. Carriers develop malignant rhabdoid tumours in infancy and early childhood at central nervous system, renal and extrarenal soft tissue sites, frequently synchronously at more than one site. Roughly a third of children with a rhabdoid tumour carry a germline SMARCB1 variant; germline cases present at a younger age and have a worse outcome than sporadic cases. Tumours arise by classical two-hit inactivation, and are otherwise notable for a near-silent somatic mutational landscape, so that SMARCB1 loss is close to the entire oncogenic mechanism.",
+    "pathophysiology": [
+      "Germline SMARCB1 Loss-of-Function",
+      "Somatic Inactivation of the Second SMARCB1 Allele",
+      "SWI/SNF Chromatin Remodelling Complex Dysfunction",
+      "Failure of Enhancer-Mediated Differentiation",
+      "Rhabdoid Tumorigenesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Atypical Teratoid Rhabdoid Tumor",
+      "Rhabdoid Tumor of the Kidney",
+      "Extrarenal Extracranial Rhabdoid Tumor",
+      "Synchronous Multifocal Rhabdoid Tumors",
+      "Schwannomatosis",
+      "Choroid Plexus Carcinoma"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0034401",
+      "HP:0034402",
+      "HP:0034557",
+      "HP:0100008",
+      "HP:0030392"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMARCB1"
+    ],
+    "treatments": [
+      "Multimodal Therapy for Atypical Teratoid Rhabdoid Tumor",
+      "Age-Stratified Tumor Surveillance",
+      "Germline SMARCB1 Testing and Family Surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rhabdoid_Tumor_Predisposition_Syndrome_1.yaml",
+    "page_url": "../pages/disorders/Rhabdoid_Tumor_Predisposition_Syndrome_1.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Rhabdoid Tumor Predisposition Syndrome 2",
+    "disease_id": "MONDO:0013224",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rhabdoid tumor predisposition syndrome 2 (RTPS2) is an autosomal dominant cancer predisposition caused by heterozygous germline loss-of-function variants in SMARCA4, the ATPase subunit that powers the SWI/SNF (BAF) chromatin remodelling complex. It is considerably rarer than the SMARCB1 form and carries a broader tumour spectrum: alongside infantile rhabdoid tumours of the brain and kidney, carriers develop small cell carcinoma of the ovary, hypercalcemic type, a tumour of adolescents and young women now recognised as a rhabdoid tumour rather than a carcinoma. The later-onset ovarian risk means the surveillance window does not close at the end of early childhood, which distinguishes management from RTPS1.",
+    "pathophysiology": [
+      "Germline SMARCA4 Loss-of-Function",
+      "Somatic Inactivation of the Second SMARCA4 Allele",
+      "Loss of BAF Complex ATPase Activity",
+      "Failure of Enhancer-Mediated Differentiation",
+      "Rhabdoid Tumorigenesis",
+      "Ovarian Small Cell Carcinoma Hypercalcemic Type Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Atypical Teratoid Rhabdoid Tumor",
+      "Rhabdoid Tumor of the Kidney",
+      "Small Cell Carcinoma of the Ovary Hypercalcemic Type",
+      "Paraneoplastic Hypercalcemia"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0034401",
+      "HP:0034402",
+      "HP:0100615",
+      "HP:0003072"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMARCA4"
+    ],
+    "treatments": [
+      "Risk-Reducing Bilateral Salpingo-Oophorectomy",
+      "Germline SMARCA4 Testing and Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rhabdoid_Tumor_Predisposition_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Rhabdoid_Tumor_Predisposition_Syndrome_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Rheumatic Heart Disease",
@@ -245157,7 +245332,9 @@ window.searchData = [
     "subtypes": [],
     "description": "Type 2 diabetes mellitus is a common metabolic disease defined by chronic hyperglycemia arising from the combination of peripheral insulin resistance and progressive pancreatic beta-cell dysfunction. Excess adiposity, physical inactivity, and polygenic susceptibility drive impaired insulin signaling in muscle, liver, and adipose tissue, with compensatory hyperinsulinemia that eventually fails as beta-cell secretory capacity declines. Hepatic glucose overproduction and incretin axis dysfunction further worsen glycemic control, and sustained hyperglycemia leads to microvascular and macrovascular complications such as retinopathy, nephropathy, and peripheral neuropathy.",
     "pathophysiology": [
+      "White Adipose Tissue Inflammation",
       "Impaired GLUT4-Mediated Glucose Uptake",
+      "Insulin-Stimulated Adipocyte Fatty Acid Uptake via FATP1",
       "Insulin Resistance",
       "Beta Cell Dysfunction",
       "Hepatic Glucose Overproduction",
@@ -245166,6 +245343,8 @@ window.searchData = [
       "Chronic Hyperglycemia"
     ],
     "cell_types": [
+      "White Adipocyte",
+      "Proinflammatory (M1) Adipose Tissue Macrophage",
       "Adipocyte",
       "Skeletal Muscle Cell",
       "Hepatocyte",
@@ -245173,6 +245352,8 @@ window.searchData = [
       "Enteroendocrine Cell"
     ],
     "cell_type_ids": [
+      "CL:0000448",
+      "CL:0000863",
       "CL:0000136",
       "CL:0000188",
       "CL:0000182",
@@ -245180,8 +245361,12 @@ window.searchData = [
       "CL:0000164"
     ],
     "biological_processes": [
+      "Adipose Tissue Inflammation",
+      "Tumor Necrosis Factor Production",
+      "Dysregulated Adipocyte Lipolysis",
       "Insulin Receptor Signaling",
       "Protein Transport",
+      "Insulin-Stimulated Long-Chain Fatty Acid Import",
       "Insulin Signaling",
       "Insulin Secretion",
       "Gluconeogenesis",
@@ -245262,11 +245447,11 @@ window.searchData = [
     "source_file": "Type_2_Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Type_2_Diabetes_Mellitus.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Type B Insulin Resistance Syndrome",
@@ -257951,17 +258136,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2500,
+  "total_disorder_pages": 2502,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6059,
-  "total_unique_evidence_sources": 35871,
-  "total_unique_publications": 33743,
+  "total_disorders_and_subtypes": 6061,
+  "total_unique_evidence_sources": 35939,
+  "total_unique_publications": 33811,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2495,
-  "total_unique_pathological_events": 14524,
-  "total_modules": 166,
-  "total_research_reports": 2617,
+  "total_pathographs": 2497,
+  "total_unique_pathological_events": 14546,
+  "total_modules": 167,
+  "total_research_reports": 2622,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
