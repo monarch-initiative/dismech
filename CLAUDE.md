@@ -574,7 +574,12 @@ members with `just list-modules`, do not assume this list is exhaustive):
   modules already double as toxicity targets without a separate "side effect"
   class (`peripheral_axonal_degeneration` for chemotherapy-induced peripheral
   neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline
-  cardiotoxicity, `cardiac_ion_channel_repolarization` for drug-induced long-QT).
+  cardiotoxicity). `cardiac_ion_channel_repolarization` is **not** one of them,
+  despite drug-induced long QT being a real entity: that module scopes itself to
+  inherited arrhythmia syndromes *in structurally normal hearts*, its notes list
+  only heritable syndromes, and its sole mention of acquired repolarization
+  change sits inside a quoted snippet. An acquired drug-induced long-QT module
+  would be a new module, not a second use of that one.
 - **Antimicrobial drug mechanisms** — antibacterial target modules (cell wall,
   ribosome, topoisomerase, RNA polymerase, folate), antifungal and antiviral
   counterparts, plus pharmacokinetic *gating* modules such as
@@ -590,6 +595,52 @@ members with `just list-modules`, do not assume this list is exhaustive):
 - **Xogenesis** — pathological-structure formation (granuloma, thrombus,
   atheroma, amyloid deposit), using the OGMS + MPATH + UBERON anchor convention
   described in the `create-module` skill.
+
+**Module categories (`module_categories`):**
+
+A module may be tagged with the areas of study it is relevant to, using the
+enum-backed `module_categories` slot (`ModuleCategoryEnum`: `TOXICOLOGY`,
+`PHARMACOLOGY`, `ONCOLOGY`, `INFECTIOUS_DISEASE`, `IMMUNOLOGY`, `NEUROSCIENCE`,
+`DEVELOPMENTAL_BIOLOGY`, `METABOLISM`, `AGING`). Each value asserts *"this
+module is relevant to this area of study"* and renders as a coloured pill on the
+module index card and at the top of the module page, with the enum's own
+`description` as the hover text.
+
+```yaml
+name: Parkinsonism Dopaminergic Degeneration Module
+category: Module
+module_categories:
+- TOXICOLOGY
+- NEUROSCIENCE
+```
+
+- **It is a browsing aid, not a mechanistic claim.** The pill says a toxicologist
+  would find this module relevant; it does not assert that the module's diseases
+  are toxic in origin, and it is not a classification of conforming disorders
+  (those use `classifications`).
+- **Multivalued and non-exclusive.** A drug-toxicity module is both `TOXICOLOGY`
+  and `PHARMACOLOGY`; an antiviral drug-target module is both `PHARMACOLOGY` and
+  `INFECTIOUS_DISEASE`. Tag every area that genuinely applies.
+- **Leaving a module untagged is a legitimate outcome.** The starter vocabulary
+  is a set of disciplines, not a partition of the corpus — the cardiovascular,
+  dermatology, renal, GI and ophthalmology modules currently carry no category
+  because no value fits, and a wrong pill is worse than no pill. Add a value to
+  the enum rather than stretching an existing one.
+- **The vocabulary and its prose live only in the schema.** Labels come from each
+  permissible value's `title`, hover text from its `description`; pill colours are
+  generated from the value's position in the enum (golden-angle hues at fixed
+  saturation/lightness), so adding a category is a schema edit alone — no colour
+  to choose and no renderer change. Appending a value leaves existing hues
+  untouched; reordering or removing one reshuffles them.
+- **That holds up to 13 categories.** The golden-angle walk keeps a minimum
+  separation of ~20° through the 13th value and drops to ~12° at the 14th, where
+  `test_every_category_gets_a_visually_distinct_hue` goes red. That test is the
+  tripwire, not a nuisance: at 14 the palette needs a real decision (a second
+  visual dimension, or grouping categories into families), and the enum has
+  outgrown "just append a value".
+- The slot lives on the `Disease` class because modules validate against it. It is
+  intended for `kb/modules/` entries; disorder entries use the separate free-text
+  `categories` slot for nosological grouping, which is unrelated.
 
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
@@ -649,6 +700,61 @@ attaches_to:
 Use this when there is no individual item to name, including a knowledge gap
 attached to an intentionally empty section. A bare section name such as
 `clinical_burden` is not valid entity-reference syntax.
+
+### Pathograph Targets Are Bare Names, Not Entity References
+
+**The causal graph does not use the `<kind>#<name>` grammar.** This is the one
+place the two conventions sit next to each other, and mixing them up is silent.
+`dismech.graph` builds edges by matching a `target` string *verbatim* against
+another item's `name` — there is no resolution step, no prefix handling, and no
+error when it fails to match:
+
+| Slot | Target form |
+|---|---|
+| `pathophysiology[].downstream[].target` | **bare name** |
+| `phenotypes[].sequelae[].target` | **bare name** |
+| `phenotypes[].reports_on[].target` | **bare name** |
+| `treatments[].target_mechanisms[].target` | **bare name** |
+| `environmental[].influences_mechanisms[].target` | **bare name** |
+| `attaches_to`, `would_support`, `would_refute` | `<kind>#<name>` |
+| `discussions[].proposed_experiments[].{perturbations,readouts}[].target` | `<kind>#<name>` |
+
+```yaml
+pathophysiology:
+- name: Failure of Primary Hemostatic Plug Formation
+  downstream:
+  - target: Bleeding tendency          # correct — bare name
+  # - target: phenotypes#Bleeding tendency   # WRONG — draws a phantom node
+```
+
+Writing `phenotypes#Bleeding tendency` there is not a validation error, a term
+error, or a rendering error. The entry validates and the page builds.
+
+**The symptom is not a missing arrow, so do not go looking for one.** The edge is
+still appended, so the edge count never moves. The unresolved target lands in
+`orphan_targets`, and the renderer draws it as a *phantom duplicate node* — red
+fill, dashed red border, labelled with the literal `phenotypes#Bleeding tendency`
+string — while the real `Bleeding tendency` node drops out of the graph entirely.
+So the chain is fragmented and carries a bogus node. Issue #10112 found 175 such
+targets across 32 entries; one was left with 0 of 7 phenotypes connected.
+
+The mirror-image failure is a **rename**: change a node's `name` and every bare
+target pointing at it dangles, just as silently (#9697). Search the file for the
+old name before committing a rename.
+
+```bash
+just check-causal-targets                              # gate (runs in `just qc`)
+just check-causal-targets kb/disorders/MyDisease.yaml
+just list-causal-targets                               # full census, exit 0
+```
+
+The pre-existing dangling backlog is grandfathered in
+`tests/causal_target_baseline.txt`; new breakage fails. Only ever shrink that
+file. A **self-referential** target (a node listed as its own downstream) is
+reported but never gated: every committed case is a pathophysiology node and a
+phenotype sharing one name, which the flat node namespace collapses into a
+single node — a graph-model bug (#9896), not a curation error, and the edges
+carry their own evidence.
 
 ### Cancer Entry Granularity
 
@@ -1180,6 +1286,46 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `skos:exactMatch` or `skos:narrowMatch`; `broadMatch`, `closeMatch`, and
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
+
+### Terms Inside `qualifiers` Are Not Covered by `validate-terms`
+
+**`linkml-term-validator` does not look inside `qualifiers`.** It validates slots
+whose range is bound to an ontology-backed dynamic enum; `Qualifier.predicate`
+and `Qualifier.value` are plain `Descriptor`s with no such binding, so their
+`term:` blocks are invisible to it. A fabricated label there passes
+`just validate-terms` outright — verified by putting
+`label: Totally Bogus Fabricated Label` on one and watching it report
+"✅ Validation passed" (#10197).
+
+That blind spot had already admitted 32 wrong bindings across 10 entries — 31
+CURIE corrections plus one where the code was right and only the label wrong — all
+plausible-looking codes naming the wrong concept:
+
+| Curated as | `NCIT` code actually means |
+|---|---|
+| vancomycin | Azacitidine (an antineoplastic) |
+| Broad Spectrum Antibiotic | Arthritis |
+| Tooth Extraction | Breast Extraskeletal Osteosarcoma |
+| Tracheostomy | Ambulation Difficulty |
+| Budesonide | Panobinostat |
+| fidaxomicin | Cellular Changes Resembling Foveolar Epithelium Cells |
+
+```bash
+just check-qualifier-terms          # gate (offline, in `just qc`)
+just list-qualifier-terms           # census, including what nothing can check
+just check-qualifier-terms-online   # also resolve uncached CURIEs via OAK
+```
+
+The gate is offline and cache-first, so it only sees CURIEs already cached from
+elsewhere in the KB. **Run `just check-qualifier-terms-online` after adding a
+qualifier term** — a qualifier-only CURIE is never cached by anything else, so
+the offline gate has no opinion on it. `RO` and `PR` (109 terms) have no adapter
+in `conf/oak_config.yaml` and cannot be validated by any current tooling; the
+census reports them separately.
+
+Given all this, prefer a dedicated slot over `qualifiers` wherever one exists —
+see the next section, and note that `therapeutic_agent` already covers most of
+what these qualifier pairs were expressing.
 
 ### Descriptor Qualifier Slots
 
@@ -2018,6 +2164,8 @@ just check-snippet-grading
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
+just check-causal-targets kb/disorders/MyDisease.yaml
+just check-qualifier-terms kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
@@ -2025,8 +2173,9 @@ They catch folded-scalar word corruption, non-propositional short snippets,
 paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
-references, and prose claims about defective sources that the cache
-contradicts. The first four use baselines; do not update a baseline to admit a
+references, broken bare-name pathograph targets, and prose claims about
+defective sources that the cache contradicts. The first four use baselines, as
+does `check-causal-targets`; do not update a baseline to admit a
 defect introduced by the current change. `check-environmental-evidence` had one
 too, until the #8296 backlog reached zero and it became a hard gate -- an
 exposure that genuinely cannot be cited now carries a `review_notes:` waiver
@@ -2141,6 +2290,47 @@ curation, and the two usually differ — one carries `notes`, the other cited
 `evidence`. Fold them into the single block at the canonical position and keep
 both sets of values, then re-read the surviving prose: an `explanation` arguing
 for the narrower choice will contradict the merged result and needs trimming.
+
+## Retired Enum Values (dismech#10061)
+
+The sibling of the duplicate-key problem above, with the same merge-shaped
+cause. When a schema change **narrows** an enum, every PR already in flight
+carries values that were legal when written and are illegal on merge. Nothing
+either side runs can see it: the narrowing PR does not contain the curation
+files, and the curation PRs do not contain the narrowed enum. Only the merge
+result holds both.
+
+That is exactly how #10003 played out. It retired `supports: PARTIAL` and
+migrated every occurrence on its own base; ~15 open curation PRs then landed
+more. Nine invalid values reached `main` within 90 seconds of the merge, and
+100 within a day.
+
+```bash
+just check-enum-values                              # whole KB (~21s, offline)
+just check-enum-values kb/disorders/Asthma.yaml     # specific files
+```
+
+It runs in `just qc` and as an **ungated, whole-KB** CI step, for the same
+reason `check-duplicate-keys` is. The path-gated `just test-kb` sweep cannot
+cover it: that filter fires on schema changes, and the PRs that carry the stale
+value touch no schema.
+
+**Scope, and what it deliberately skips.** It checks one constraint — is this
+value permissible in this slot's enum — not conformance, which is what keeps it
+cheap enough to run everywhere. Dynamic (`reachable_from`) ontology enums are
+`linkml-term-validator`'s job and are skipped; so is any slot name that is
+enum-bound in one class and free text in another (`severity`), since flagging
+those would flag correct prose. `kb/hypotheses/` is checked against
+`hypothesis_assessment.yaml` / `hypothesis_reconciliation.yaml` rather than
+`dismech.yaml` — running the wrong schema there reports five legal values as
+errors.
+
+**When you narrow an enum, the values are only half the job.** #10003 migrated
+11,804 `PARTIAL` items to `SUPPORT` and left every `explanation` that argued for
+the retired grade in place, so ~3,600 evidence items still say "Marked PARTIAL
+because…" above a value the schema no longer has. Prose that names a retired
+value is not caught by any gate. Budget for it, or record it in a worklist the
+way #10003 did.
 
 ## Structured-Database Reference Sources
 
@@ -2357,6 +2547,36 @@ committed and pins the snapshot date + sha256 of each bulk file. To verify
 no drift has occurred, run `just structured-rebuild-orphanet` locally and
 check `git diff references_cache/ORPHA_*.md`. (A CI workflow that does this
 automatically is a worthwhile follow-up but does not yet exist.)
+
+**When a refresh fails on a checksum mismatch, repin — don't hand-edit.**
+
+These manifests pin a sha256 against an **unversioned** upstream URL:
+`https://www.orphadata.com/data/xml/en_product1.xml` is always the *current*
+Orphanet release, not a versioned artifact. So the pin is guaranteed to stop
+matching the next time upstream publishes, and the refresh hard-fails until
+somebody re-pins it. That is ordinary release drift, not a corrupt download —
+and it recurred four times in one week (#9687, #9897, #10150 for Orphadata,
+#10081 for ClinGen) because the only recovery was a manual download-and-edit.
+
+```bash
+just refresh-orphadata            # strict: fails on drift, naming the remedy
+just refresh-orphadata --repin    # accept the new release, rewrite the manifest
+just clingen-refresh --repin
+```
+
+`--repin` downloads, records the new sha256, size and `snapshot_date` in the
+manifest, and stops — leaving a diff of exactly those lines for you to review.
+It is never implicit: the default still refuses, because a source changing under
+a curator is precisely what the pin exists to catch. After repinning, rebuild the
+cache and review that diff too:
+
+```bash
+just refresh-orphadata --repin && just structured-rebuild-orphanet
+git diff data/orphadata/MANIFEST.yaml references_cache/ORPHA_*.md
+```
+
+Commit the manifest bump together with the cache diff it produced, so the change
+in pinned release and the change in cached content are reviewable as one unit.
 
 **Adding a new structured source:**
 
