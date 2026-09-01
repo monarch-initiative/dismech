@@ -123243,6 +123243,94 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hypertrophic Cardiomyopathy 14",
+    "disease_id": "MONDO:0013197",
+    "category": "Genetic",
+    "parents": [
+      "Hypertrophic Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 14 (CMH14) is the MYH6-attributed node of the hypertrophic cardiomyopathy gene series. MYH6 encodes the alpha-cardiac myosin heavy chain (alpha-MHC), the fast-ATPase sarcomeric motor that sits immediately beside MYH7 in a tandem gene pair on chromosome 14q11.2 and differs from its neighbour mainly in small pockets of an otherwise highly conserved molecule.\nThe entity must be read with an explicit validity caveat, and that caveat is the single most important thing about it. ClinGen's Hereditary Cardiovascular Disease Gene Curation Expert Panel classifies the MYH6-hypertrophic cardiomyopathy gene-disease relationship as **Disputed**, downgraded from Limited in July 2023. The association rests on three probands across two publications, four unique heterozygous missense variants with limited pathogenicity evidence, and no known disease mechanism; further reported variants were excluded from scoring either because the proband also carried a variant in an established HCM gene or because the variant is common in the population. Dismech therefore curates CMH14 as a real MONDO entity whose pathophysiology is a *hypothesis under dispute*, not an established mechanism, and every mechanism node below is scoped accordingly. The downgrade has a direct clinical consequence, published as a 2025 JACC reappraisal by the same expert panel: a variant in a disputed gene should not be reported clinically, so a MYH6 variant returned by a legacy broad HCM panel is not a molecular diagnosis of this entity and does not support cascade testing.\nThe mechanistic reason the association is hard to establish is an expression argument. Alpha-MHC is the major myosin of the human atrium and only a minor component of the human ventricle, where beta-MHC (MYH7) predominates. A heterozygous missense allele in the minor ventricular isoform is therefore a weak candidate for a disease defined by ventricular hypertrophy, which is the reverse of the situation for MYH7. What phenotypic signal exists is consistent across two independent cohorts and is a *late-onset* one: MYH6 variants were found in an elderly-onset HCM series in which none of the classic MYH7, TNNT2 or TPM1 alleles appeared, and in a second cohort MYH6 variants were confined to the late-onset arm while TNNT2 variants were confined to the early-onset arm.\nNamed-entity caution, in two directions. First, MYH6 is Definitively associated with congenital heart defects and Limited for dilated cardiomyopathy; dismech already curates MYH6 as a causative gene in Atrial_Septal_Defect and Dilated_Cardiomyopathy_1EE, and as a susceptibility gene in Familial_Sick_Sinus_Syndrome and Hypoplastic_Left_Heart_Syndrome. None of those is this entry. Second, and more subtly, the classic and highly successful mouse models of familial HCM carry an R403Q allele knocked into mouse *Myh6* \u2014 but the human R403Q is an *MYH7* allele, and the mouse ventricle expresses alpha-MHC where the human ventricle expresses beta-MHC. Those mice model human MYH7 disease in the mouse's orthologous ventricular isoform; ClinGen explicitly declined to score them as MYH6 evidence. Model-organism literature retrieved by a text search for \"Myh6\" and \"hypertrophic cardiomyopathy\" is therefore mostly *not* about this entity.",
+    "pathophysiology": [
+      "MYH6 Missense Variant in Alpha-Myosin Heavy Chain",
+      "Alpha-MHC Is the Minor Myosin Isoform of the Human Ventricle",
+      "Altered Sarcomere Motor Function",
+      "Maladaptive Ventricular Remodeling",
+      "Progressive Contractile Dysfunction and Progression to Dilation"
+    ],
+    "cell_types": [
+      "ventricular cardiomyocyte",
+      "atrial cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002131",
+      "CL:0002129",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "cardiac muscle contraction",
+      "cardiac muscle hypertrophy in response to stress",
+      "sarcomere organization",
+      "heart contraction",
+      "relaxation of cardiac muscle"
+    ],
+    "phenotypes": [
+      "Left Ventricular Hypertrophy",
+      "Hypertrophic Cardiomyopathy",
+      "Late-Onset Presentation",
+      "Left Ventricular Outflow Tract Obstruction",
+      "Congestive Heart Failure",
+      "Sudden Cardiac Death",
+      "Left Ventricular Diastolic Dysfunction",
+      "Progression to Ventricular Dilation"
+    ],
+    "phenotype_categories": [
+      "Cardiac"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001712",
+      "HP:0001639",
+      "HP:0032092",
+      "HP:0001635",
+      "HP:0001645",
+      "HP:0025168",
+      "HP:0001644"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MYH6"
+    ],
+    "treatments": [
+      "Negative Inotropic Pharmacotherapy",
+      "Cardiac Myosin Inhibition",
+      "Septal Reduction Therapy",
+      "Implantable Cardioverter-Defibrillator",
+      "Heart Transplantation",
+      "Genetic Counseling and Family Screening"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_14.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_14.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hypertrophic Cardiomyopathy 2",
     "disease_id": "MONDO:0007266",
     "category": "Genetic",
@@ -258434,17 +258522,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2506,
+  "total_disorder_pages": 2507,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6065,
-  "total_unique_evidence_sources": 35974,
-  "total_unique_publications": 33846,
+  "total_disorders_and_subtypes": 6066,
+  "total_unique_evidence_sources": 35984,
+  "total_unique_publications": 33854,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2501,
-  "total_unique_pathological_events": 14568,
+  "total_pathographs": 2502,
+  "total_unique_pathological_events": 14573,
   "total_modules": 167,
-  "total_research_reports": 2628,
+  "total_research_reports": 2629,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
