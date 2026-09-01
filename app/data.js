@@ -9994,7 +9994,11 @@ window.searchData = [
       "Neuromuscular Blockade for Early Severe ARDS",
       "Venovenous Extracorporeal Membrane Oxygenation"
     ],
-    "environmental": [],
+    "environmental": [
+      "Inhalation of chlorine gas",
+      "Inhalation of bromine gas",
+      "Smoke inhalation"
+    ],
     "biochemical": [
       "Alveolar and circulating lactate",
       "Alveolar succinate"
@@ -10005,7 +10009,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 0,
     "num_treatments": 8,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "7"
   },
   {
@@ -57552,6 +57556,7 @@ window.searchData = [
     "description": "Chemotherapy-induced neutropenia is a treatment-related hematologic toxicity of cytotoxic antineoplastic therapy. Myelosuppressive chemotherapy damages proliferating hematopoietic progenitors in the bone marrow, suppressing granulopoiesis and producing a fall in the circulating neutrophil count. It is the single-lineage-predominant expression of the conserved myelosuppression mechanism, and its principal danger is febrile neutropenia and infection, which drives dose delays and reductions that can compromise antitumor treatment.",
     "pathophysiology": [
       "Cytotoxic chemotherapy exposure and hematopoietic progenitor injury",
+      "Cell-cycle-dependent vulnerability of proliferating progenitors",
       "Bone marrow granulopoietic suppression",
       "Peripheral neutropenia",
       "Febrile neutropenia and infection susceptibility"
@@ -57568,6 +57573,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "apoptotic process",
+      "cell cycle",
       "hemopoiesis",
       "myeloid cell homeostasis",
       "leukocyte mediated immunity"
@@ -57590,6 +57596,7 @@ window.searchData = [
       "UGT1A1 pharmacogenomic susceptibility"
     ],
     "treatments": [
+      "Trilaciclib",
       "Granulocyte colony-stimulating factor (G-CSF)"
     ],
     "environmental": [],
@@ -57597,11 +57604,11 @@ window.searchData = [
     "source_file": "Chemotherapy_Induced_Neutropenia.yaml",
     "page_url": "../pages/disorders/Chemotherapy-Induced_Neutropenia.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cherubism",
@@ -155701,44 +155708,62 @@ window.searchData = [
     "subtypes": [],
     "description": "Manganism is an acquired, environmentally caused extrapyramidal movement disorder produced by chronic excessive exposure to manganese (Mn), classically occupational (welding, mining, ferroalloy and battery manufacture, and contaminated water or total parenteral nutrition). Inhaled or ingested manganese accumulates preferentially in the basal ganglia \u2014 initially the globus pallidus \u2014 producing a parkinsonism-like syndrome with bradykinesia, rigidity, dystonia (the characteristic \"cock-walk\"), gait disturbance, and neuropsychiatric features. Manganism is clinically and pathophysiologically distinct from idiopathic Parkinson disease: the lesion is predominantly pallidal rather than nigrostriatal, and it characteristically responds poorly to levodopa. It is a paradigm environmental-neurotoxicity cause of secondary parkinsonism and converges on basal-ganglia motor-circuit dysfunction.",
     "pathophysiology": [
+      "Manganese Overexposure and Failure of Hepatobiliary Clearance",
+      "Transporter-Mediated Manganese Uptake into the Central Nervous System",
       "Chronic Manganese Accumulation in the Basal Ganglia",
+      "Mitochondrial Complex II-Dependent Reactive Oxygen Species Production",
       "Basal Ganglia Circuit Dysfunction and Extrapyramidal Parkinsonism"
     ],
     "cell_types": [
+      "microglial cell",
       "GABAergic neuron"
     ],
     "cell_type_ids": [
+      "CL:0000129",
       "CL:0000617"
     ],
     "biological_processes": [
       "response to oxidative stress",
+      "reactive oxygen species biosynthetic process",
       "GABAergic synaptic transmission"
     ],
     "phenotypes": [
-      "Extrapyramidal Parkinsonism"
+      "Extrapyramidal Parkinsonism",
+      "Dystonia",
+      "Limb rigidity",
+      "Gait disturbance",
+      "Cognitive and psychiatric disturbance"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0001300"
+      "HP:0001300",
+      "HP:0001332",
+      "HP:0002063",
+      "HP:0001288",
+      "HP:0100543"
     ],
     "frequencies": [],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Removal from Manganese Exposure",
+      "Levodopa"
+    ],
     "environmental": [
       "Occupational and Environmental Manganese Exposure"
     ],
     "biochemical": [],
     "source_file": "Manganism.yaml",
     "page_url": "../pages/disorders/Manganism.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Mantle Cell Lymphoma",
@@ -258114,14 +258139,14 @@ window.searchMetrics = {
   "total_disorder_pages": 2502,
   "total_subtypes": 3559,
   "total_disorders_and_subtypes": 6061,
-  "total_unique_evidence_sources": 35930,
-  "total_unique_publications": 33802,
+  "total_unique_evidence_sources": 35939,
+  "total_unique_publications": 33811,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
   "total_pathographs": 2497,
-  "total_unique_pathological_events": 14542,
+  "total_unique_pathological_events": 14546,
   "total_modules": 167,
-  "total_research_reports": 2619,
+  "total_research_reports": 2622,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
