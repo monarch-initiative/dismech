@@ -212104,6 +212104,131 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Rhabdoid Tumor Predisposition Syndrome 1",
+    "disease_id": "MONDO:0012252",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rhabdoid tumor predisposition syndrome 1 (RTPS1) is an autosomal dominant cancer predisposition caused by heterozygous germline loss-of-function variants in SMARCB1, which encodes a core subunit of the SWI/SNF (BAF) ATP-dependent chromatin remodelling complex. Carriers develop malignant rhabdoid tumours in infancy and early childhood at central nervous system, renal and extrarenal soft tissue sites, frequently synchronously at more than one site. Roughly a third of children with a rhabdoid tumour carry a germline SMARCB1 variant; germline cases present at a younger age and have a worse outcome than sporadic cases. Tumours arise by classical two-hit inactivation, and are otherwise notable for a near-silent somatic mutational landscape, so that SMARCB1 loss is close to the entire oncogenic mechanism.",
+    "pathophysiology": [
+      "Germline SMARCB1 Loss-of-Function",
+      "Somatic Inactivation of the Second SMARCB1 Allele",
+      "SWI/SNF Chromatin Remodelling Complex Dysfunction",
+      "Failure of Enhancer-Mediated Differentiation",
+      "Rhabdoid Tumorigenesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Atypical Teratoid Rhabdoid Tumor",
+      "Rhabdoid Tumor of the Kidney",
+      "Extrarenal Extracranial Rhabdoid Tumor",
+      "Synchronous Multifocal Rhabdoid Tumors",
+      "Schwannomatosis",
+      "Choroid Plexus Carcinoma"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0034401",
+      "HP:0034402",
+      "HP:0034557",
+      "HP:0100008",
+      "HP:0030392"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMARCB1"
+    ],
+    "treatments": [
+      "Multimodal Therapy for Atypical Teratoid Rhabdoid Tumor",
+      "Age-Stratified Tumor Surveillance",
+      "Germline SMARCB1 Testing and Family Surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rhabdoid_Tumor_Predisposition_Syndrome_1.yaml",
+    "page_url": "../pages/disorders/Rhabdoid_Tumor_Predisposition_Syndrome_1.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Rhabdoid Tumor Predisposition Syndrome 2",
+    "disease_id": "MONDO:0013224",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rhabdoid tumor predisposition syndrome 2 (RTPS2) is an autosomal dominant cancer predisposition caused by heterozygous germline loss-of-function variants in SMARCA4, the ATPase subunit that powers the SWI/SNF (BAF) chromatin remodelling complex. It is considerably rarer than the SMARCB1 form and carries a broader tumour spectrum: alongside infantile rhabdoid tumours of the brain and kidney, carriers develop small cell carcinoma of the ovary, hypercalcemic type, a tumour of adolescents and young women now recognised as a rhabdoid tumour rather than a carcinoma. The later-onset ovarian risk means the surveillance window does not close at the end of early childhood, which distinguishes management from RTPS1.",
+    "pathophysiology": [
+      "Germline SMARCA4 Loss-of-Function",
+      "Somatic Inactivation of the Second SMARCA4 Allele",
+      "Loss of BAF Complex ATPase Activity",
+      "Failure of Enhancer-Mediated Differentiation",
+      "Rhabdoid Tumorigenesis",
+      "Ovarian Small Cell Carcinoma Hypercalcemic Type Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Atypical Teratoid Rhabdoid Tumor",
+      "Rhabdoid Tumor of the Kidney",
+      "Small Cell Carcinoma of the Ovary Hypercalcemic Type",
+      "Paraneoplastic Hypercalcemia"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0034401",
+      "HP:0034402",
+      "HP:0100615",
+      "HP:0003072"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMARCA4"
+    ],
+    "treatments": [
+      "Risk-Reducing Bilateral Salpingo-Oophorectomy",
+      "Germline SMARCA4 Testing and Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rhabdoid_Tumor_Predisposition_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Rhabdoid_Tumor_Predisposition_Syndrome_2.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Rheumatic Heart Disease",
     "disease_id": "MONDO:0006955",
     "category": "Complex",
@@ -257951,17 +258076,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2500,
+  "total_disorder_pages": 2502,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6059,
-  "total_unique_evidence_sources": 35871,
-  "total_unique_publications": 33743,
+  "total_disorders_and_subtypes": 6061,
+  "total_unique_evidence_sources": 35879,
+  "total_unique_publications": 33751,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2495,
-  "total_unique_pathological_events": 14524,
+  "total_pathographs": 2497,
+  "total_unique_pathological_events": 14533,
   "total_modules": 166,
-  "total_research_reports": 2617,
+  "total_research_reports": 2619,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
