@@ -1265,6 +1265,110 @@ def load_comorbidity(yaml_path: Path) -> dict:
         return _fast_yaml_load(f)
 
 
+# Module-category pill hues are generated, not hand-picked: each category takes
+# the next step of the golden angle around the colour wheel, so the palette
+# spreads itself and nobody has to choose or maintain a hex value. Stepping by
+# an irrational fraction of a turn means appending a category to the end of
+# ModuleCategoryEnum leaves every existing hue untouched — only reordering or
+# removing a value reshuffles. A plain hash of the key would also be
+# maintenance-free but does not spread: it put Oncology and Infectious disease
+# three degrees apart, which is one colour with two names.
+_CATEGORY_HUE_STEP = 137.508
+_CATEGORY_HUE_OFFSET = 15.0
+_UNKNOWN_CATEGORY_PALETTE = {
+    "hue": "",
+    "background": "var(--gray-100, #f1f5f9)",
+    "border": "var(--gray-300, #cbd5e1)",
+    "text": "var(--gray-600, #475569)",
+}
+
+
+def _category_palette(index: int) -> dict[str, str]:
+    """Build the pill colours for the category at ``index`` in the enum.
+
+    Saturation and lightness are held fixed across every category, which is what
+    keeps nine independently generated hues reading as one family rather than as
+    nine unrelated stickers. The fixed pair also settles legibility for any
+    category added later: the worst contrast ratio between this text and this
+    background over all 360 hues is 5.4:1, clearing WCAG AA by construction
+    rather than by luck (the yellow-green band near hue 60 is the weak spot).
+    """
+    hue = round((_CATEGORY_HUE_OFFSET + index * _CATEGORY_HUE_STEP) % 360)
+    return {
+        "hue": str(hue),
+        "background": f"hsl({hue}, 68%, 96%)",
+        "border": f"hsl({hue}, 52%, 78%)",
+        "text": f"hsl({hue}, 62%, 26%)",
+    }
+
+
+@lru_cache(maxsize=1)
+def _module_category_display() -> dict[str, dict]:
+    """Map each ModuleCategoryEnum key to its display label, blurb, and colours.
+
+    Labels and descriptions come from the enum's own ``title``/``description``
+    in ``schema/dismech.yaml``, so the vocabulary has exactly one home and a
+    category cannot be renamed on a page without being renamed in the schema.
+    """
+    permissible_values = (
+        (_load_schema().get("enums") or {})
+        .get("ModuleCategoryEnum", {})
+        .get("permissible_values")
+        or {}
+    )
+    display: dict[str, dict] = {}
+    for index, (key, meta) in enumerate(permissible_values.items()):
+        meta = meta if isinstance(meta, dict) else {}
+        key_text = str(key)
+        display[key_text] = {
+            "key": key_text,
+            "label": str(meta.get("title") or key_text.replace("_", " ").title()),
+            "description": _collapse_whitespace(meta.get("description")),
+            **_category_palette(index),
+        }
+    return display
+
+
+def _collapse_whitespace(value: object) -> str:
+    """Flatten a folded YAML block to a single line for use in a tooltip."""
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def _resolve_module_categories(module: dict) -> list[dict]:
+    """Resolve a module's ``module_categories`` values to display records.
+
+    An unrecognized value is still rendered — dropping it would hide a curation
+    error behind a page that looks fine — but it gets a neutral label derived
+    from the key and no blurb, so it is visibly not part of the vocabulary.
+    """
+    display = _module_category_display()
+    resolved: list[dict] = []
+    seen: set[str] = set()
+    for raw in module.get("module_categories") or []:
+        key = str(raw).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        resolved.append(
+            display.get(key)
+            or {
+                "key": key,
+                "label": key.replace("_", " ").title(),
+                "description": "",
+                **_UNKNOWN_CATEGORY_PALETTE,
+            }
+        )
+    # Pills follow the enum's declaration order rather than the order a curator
+    # typed them, so a category always appears in the same slot across modules
+    # and in the same order as the index legend. Values outside the vocabulary
+    # sort last.
+    order = {key: index for index, key in enumerate(display)}
+    resolved.sort(key=lambda record: order.get(record["key"], len(order)))
+    return resolved
+
+
 def _parse_module_reference(value: str | None) -> tuple[str, str] | None:
     """Split a conforms_to reference into (module_id, module_node_name)."""
     if not isinstance(value, str) or "#" not in value:
@@ -1494,6 +1598,7 @@ def _load_module_context(
             )
 
     module["_module_id"] = module_id
+    module["_categories"] = _resolve_module_categories(module)
     module["_pathophysiology_count"] = len(
         [node for node in pathophysiology_items if isinstance(node, dict)]
     )
@@ -1519,6 +1624,7 @@ def _build_module_summary(module: dict) -> dict:
         "name": module.get("name") or module_id,
         "description": module.get("description"),
         "href": f"{module_id}.html",
+        "categories": module.get("_categories") or [],
         "pathophysiology_count": module.get("_pathophysiology_count") or 0,
         "cell_type_count": len(module.get("_cell_types") or []),
         "biological_process_count": len(module.get("_biological_processes") or []),
@@ -2574,11 +2680,24 @@ def render_module_index(
     env = _get_shared_env(str(template_dir))
     template = env.get_template("module_index.html.j2")
 
+    # Legend lists only the categories actually in use, so a value defined in
+    # the schema but not yet applied to any module does not advertise itself as
+    # something a reader can browse by.
+    categories_in_use = {
+        category["key"]: category
+        for module in modules
+        for category in module.get("categories") or []
+    }
     html = template.render(
         modules=sorted(
             modules,
             key=lambda module: str(module.get("name") or "").casefold(),
-        )
+        ),
+        category_legend=[
+            categories_in_use[key]
+            for key in _module_category_display()
+            if key in categories_in_use
+        ],
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2901,6 +3020,10 @@ _PREPRINT_DOI_RE = re.compile(
 # `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
 _REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
 
+#: Frontmatter key a research recipe writes to record which revision of the
+#: prompt produced a report (issue #10183).
+STAMP_KEY_TEMPLATE_SHA = "template_sha"
+
 
 @lru_cache(maxsize=4096)
 def _reference_is_preprint(reference: str | None) -> bool:
@@ -3063,6 +3186,66 @@ def _research_report_template():
     return env.get_template("research_report.html.j2")
 
 
+def _prompt_provenance(metadata: dict) -> dict | None:
+    """Describe the prompt revision a report records, for the report page.
+
+    Args:
+        metadata: The report's parsed YAML frontmatter.
+
+    Returns:
+        A dict with ``sha``, ``short``, ``name`` and ``url``, or ``None`` when
+        the report carries no ``template_sha``.
+
+    Note:
+        Only a *stamped* hash is shown. Older reports predate stamping and their
+        revision is inferable from ``start_time`` against the template's commit
+        history, but inference is a reconstruction rather than a record -- see
+        issue #10183 -- and a page chip has no room to say which it is showing.
+        Displaying only what the generator recorded keeps the chip a fact.
+
+        ``name`` links to the template at ``main``, which is the file's *current*
+        content and so may differ from the revision the hash names. That is the
+        point of showing the hash beside it; the tooltip carries the lookup that
+        resolves it. The link can also 404 outright when a template has since
+        been deleted -- two committed reports name
+        ``disease_pathophysiology_research_scanner.md``, which no longer exists.
+        Nothing better is available: GitHub's ``/blob/<ref>/<path>`` needs a
+        commit-ish and a blob hash is not one, and the git-blobs API returns
+        base64 JSON rather than a page.
+
+        The unlinked branches are defensive rather than expected. ``stamp_report``
+        declines unless ``template_file`` resolves to a file on disk, so a
+        free-text label or an ephemeral ``/tmp`` path is never stamped by the
+        pipeline; reaching them takes a hand-written stamp. They are handled
+        anyway so that a hand-written one degrades to "shown but not linked"
+        rather than to a 404 dressed up as provenance.
+    """
+    raw = metadata.get(STAMP_KEY_TEMPLATE_SHA)
+    sha = raw.strip() if isinstance(raw, str) else ""
+    if not sha:
+        return None
+
+    template_file = metadata.get("template_file")
+    name = None
+    url = None
+    if isinstance(template_file, str) and template_file.strip():
+        # Reports written on Windows record backslashes; they name the same file.
+        normalized = template_file.strip().replace("\\", "/")
+        # A free-text label (``manual_curation``) is not a path and gets no link.
+        if normalized.startswith("templates/"):
+            name = normalized.rsplit("/", 1)[-1]
+            url = _github_blob_url(Path(normalized))
+        else:
+            name = normalized
+
+    return {
+        "sha": sha,
+        "short": sha[:12],
+        "name": name,
+        "url": url,
+    }
+
+
 def render_research_report(
     report: dict,
     siblings: list[dict],
@@ -3093,6 +3276,7 @@ def render_research_report(
             "mondo_url": _curie_url(report.get("mondo_id")),
             "model": metadata.get("model"),
             "citation_count": metadata.get("citation_count"),
+            "prompt": _prompt_provenance(metadata),
             "date": _format_report_date(
                 metadata.get("end_time") or metadata.get("start_time")
             ),
