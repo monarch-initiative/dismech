@@ -27,17 +27,24 @@ mechanism graph**, not unbound terms.
 | On the pathograph | 122 (67.8%) | 308 (50.9%) |
 | **Cited but off the pathograph** | **56** (42 after dropping weak matches) | **263** |
 | …of those, `CITED_HUMAN` | 39 (32 strong) | 204 |
-| On the pathograph but uncited | 1 | 19 |
+| On the pathograph but uncited | 1 | 18 |
+| Evidenced only by `REFUTE` | 1 | 9 |
 
 The causal track is in good shape: two thirds of its diet entries already carry
 `influences_mechanisms`, and the residue is 42 entries — a reviewable list, not a
 programme. The intervention track is the weaker half: half of dietary treatments
 never link to a mechanism node, leaving 263 cited-but-unlinked treatments.
 
-**The 19 intervention entries that are on the pathograph with no citation are the
-first thing to fix.** They already render as mechanism edges, so they assert more
-than the KB can support. The single causal instance is `Crohn_Disease` →
-`Diet` (bound to `XCO:0000013`, the bare "diet" catch-all).
+**The 19 entries on the pathograph with no evidence at all are the first thing to
+fix** — 18 interventions plus `Shigellosis` → "Contaminated water or food". They
+already render as mechanism edges, so they assert more than the KB can support.
+Three sit in `kb/modules/`, so each is inherited by every conforming disorder.
+
+`REFUTE_ONLY` is counted separately and is **not** a defect. NELABA's "Lipoic acid
+supplementation (ineffective)" carries two snippet-backed `REFUTE` items against
+the mechanism it targets: a treatment recorded as failing against a node is a
+real, useful annotation, and an earlier draft of this audit wrongly flagged it as
+uncited.
 
 ### The 42 strong causal candidates
 
@@ -141,16 +148,18 @@ by name.
 
 **Evidence tiers are structural, not a quality judgment.** The script cannot read
 a paper; it reports the shape of the citation. `CITED_HUMAN` means a `SUPPORT`
-item with a non-empty snippet graded `HUMAN_CLINICAL`. `REFUTE` items do not
-count toward a tier, since they argue against drawing the edge.
+item with a non-empty snippet graded `HUMAN_CLINICAL`. Snippet-backed `REFUTE`
+evidence takes its own `REFUTE_ONLY` tier: it never counts toward the gap, since
+refuting evidence is not a reason to draw an edge, but it is emphatically not an
+uncited link either.
 
 ## Recommendations
 
 Ordered by value per unit of work. None is started; all are decisions for a
 curator, not automated fixes.
 
-1. **Cite or unlink the 20 uncited pathograph edges** (19 intervention, 1 causal).
-   They already render.
+1. **Cite or unlink the 19 uncited pathograph edges** (18 intervention, 1 causal).
+   They already render, and three are in modules, so they propagate to conformers.
 2. **Work the 42 strong causal candidates**, reading each snippet before adding
    `influences_mechanisms`. Gout, Phenylketonuria, and Celiac Disease alone are 11
    of them and are the natural pilot, since all three already model diet well on

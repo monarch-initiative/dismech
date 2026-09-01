@@ -56,9 +56,9 @@ def test_support_without_a_snippet_does_not_count_as_cited():
     assert audit._evidence_tier(items) == audit._TIER_UNCITED
 
 
-def test_refute_alone_is_not_a_reason_to_draw_a_causal_edge():
-    # A REFUTE item is real evidence, but it argues against the link, so it must
-    # not promote the entry into the "ready for the pathograph" tier.
+def test_refute_alone_gets_its_own_tier_not_uncited():
+    # A REFUTE item is real evidence and must not read as "uncited", but it
+    # argues against the link, so it must not reach a SUPPORT tier either.
     items = [
         {
             "reference": "PMID:1",
@@ -67,7 +67,40 @@ def test_refute_alone_is_not_a_reason_to_draw_a_causal_edge():
             "snippet": "quoted finding",
         }
     ]
-    assert audit._evidence_tier(items) == audit._TIER_UNCITED
+    assert audit._evidence_tier(items) == audit._TIER_REFUTE
+
+
+def test_support_outranks_refute_on_the_same_entry():
+    items = [
+        {"supports": "REFUTE", "evidence_source": "HUMAN_CLINICAL", "snippet": "a"},
+        {"supports": "SUPPORT", "evidence_source": "HUMAN_CLINICAL", "snippet": "b"},
+    ]
+    assert audit._evidence_tier(items) == audit._TIER_HUMAN
+
+
+def test_refute_only_link_is_not_the_inverse_defect(tmp_path):
+    # NELABA's real shape: lipoic acid recorded as INEFFECTIVE against the
+    # mechanism it targets, with two snippet-backed REFUTE items. That is
+    # correct curation -- flagging it would send a curator to fix a good entry.
+    _write(
+        tmp_path,
+        "NELABA",
+        """treatments:
+- name: Lipoic acid supplementation (ineffective)
+  target_mechanisms:
+  - target: Lipoic Acid Synthesis Failure
+  evidence:
+  - reference: PMID:1
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: supplementation did not improve outcomes
+""",
+    )
+    (item,) = audit.collect(tmp_path)
+    assert item.tier == audit._TIER_REFUTE
+    assert item.linked
+    assert not item.unevidenced_link  # the bug this guards
+    assert not item.gap  # refuting evidence is not a reason to add a link
 
 
 def test_missing_evidence_block_is_uncited():

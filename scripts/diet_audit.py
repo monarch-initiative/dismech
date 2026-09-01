@@ -31,7 +31,12 @@ read a paper. It reports the shape of the citation and nothing more:
   ``evidence_source: HUMAN_CLINICAL``. For a dietary claim about people this is
   the tier that usually carries it, which is why it is broken out.
 * ``CITED`` — a ``SUPPORT`` item with a snippet, from any other source tier.
-* ``UNCITED`` — neither.
+* ``REFUTE_ONLY`` — snippet-backed ``REFUTE`` evidence and no ``SUPPORT``. The
+  entry is evidenced, just negatively: a treatment recorded as ineffective
+  against a mechanism it was tried on is a real, useful annotation. It is not a
+  reason to *add* a link, so it never counts toward the gap, and it is emphatically
+  not an uncited link, so it never counts as the inverse defect either.
+* ``UNCITED`` — no snippet-backed evidence in either direction.
 
 A ``CITED_HUMAN`` row is a candidate for the pathograph, never a verdict. Read
 the snippet before linking anything: an observational association is not a
@@ -135,8 +140,9 @@ _STATE_FREE_TEXT = "FREE_TEXT"
 
 _TIER_HUMAN = "CITED_HUMAN"
 _TIER_CITED = "CITED"
+_TIER_REFUTE = "REFUTE_ONLY"
 _TIER_UNCITED = "UNCITED"
-_TIERS = (_TIER_HUMAN, _TIER_CITED, _TIER_UNCITED)
+_TIERS = (_TIER_HUMAN, _TIER_CITED, _TIER_REFUTE, _TIER_UNCITED)
 
 
 @dataclass
@@ -163,8 +169,11 @@ class _DietItem:
 
     @property
     def gap(self) -> bool:
-        """Cited but off the pathograph — the tranche this audit exists to find."""
-        return self.tier != _TIER_UNCITED and not self.linked
+        """Supported but off the pathograph — the tranche this audit exists to find.
+
+        ``REFUTE_ONLY`` is excluded: refuting evidence argues against the edge.
+        """
+        return self.tier in (_TIER_HUMAN, _TIER_CITED) and not self.linked
 
     @property
     def weak_match(self) -> bool:
@@ -173,7 +182,12 @@ class _DietItem:
 
     @property
     def unevidenced_link(self) -> bool:
-        """On the pathograph with no citation. Rendering already; fix first."""
+        """On the pathograph with no evidence at all. Rendering already; fix first.
+
+        A ``REFUTE_ONLY`` entry is NOT this: a treatment linked to a mechanism it
+        demonstrably fails against is correctly curated, and flagging it would
+        send a curator to "fix" an entry that is already right.
+        """
         return self.linked and self.tier == _TIER_UNCITED
 
 
@@ -185,11 +199,17 @@ def _evidence_tier(items) -> str:
     for item in items:
         if not isinstance(item, dict):
             continue
-        # A REFUTE item is real evidence, but it is not a reason to draw a causal
-        # edge, so only SUPPORT counts toward a tier here.
-        if item.get("supports") != "SUPPORT":
-            continue
         if not str(item.get("snippet") or "").strip():
+            continue
+        supports = item.get("supports")
+        # A REFUTE item is real evidence and must not read as "uncited", but it
+        # is not a reason to draw a causal edge either. It therefore takes its
+        # own tier, which SUPPORT always outranks.
+        if supports == "REFUTE":
+            if tier == _TIER_UNCITED:
+                tier = _TIER_REFUTE
+            continue
+        if supports != "SUPPORT":
             continue
         if item.get("evidence_source") == "HUMAN_CLINICAL":
             return _TIER_HUMAN
