@@ -6,7 +6,7 @@ by *nothing*. Every gate in the stack looks at a different field::
 
     evidence:
     - reference: PMID:34081534                     # linkml-validate: a valid PMID
-      snippet: "exact quote from the abstract"     # validate-references: verified
+      snippet: "exact quote from the abstract"     # validate-kb-references: verified
       reference_title: "Congenital cranial dysinnervation disorders:
         a concept in evolution."                   # <- checked by nothing
 
