@@ -9909,6 +9909,77 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Acute Radiation Syndrome",
+    "disease_id": "MONDO:0033938",
+    "category": "Complex",
+    "parents": [
+      "Radiation Injury"
+    ],
+    "creation_date": "2026-09-01T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acute radiation syndrome is the constellation of organ failures produced by whole-body or substantial partial-body exposure to a high dose of penetrating ionizing radiation delivered over a short period. It is the clinical expression of a single physical exposure acting on several proliferating tissues at once, and its presentation is ordered by how fast those tissues turn over: the haematopoietic syndrome appears first and at the lowest doses, followed by the gastrointestinal syndrome, then the neurovascular syndrome at doses that are almost uniformly fatal. The haematopoietic arm is the dose-limiting and most treatable component, and it follows the same cytotoxic marrow-injury pathway as chemotherapy-induced myelosuppression, which is why growth-factor support developed for oncology is the mainstay of radiation casualty management.",
+    "pathophysiology": [
+      "Hematopoietic Progenitor Injury",
+      "Bone Marrow Hematopoietic Suppression",
+      "Multilineage Peripheral Cytopenias",
+      "Cytopenia-Related Clinical Complications"
+    ],
+    "cell_types": [
+      "hematopoietic stem cell",
+      "hematopoietic progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000037",
+      "CL:0008001"
+    ],
+    "biological_processes": [
+      "cellular response to ionizing radiation"
+    ],
+    "phenotypes": [
+      "Decreased total lymphocyte count",
+      "Decreased total neutrophil count",
+      "Thrombocytopenia",
+      "Anemia",
+      "Recurrent infections",
+      "Petechiae"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0001888",
+      "HP:0001875",
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0002719",
+      "HP:0000967"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Granulocyte colony-stimulating factor (filgrastim)",
+      "Sargramostim",
+      "Romiplostim"
+    ],
+    "environmental": [
+      "Acute whole-body ionizing radiation exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Acute_Radiation_Syndrome.yaml",
+    "page_url": "../pages/disorders/Acute_Radiation_Syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Acute Respiratory Distress Syndrome",
     "disease_id": "MONDO:0006502",
     "category": "Complex",
@@ -14719,8 +14790,7 @@ window.searchData = [
       "HLA-B*58:01 pharmacogenomic susceptibility"
     ],
     "treatments": [
-      "Causative drug withdrawal and supportive care",
-      "HLA-B*58:01 pre-prescription screening"
+      "Causative drug withdrawal and supportive care"
     ],
     "environmental": [
       "Allopurinol exposure",
@@ -14732,7 +14802,7 @@ window.searchData = [
     "num_phenotypes": 6,
     "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 2,
+    "num_treatments": 1,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
   },
@@ -19515,6 +19585,73 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Anthracycline-Induced Cardiomyopathy",
+    "disease_id": "MONDO:0022653",
+    "category": "Complex",
+    "parents": [
+      "Cardiomyopathy"
+    ],
+    "creation_date": "2026-09-01T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Anthracycline-induced cardiomyopathy is a treatment-toxicity cardiomyopathy caused by cumulative exposure to anthracycline chemotherapy (doxorubicin, daunorubicin, epirubicin, idarubicin). It is the archetypal dose-limiting cardiotoxicity of cytotoxic cancer therapy, and it is the reason cumulative anthracycline dose is capped in treatment protocols. Cardiomyocytes are injured through topoisomerase II-beta-mediated DNA damage and mitochondrial dysfunction rather than through the proliferative mechanism that makes anthracyclines effective against tumour cells, which is why the heart is preferentially affected. The resulting cardiomyocyte loss drives the conserved maladaptive remodelling sequence shared by structural cardiomyopathies, producing progressive contractile dysfunction and heart failure that may present years or decades after treatment ends.",
+    "pathophysiology": [
+      "Anthracycline Exposure and Topoisomerase II-beta-Mediated Cardiomyocyte Injury",
+      "Iron-Dependent Reactive Oxygen Species Generation",
+      "Mitochondrial Injury",
+      "Sarcomere Disruption",
+      "Ventricular Remodeling",
+      "Progressive Contractile Dysfunction"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "apoptotic process",
+      "reactive oxygen species biosynthetic process",
+      "sarcomere organization",
+      "muscle contraction"
+    ],
+    "phenotypes": [
+      "Reduced left ventricular ejection fraction",
+      "Dilated cardiomyopathy",
+      "Congestive heart failure"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0012664",
+      "HP:0001644",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RARG",
+      "TTN"
+    ],
+    "treatments": [
+      "Dexrazoxane",
+      "Spironolactone"
+    ],
+    "environmental": [
+      "Cumulative anthracycline chemotherapy exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Anthracycline_Induced_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/Anthracycline-Induced_Cardiomyopathy.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Anti-Glomerular Basement Membrane Disease",
@@ -223432,10 +223569,13 @@ window.searchData = [
     "creation_date": "2026-02-02T00:16:36Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Secondary hypertension is elevated systemic arterial blood pressure attributable to an identifiable underlying cause, in contrast to essential hypertension. Causes include renal parenchymal and renovascular disease, endocrine disorders (primary aldosteronism, pheochromocytoma, Cushing syndrome, thyroid disease), obstructive sleep apnea, aortic coarctation, and certain drugs. The shared final pathway is sympathetic and hormonal coactivation with sodium retention; treating the underlying cause can reverse the hypertension.",
+    "description": "Secondary hypertension is elevated systemic arterial blood pressure attributable to an identifiable underlying cause, in contrast to essential hypertension. Causes include renal parenchymal and renovascular disease, endocrine disorders (primary aldosteronism, pheochromocytoma, Cushing syndrome, thyroid disease), obstructive sleep apnea, aortic coarctation, and certain drugs. These causes share an endpoint rather than a mechanism: sympathetic and hormonal coactivation with sodium retention is a common theme across several of them, but primary aldosteronism raises pressure through renin-independent mineralocorticoid signalling and volume retention, coarctation is substantially mechanical, and VEGF-inhibitor toxicity acts through endothelial vasoconstriction. Treating the underlying cause can reverse the hypertension.",
     "pathophysiology": [
       "Sympathetic and hormonal coactivation",
       "VEGF Pathway Inhibitor Exposure",
+      "Endothelial Nitric Oxide Deficiency and Oxidative Stress",
+      "Endothelin-1 System Activation",
+      "Microvascular Rarefaction",
       "Drug-Induced Vasoconstriction and Increased Peripheral Vascular Resistance"
     ],
     "cell_types": [
@@ -223447,7 +223587,12 @@ window.searchData = [
       "CL:0000359"
     ],
     "biological_processes": [
+      "regulation of systemic arterial blood pressure",
       "vascular endothelial growth factor receptor signaling pathway",
+      "nitric oxide biosynthetic process",
+      "response to oxidative stress",
+      "endothelin receptor signaling pathway",
+      "angiogenesis",
       "vasoconstriction"
     ],
     "phenotypes": [
@@ -223462,17 +223607,20 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Renin-Angiotensin System Inhibition (ACE Inhibitor or ARB)",
+      "Calcium Channel Blocker"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Secondary_Hypertension.yaml",
     "page_url": "../pages/disorders/Secondary_Hypertension.html",
     "num_phenotypes": 1,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Segmental arterial mediolysis",
@@ -258136,17 +258284,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2502,
+  "total_disorder_pages": 2504,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6061,
-  "total_unique_evidence_sources": 35939,
-  "total_unique_publications": 33811,
+  "total_disorders_and_subtypes": 6063,
+  "total_unique_evidence_sources": 35955,
+  "total_unique_publications": 33827,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2497,
-  "total_unique_pathological_events": 14546,
+  "total_pathographs": 2499,
+  "total_unique_pathological_events": 14557,
   "total_modules": 167,
-  "total_research_reports": 2622,
+  "total_research_reports": 2626,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
