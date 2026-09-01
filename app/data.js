@@ -34281,6 +34281,79 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Balkan Endemic Nephropathy",
+    "disease_id": "MONDO:0007416",
+    "category": "Complex",
+    "parents": [
+      "Chronic Kidney Disease"
+    ],
+    "creation_date": "2026-09-01T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Balkan endemic nephropathy is a chronic tubulointerstitial kidney disease occurring in rural communities along the Danube basin, caused by long-term dietary exposure to aristolochic acid from Aristolochia clematitis seeds that contaminate locally grown and milled wheat. It is the environmental counterpart of aristolochic acid nephropathy, first recognised in users of herbal weight-loss preparations. Aristolochic acid is taken up by proximal tubular epithelium, forms persistent aristolactam-DNA adducts, and drives tubular cell death and progressive interstitial fibrosis, so the disease presents as slowly progressive kidney failure rather than acute injury. The same adducts produce a characteristic A:T to T:A transversion mutational signature and a high incidence of upper urinary tract urothelial carcinoma, which distinguishes this nephropathy from other chronic tubulointerstitial diseases.",
+    "pathophysiology": [
+      "Dietary Aristolochic Acid Exposure and Proximal Tubular Uptake",
+      "Aristolactam-DNA Adduct Formation",
+      "Proximal Tubular Epithelial Cell Death",
+      "A:T to T:A Transversion Mutational Signature",
+      "Upper Urinary Tract Urothelial Carcinoma",
+      "Tubulointerstitial Fibrosis and Progressive Renal Failure"
+    ],
+    "cell_types": [
+      "kidney proximal tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "DNA damage response"
+    ],
+    "phenotypes": [
+      "Chronic kidney disease",
+      "Proteinuria",
+      "Anemia",
+      "Renal transitional cell carcinoma",
+      "Stage 5 chronic kidney disease"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0012622",
+      "HP:0003126",
+      "HP:0001903",
+      "HP:0030409",
+      "HP:0003774"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Renal replacement therapy",
+      "Prophylactic bilateral nephroureterectomy before transplantation",
+      "mTOR inhibitor immunosuppression after transplantation",
+      "Total nephroureterectomy for established UTUC"
+    ],
+    "environmental": [
+      "Dietary aristolochic acid from Aristolochia clematitis-contaminated grain"
+    ],
+    "biochemical": [
+      "Alpha-1-microglobulin (tubular proteinuria)",
+      "Aristolactam-DNA adducts and TP53 fingerprint mutation"
+    ],
+    "source_file": "Balkan_Endemic_Nephropathy.yaml",
+    "page_url": "../pages/disorders/Balkan_Endemic_Nephropathy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Bannayan-Riley-Ruvalcaba Syndrome",
     "disease_id": "MONDO:0007924",
     "category": "Mendelian",
@@ -154647,6 +154720,83 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Mal De Debarquement",
+    "disease_id": "MONDO:0016217",
+    "category": "Neurological Disorder",
+    "parents": [],
+    "creation_date": "2026-08-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mal de d\u00e9barquement syndrome (MdDS) is a chronic central vestibular disorder in which a persistent illusion of self-motion - described as rocking, bobbing or swaying - outlasts the passive motion that provoked it, classically a sea voyage but also air, road or rail travel. It is a disorder of the perception of motion rather than of the vestibular end organ: inner-ear function, audiometry and structural brain imaging are characteristically normal, and the diagnosis is made on the clinical pattern rather than on any test.\nThe defining and diagnostically decisive feature is paradoxical: symptoms temporarily *remit* on re-exposure to passive motion, so patients feel better while driving and worse when the car stops. That single observation separates MdDS from persistent postural-perceptual dizziness, in which motion and visual complexity make things worse, and it is also the clue to the mechanism - the brain state is not a deficit but a maladaptive adaptation that the triggering stimulus transiently satisfies.\nThe leading mechanistic account, developed from roll-while-rotating conditioning in monkeys and reproduced in humans in NASA rotating-room experiments, is that prolonged passive oscillatory motion maladapts the vestibulo-ocular reflex through velocity storage, the central integrator that extends the vestibular response beyond the cupula's own time constant. Formalized as a three-dimensional dynamical system, the lesion is cross-axis coupling - off-diagonal terms misaligning the yaw eigenvector from the head-vertical and gravity axes - which is experienced as a continuous pull or rocking. Downstream, functional imaging finds a limbic focus of entorhinal and amygdala hypermetabolism with increased coupling to posterior visual-vestibular areas and reduced frontal connectivity, and resting EEG frames the disorder as entrainment to oscillating motion rather than a focal lesion. The therapy that follows from this account - rolling the head while viewing a full-field rotating stimulus, to readapt the reflex in the opposite direction - is unusual in that it is simultaneously the treatment and the clearest test of the mechanism.\nMdDS falls disproportionately on women in the fourth to sixth decades, often around the perimenopausal transition, and carries high migraine comorbidity. Population prevalence is not known.",
+    "pathophysiology": [
+      "Prolonged Passive Oscillatory Motion Exposure",
+      "Velocity Storage Cross-Axis Maladaptation",
+      "Persistent Oscillatory Self-Motion Perception",
+      "Limbic-Vestibular Network Reorganization",
+      "Functional Impairment and Secondary Affective Burden"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Persistent Oscillatory Vertigo",
+      "Gait Imbalance",
+      "Head-Roll Induced Nystagmus",
+      "Chronic Fatigue",
+      "Visual Motion Intolerance",
+      "Spatial Disorientation",
+      "Impaired Cognition",
+      "Depression",
+      "Anxiety",
+      "Headache Exacerbation"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Constitutional",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:4000033",
+      "HP:0002141",
+      "HP:0000639",
+      "HP:0012378",
+      "HP:0001751",
+      "HP:0100543",
+      "HP:0000716",
+      "HP:0000739",
+      "HP:0002315"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Vestibulo-Ocular Reflex Readaptation (Optokinetic Roll Protocol)",
+      "Repetitive Transcranial Magnetic Stimulation over Left DLPFC",
+      "Intermittent Theta Burst Stimulation as an Adjunct to VOR Rehabilitation",
+      "Transcranial Direct Current Stimulation over DLPFC",
+      "Vestibular Migraine Prophylaxis"
+    ],
+    "environmental": [
+      "Prolonged exposure to passive oscillatory motion (sea, air, road or rail travel)"
+    ],
+    "biochemical": [],
+    "source_file": "Mal_De_Debarquement.yaml",
+    "page_url": "../pages/disorders/Mal_De_Debarquement.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Malan Syndrome",
     "disease_id": "MONDO:0013885",
     "category": "Mendelian",
@@ -258284,17 +258434,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2504,
+  "total_disorder_pages": 2506,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6063,
-  "total_unique_evidence_sources": 35955,
-  "total_unique_publications": 33827,
+  "total_disorders_and_subtypes": 6065,
+  "total_unique_evidence_sources": 35974,
+  "total_unique_publications": 33846,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2499,
-  "total_unique_pathological_events": 14557,
+  "total_pathographs": 2501,
+  "total_unique_pathological_events": 14568,
   "total_modules": 167,
-  "total_research_reports": 2626,
+  "total_research_reports": 2628,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
