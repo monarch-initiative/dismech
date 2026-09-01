@@ -90912,6 +90912,86 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Ethylene Glycol Poisoning",
+    "disease_id": "MONDO:0017861",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-09-01T20:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ethylene glycol poisoning follows ingestion of antifreeze, de-icing fluid or other ethylene-glycol-containing products, taken deliberately, accidentally, or as a substitute intoxicant. The parent alcohol is only mildly intoxicating. The damage is done by its metabolites: alcohol dehydrogenase oxidises ethylene glycol to glycolaldehyde and then to glycolic acid, which drives a severe anion gap metabolic acidosis, and finally to oxalic acid, which precipitates with calcium as insoluble calcium oxalate crystals in the renal tubules and produces acute kidney injury. Because the toxicity is metabolic rather than direct, the antidote is an enzyme inhibitor rather than a chelator or a receptor blocker, and giving it early enough prevents the renal injury outright.",
+    "pathophysiology": [
+      "Ethylene Glycol Ingestion and Alcohol Dehydrogenase Bioactivation",
+      "Glycolic Acid Accumulation and High Anion Gap Metabolic Acidosis",
+      "Oxalic Acid Production and Calcium Oxalate Crystal Deposition",
+      "Proximal Tubular Epithelial Cell Death",
+      "Acute Kidney Injury"
+    ],
+    "cell_types": [
+      "kidney proximal tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "cell death",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Metabolic acidosis",
+      "Acute kidney injury",
+      "Nephrocalcinosis",
+      "Confusion",
+      "Coma",
+      "Seizure",
+      "Hypocalcemia",
+      "Hyperoxaluria",
+      "Crystalluria"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001942",
+      "HP:0001919",
+      "HP:0000121",
+      "HP:0001289",
+      "HP:0001259",
+      "HP:0001250",
+      "HP:0002901",
+      "HP:0003159",
+      "HP:0020074"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Fomepizole",
+      "Ethanol",
+      "Hemodialysis"
+    ],
+    "environmental": [
+      "Ingestion of ethylene glycol"
+    ],
+    "biochemical": [
+      "Plasma oxalate",
+      "Serum anion gap",
+      "Serum osmolal gap"
+    ],
+    "source_file": "Ethylene_Glycol_Poisoning.yaml",
+    "page_url": "../pages/disorders/Ethylene_Glycol_Poisoning.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Ethylmalonic Encephalopathy",
     "disease_id": "MONDO:0011229",
     "category": "Mendelian",
@@ -258522,17 +258602,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2507,
+  "total_disorder_pages": 2508,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6066,
-  "total_unique_evidence_sources": 35984,
-  "total_unique_publications": 33854,
+  "total_disorders_and_subtypes": 6067,
+  "total_unique_evidence_sources": 35990,
+  "total_unique_publications": 33860,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2502,
-  "total_unique_pathological_events": 14573,
+  "total_pathographs": 2503,
+  "total_unique_pathological_events": 14576,
   "total_modules": 167,
-  "total_research_reports": 2629,
+  "total_research_reports": 2630,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
