@@ -325,13 +325,18 @@ adding markers gives curators a reason to conform to it.
 >
 > **`telomere_attrition`, `epigenetic_alterations` and `deregulated_nutrient_sensing`
 > followed**, which completes this KB's coverage of the TAME panel and most of the 2025
-> Delphi consensus list. **Six of eleven hallmark modules now carry biomarkers**, against
-> one when this report was written. Notable cases from that tranche:
+> Delphi consensus list. Notable cases from that tranche:
 >
-> - **IGF-1 runs backwards.** Lower predicts longer survival, and only in females
->   (PMID:24618355). Curated `direction: NEGATIVE` with the sex-dependence as its own
->   evidence item rather than averaged away. Any automated reading of biomarker direction
->   will get this one wrong.
+> - **IGF-1 has two directions, and they point opposite ways.** Against the node it
+>   reports, it is ordinary: higher IGF-1 means more anabolic signalling, so both
+>   readouts are `POSITIVE`. Against *outcome*, it inverts — lower IGF-1 predicts longer
+>   survival, in females only (PMID:24618355). The first draft encoded the outcome
+>   inversion as `direction: NEGATIVE`, which was wrong: `direction` describes the
+>   linked event, not the outcome, and it contradicted the sibling readout to
+>   `mTORC1 Hyperactivation`, the direct downstream of that node. Caught in review and
+>   corrected; the longevity inversion now lives in prose where it belongs. Worth
+>   knowing about because the biology genuinely is inverted, which is what makes the
+>   wrong slot so tempting.
 > - **HbA1c and hsCRP carry `REFUTE` items** recording that they failed consensus
 >   agreement on predicting biological age. The limitation travels with the marker.
 > - **Telomere length's gap is about measurement, not biology.** The population
