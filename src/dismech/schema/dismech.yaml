@@ -5325,6 +5325,26 @@ classes:
     comments:
       - Use role for definitive, intermediate, reservoir, accidental, or paratenic host
 
+  AgentSubtypeDescriptor:
+    is_a: OrganismDescriptor
+    description: >-
+      A descriptor for a taxonomic stratum below a named infectious agent -
+      subspecies, serovar, serotype, or biotype - bindable to NCBITaxon.
+
+      Distinct from SubtypeDescriptor, which grounds a *disease* subtype to
+      MONDO or NCIT. An agent stratum is an organism, not a disease, so it
+      binds through OrganismTerm and inherits that binding from
+      OrganismDescriptor unchanged.
+    comments:
+      - Bind only at a rank NCBITaxon genuinely carries. Where the only
+        candidate node is the parent species, omit the term rather than
+        binding it - an agent stratum bound to its own parent asserts nothing
+        and reads as grounded.
+      - Pathotypes (ETEC, MRSA, toxigenic C. difficile) are defined by
+        virulence gene content rather than phylogeny and have no NCBITaxon
+        node. They are carried structurally, by naming the defining
+        determinant in the subtype description, and must not be bound here.
+
   SampleTypeDescriptor:
     is_a: Descriptor
     description: A descriptor for biological sample types (tissue and/or cell type)
@@ -5777,6 +5797,33 @@ classes:
       - genes
       - subtype_frequency
       - inheritance
+  AgentSubtype:
+    is_a: Subtype
+    description: >-
+      A taxonomic stratum below a named infectious agent: a subspecies,
+      serovar, serotype, or biotype of the organism named by the parent
+      InfectiousAgent.
+
+      Identical to Subtype except that subtype_term binds NCBITaxon rather
+      than MONDO/NCIT, because the thing being grounded is an organism rather
+      than a disease. Splitting it out is what lets an agent stratum be
+      grounded at all: the disease-level binding is rooted at MONDO:0000001
+      and NCIT:C2991, so a serovar or biotype nested under an agent was
+      previously forced to remain name-only free text.
+    comments:
+      - This class carries the organism axis only. A stratum that needs to be
+        referenced by a phenotype, treatment, prevalence or progression record
+        must instead be a disease-level has_subtypes entry, because the
+        subtype foreign key resolves against the disease-level list alone.
+      - inheritance and genes are inherited from Subtype and describe human
+        genetics. They do not apply to an agent stratum; leave them unset.
+    slot_usage:
+      subtype_term:
+        description: >-
+          The NCBITaxon term grounding this agent stratum. Omit it rather than
+          binding the parent species when NCBITaxon carries no node at this
+          rank.
+        range: AgentSubtypeDescriptor
   EvidenceItem:
     slots:
       - reference
@@ -6756,6 +6803,12 @@ classes:
       - evidence
       - description
       - has_subtypes
+    slot_usage:
+      has_subtypes:
+        description: >-
+          Taxonomic strata below this agent - subspecies, serovar, serotype,
+          or biotype - each groundable in NCBITaxon.
+        range: AgentSubtype
   Transmission:
     slots:
       - name
