@@ -27,13 +27,20 @@ sidecars excluded):
   here);
 * ``unvalidated`` -- neither.
 
+A report's provider is the frontmatter ``provider:`` key when present, and
+the filename's ``-deep-research-<provider>`` suffix otherwise -- the filename
+drifts (date suffixes, ``manual`` vs ``manual_pubmed_review``) while the key
+is what the generating recipe wrote.
+
 Counters are summed verbatim from the frontmatter keys upstream emits
 (``total_references``, ``verified``, ``not_found``, ``unverifiable``,
 ``quotes_checked``, ``quotes_valid``, ``quotes_unsupported``,
 ``quotes_not_checkable``, ``relevance_assessed``, ``on_topic``,
 ``off_topic``) plus a count of reports with ``needs_review: true``. Keys a
 given report omits (upstream drops keys with nothing to report) count as
-zero. Rates are computed from the sums, not averaged per report.
+zero. A counter that is present but not an integer is also counted as zero,
+and the number of such coercion failures is reported so a deflated sum has a
+visible cause. Rates are computed from the sums, not averaged per report.
 
 Caveats the numbers cannot see
 ------------------------------
@@ -92,6 +99,7 @@ class ReportRow:
     needs_review: bool = False
     validator_version: str = ""
     counters: dict[str, int] = field(default_factory=dict)
+    coercion_failures: int = 0
 
     def as_flat(self) -> dict[str, object]:
         flat: dict[str, object] = {
@@ -114,12 +122,14 @@ class Totals:
     body_only: int = 0
     unvalidated: int = 0
     needs_review: int = 0
+    coercion_failures: int = 0
     counters: dict[str, int] = field(default_factory=lambda: dict.fromkeys(COUNTER_KEYS, 0))
 
     def add(self, row: ReportRow) -> None:
         self.reports += 1
         if row.status == STATUS_FRONTMATTER:
             self.frontmatter += 1
+            self.coercion_failures += row.coercion_failures
             if row.needs_review:
                 self.needs_review += 1
             for key in COUNTER_KEYS:
@@ -167,19 +177,29 @@ def read_report(path: Path) -> tuple[Mapping[str, object], str]:
     return {}, text
 
 
-def coerce_int(value: object) -> int:
+def coerce_int(value: object) -> tuple[int, bool]:
+    """Return (integer value, whether it parsed). An absent key is ``(0, True)``."""
+    if value is None:
+        return 0, True
     if isinstance(value, bool):
-        return 0
+        return 0, False
     if isinstance(value, int):
-        return value
+        return value, True
     if isinstance(value, float):
-        return int(value)
+        return int(value), value.is_integer()
     if isinstance(value, str):
         try:
-            return int(value.strip())
+            return int(value.strip()), True
         except ValueError:
-            return 0
-    return 0
+            return 0, False
+    return 0, False
+
+
+def report_provider(frontmatter: Mapping[str, object], filename_provider: str) -> str:
+    value = frontmatter.get("provider")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return filename_provider
 
 
 def classify_report(path: Path, research_dir: Path) -> ReportRow | None:
@@ -193,14 +213,18 @@ def classify_report(path: Path, research_dir: Path) -> ReportRow | None:
     row = ReportRow(
         path=str(path.relative_to(research_dir)),
         disorder=match.group("disorder"),
-        provider=match.group("provider"),
+        provider=report_provider(frontmatter, match.group("provider")),
         status=STATUS_UNVALIDATED,
     )
     if isinstance(block, Mapping):
         row.status = STATUS_FRONTMATTER
         row.needs_review = block.get("needs_review") is True
         row.validator_version = str(block.get("validator_version", "") or "")
-        row.counters = {key: coerce_int(block.get(key, 0)) for key in COUNTER_KEYS}
+        for key in COUNTER_KEYS:
+            value, ok = coerce_int(block.get(key))
+            row.counters[key] = value
+            if not ok:
+                row.coercion_failures += 1
     elif BODY_SECTION_RE.search(body):
         row.status = STATUS_BODY_ONLY
     return row
@@ -228,7 +252,9 @@ def fmt_rate(value: float | None) -> str:
     return "-" if value is None else f"{100 * value:.1f}%"
 
 
-def write_summary(out: TextIO, overall: Totals, by_provider: dict[str, Totals]) -> None:
+def write_summary(
+    out: TextIO, overall: Totals, by_provider: dict[str, Totals], *, all_providers: bool = False
+) -> None:
     c = overall.counters
     out.write("Deep-research reference validation census\n")
     out.write("==========================================\n")
@@ -253,13 +279,17 @@ def write_summary(out: TextIO, overall: Totals, by_provider: dict[str, Totals]) 
         f"    off topic:          {c['off_topic']}  ({fmt_rate(overall.rate('off_topic', 'relevance_assessed'))})\n"
         f"  reports needs_review: {overall.needs_review}\n"
     )
-    out.write("\nPer provider (frontmatter-validated reports only):\n")
+    out.write("\nPer provider (reports = all of that provider's; counters from its frontmatter-validated reports only):\n")
     header = (
         f"{'provider':<24}{'reports':>8}{'validated':>10}{'refs':>7}{'not found':>11}"
         f"{'quotes':>8}{'unsupported':>13}{'off topic':>11}{'review':>8}\n"
     )
     out.write(header)
+    omitted = 0
     for provider, totals in by_provider.items():
+        if not all_providers and totals.frontmatter == 0:
+            omitted += 1
+            continue
         pc = totals.counters
         out.write(
             f"{provider:<24}{totals.reports:>8}{totals.frontmatter:>10}{pc['total_references']:>7}"
@@ -268,6 +298,13 @@ def write_summary(out: TextIO, overall: Totals, by_provider: dict[str, Totals]) 
             f"{fmt_rate(totals.rate('quotes_unsupported', 'quotes_checked')):>13}"
             f"{fmt_rate(totals.rate('off_topic', 'relevance_assessed')):>11}"
             f"{totals.needs_review:>8}\n"
+        )
+    if omitted:
+        out.write(f"({omitted} provider(s) with no validated reports omitted; --all-providers shows them)\n")
+    if overall.coercion_failures:
+        out.write(
+            f"\nWARNING: {overall.coercion_failures} counter value(s) were present but not integers"
+            " and were counted as zero; the sums above are deflated.\n"
         )
     out.write(
         "\nRates are computed from the sums. Keys a report omits count as zero.\n"
@@ -332,7 +369,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--validated-only",
         action="store_true",
-        help="With --format tsv/json: drop reports that carry no validation record",
+        help="Drop reports that carry no validation record from tsv/json output "
+        "(no effect on --needs-review or the summary, which always count everything)",
+    )
+    parser.add_argument(
+        "--all-providers",
+        action="store_true",
+        help="In the summary table, also list providers with no validated reports",
     )
     parser.add_argument("--out", type=Path, default=None, help="Write to this file instead of stdout")
     args = parser.parse_args(argv)
@@ -355,7 +398,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.format == "json":
             write_json(out, rows, overall, by_provider)
         else:
-            write_summary(out, overall, by_provider)
+            write_summary(out, overall, by_provider, all_providers=args.all_providers)
     finally:
         if args.out:
             out.close()

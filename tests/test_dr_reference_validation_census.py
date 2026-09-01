@@ -30,9 +30,11 @@ def _populate(research_dir: Path) -> None:
         "# Foo\n\n## Reference Validation\n\n| Checked | 10 |\n",
     )
     # Keys upstream omits when there is nothing to report count as zero.
+    # Frontmatter `provider:` wins over the filename suffix; a malformed counter
+    # counts as zero and is reported as a coercion failure.
     _write(
-        research_dir / "Bar-deep-research-openscientist.md",
-        "reference_validation:\n  total_references: 5\n  verified: 5\n",
+        research_dir / "Bar-deep-research-openscientist-2026-07-30.md",
+        "provider: openscientist\nreference_validation:\n  total_references: 5\n  verified: 5\n  not_found: n/a\n",
         "# Bar\n",
     )
     # Retro-fitted: body section, no frontmatter block.
@@ -54,20 +56,25 @@ def test_classification_and_sums(tmp_path: Path) -> None:
     by_name = {row.path: row for row in rows}
     assert set(by_name) == {
         "Foo-deep-research-falcon.md",
-        "Bar-deep-research-openscientist.md",
+        "Bar-deep-research-openscientist-2026-07-30.md",
         "Baz-deep-research-falcon.md",
         "Qux-deep-research-claude_code.md",
     }
+    bar = by_name["Bar-deep-research-openscientist-2026-07-30.md"]
+    assert bar.provider == "openscientist"
+    assert bar.coercion_failures == 1
     assert by_name["Foo-deep-research-falcon.md"].status == census.STATUS_FRONTMATTER
     assert by_name["Foo-deep-research-falcon.md"].needs_review is True
-    assert by_name["Bar-deep-research-openscientist.md"].status == census.STATUS_FRONTMATTER
-    assert by_name["Bar-deep-research-openscientist.md"].counters["not_found"] == 0
+    assert bar.status == census.STATUS_FRONTMATTER
+    assert bar.counters["not_found"] == 0
+    assert bar.counters["unverifiable"] == 0
     assert by_name["Baz-deep-research-falcon.md"].status == census.STATUS_BODY_ONLY
     assert by_name["Qux-deep-research-claude_code.md"].status == census.STATUS_UNVALIDATED
 
     overall, by_provider = census.summarize(rows)
     assert (overall.reports, overall.frontmatter, overall.body_only, overall.unvalidated) == (4, 2, 1, 1)
     assert overall.needs_review == 1
+    assert overall.coercion_failures == 1
     assert overall.counters["total_references"] == 15
     assert overall.counters["not_found"] == 2
     assert overall.rate("not_found", "total_references") == 2 / 15
@@ -91,6 +98,13 @@ def test_summary_output_mentions_each_bucket(tmp_path: Path) -> None:
     assert "not found:          2  (13.3%)" in text
     assert "unsupported:        1  (25.0%)" in text
     assert "openscientist" in text and "falcon" in text
+    # claude_code has reports but none validated: omitted unless asked for.
+    assert "claude_code" not in text
+    assert "1 provider(s) with no validated reports omitted" in text
+    assert "WARNING: 1 counter value(s)" in text
+    out = StringIO()
+    census.write_summary(out, overall, by_provider, all_providers=True)
+    assert "claude_code" in out.getvalue()
 
 
 def test_tsv_json_and_needs_review_via_main(tmp_path: Path, capsys) -> None:
@@ -114,6 +128,8 @@ def test_tsv_json_and_needs_review_via_main(tmp_path: Path, capsys) -> None:
     assert "1 report(s) flagged needs_review" in text
     assert "Foo-deep-research-falcon.md" in text
     assert "Bar-deep-research" not in text
+    assert census.main(["--research-dir", str(tmp_path), "--all-providers"]) == 0
+    assert "claude_code" in capsys.readouterr().out
 
 
 def test_missing_research_dir_is_an_error(tmp_path: Path) -> None:
