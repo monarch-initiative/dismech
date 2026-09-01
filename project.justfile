@@ -193,9 +193,17 @@ validate-schema file:
 # Example:
 #   just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
 #     --summary "Create: Asthma" --agent-tool claude-code --pr 5123 --details "..."
+#
+# Args are forwarded as real positional arguments ("$@"), NOT via `{{ARGS}}` text
+# interpolation (see `set positional-arguments` in the root justfile). This matters
+# because `--summary` and `--details` take free prose: `{{ARGS}}` pastes the raw
+# argument text into the generated shell line, so quoting is lost and the shell
+# re-splits it. That made a multi-word value ("Create: Asthma") arrive as two
+# arguments, an apostrophe ("Bell's Palsy") a fatal "unterminated quoted string",
+# and a `$VAR` or backtick in prose subject to expansion. Issues #9784, #10148, #10159.
 [group('QC')]
 new-history *ARGS:
-    uv run python scripts/new_history.py {{ARGS}}
+    uv run python scripts/new_history.py "$@"
 
 # Validate a single history record
 [group('QC')]
@@ -649,7 +657,7 @@ fetch-ontology-dbs *names="":
 # have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
 # curation PR deletes the stub and adds the kb/ entry. See docs/curation-stubs.md.
 
-# Gates only on a malformed file: unparseable YAML, a bad MONDO ID, a duplicate,
+# Gates only on a malformed file: unparsable YAML, a bad MONDO ID, a duplicate,
 # a bad enum value. Staleness (the disease got curated elsewhere, the term was
 # retired) is an advisory and never gates — stubs are informative, not curated
 # content, and an unrelated curation PR must not turn stub PRs red.
@@ -736,7 +744,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -971,6 +979,18 @@ node-classes *args:
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
 
+# Guard against KB values that are not permissible in their slot's enum (#10061).
+# The schema-narrowing twin of check-duplicate-keys: #10003 narrowed
+# EvidenceItemSupportEnum while ~15 curation PRs carrying the retired PARTIAL
+# were already open, each green against the base it branched from. Neither side
+# could see the collision -- only the merge result holds both -- so this sweeps
+# the whole KB, ungated, rather than only the files a PR changed. Checks one
+# constraint rather than conformance, which is what makes it cheap enough
+# (~21s, offline, no codegen) to run where `just test-kb` cannot.
+[group('QC')]
+check-enum-values *files:
+    uv run python scripts/check_enum_values.py "$@"
+
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
 # run in `test_entity_ref_foreign_keys`, but that test is selected by the
 # `python`/`schema` path filters, so a curation PR -- which touches only kb/ --
@@ -980,6 +1000,49 @@ check-duplicate-keys *files:
 [group('QC')]
 check-entity-refs *files:
     uv run python scripts/check_entity_refs.py "$@"
+
+# Resolve every BARE-name pathograph target in kb/ (#10112, #9697). Distinct from
+# check-entity-refs: `downstream[].target`, `sequelae[].target`,
+# `reports_on[].target` and `target_mechanisms[].target` hold a plain node name
+# matched verbatim by `dismech.graph`, NOT the `<kind>#<name>` grammar. A broken
+# one is completely silent -- the entry validates and the page renders, while the
+# pathograph gains a phantom duplicate node and loses the real one. Ungated and
+# whole-KB for the same reason as the two lanes above: a rename severs edges the
+# PR never touched.
+[group('QC')]
+check-causal-targets *files:
+    uv run python scripts/check_causal_targets.py "$@"
+
+# Full census of pathograph target findings (prefixed / dangling / self), exit 0.
+[group('QC')]
+list-causal-targets *files:
+    uv run python scripts/check_causal_targets.py --report "$@"
+
+# Regenerate the grandfathered dangling-target baseline. Only ever to REMOVE
+# entries as the backlog is burned down -- never to admit a new break.
+[group('QC')]
+update-causal-target-baseline:
+    uv run python scripts/check_causal_targets.py --update-baseline
+
+# Check ontology labels on terms nested inside `qualifiers` (#10197).
+# `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;
+# `Qualifier.predicate`/`value` are plain Descriptors with no such binding, so
+# every term under `qualifiers` is invisible to it -- a fabricated label there
+# passes `just validate-terms` outright. Offline, cache-first.
+[group('QC')]
+check-qualifier-terms *files:
+    uv run python scripts/check_qualifier_terms.py "$@"
+
+# Census of qualifier-term coverage, including what nothing can validate yet.
+[group('QC')]
+list-qualifier-terms *files:
+    uv run python scripts/check_qualifier_terms.py --report "$@"
+
+# Also resolve the uncached qualifier CURIEs against OAK. Needs network; run
+# when auditing, not in CI.
+[group('QC')]
+check-qualifier-terms-online *files:
+    uv run python scripts/check_qualifier_terms.py --resolve "$@"
 
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the
@@ -1243,10 +1306,17 @@ list-modules filter="":
         nodes = [n.get("name", "?") for n in (doc.get("pathophysiology") or [])]
         desc = " ".join((doc.get("description") or "").split())
         notes = " ".join((doc.get("notes") or "").split())
-        if filt and filt not in f"{path.stem} {desc} {notes} {' '.join(nodes)}".lower():
+        cats = doc.get("module_categories") or []
+        # Categories join the filter haystack so `just list-modules toxicology`
+        # answers "which modules would a toxicologist care about?" from the
+        # console, the same question the index-page pills answer in the browser.
+        hay = f"{path.stem} {desc} {notes} {' '.join(nodes)} {' '.join(cats)}".lower()
+        if filt and filt not in hay:
             continue
         matched += 1
         print(f"\n{path.stem}")
+        if cats:
+            print("  categories: " + ", ".join(cats))
         emit("  ", desc, clip=not filt)
         if filt:
             emit("  notes: ", notes, clip=False)
@@ -1726,6 +1796,7 @@ dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip
 # recipe writes `-cyberian-codex.md` for a run whose provider is `cyberian`.
 dr_fallback := ""
 dr_align := "uv run python scripts/align_research_provider.py"
+dr_stamp := "uv run python scripts/template_version.py stamp --quiet"
 
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
 # The report is a source of *candidate* accessions only: every accession it
@@ -1766,9 +1837,27 @@ research-datasets provider disorder *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
+
+# Report which revision of a research template produced each report, and how
+# many predate the current prompt. A report records `template_file:` as a bare
+# path, so the file behind it changes while the reference does not (#10183).
+# New reports are stamped with `template_sha` at generation time; older ones are
+# resolved from their start_time against the template's commit history, which is
+# why no backfill of committed reports is needed.
+# `stamped` is what the generator recorded; `inferred` is reconstructed and
+# assumes the working tree matched a committed revision. Do not read
+# "undetermined" as "stale" -- they are separate rows for that reason.
+# Examples:
+#   just template-version-audit --stale-only --format list
+#   just template-version-audit --template templates/disease_pathophysiology_research.md
+#   just template-version-audit
+[group('Research')]
+template-version-audit *args="":
+    @uv run python scripts/template_version.py audit {{args}}
 
 # Verify that datasets[].accession values resolve to real repository records.
 # Nothing else in the validation stack checks dataset accessions, so run this
@@ -1862,6 +1951,7 @@ research-disorder provider disorder *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
@@ -1939,6 +2029,7 @@ research-module provider module *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
@@ -2014,6 +2105,7 @@ research-comorbidity provider comorbidity *args="":
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
 	if [ -f "$output_file" ]; then
+	    {{dr_stamp}} "$output_file"
 	    {{dr_align}} "$output_file" --requested "$requested_provider"
 	fi
 	exit ${dr_status:-0}
@@ -2056,6 +2148,7 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
 	if [ -f "$output_file" ]; then
+	    {{dr_stamp}} "$output_file"
 	    {{dr_align}} "$output_file" --requested "$requested_provider"
 	fi
 	exit ${dr_status:-0}
@@ -2091,6 +2184,7 @@ research-disorder-cyberian-codex disorder *args="":
         {{dr_fallback}} \
         {{args}} || dr_status=$?
     if [ -f "$output_file" ]; then
+        {{dr_stamp}} "$output_file"
         {{dr_align}} "$output_file" --requested "$requested_provider"
     fi
     exit ${dr_status:-0}
@@ -2360,18 +2454,18 @@ cohd-add-signal file *args="":
 
 # Refresh bulk Orphadata XML files (pinned by data/orphadata/MANIFEST.yaml)
 [group('Research')]
-refresh-orphadata:
-    uv run python -m dismech.structured_sources.cli refresh orphanet
+refresh-orphadata *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh orphanet "$@"
 
 # Refresh ClinGen Gene-Disease Validity CSV (pinned by data/clingen/MANIFEST.yaml)
 [group('Research')]
-clingen-refresh:
-    uv run python -m dismech.structured_sources.cli refresh clingen
+clingen-refresh *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh clingen "$@"
 
 # Refresh ClinGen Dosage Sensitivity TSV (pinned by data/clingen-dosage/MANIFEST.yaml)
 [group('Research')]
-clingen-dosage-refresh:
-    uv run python -m dismech.structured_sources.cli refresh clingen-dosage
+clingen-dosage-refresh *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh clingen-dosage "$@"
 
 # Refresh CIViC accepted assertion/evidence TSVs (pinned by data/civic/MANIFEST.yaml)
 [group('Research')]
