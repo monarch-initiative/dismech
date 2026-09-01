@@ -17,8 +17,11 @@ trusted.
 
 What it counts
 --------------
-For every ``research/*-deep-research-<provider>.md`` (``.citations.md``
-sidecars excluded):
+For every ``*-deep-research-<provider>.md`` anywhere under ``research/``
+(``.citations.md`` sidecars excluded) -- the walk is recursive because
+``just research-module`` and ``just research-surrogacy`` write their reports
+into ``research/modules/`` and ``research/surrogacy/``, and both pass the
+same validation flags as the disorder recipe:
 
 * ``frontmatter`` -- the report carries a ``reference_validation:`` block, so
   its counters are summed below;
@@ -38,9 +41,12 @@ Counters are summed verbatim from the frontmatter keys upstream emits
 ``quotes_not_checkable``, ``relevance_assessed``, ``on_topic``,
 ``off_topic``) plus a count of reports with ``needs_review: true``. Keys a
 given report omits (upstream drops keys with nothing to report) count as
-zero. A counter that is present but not an integer is also counted as zero,
-and the number of such coercion failures is reported so a deflated sum has a
-visible cause. Rates are computed from the sums, not averaged per report.
+zero. A counter that is present but not an integer (a bool, a non-integral
+float, an unparseable string) is also counted as zero, and the number of such
+coercion failures is reported so a deflated sum has a visible cause. Rates are
+computed from the sums, not averaged per report. The relevance check leaves an
+undecided middle band (assessed, neither on nor off topic); it is printed so
+that a low off-topic rate is not read as everything else being cleared.
 
 Caveats the numbers cannot see
 ------------------------------
@@ -139,6 +145,10 @@ class Totals:
         else:
             self.unvalidated += 1
 
+    @property
+    def relevance_undecided(self) -> int:
+        return self.counters["relevance_assessed"] - self.counters["on_topic"] - self.counters["off_topic"]
+
     def rate(self, numerator: str, denominator: str) -> float | None:
         denom = self.counters.get(denominator, 0)
         if not denom:
@@ -147,6 +157,7 @@ class Totals:
 
     def as_dict(self) -> dict[str, object]:
         data: dict[str, object] = asdict(self)
+        data["relevance_undecided"] = self.relevance_undecided
         data["rates"] = {
             "not_found_rate": self.rate("not_found", "total_references"),
             "unverifiable_rate": self.rate("unverifiable", "total_references"),
@@ -186,7 +197,7 @@ def coerce_int(value: object) -> tuple[int, bool]:
     if isinstance(value, int):
         return value, True
     if isinstance(value, float):
-        return int(value), value.is_integer()
+        return (int(value), True) if value.is_integer() else (0, False)
     if isinstance(value, str):
         try:
             return int(value.strip()), True
@@ -232,7 +243,7 @@ def classify_report(path: Path, research_dir: Path) -> ReportRow | None:
 
 def collect(research_dir: Path) -> list[ReportRow]:
     rows: list[ReportRow] = []
-    for path in sorted(research_dir.glob("*.md")):
+    for path in sorted(research_dir.rglob("*.md")):
         row = classify_report(path, research_dir)
         if row is not None:
             rows.append(row)
@@ -277,6 +288,7 @@ def write_summary(
         f"  relevance assessed:   {c['relevance_assessed']}\n"
         f"    on topic:           {c['on_topic']}\n"
         f"    off topic:          {c['off_topic']}  ({fmt_rate(overall.rate('off_topic', 'relevance_assessed'))})\n"
+        f"    undecided:          {overall.relevance_undecided}  (assessed, neither on nor off topic)\n"
         f"  reports needs_review: {overall.needs_review}\n"
     )
     out.write("\nPer provider (reports = all of that provider's; counters from its frontmatter-validated reports only):\n")

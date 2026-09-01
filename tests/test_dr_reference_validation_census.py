@@ -45,6 +45,17 @@ def _populate(research_dir: Path) -> None:
     )
     # Never validated, and no frontmatter at all.
     _write(research_dir / "Qux-deep-research-claude_code.md", None, "# Qux\n")
+    # `just research-module` / `research-surrogacy` write into subdirectories;
+    # the walk must be recursive. A non-integral float counter is a failure.
+    (research_dir / "modules").mkdir()
+    _write(
+        research_dir / "modules" / "fibrotic_response-deep-research-falcon.md",
+        "provider: falcon\nreference_validation:\n  total_references: 2\n  verified: 1\n  not_found: 1.5\n",
+        "# module\n",
+    )
+    # Artifact folders hold no *-deep-research-*.md reports and are skipped.
+    (research_dir / "Foo-deep-research-falcon_artifacts").mkdir()
+    _write(research_dir / "Foo-deep-research-falcon_artifacts" / "artifact-00.md", None, "PMID:2\n")
     # Sidecar and non-report files are ignored.
     _write(research_dir / "Foo-deep-research-falcon.md.citations.md", None, "PMID:1\n")
     _write(research_dir / "notes.md", "reference_validation:\n  total_references: 99\n", "ignored\n")
@@ -59,7 +70,12 @@ def test_classification_and_sums(tmp_path: Path) -> None:
         "Bar-deep-research-openscientist-2026-07-30.md",
         "Baz-deep-research-falcon.md",
         "Qux-deep-research-claude_code.md",
+        "modules/fibrotic_response-deep-research-falcon.md",
     }
+    module = by_name["modules/fibrotic_response-deep-research-falcon.md"]
+    assert module.status == census.STATUS_FRONTMATTER
+    assert module.counters["not_found"] == 0
+    assert module.coercion_failures == 1
     bar = by_name["Bar-deep-research-openscientist-2026-07-30.md"]
     assert bar.provider == "openscientist"
     assert bar.coercion_failures == 1
@@ -72,17 +88,18 @@ def test_classification_and_sums(tmp_path: Path) -> None:
     assert by_name["Qux-deep-research-claude_code.md"].status == census.STATUS_UNVALIDATED
 
     overall, by_provider = census.summarize(rows)
-    assert (overall.reports, overall.frontmatter, overall.body_only, overall.unvalidated) == (4, 2, 1, 1)
+    assert (overall.reports, overall.frontmatter, overall.body_only, overall.unvalidated) == (5, 3, 1, 1)
     assert overall.needs_review == 1
-    assert overall.coercion_failures == 1
-    assert overall.counters["total_references"] == 15
+    assert overall.coercion_failures == 2
+    assert overall.counters["total_references"] == 17
     assert overall.counters["not_found"] == 2
-    assert overall.rate("not_found", "total_references") == 2 / 15
+    assert overall.rate("not_found", "total_references") == 2 / 17
+    assert overall.relevance_undecided == 2  # 10 assessed - 7 on - 1 off
     assert overall.rate("quotes_unsupported", "quotes_checked") == 1 / 4
     assert overall.rate("off_topic", "nonexistent") is None
     assert set(by_provider) == {"falcon", "openscientist", "claude_code"}
-    assert by_provider["falcon"].reports == 2
-    assert by_provider["falcon"].frontmatter == 1
+    assert by_provider["falcon"].reports == 3
+    assert by_provider["falcon"].frontmatter == 2
     assert by_provider["falcon"].body_only == 1
 
 
@@ -92,16 +109,17 @@ def test_summary_output_mentions_each_bucket(tmp_path: Path) -> None:
     out = StringIO()
     census.write_summary(out, overall, by_provider)
     text = out.getvalue()
-    assert "validated (frontmatter block):  2" in text
+    assert "validated (frontmatter block):  3" in text
     assert "retro-fitted (body section only): 1" in text
     assert "unvalidated:                    1" in text
-    assert "not found:          2  (13.3%)" in text
+    assert "not found:          2  (11.8%)" in text
+    assert "undecided:          2  (assessed, neither on nor off topic)" in text
     assert "unsupported:        1  (25.0%)" in text
     assert "openscientist" in text and "falcon" in text
     # claude_code has reports but none validated: omitted unless asked for.
     assert "claude_code" not in text
     assert "1 provider(s) with no validated reports omitted" in text
-    assert "WARNING: 1 counter value(s)" in text
+    assert "WARNING: 2 counter value(s)" in text
     out = StringIO()
     census.write_summary(out, overall, by_provider, all_providers=True)
     assert "claude_code" in out.getvalue()
@@ -113,15 +131,16 @@ def test_tsv_json_and_needs_review_via_main(tmp_path: Path, capsys) -> None:
     assert census.main(["--research-dir", str(tmp_path), "--format", "tsv", "--validated-only"]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert lines[0].split("\t")[:4] == ["path", "disorder", "provider", "status"]
-    assert len(lines) == 4  # header + Foo + Bar + Baz (Qux dropped by --validated-only)
+    assert len(lines) == 5  # header + Foo + Bar + Baz + module (Qux dropped by --validated-only)
 
     out_file = tmp_path / "census.json"
     assert census.main(["--research-dir", str(tmp_path), "--format", "json", "--out", str(out_file)]) == 0
     payload = json.loads(out_file.read_text())
-    assert payload["totals"]["frontmatter"] == 2
-    assert payload["totals"]["rates"]["not_found_rate"] == 2 / 15
+    assert payload["totals"]["frontmatter"] == 3
+    assert payload["totals"]["relevance_undecided"] == 2
+    assert payload["totals"]["rates"]["not_found_rate"] == 2 / 17
     assert payload["by_provider"]["openscientist"]["counters"]["verified"] == 5
-    assert len(payload["reports"]) == 4
+    assert len(payload["reports"]) == 5
 
     assert census.main(["--research-dir", str(tmp_path), "--needs-review"]) == 0
     text = capsys.readouterr().out

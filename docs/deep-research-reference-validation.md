@@ -220,8 +220,9 @@ and a fabricated identifier look identical from here. Treat "unresolved" as
 
 ### Across the whole tree
 
-The per-report blocks add up. `just dr-validation-census` reads every
-`research/*-deep-research-*.md`, sums the frontmatter counters, and prints
+The per-report blocks add up. `just dr-validation-census` walks every
+`*-deep-research-*.md` under `research/` (including the `modules/` and
+`surrogacy/` subdirectories the module and surrogacy recipes write to), sums the frontmatter counters, and prints
 totals plus a per-provider table — offline, from what is already on disk:
 
 ```bash
