@@ -60557,6 +60557,7 @@ window.searchData = [
       "Supportive care"
     ],
     "environmental": [
+      "Dermal beryllium exposure",
       "Occupational beryllium inhalation"
     ],
     "biochemical": [],
@@ -60566,7 +60567,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "9"
   },
   {
@@ -143858,6 +143859,9 @@ window.searchData = [
       "Hemolytic erythrocyte injury",
       "Calcium mimicry in neuronal signaling",
       "Protein kinase C dysregulation",
+      "NMDA receptor blockade in glutamatergic neurons",
+      "Reduced NMDA receptor-mediated calcium signaling",
+      "Reduced BDNF-TrkB signaling",
       "Mitochondrial dysfunction",
       "Oxidative stress response",
       "Proximal tubular lead accumulation",
@@ -143867,12 +143871,16 @@ window.searchData = [
       "osteoblast",
       "erythrocyte",
       "neuron",
+      "glutamatergic neuron",
+      "hippocampal neuron",
       "proximal tubule cell"
     ],
     "cell_type_ids": [
       "CL:0000062",
       "CL:0000232",
       "CL:0000540",
+      "CL:0000679",
+      "CL:0002608",
       "CL:0002306"
     ],
     "biological_processes": [
@@ -143880,6 +143888,9 @@ window.searchData = [
       "calcium ion homeostasis",
       "heme biosynthetic process",
       "pyrimidine-containing compound biosynthetic process",
+      "calcium ion transmembrane transport",
+      "BDNF gene expression",
+      "BDNF-TrkB signaling",
       "mitochondrion organization",
       "response to oxidative stress",
       "renal absorption"
@@ -143960,11 +143971,11 @@ window.searchData = [
     "source_file": "Lead_Poisoning.yaml",
     "page_url": "../pages/disorders/Lead_Poisoning.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 12,
+    "num_pathophysiology": 15,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "29",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Leber-like Hereditary Optic Neuropathy, Autosomal Recessive 1",
@@ -258079,13 +258090,13 @@ window.searchMetrics = {
   "total_disorder_pages": 2502,
   "total_subtypes": 3559,
   "total_disorders_and_subtypes": 6061,
-  "total_unique_evidence_sources": 35879,
-  "total_unique_publications": 33751,
+  "total_unique_evidence_sources": 35886,
+  "total_unique_publications": 33758,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
   "total_pathographs": 2497,
-  "total_unique_pathological_events": 14533,
-  "total_modules": 166,
+  "total_unique_pathological_events": 14536,
+  "total_modules": 167,
   "total_research_reports": 2619,
   "total_classifications": 19,
   "total_comorbidities": 25,
