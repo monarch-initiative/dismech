@@ -15,8 +15,14 @@ and writes the answer into the report.
 ## What gets checked
 
 `deep-research-client[validation]` delegates to `linkml-reference-validator` —
-the same library behind `just fetch-reference` and `just validate-references` —
-so the rules are the ones dismech already uses.
+the same library behind `just fetch-reference` and `just validate-kb-references` —
+so the rules are the ones dismech already uses. Same library, different
+question: `validate-kb-references` asks whether the snippets *inside a KB
+entry* appear in the papers they cite, while the check described here asks
+whether a *report's* citations exist and its quotes hold up. (The
+deep-research-client subcommand doing the latter is itself called
+`validate-references`, which is why the dismech recipe carries `kb` in its
+name — issue #8841.)
 
 Because this path both reads and writes `references_cache/`, the recipes invoke
 it through `scripts/run_deep_research_client.sh`, which applies dismech's
@@ -59,7 +65,7 @@ undecided remainder.
 The relevance check **costs nothing extra** — no additional lookups, since it
 reads records the existence check already fetched. It is on by default; disable
 it with `--validation-no-relevance` on a research run, or
-`--no-check-relevance` on `validate-references`.
+`--no-check-relevance` on the client's `validate-references` subcommand.
 
 An off-topic flag is **a clue, not a verdict.** The reference resolved, so it is
 not a fabrication; it simply shares almost none of the report's vocabulary. A
@@ -212,6 +218,25 @@ That last caveat is the honest one and worth keeping in mind: a network failure
 and a fabricated identifier look identical from here. Treat "unresolved" as
 "check this by hand", not as proof of fabrication.
 
+### Across the whole tree
+
+The per-report blocks add up. `just dr-validation-census` reads every
+`research/*-deep-research-*.md`, sums the frontmatter counters, and prints
+totals plus a per-provider table — offline, from what is already on disk:
+
+```bash
+just dr-validation-census                  # totals + per-provider table
+just dr-validation-census --format tsv     # one row per report
+just dr-validation-census --needs-review   # the reports flagged for a look
+```
+
+It distinguishes reports validated at generation time (frontmatter block)
+from retro-fitted ones (body section only, whose counters are not
+machine-readable) and from the unvalidated majority. Rates come from the sums;
+a key a report omits counts as zero. The same blind spots as the per-report
+block apply — it cannot see NEC, misattribution, or the snippet later pasted
+into `kb/`.
+
 ## Generating a validated report
 
 Nothing to remember — it is on by default in every research recipe:
@@ -254,7 +279,7 @@ Other options `deep-research-client` accepts, if you need them for a one-off
 | `--validation-no-relevance` | Turn off the topical-relevance check. It is free and on by default, so there is rarely a reason to. |
 | `--fail-on-unresolved` | Exit non-zero when anything failed to resolve *or* any quote is unsupported. Off-topic references are excluded on purpose. For pipelines, not interactive runs. |
 
-(On the standalone `validate-references` subcommand the relevance switch is
+(On the client's standalone `validate-references` subcommand the relevance switch is
 spelled `--no-check-relevance`.)
 
 ## Checking a report that already exists
