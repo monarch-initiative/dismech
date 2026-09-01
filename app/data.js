@@ -159031,6 +159031,7 @@ window.searchData = [
     "description": "Metabolic dysfunction-associated steatotic liver disease (MASLD) is hepatic steatosis occurring in the presence of at least one cardiometabolic risk factor and in the absence of another identified cause of steatosis. It is the most prevalent chronic liver disease worldwide. Adipose-tissue insulin resistance and overnutrition deliver free fatty acids to the liver and drive de novo lipogenesis, so that hepatocyte lipid inflow exceeds the capacity for fatty acid oxidation and very-low-density lipoprotein export. Accumulating toxic lipid species, together with impaired mitochondrial quality control (mitophagy), provoke endoplasmic reticulum and oxidative stress, hepatocyte death, Kupffer-cell and macrophage inflammatory activation (metabolic dysfunction-associated steatohepatitis, MASH), hepatic stellate cell activation, and progressive fibrosis that can culminate in cirrhosis and hepatocellular carcinoma. Fibrosis stage, not steatosis or inflammation grade, is the histologic feature that tracks long-term outcome. Management centres on weight loss and cardiometabolic risk reduction, with resmetirom the first agent approved specifically for MASH with fibrosis.",
     "pathophysiology": [
       "Cardiometabolic Dysfunction and Adipose Insulin Resistance",
+      "Transporter-Mediated Hepatic Fatty Acid Uptake",
       "Hepatocyte Lipid Overload",
       "Impaired Hepatocyte Mitophagy",
       "Lipotoxic Stress and Organelle Dysfunction",
@@ -159063,6 +159064,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "cellular response to insulin stimulus",
+      "long-chain fatty acid import into hepatocytes",
       "triglyceride biosynthetic process",
       "lipid storage",
       "fatty acid beta-oxidation",
@@ -159128,10 +159130,10 @@ window.searchData = [
     "source_file": "Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.yaml",
     "page_url": "../pages/disorders/Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 12,
+    "num_pathophysiology": 13,
     "num_genes": 5,
     "num_treatments": 6,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "41",
     "causal_graph_longest_path": "8"
   },
   {
@@ -245305,7 +245307,9 @@ window.searchData = [
     "subtypes": [],
     "description": "Type 2 diabetes mellitus is a common metabolic disease defined by chronic hyperglycemia arising from the combination of peripheral insulin resistance and progressive pancreatic beta-cell dysfunction. Excess adiposity, physical inactivity, and polygenic susceptibility drive impaired insulin signaling in muscle, liver, and adipose tissue, with compensatory hyperinsulinemia that eventually fails as beta-cell secretory capacity declines. Hepatic glucose overproduction and incretin axis dysfunction further worsen glycemic control, and sustained hyperglycemia leads to microvascular and macrovascular complications such as retinopathy, nephropathy, and peripheral neuropathy.",
     "pathophysiology": [
+      "White Adipose Tissue Inflammation",
       "Impaired GLUT4-Mediated Glucose Uptake",
+      "Insulin-Stimulated Adipocyte Fatty Acid Uptake via FATP1",
       "Insulin Resistance",
       "Beta Cell Dysfunction",
       "Hepatic Glucose Overproduction",
@@ -245314,6 +245318,8 @@ window.searchData = [
       "Chronic Hyperglycemia"
     ],
     "cell_types": [
+      "White Adipocyte",
+      "Proinflammatory (M1) Adipose Tissue Macrophage",
       "Adipocyte",
       "Skeletal Muscle Cell",
       "Hepatocyte",
@@ -245321,6 +245327,8 @@ window.searchData = [
       "Enteroendocrine Cell"
     ],
     "cell_type_ids": [
+      "CL:0000448",
+      "CL:0000863",
       "CL:0000136",
       "CL:0000188",
       "CL:0000182",
@@ -245328,8 +245336,12 @@ window.searchData = [
       "CL:0000164"
     ],
     "biological_processes": [
+      "Adipose Tissue Inflammation",
+      "Tumor Necrosis Factor Production",
+      "Dysregulated Adipocyte Lipolysis",
       "Insulin Receptor Signaling",
       "Protein Transport",
+      "Insulin-Stimulated Long-Chain Fatty Acid Import",
       "Insulin Signaling",
       "Insulin Secretion",
       "Gluconeogenesis",
@@ -245410,11 +245422,11 @@ window.searchData = [
     "source_file": "Type_2_Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Type_2_Diabetes_Mellitus.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Type B Insulin Resistance Syndrome",
@@ -258102,12 +258114,12 @@ window.searchMetrics = {
   "total_disorder_pages": 2502,
   "total_subtypes": 3559,
   "total_disorders_and_subtypes": 6061,
-  "total_unique_evidence_sources": 35918,
-  "total_unique_publications": 33790,
+  "total_unique_evidence_sources": 35930,
+  "total_unique_publications": 33802,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
   "total_pathographs": 2497,
-  "total_unique_pathological_events": 14539,
+  "total_unique_pathological_events": 14542,
   "total_modules": 167,
   "total_research_reports": 2619,
   "total_classifications": 19,
