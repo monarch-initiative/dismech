@@ -132,9 +132,17 @@ homologous multi-species condition, a conservation score plus
 `genesExpressionPresent` / `genesExpressionAbsent` / `genesNoData`. That is
 almost exactly the required shape.
 
-**Species coverage is not a constraint.** Bgee's 52 species include every animal
-model species used in `kb/` today — mouse (391 links), zebrafish (39), rat (17),
-dog (14), and the long tail down to *Nothobranchius furzeri* and naked mole rat.
+**Bgee's species coverage is not the constraint — the orthology step is.** Bgee's
+52 species include every animal-model species used in `kb/` today: mouse (391
+links), zebrafish (39), rat (17), dog (14), and the long tail down to
+*Nothobranchius furzeri* and naked mole rat.
+
+The mismatch is upstream of Bgee. *Xenopus laevis* is in Bgee (taxon 8355) but is
+**not** in the Ensembl vertebrates division — only *X. tropicalis* is — so Compara
+cannot supply an ortholog and those links are skipped rather than silently
+mis-mapped onto the sibling species. This is another argument for asking whether
+Bgee can resolve orthology internally (question 3): Bgee's own species set is
+wider than the one we can currently pre-map against.
 
 ### The prototype
 
@@ -148,19 +156,42 @@ hgnc:NNNN  --HGNC REST-->  ENSG  --Ensembl Compara-->  model-species ortholog
               intersect with the target node's own UBERON/CL bindings
 ```
 
-Verdicts, of which only the first three are findings:
+Verdicts, of which only the first two are findings:
 
 | Verdict | Meaning |
 |---|---|
-| `NO_ORTHOLOG` | no ortholog in the model species — strongest fidelity caveat |
 | `ORTHOLOG_NOT_1TO1` | paralog expansion/loss; the model gene is not a clean substitute |
 | `DIVERGENT_ABSENT` | human present, ortholog **absent** in the homologous anatomy |
+| `ORTHOLOG_LOOKUP_EMPTY` | Ensembl returned no ortholog — **not** a finding, see below |
 | `CONSERVED` | both expressed — the necessary condition holds |
 | `MODEL_NO_DATA` / `HUMAN_NO_DATA` | Bgee has no call there |
 | `ANATOMY_UNMATCHED` | the node's anatomy has no multi-species condition |
 
 `CONSERVED` is deliberately **not** treated as validating a fidelity grade. Shared
 expression is a precondition, not evidence that the model reproduces the mechanism.
+
+#### An empty ortholog list is not evidence of absence
+
+Our first full run treated "Ensembl returned no ortholog" as the strongest
+fidelity caveat. That was wrong, and the run's own output is what showed it:
+it reported no mouse ortholog for **PTEN** and **VHL**, which is plainly false.
+
+`homology/id/human/ENSG00000171862` (PTEN) returns `homologies: []` against mouse
+at HTTP 200, and so does the reverse lookup from mouse `ENSMUSG00000013663` —
+yet mouse *Pten* plainly exists (MGI:109583). VHL behaves identically. Whatever
+the cause, the endpoint's silence is not evidence of absence, so this verdict is
+now a prompt to verify by hand rather than a caveat to act on.
+
+A separate bug in the same area is worth recording because it is the classic one:
+the prototype initially cached a failed fetch as "no ortholog", making a transient
+rate-limit indistinguishable from a real absence and poisoning the cache so
+re-runs reproduced it offline. `GLUL` was reported as having no mouse ortholog for
+exactly that reason and resolves cleanly on retry. Fixed — a failed fetch now
+raises rather than being cached, matching the convention
+`scripts/kg_gene_gap_audit.py` already documents.
+
+**This is the concrete case for question 3 below.** We would rather use one
+authoritative orthology source inside Bgee than reconcile this one.
 
 The KB yields **548** model-mechanism links where the target node carries UBERON/CL
 anatomy and the disease carries HGNC genes — i.e. the full addressable set for this
@@ -181,30 +212,66 @@ reports the mouse ortholog is `one2many`, which is a concrete, citable reason a
 single-gene mouse knockout may not phenocopy. The zebrafish liver comparison is
 concordant with its `PARTIALLY_RECAPITULATES` grade.
 
-### What a partial run looks like
+### What a full run looks like
 
-A partial sweep over the KB (23 links resolved at time of writing; the run is
-slow because of per-gene Compara lookups, and is cached/resumable) gives:
+A complete sweep over 260 of the 548 addressable links (capped for runtime; the
+run is cached and resumable):
 
-| Verdict | Count |
-|---|---|
-| `ANATOMY_UNMATCHED_CL` | 16 |
-| `HUMAN_NO_DATA` | 5 |
-| `ORTHOLOG_NOT_1TO1` | 1 (finding) |
-| `CONSERVED` | 1 |
+| Verdict | Count | |
+|---|---|---|
+| `ANATOMY_UNMATCHED_CL` | 158 | not evaluable |
+| `CONSERVED` | 31 | necessary condition holds |
+| `HUMAN_NO_DATA` | 23 | not evaluable |
+| `ORTHOLOG_NOT_1TO1` | 17 | **finding** |
+| `ANATOMY_UNMATCHED_TISSUE` | 15 | not evaluable |
+| `ORTHOLOG_LOOKUP_EMPTY` | 10 | verify by hand |
+| `MODEL_NO_DATA` | 6 | not evaluable |
+| `SPECIES_UNMAPPED` | 3 | not evaluable |
+| `DIVERGENT_ABSENT` | **0** | — |
 
-**This distribution is the finding, and it is not a happy one.** Roughly 70% of
-links cannot be evaluated at all because the node's cell type has no Bgee
-multi-species condition. That is question 1 below, quantified: the check works,
-but its yield is currently bounded by cell-type coverage rather than by anything
-in dismech. The `--tissue-fallback` option recovers some of these by re-trying
-against the node's own UBERON locations at explicitly-labelled coarser
-granularity, but only for nodes that carry one.
+**Two things in this table are the honest headline, and neither is comfortable.**
+
+First, **79% of links are not evaluable at all** (205 of 260), overwhelmingly
+because the node's cell type has no Bgee multi-species condition. The check works;
+its yield is bounded by cell-type coverage rather than by anything in dismech.
+That is question 1 below, quantified.
+
+Second, **`DIVERGENT_ABSENT` never fired.** That verdict — human present, model
+ortholog absent in the homologous anatomy — is the one that would be strongest
+evidence for a curated model failure, and across 260 links there was not a single
+instance. This is consistent with absent calls being rare in what the comparison
+endpoint returns, and it means proposal B currently rests on a datum we have not
+yet seen the API produce at scale. We would rather say that plainly than present a
+verdict class that has never triggered as though it were working.
+
+The `--tissue-fallback` option recovers some unmatched links by re-trying against
+the node's own UBERON locations at explicitly-labelled coarser granularity, but
+only for nodes that carry one.
+
+### The findings that survive look right
+
+Spot-checking the `ORTHOLOG_NOT_1TO1` hits against known biology, they are sound
+and mechanistically meaningful rather than artefacts:
+
+- **AHCY** → mouse *Ahcy* / *Ahcyl1* / *Ahcyl2*
+- **OPN1LW** → mouse, where the human LW/MW tandem duplication has no 1:1 counterpart
+- **CSF1R, HARS1, GPC1, SGMS2, VEZF1** → zebrafish, largely the **teleost
+  whole-genome duplication**
+
+That last group is the pattern worth naming. A zebrafish paralog pair is a
+classic fidelity caveat — knock out one copy and the other may compensate, so a
+negative result in the model says less than it appears to. It is exactly the kind
+of thing `limitations` is supposed to record, and exactly the kind of thing a
+curator working from the literature alone will often miss.
+
+Note this signal comes from Ensembl Compara, not Bgee. Bgee's contribution is the
+homologous-anatomy expression comparison downstream of it — which is why question
+3 (whose orthology should we be using?) matters for the design.
 
 ### How output would be used
 
 **As a curation aid that produces a worklist, never as an auto-written evidence
-item.** A `DIVERGENT_ABSENT` or `NO_ORTHOLOG` verdict would prompt a curator to
+item.** A `DIVERGENT_ABSENT` or `ORTHOLOG_NOT_1TO1` verdict would prompt a curator to
 review the `limitations` text and, where warranted, add a `HUMAN_MODEL_MISMATCH`
 discussion — with a primary-literature citation, per the normal evidence SOP. The
 Bgee result is the *lead*; the PMID is the evidence. This is the same discipline
@@ -254,6 +321,8 @@ All figures from live API calls and the current `main`, 2026-09-01.
 |---|---|
 | KB cell-type bindings with a direct Bgee call for the paired gene | **0 of 20** sampled |
 | Multi-species comparison conditions carrying a CL term | **47 of 1,192 (4%)** |
+| Model-mechanism links not evaluable (full run, n=260) | **205 (79%)** |
+| `DIVERGENT_ABSENT` verdicts across 260 links | **0** |
 | TP53 human conditions: UBERON vs CL | 139 vs 6 |
 | Typical gene: total conditions / CL-typed | 74–218 / 2–14 |
 | HGNC → Ensembl resolution success | 12 of 12 |
@@ -293,16 +362,27 @@ what Bgee is for" early than build against a wrong assumption.
    RDF dump / SPARQL be the intended route?
 
 3. **Orthology handling in `expression_comparison`.** We currently pre-map
-   orthologs with Ensembl Compara and pass a gene pair. Does the endpoint do its
-   own orthology grouping if given a bare multi-species gene list, and if so
+   orthologs with Ensembl Compara REST and pass a gene pair. Does the endpoint do
+   its own orthology grouping if given a bare multi-species gene list, and if so
    whose orthology calls does it use? We would rather use yours than introduce a
-   second, possibly inconsistent, orthology source.
+   second, possibly inconsistent, source — particularly since the Ensembl REST
+   homology endpoint returned empty ortholog lists for PTEN and VHL against mouse
+   (in both directions, HTTP 200), which cost us a round of false findings. If
+   Bgee already resolves orthology internally for the comparison, that is
+   strictly better for us than what we are doing.
 
-4. **Retrieving absent calls.** Proposal B hinges on these. Is there a recommended
-   way to retrieve high-confidence absent calls for a gene across conditions —
-   ideally with the supporting experiment count — via API rather than the bulk
-   TSV? Is the `call_type=absent` parameter on the `expr_calls` action the
-   intended route?
+4. **Retrieving absent calls.** Proposal B hinges on these, and our full run
+   makes the question sharper: across 260 model-mechanism links the
+   `DIVERGENT_ABSENT` verdict never once fired, and `genesExpressionAbsent` came
+   back empty in every comparison we inspected. Either absent calls are genuinely
+   this sparse at the conditions we hit, or the comparison endpoint does not
+   surface them the way we assume.
+
+   Is there a recommended way to retrieve high-confidence absent calls for a gene
+   across conditions — ideally with the supporting experiment count — via API
+   rather than the bulk TSV? Is `call_type=absent` on the `expr_calls` action the
+   intended route? And does `expression_comparison` populate
+   `genesExpressionAbsent` under conditions we might simply not have reached?
 
 5. **SPARQL endpoint accessibility.** The Cloudflare challenge blocks
    programmatic access from our environment. Is there an allowlist process, an

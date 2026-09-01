@@ -36,18 +36,32 @@ homologous condition, so no anatomy mapping has to be invented here.
 
 Verdicts
 --------
-``NO_ORTHOLOG``        no ortholog in the model species -- strongest fidelity caveat
 ``ORTHOLOG_NOT_1TO1``  paralog expansion/loss; the model gene is not a clean substitute
 ``DIVERGENT_ABSENT``   human present, model ortholog *absent* in the homologous anatomy
+``ORTHOLOG_LOOKUP_EMPTY``  Ensembl returned no ortholog -- NOT a finding, see below
 ``CONSERVED``          both expressed there -- the necessary condition holds
 ``MODEL_NO_DATA``      Bgee has no call for the ortholog there
 ``HUMAN_NO_DATA``      Bgee has no call for the human gene there
 ``ANATOMY_UNMATCHED_CL``      node is bound only to cell types Bgee has no condition for
 ``ANATOMY_UNMATCHED_TISSUE``  node's UBERON tissues have no multi-species condition
 
-Only ``NO_ORTHOLOG``, ``ORTHOLOG_NOT_1TO1`` and ``DIVERGENT_ABSENT`` are findings.
-``CONSERVED`` is not a validation of the fidelity grade -- shared expression is a
-precondition, not evidence that the model reproduces the mechanism.
+Only ``ORTHOLOG_NOT_1TO1`` and ``DIVERGENT_ABSENT`` are findings. ``CONSERVED`` is
+not a validation of the fidelity grade -- shared expression is a precondition, not
+evidence that the model reproduces the mechanism.
+
+``ORTHOLOG_LOOKUP_EMPTY`` is deliberately NOT a finding
+------------------------------------------------------
+An empty ortholog list from Ensembl REST cannot be trusted as "this species has no
+ortholog". ``homology/id/human/ENSG00000171862`` (PTEN) returns ``homologies: []``
+against mouse at HTTP 200, and so does the reverse lookup from mouse
+``ENSMUSG00000013663`` -- yet mouse *Pten* plainly exists and PTEN/Pten is among
+the best-established orthologies there is. VHL behaves the same way. Whatever the
+cause, the endpoint's silence is not evidence of absence, so this verdict is a
+prompt to verify by hand, never a fidelity caveat to act on.
+
+This is why the proposal asks the Bgee team whether ``expression_comparison`` does
+its own orthology grouping (question 3): a single authoritative orthology source
+inside Bgee would be better than this one.
 
 Cell-type coverage is the binding constraint
 --------------------------------------------
@@ -124,7 +138,9 @@ SPECIES = {
     "fruit fly": ("drosophila_melanogaster", 7227),
     "caenorhabditis elegans": ("caenorhabditis_elegans", 6239),
     "c. elegans": ("caenorhabditis_elegans", 6239),
-    "xenopus laevis": ("xenopus_laevis", 8355),
+    # Xenopus laevis is in Bgee (taxon 8355) but NOT in the Ensembl vertebrates
+    # division, so Compara cannot supply an ortholog and these links are skipped
+    # as SPECIES_UNMAPPED rather than silently mis-mapped to X. tropicalis.
     "xenopus tropicalis": ("xenopus_tropicalis", 8364),
     "macaque": ("macaca_mulatta", 9544),
     "rhesus macaque": ("macaca_mulatta", 9544),
@@ -136,7 +152,7 @@ SPECIES = {
     "platypus": ("ornithorhynchus_anatinus", 9258),
 }
 
-FINDING_VERDICTS = {"NO_ORTHOLOG", "ORTHOLOG_NOT_1TO1", "DIVERGENT_ABSENT"}
+FINDING_VERDICTS = {"ORTHOLOG_NOT_1TO1", "DIVERGENT_ABSENT"}
 
 
 # --------------------------------------------------------------------------- io
@@ -214,11 +230,10 @@ def ortholog(ensg: str, target_species: str, cache: Cache) -> tuple[str | None, 
         f"https://rest.ensembl.org/homology/id/human/{ensg}"
         f"?target_species={target_species};type=orthologues;format=condensed"
     )
-    try:
-        doc = fetch_json(url)
-    except RuntimeError:
-        cache.put(key, ["", ""])
-        return (None, None)
+    # A fetch failure must NEVER be cached as "no ortholog" -- that makes a
+    # transient rate-limit indistinguishable from a real absence, and poisons
+    # the cache so re-runs reproduce it offline. Let it raise.
+    doc = fetch_json(url)
     data = doc.get("data") or []
     homs = data[0].get("homologies") if data else []
     if not homs:
@@ -455,9 +470,20 @@ def main() -> None:
             stats["NO_ENSEMBL"] += 1
             continue
 
-        orth, orth_type = ortholog(ensg, ens_species, cache)
+        try:
+            orth, orth_type = ortholog(ensg, ens_species, cache)
+        except RuntimeError as exc:
+            # A lookup failure is not a fidelity signal, and must not abort the
+            # sweep -- one bad species or a rate-limit would lose the whole run.
+            stats["ORTHOLOG_FETCH_ERROR"] += 1
+            print(f"  ! {cand['file']}: ortholog lookup failed: {exc}", file=sys.stderr)
+            continue
         if not orth:
-            verdict, detail, gran = "NO_ORTHOLOG", f"no {ens_species} ortholog of {symbol}", "GENE"
+            verdict, detail, gran = (
+                "ORTHOLOG_LOOKUP_EMPTY",
+                f"Ensembl returned no {ens_species} ortholog of {symbol} -- VERIFY",
+                "GENE",
+            )
             comps = []
         else:
             try:
