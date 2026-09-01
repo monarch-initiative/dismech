@@ -185373,6 +185373,9 @@ window.searchData = [
     "subtypes": [],
     "description": "Osteoporosis results from an imbalance in bone remodeling, with osteoclast-mediated resorption outpacing osteoblast-mediated formation. An increased RANKL-to-osteoprotegerin ratio, accelerated by estrogen deficiency and aging, promotes osteoclastogenesis and net bone loss. Progressive loss of bone mass and microarchitectural deterioration reduce bone strength and predispose to fragility fractures.",
     "pathophysiology": [
+      "Osteocyte SASP Acquisition",
+      "Senescent Cell Accumulation in the Bone Microenvironment",
+      "Marrow Stromal Lineage Shift Toward Adipogenesis",
       "Bone Remodeling Imbalance",
       "RANKL/OPG Dysregulation",
       "Microarchitectural Deterioration",
@@ -185381,16 +185384,25 @@ window.searchData = [
       "Spaceflight-Induced Mitochondrial Stress in Bone"
     ],
     "cell_types": [
+      "Osteocyte",
+      "Bone marrow mesenchymal stromal cell",
+      "Marrow adipocyte",
       "Osteoclast",
-      "Osteoblast",
-      "Osteocyte"
+      "Osteoblast"
     ],
     "cell_type_ids": [
+      "CL:0000137",
+      "CL:0000134",
+      "CL:0000136",
       "CL:0000092",
-      "CL:0000062",
-      "CL:0000137"
+      "CL:0000062"
     ],
     "biological_processes": [
+      "SASP cytokine production by senescent osteocytes",
+      "Inflammatory response in the bone microenvironment",
+      "Cellular Senescence",
+      "Fat Cell Differentiation",
+      "Osteoblast Differentiation",
       "Bone Remodeling",
       "Osteoclast Differentiation",
       "Cellular Response to Mechanical Stimulus",
@@ -185417,7 +185429,7 @@ window.searchData = [
       "HP:0002953",
       "HP:0031846",
       "HP:0002808",
-      "HP:0004322"
+      "HP:0000002"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -185457,11 +185469,11 @@ window.searchData = [
     "source_file": "Osteoporosis.yaml",
     "page_url": "../pages/disorders/Osteoporosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Osteosarcoma",
@@ -258090,12 +258102,12 @@ window.searchMetrics = {
   "total_disorder_pages": 2502,
   "total_subtypes": 3559,
   "total_disorders_and_subtypes": 6061,
-  "total_unique_evidence_sources": 35886,
-  "total_unique_publications": 33758,
+  "total_unique_evidence_sources": 35918,
+  "total_unique_publications": 33790,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
   "total_pathographs": 2497,
-  "total_unique_pathological_events": 14536,
+  "total_unique_pathological_events": 14539,
   "total_modules": 167,
   "total_research_reports": 2619,
   "total_classifications": 19,
