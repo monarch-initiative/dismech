@@ -7,6 +7,12 @@ on:  # yamllint disable-line rule:truthy
   push:
     branches: [main]
   pull_request:
+  # Merge-queue integration builds (#10168, #2034). The queue tests each PR on
+  # a temporary gh-readonly-queue/* branch and waits for the required
+  # `test (3.13)` check on that commit; without this trigger the check is never
+  # reported and every queued PR times out. Merge-group runs deliberately skip
+  # the paths-filter and run the full suite -- see "Check for changes" below.
+  merge_group:
 
 env:
   FORCE_COLOR: "1" # Make tools pretty.
@@ -57,7 +63,20 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
         run: git fetch --no-tags --force --depth=1 origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
+      # Skipped on merge_group: dorny/paths-filter only knows how to pick its
+      # comparison point for push and pull_request events, and a silently empty
+      # filter result would let `test (3.13)` report green having run almost
+      # nothing -- the queue would look like current-main integration testing
+      # without being it. Instead, every gate below also fires when
+      # `github.event_name == 'merge_group'`, so a merge group runs the full
+      # suite. That is the point, not just a safety measure: path filtering is
+      # why the #9538 cross-file enum incompatibility was invisible until the
+      # branch was updated, and catching that class of break is what the queue
+      # is for. A merge group is a handful of runs per merge, so the wall-clock
+      # cost is bounded. Two steps are exempt -- see "Validate changed disorder
+      # KB files" below.
       - name: Check for changes
+        if: github.event_name != 'merge_group'
         uses: dorny/paths-filter@v4
         id: changes
         with:
@@ -270,7 +289,7 @@ jobs:
         uses: ./.github/actions/oak-cache
 
       - name: Validate schema term references
-        if: steps.changes.outputs.schema_terms == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.schema_terms == 'true'
         run: just validate-terms-schema
 
       - name: Lint with ruff
@@ -489,6 +508,18 @@ jobs:
       - name: Check the curation stub queue
         run: uv run dismech-stubs check
 
+      # This step and the comorbidity one below are the two deliberate
+      # exemptions from the merge-group full-suite rule: they consume the
+      # paths-filter's *file lists* (`kb_disorders_files`), which do not exist
+      # when the filter is skipped, so on merge_group they skip (the outputs
+      # are empty, never 'true'). That is sound because what they check is
+      # content-local -- schema/term/reference validation of exactly the files
+      # the PR carries, unchanged between the PR head and the merge group --
+      # and was already enforced by the PR's own required `test (3.13)` run.
+      # Everything that IS integration-sensitive (enum permissibility, entity
+      # refs, pathograph targets, the whole-KB conformance sweep) runs ungated
+      # or merge_group-forced in this job, which is exactly the cross-PR
+      # breakage class (#9538, #10061) the merge queue exists to catch.
       - name: Validate changed disorder KB files
         if: steps.changes.outputs.kb_disorders == 'true'
         run: |
@@ -502,39 +533,39 @@ jobs:
           just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
 
       - name: Validate hypothesis review artifacts
-        if: steps.changes.outputs.kb_hypotheses == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.kb_hypotheses == 'true'
         run: |
           just validate-hypothesis-assessment-all
           just validate-hypothesis-reconciliation-all
 
       - name: Validate history records
-        if: steps.changes.outputs.history == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.history == 'true'
         run: just validate-history-all
 
       - name: Set up Node.js
-        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.extension == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.app == 'true' || steps.changes.outputs.extension == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Node.js dependencies
-        if: steps.changes.outputs.app == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.app == 'true'
         run: npm ci
 
       # The browser-extension tests are pure Node (no npm deps), so they run
       # whenever extension/ changes without needing `npm ci`.
       - name: Run browser-extension tests
-        if: steps.changes.outputs.extension == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.extension == 'true'
         run: just test-extension
 
       # CI runs narrower slices of `just test-code` so unrelated test-only
       # changes do not pay for full LinkML project generation or Node setup.
       - name: Run schema generation smoke test
-        if: steps.changes.outputs.schema_generation == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.schema_generation == 'true'
         run: just test-schema
 
       - name: Run Python code/logic tests
-        if: steps.changes.outputs.python == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.python == 'true'
         env:
           # Grandfather the snippet-length ratchet against the base branch's
           # live content, not the committed baseline snapshot (see the fetch
@@ -553,11 +584,11 @@ jobs:
         run: just test-python-code
 
       - name: Run LinkML example tests
-        if: steps.changes.outputs.examples == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.examples == 'true'
         run: just test-examples
 
       - name: Run browser search tests
-        if: steps.changes.outputs.app == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.app == 'true'
         run: just test-search
 
       # The whole-KB conformance sweep runs only when the schema itself (or the
@@ -569,5 +600,5 @@ jobs:
       # window for enum values specifically. Parallelized with xdist inside
       # `just test-kb`.
       - name: Run whole-KB schema-conformance sweep
-        if: steps.changes.outputs.schema == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.schema == 'true'
         run: just test-kb
