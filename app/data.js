@@ -60557,6 +60557,7 @@ window.searchData = [
       "Supportive care"
     ],
     "environmental": [
+      "Dermal beryllium exposure",
       "Occupational beryllium inhalation"
     ],
     "biochemical": [],
@@ -60566,7 +60567,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "9"
   },
   {
@@ -258089,8 +258090,8 @@ window.searchMetrics = {
   "total_disorder_pages": 2502,
   "total_subtypes": 3559,
   "total_disorders_and_subtypes": 6061,
-  "total_unique_evidence_sources": 35884,
-  "total_unique_publications": 33756,
+  "total_unique_evidence_sources": 35886,
+  "total_unique_publications": 33758,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
   "total_pathographs": 2497,
