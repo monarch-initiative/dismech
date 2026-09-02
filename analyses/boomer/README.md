@@ -135,21 +135,30 @@ isolation.
    claims, the subtype and the entry are the same thing — which contradicts the
    `has_subtypes` edge between them.
 
-3. **Sibling subtypes grounded to the same term** — dismech drawing a distinction
-   MONDO does not:
+3. **Sibling subtypes grounded to the same term.** Two readings, and they need
+   different fixes — check MONDO before assuming which one applies.
+
+   *Under-grounded* — MONDO does have distinct terms, and dismech simply is not
+   using them:
    - [`Juvenile_Idiopathic_Arthritis`](disorders/Juvenile_Idiopathic_Arthritis/):
      "Polyarticular RF-negative" and "RF-positive" both → `MONDO:0018456`
-     *polyarticular juvenile idiopathic arthritis*. MONDO does not split on RF
-     status.
+     *polyarticular juvenile idiopathic arthritis*, even though MONDO carries
+     `MONDO:0019432` *rheumatoid factor-negative JIA* and `MONDO:0019435`
+     *rheumatoid factor-positive polyarticular JIA* as its children. The fix is
+     to reground each subtype to its own term. This is really class 2 wearing a
+     different hat.
+
+   *Genuinely finer than MONDO* — no child term exists to reground to:
    - [`Double_Outlet_Right_Ventricle`](disorders/Double_Outlet_Right_Ventricle/):
      "Subaortic VSD" and "Doubly committed VSD" both → `MONDO:0018498`, whose
-     label is literally *"subaortic **or** doubly committed"*.
+     label is literally *"subaortic **or** doubly committed"* and which has no
+     children.
    - [`Malaria`](disorders/Malaria/): "Plasmodium vivax malaria" and "Recurrent
-     vivax malaria" both → `MONDO:0005921`.
+     vivax malaria" both → `MONDO:0005921`, which has no children.
 
-   Splitting more finely than MONDO is a legitimate curation choice. What it
-   means is that the grounding cannot be an *identity* claim for every sibling —
-   at most one can be `exactMatch`.
+   For the second reading, splitting more finely than MONDO is a legitimate
+   curation choice; what it means is that the grounding cannot be an *identity*
+   claim for every sibling — at most one can be `exactMatch`.
 
 4. **A MONDO "proxy merge"** — one MONDO term claiming identity with several
    terms in the same external vocabulary. This class only appears once external
@@ -188,7 +197,7 @@ isolation.
 
    `build_analyses.py` skips obsolete equivalency targets for this reason. Worth
    being clear that **this changed none of the numbers above**: the retraction
-   counts and the 50 retracted equivalences are byte-identical with and without
+   counts and the 66 retracted equivalences are byte-identical with and without
    the filter, because none of the 26 fake cases involve a dismech-grounded
    disorder. It is correct in principle and currently only makes the run faster.
 
@@ -196,12 +205,16 @@ isolation.
    grounds into MONDO and this analysis then follows MONDO outward. The 300-term
    list is probably more use to MONDO than to dismech.
 
-The 118 `SILENT` pairs are a separate output: not errors, but places MONDO
+The 161 `SILENT` pairs are a separate output: not errors, but places MONDO
 asserts no relation where dismech does. Several are textbook — `MONDO:0021081`
 *anti-NMDA receptor encephalitis* does not sit under `MONDO:0020640` *autoimmune
 encephalitis*. They read as candidate MONDO enrichment proposals.
 
-**Nothing in `kb/` has been changed on the strength of this tree.**
+**One KB change has been made on the strength of this tree**, and only one: the
+`Adult_Refsum_Disease` regrounding described above, which landed on `main`
+separately (see #8885). Everything else this tree surfaces is filed as an issue
+rather than acted on — a retraction says assertions are jointly unsatisfiable,
+not which one is wrong, and that call is a curator's.
 
 ## Reading a verdict
 
@@ -217,8 +230,9 @@ Per subtype:
 Per disorder, boomer either accepts every mapping (`ALL_MAPPINGS_CONSISTENT`) or
 retracts one to restore consistency (`RETRACTED`). **A retraction says the
 assertions are jointly unsatisfiable, not that the retracted mapping is the wrong
-one** — choosing which to give up is a curation decision, and none has been made
-in the KB on the strength of this tree.
+one** — choosing which to give up is a curation decision. Exactly one such
+decision has been taken so far (`Adult_Refsum_Disease`); the rest are filed as
+issues.
 
 ## Where the solver earns its place, and where it doesn't
 
@@ -235,7 +249,7 @@ ground to `MONDO:0005061` *lung adenocarcinoma*). Under the correct reading only
 **one** term in the KB has two entries claiming `exactMatch` to it.
 
 So the KB contains few jointly-unsatisfiable constraint sets, and most of what
-this tree finds is not exotic. Of the three retraction causes above, two —
+this tree finds is not exotic. Of the four retraction causes above, two —
 a subtype sharing its parent's term, and two siblings sharing a term — are
 findable by a `groupby` over the grounded terms. Anyone can write those checks.
 
@@ -353,7 +367,7 @@ neither needs a solver:
   to TUBA1A mutation* is not under `MONDO:0100153` *tubulinopathy*. Only
   `exactMatch` groupings are checked — a `broadMatch` grouping is explicitly
   narrower than its term and a `narrowMatch` one wider, so neither licenses the
-  descendant expectation; 52 of 65 are skipped on that basis.
+  descendant expectation; 74 of 100 are skipped on that basis.
 - [`cross-source/`](cross-source/) — dismech's direct ICD/NCIT mappings against
   MONDO's own xrefs. **A negative result**: 8 disagreements, 6 of them
   granularity the `mapping_predicate` already records honestly

@@ -495,6 +495,21 @@ def stabilise_floats(solution):
         stabilise_floats(sub)
 
 
+INDEX_FIELDNAMES = (
+    "slug",
+    "name",
+    "parent_term",
+    "n_subtypes",
+    "n_pfacts",
+    "agrees",
+    "silent",
+    "reversed",
+    "same_term",
+    "status",
+    "n_retracted",
+)
+
+
 VERDICT_NOTE = {
     "AGREES": "MONDO has this subtype's term as a descendant of the entry's term.",
     "SILENT": "MONDO relates the two terms in neither direction - usually a missing MONDO `is_a` edge.",
@@ -715,8 +730,11 @@ def main(argv=None):
             print(f"  {i}/{len(records)}", file=sys.stderr)
 
     if args.index:
+        # explicit fieldnames: deriving them from index[0] truncates the file and
+        # then raises IndexError when no record matched (e.g. a --only slug that
+        # does not exist). Both sibling audit scripts already do this.
         with Path(args.index).open("w", newline="") as fh:
-            w = csv.DictWriter(fh, fieldnames=list(index[0]), delimiter="\t")
+            w = csv.DictWriter(fh, fieldnames=list(INDEX_FIELDNAMES), delimiter="\t")
             w.writeheader()
             w.writerows(index)
 
