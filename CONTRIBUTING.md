@@ -161,7 +161,47 @@ In both cases, you will need to obtain an API key from [openscientist.io](https:
 
 ```bash
    export OPENSCIENTIST_API_KEY=your_key_here
-   ```
+```
+
+#### 3c. Enable Biomni for dataset analysis (advanced, opt-in)
+
+[Biomni](https://github.com/snap-stanford/Biomni) is installed with the dismech
+development environment, but the repository's deep-research entry points keep it
+**disabled by default**. Biomni executes model-generated code locally and may
+initialize a large biomedical data lake, so installation alone must not make it
+eligible for either a direct run or automatic provider fallback.
+
+Enable it only for a deliberate Biomni session:
+
+```bash
+export DISMECH_ENABLE_BIOMNI=1
+```
+
+The hypothesis runner then uses `$BIOMNI_DATA_PATH` when set, otherwise
+`~/.biomni-lake`, and enables the lake. A full academic lake currently occupies
+roughly 14 GiB, so check disk headroom first. You must also configure the API key
+for Biomni's selected underlying model provider, such as `OPENAI_API_KEY` or
+`ANTHROPIC_API_KEY`.
+
+Keep the lake, raw or controlled data, credentials, and signed URLs out of Git.
+If a Biomni tool, package, lake, or study input is unavailable, preserve that
+failure and any fallback in the run provenance; never present literature or
+model knowledge as a completed dataset analysis.
+
+The opt-in applies to `scripts/hypothesis_deep_research.py` and
+`scripts/run_deep_research_client.sh`. When it is absent, Biomni is also removed
+from deep-research-client's automatic fallback candidates. The hypothesis
+runner's `--dry-run` remains available because it does not execute Biomni or
+initialize the lake.
+
+Disable it again by removing the opt-in from the environment:
+
+```bash
+unset DISMECH_ENABLE_BIOMNI
+```
+
+Do not invoke `uv run deep-research-client` directly: that bypasses both this
+repository policy and the reference-validation patches in the wrapper.
 
 ### 4. Clone repo and start curating
 ```bash
@@ -217,11 +257,11 @@ Now you're ready to set up your cloud environment (this is a one-time step).
 
 1. **Configure the environment.** At [claude.ai/code](https://claude.ai/code), select
    the current environment by clicking the button with a cloud icon (which probably says "Default") to open the environment selector.
-   
+
    <img width="378" height="338" alt="Screenshot 2026-07-28 at 4 36 54 PM" src="https://github.com/user-attachments/assets/8b0eb12b-954a-4e50-a9c9-282d0db22a4d" />
 
    Now (this is a bit non-obvious) _hover_ your mouse over the checkmark next to "Default" to make the gear icon appear, and click the gear to open the environment settings dialog.
-   
+
    <img width="355" height="104" alt="Screenshot 2026-07-28 at 4 37 20 PM" src="https://github.com/user-attachments/assets/2d91832c-2742-4f4d-ac9a-ce548a2414d6" />
 
    The dialog has fields for the name, network access level, environment
@@ -230,7 +270,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
 
 3. **Name your environment.**
    Click on the Name box and choose a name for your environment (e.g., "dismech").
-   
+
 4. **Set Network access to Full.**
    Use the **Network
    access** selector and choose **Full**. The default setting, **Trusted**,
@@ -252,7 +292,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
 
    Note: the Environment variables field is plain text, not a secrets store — the values are
    visible to anyone who can open the environment's settings. On a personal account, that's only you.
-   
+
 6. **Add an install of `just` to the setup script** in the "Setup script" box (just this one line):
    ```
    uv tool install rust-just
@@ -451,8 +491,10 @@ just count-verified-snippets kb/disorders/YourFile.yaml
 # Before opening the PR: the batched schema + terms + references sweep CI runs
 just validate-disorders kb/disorders/YourFile.yaml
 
-# Reference validation for one file (slow; permits full-text matches)
-just validate-references kb/disorders/YourFile.yaml
+# Reference validation for a single KB entry (also slow; permits full-text matches).
+# "kb" distinguishes it from `just validate-research-reference <report.md>`, which
+# checks a deep-research report's citations instead (#8841)
+just validate-kb-references kb/disorders/YourFile.yaml
 ```
 
 
