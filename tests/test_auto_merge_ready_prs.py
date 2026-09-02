@@ -1284,20 +1284,61 @@ def test_queue_detection_failure_keeps_the_pre_queue_behavior(monkeypatch):
         raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
 
     monkeypatch.setattr(auto_merge, "_gh", boom)
+    monkeypatch.setattr(auto_merge.time, "sleep", lambda *_: None)
     assert auto_merge.base_requires_merge_queue("o/r", "main") is False
 
 
-def test_queue_detection_reads_the_graphql_payload(monkeypatch):
+def test_queue_detection_reads_the_effective_rules(monkeypatch):
+    """Effective rules, not the ruleset: a paused queue must read as absent."""
     monkeypatch.setattr(
-        auto_merge, "_gh",
-        lambda args, token=None: '{"data":{"repository":{"mergeQueue":{"id":"MQ_x"}}}}',
+        auto_merge, "_gh", lambda args, token=None: '["merge_queue"]'
     )
     assert auto_merge.base_requires_merge_queue("o/r", "main") is True
-    monkeypatch.setattr(
-        auto_merge, "_gh",
-        lambda args, token=None: '{"data":{"repository":{"mergeQueue":null}}}',
-    )
+    # Verified live against a scratch branch: disabling the ruleset flips this
+    # endpoint from ["merge_queue"] to [].
+    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: "[]")
     assert auto_merge.base_requires_merge_queue("o/r", "main") is False
+
+
+def test_queue_detection_retries_once_before_failing_closed(monkeypatch):
+    """A single transient blip must not turn off the strategy flag for a run."""
+    attempts = []
+
+    def flaky(args, token=None):
+        attempts.append(args)
+        if len(attempts) == 1:
+            raise subprocess.CalledProcessError(1, ["gh"], stderr="502")
+        return '["merge_queue"]'
+
+    monkeypatch.setattr(auto_merge, "_gh", flaky)
+    monkeypatch.setattr(auto_merge.time, "sleep", lambda *_: None)
+    assert auto_merge.base_requires_merge_queue("o/r", "main") is True
+    assert len(attempts) == 2
+
+
+def test_queue_detection_rejects_a_non_list_payload(monkeypatch):
+    """A payload shape we do not understand fails closed, not open."""
+    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: '{"oops": 1}')
+    assert auto_merge.base_requires_merge_queue("o/r", "main") is False
+
+
+def test_already_queued_rejection_is_benign(monkeypatch):
+    """A reselected PR that is already queued is a race, not a failure.
+
+    An enqueued PR stays open, so the next sweep can pick it again; treating
+    the resulting rejection as a controller fault would turn the run red
+    every hour until the queue drained.
+    """
+    assert auto_merge.is_benign_merge_failure("Pull request is already queued")
+
+
+def test_summary_does_not_claim_a_queued_pr_was_merged():
+    body = auto_merge.render_summary(
+        [{"number": 7, "title": "t", "queued": True}], [], [],
+        dry_run=False, circuit_open="",
+    )
+    assert "Added to the merge queue" in body
+    assert "**Merged 1:**" not in body
 
 
 def test_merge_fails_closed_when_the_sha_is_unavailable(monkeypatch):

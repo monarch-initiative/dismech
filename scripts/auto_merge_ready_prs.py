@@ -136,6 +136,11 @@ BENIGN_MERGE_FAILURES = (
     "not mergeable",
     "pull request is closed",
     "no commits between",
+    # An enqueued PR stays open until the queue merges it, so a later sweep
+    # can reselect it; re-enqueueing is a no-op race, not a controller fault.
+    "already queued",
+    "already in the merge queue",
+    "pull request is already queued",
 )
 
 # Status glyphs gh prefixes to its stderr lines, stripped for readability.
@@ -580,32 +585,43 @@ def view_pr(
 
 
 def base_requires_merge_queue(repo: str, branch: str) -> bool:
-    """Whether ``branch`` has an active merge queue.
+    """Whether a merge-queue rule is *in effect* on ``branch`` right now.
 
     ``gh pr merge`` rejects a merge-strategy flag on a queue-required branch
     ("the merge strategy for <branch> is set by the merge queue"), so the
     strategy must be omitted there and supplied everywhere else -- passing
-    neither is equally fatal off a queue. Detection failures answer False,
-    which keeps the pre-queue behavior rather than silently dropping the
-    strategy the merge depends on.
+    neither is equally fatal off a queue.
+
+    This reads the effective-rules endpoint rather than
+    ``repository.mergeQueue(branch:)`` because it answers exactly the
+    question the break-glass procedure changes: pausing the queue disables
+    the *ruleset*, and this endpoint lists only rules currently in force.
+    (Both were checked against a scratch branch: active -> ``["merge_queue"]``
+    and a non-null MergeQueue node; ruleset disabled -> ``[]`` and a null
+    node. So either would work today; this one cannot drift from the pause
+    mechanism.)
+
+    Detection failures answer False, keeping pre-queue behavior rather than
+    silently dropping the strategy a direct merge depends on. One retry
+    absorbs a transient API blip, since a single failed lookup would
+    otherwise fail every merge in the run.
     """
-    owner, _, name = repo.partition("/")
-    query = (
-        "query($owner:String!,$name:String!,$branch:String!){"
-        "repository(owner:$owner,name:$name){"
-        "mergeQueue(branch:$branch){id}}}"
-    )
-    try:
-        payload = _gh([
-            "api", "graphql",
-            "-f", f"owner={owner}", "-f", f"name={name}",
-            "-f", f"branch={branch}", "-f", f"query={query}",
-        ])
-        data = json.loads(payload)
-    except (subprocess.CalledProcessError, ValueError, json.JSONDecodeError):
-        return False
-    repository = (data.get("data") or {}).get("repository") or {}
-    return bool(repository.get("mergeQueue"))
+    for attempt in range(2):
+        try:
+            payload = _gh([
+                "api", f"repos/{repo}/rules/branches/{branch}",
+                "--jq", "[.[].type]",
+            ])
+            types = json.loads(payload or "[]")
+        except (subprocess.CalledProcessError, ValueError, json.JSONDecodeError):
+            if attempt == 0:
+                time.sleep(2)
+                continue
+            return False
+        if not isinstance(types, list):
+            return False
+        return "merge_queue" in types
+    return False
 
 
 def merge_pr(
@@ -615,7 +631,7 @@ def merge_pr(
     head_sha: str | None,
     write_token: str,
     base_branch: str = "main",
-) -> None:
+) -> bool:
     """Squash-merge one PR -- or add it to the merge queue -- then announce it.
 
     ``--match-head-commit`` makes GitHub reject the operation if a push landed
@@ -646,7 +662,9 @@ def merge_pr(
         verified_head,
     ]
     if not queued:
-        merge_cmd.insert(5, "--squash")
+        # Before --match-head-commit, so the strategy stays adjacent to the
+        # subcommand rather than at a position that shifts with the flag list.
+        merge_cmd.insert(merge_cmd.index("--match-head-commit"), "--squash")
     _gh(merge_cmd, token=writer)
 
     # The merge is the operation that matters and it has already succeeded;
@@ -669,10 +687,11 @@ def merge_pr(
         )
     except subprocess.CalledProcessError as exc:
         print(
-            f"WARN  #{number}: merged, but posting the comment failed: "
-            f"{_gh_error(exc)}",
+            f"WARN  #{number}: {'enqueued' if queued else 'merged'}, but "
+            f"posting the comment failed: {_gh_error(exc)}",
             file=sys.stderr,
         )
+    return queued
 
 
 def mark_pr_ready(repo: str, number: int, write_token: str) -> None:
@@ -710,7 +729,17 @@ def render_summary(
     lines = [title, ""]
     if circuit_open:
         lines.extend([f"**Main-health circuit open:** {circuit_open}", ""])
-    verb = "Would merge" if dry_run else "Merged"
+    if dry_run:
+        verb = "Would merge"
+    elif merged and all(row.get("queued") for row in merged):
+        # A queued PR is not a merged one -- the queue still tests it against
+        # current main and may reject it. Claiming "Merged" here would be the
+        # same permanent false audit trail this function avoids for dry runs.
+        verb = "Added to the merge queue"
+    elif merged and any(row.get("queued") for row in merged):
+        verb = "Merged or queued"
+    else:
+        verb = "Merged"
     if merged:
         lines.append(f"**{verb} {len(merged)}:**")
         lines += [
@@ -1063,7 +1092,7 @@ def main(argv: list[str] | None = None) -> int:
                 break
 
             try:
-                merge_pr(
+                enqueued = merge_pr(
                     args.repo,
                     number,
                     args.min_age_days,
@@ -1102,8 +1131,10 @@ def main(argv: list[str] | None = None) -> int:
                     reason = f"could not restore draft state: {detail}"
                     print(f"FAIL  #{number}: {reason}", file=sys.stderr)
                     failed.append({"number": number, "reason": reason})
-        print(f"MERGED #{number}: {fresh['title']}")
-        merged.append({"number": number, "title": fresh["title"]})
+        print(f"{'QUEUED' if enqueued else 'MERGED'} #{number}: {fresh['title']}")
+        merged.append(
+            {"number": number, "title": fresh["title"], "queued": enqueued}
+        )
         # One merge per run is an explicit serialization boundary. It does not
         # rely on the branch endpoint immediately reflecting the new main SHA.
         print(
