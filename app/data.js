@@ -8450,6 +8450,78 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Acute Ackee Fruit Intoxication",
+    "disease_id": "MONDO:0019140",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-09-02T15:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acute ackee fruit intoxication, long known as Jamaican vomiting sickness, follows eating the unripe fruit of Blighia sapida. The toxin is hypoglycin A, and it is harmless until the body activates it: metabolism converts it to methylenecyclopropylacetyl-CoA, which is a suicide substrate for acyl-CoA dehydrogenases. It binds the enzyme's flavin covalently and does not let go. Fatty acid beta-oxidation stops, so a fasting patient cannot make ketones or spare glucose, and the hypoglycaemia that follows is profound and unresponsive to the usual counter-regulation. The interest of this entry is that the resulting biochemistry is not merely similar to an inborn error - it is the same biochemistry. The urine of a poisoned patient carries the dicarboxylic acids of a fatty acid oxidation defect at up to a thousand times normal, and the acylcarnitine profile is read as multiple acyl-CoA dehydrogenase deficiency. One disease is inherited and one is eaten, and downstream of the enzyme there is nothing to tell them apart.",
+    "pathophysiology": [
+      "Hypoglycin A Ingestion",
+      "Metabolic Activation to MCPA-CoA",
+      "Acyl-CoA Dehydrogenase Suicide Inactivation",
+      "Impaired Fatty Acid Beta-Oxidation",
+      "Failure of Ketogenesis and Gluconeogenesis",
+      "Profound Hypoglycemia and Acute Metabolic Decompensation",
+      "Acute Encephalopathy and Death"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "fatty acid beta-oxidation",
+      "ketone body biosynthetic process",
+      "gluconeogenesis"
+    ],
+    "phenotypes": [
+      "Hypoglycemia",
+      "Vomiting",
+      "Encephalopathy",
+      "Seizure",
+      "Coma",
+      "Hypothermia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001943",
+      "HP:0002013",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0001259",
+      "HP:0002045"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Dextrose and supportive care"
+    ],
+    "environmental": [
+      "Ingestion of unripe ackee arillus"
+    ],
+    "biochemical": [
+      "Urinary dicarboxylic acids",
+      "Urinary short-chain fatty acids",
+      "Acylcarnitine profile",
+      "MCPA-carnitine"
+    ],
+    "source_file": "Acute_Ackee_Fruit_Intoxication.yaml",
+    "page_url": "../pages/disorders/Acute_Ackee_Fruit_Intoxication.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Acute Alcohol Sensitivity",
     "disease_id": "MONDO:0012454",
     "category": "Genetic",
@@ -24948,6 +25020,126 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "24",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Attenuated Mucopolysaccharidosis Type I",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "Mucopolysaccharidosis",
+      "Lysosomal Storage Disorder"
+    ],
+    "creation_date": "2026-08-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Hurler-Scheie",
+      "Scheie"
+    ],
+    "description": "Attenuated mucopolysaccharidosis type I is the non-neuronopathic end of the MPS I spectrum, comprising the entities historically named Hurler-Scheie syndrome (MPS I H/S, intermediate) and Scheie syndrome (MPS I S, mildest). Like Hurler syndrome it is caused by biallelic IDUA variants and lysosomal accumulation of dermatan and heparan sulfate, but residual alpha-L-iduronidase activity is sufficient to spare the developing brain. The defining contrast with Hurler syndrome is therefore cognitive: attenuated patients have normal or near-normal intelligence and normal early development, and the disease presents not in infancy but in later childhood or adulthood with progressive somatic and connective-tissue disease - joint stiffness and contracture, carpal tunnel syndrome, corneal clouding, mitral and aortic valve disease, restrictive and obstructive airway disease, short stature, dysostosis multiplex, and cervical cord compression. Because the presenting complaints are orthopaedic and rheumatological rather than developmental, attenuated MPS I is characteristically diagnosed late, often years after the first symptom and sometimes in adulthood. That preserved cognition is also what reverses the therapeutic logic: hematopoietic stem cell transplantation is the standard of care for severe MPS I because it delivers enzyme across the blood-brain barrier, whereas in attenuated MPS I there is no CNS disease to rescue and enzyme replacement therapy with laronidase, which does not cross the blood-brain barrier, is the appropriate first-line treatment. Attenuated MPS I is curated as an entry separate from Hurler syndrome because the two differ in age at presentation, in the organ systems that drive morbidity, and in the treatment decision - not merely in severity.",
+    "pathophysiology": [
+      "Partial IDUA deficiency with residual alpha-L-iduronidase activity",
+      "Lysosomal dermatan and heparan sulfate accumulation",
+      "Extracellular matrix and collagen disorganization in connective tissue",
+      "Cardiac valve storage disease",
+      "Preserved central nervous system function"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "glycosaminoglycan catabolic process",
+      "dermatan sulfate proteoglycan catabolic process",
+      "heparan sulfate proteoglycan catabolic process"
+    ],
+    "phenotypes": [
+      "Limitation of joint mobility",
+      "Constrictive median neuropathy",
+      "Corneal opacity",
+      "Mitral regurgitation",
+      "Aortic valve stenosis",
+      "Short stature",
+      "Dysostosis multiplex",
+      "Hepatosplenomegaly",
+      "Obstructive sleep apnea",
+      "Reduced vital capacity",
+      "Spinal cord compression",
+      "Hearing impairment",
+      "Coarse facial features",
+      "Developmental Regression Absent"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurologic",
+      "Ophthalmologic",
+      "Cardiovascular",
+      "Growth",
+      "Skeletal",
+      "Gastrointestinal",
+      "Respiratory",
+      "Otologic",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001376",
+      "HP:0012185",
+      "HP:0007957",
+      "HP:0001653",
+      "HP:0001650",
+      "HP:0004322",
+      "HP:0000943",
+      "HP:0001433",
+      "HP:0002870",
+      "HP:0002792",
+      "HP:0002176",
+      "HP:0000365",
+      "HP:0000280",
+      "HP:0002376"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT",
+      "EXCLUDED"
+    ],
+    "genes": [
+      "IDUA pathogenic variants"
+    ],
+    "treatments": [
+      "Laronidase enzyme replacement therapy",
+      "Hematopoietic stem cell transplantation",
+      "Carpal tunnel release",
+      "Multidisciplinary supportive and surveillance care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urinary glycosaminoglycans",
+      "Leukocyte alpha-L-iduronidase activity"
+    ],
+    "source_file": "Attenuated_Mucopolysaccharidosis_Type_I.yaml",
+    "page_url": "../pages/disorders/Attenuated_Mucopolysaccharidosis_Type_I.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Atypical Hemolytic Uremic Syndrome",
@@ -79176,6 +79368,104 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Developmental Delay, Hypotonia, Musculoskeletal Defects, and Behavioral Abnormalities",
+    "disease_id": "MONDO:0859202",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-09-02T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DEHMBA is an autosomal dominant neurodevelopmental disorder caused by de novo heterozygous loss-of-function SRCAP variants that fall outside the Floating-Harbor syndrome hotspot in exons 33 and 34.\nIt is the clearest worked example in the SRCAP literature of a principle that is easy to state and easy to curate wrongly: one gene, two diseases, distinguished by where in the gene the truncation lands rather than by how severe it is. Truncations confined to exons 33-34 escape nonsense-mediated decay and leave a stable, shortened protein that acts dominant-negatively; those are Floating-Harbor syndrome, with its short stature, delayed bone age and recognizable facial gestalt. Truncations anywhere else destroy the allele, leaving simple haploinsufficiency, and produce a phenotype that shares the developmental delay but has none of the FLHS growth or facial signature.\nThe evidence that these are two conditions and not one spectrum is epigenetic rather than clinical. Floating-Harbor syndrome has a well-established blood DNA-methylation episignature; when the founding DEHMBA cohort was run against a classifier trained on it, every affected individual was classified negative, and a separate signature emerged when they were compared against controls instead. That is a positive discriminator, not merely an absence of FLHS features, and it is now used diagnostically to resolve SRCAP variants of uncertain significance.\nTwo things about this entry are worth flagging up front. The mechanism below the H2A.Z-deposition step is almost entirely mouse work: the Srcap-Satb2 axis and the parvalbumin interneuron loss that connect the chromatin lesion to behaviour have not been shown in human tissue, which is recorded here as a human-model mismatch rather than smoothed over. And the phenotype is genuinely non-specific - the name lists four categories, of which only the developmental delay and hypotonia are near-universal, so the musculoskeletal and behavioural features carry the disorder's name without carrying its diagnosis.",
+    "pathophysiology": [
+      "SRCAP Loss-of-Function Allele Outside the FLHS Hotspot",
+      "SRCAP Complex Haploinsufficiency",
+      "Deficient H2A.Z Deposition at Neurodevelopmental Loci",
+      "Dysregulated Neurodevelopmental Gene Expression",
+      "Reduced Satb2 Expression",
+      "Parvalbumin Interneuron and Synaptic Deficits",
+      "Impaired Neurodevelopment",
+      "DEHMBA DNA Methylation Episignature"
+    ],
+    "cell_types": [
+      "neuron",
+      "parvalbumin-expressing GABAergic interneuron",
+      "peripheral blood leukocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:4023018",
+      "CL:0000738"
+    ],
+    "biological_processes": [
+      "chromatin remodeling",
+      "regulation of transcription by RNA polymerase II"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Hypotonia",
+      "Behavioral and psychiatric problems",
+      "Psychosis",
+      "Sleep disturbance",
+      "Obstructive sleep apnea",
+      "Musculoskeletal abnormalities",
+      "Non-specific facial features",
+      "Seizure"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Respiratory",
+      "Musculoskeletal",
+      "Head and Neck"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001252",
+      "HP:0000708",
+      "HP:0000709",
+      "HP:0002360",
+      "HP:0002870",
+      "HP:0033127",
+      "HP:0001999",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SRCAP"
+    ],
+    "treatments": [
+      "Developmental and rehabilitative therapy",
+      "Speech and language therapy",
+      "Behavioral and psychiatric management",
+      "Sleep assessment and management of obstructive sleep apnea",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Developmental_Delay_Hypotonia_Musculoskeletal_Defects_And_Behavioral_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Developmental_Delay,_Hypotonia,_Musculoskeletal_Defects,_and_Behavioral_Abnormalities.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Developmental Stuttering",
     "disease_id": null,
     "category": "Complex",
@@ -115603,7 +115893,8 @@ window.searchData = [
     "description": "Hennekam lymphangiectasia-lymphedema syndrome 1 (HKLLS1) is an autosomal recessive generalized lymphatic dysplasia caused by biallelic mutations in CCBE1. It is characterized by the triad of intestinal lymphangiectasia, peripheral and facial lymphedema, and intellectual disability, together with a characteristic flat facial appearance (flat face, depressed nasal bridge, hypertelorism, epicanthal folds, small mouth, and dental anomalies). Intestinal lymphangiectasia causes protein-losing enteropathy with hypoalbuminemia, hypogammaglobulinemia, and lymphopenia. CCBE1 is a secreted extracellular-matrix protein essential for lymphangiogenesis, acting as a cofactor that promotes ADAMTS3-mediated proteolytic activation of pro-VEGF-C; loss of CCBE1 function impairs VEGF-C/VEGFR-3 signaling and lymphatic vessel development. CCBE1 mutations account for approximately 25% of Hennekam syndrome cases and were the first genetic cause identified for the disorder.",
     "pathophysiology": [
       "CCBE1 loss of function",
-      "Impaired VEGF-C activation and lymphangiogenesis",
+      "Impaired pro-VEGF-C proteolytic activation",
+      "Failed lymphangiogenesis",
       "Generalized lymphatic dysplasia",
       "Intestinal lymphangiectasia",
       "Protein-losing enteropathy"
@@ -115702,18 +115993,20 @@ window.searchData = [
       "Dietary management of protein-losing enteropathy",
       "Lymphedema supportive care",
       "Supportive and multidisciplinary care",
-      "Genetic counseling"
+      "Genetic counseling",
+      "Immunoglobulin replacement therapy",
+      "Octreotide for refractory protein-losing enteropathy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Hennekam_Lymphangiectasia-Lymphedema_Syndrome_1.yaml",
     "page_url": "../pages/disorders/Hennekam_lymphangiectasia-lymphedema_syndrome_1.html",
     "num_phenotypes": 23,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "7"
+    "num_treatments": 6,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Hennekam lymphangiectasia-lymphedema syndrome 2",
@@ -121395,7 +121688,10 @@ window.searchData = [
     ],
     "creation_date": "2026-04-14T20:10:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Neuronopathic",
+      "Non-neuronopathic"
+    ],
     "description": "Hunter syndrome, also called mucopolysaccharidosis type 2 (MPS II), is an X-linked lysosomal storage disorder caused by deficiency of iduronate-2-sulfatase (IDS). Failure to degrade dermatan sulfate and heparan sulfate produces progressive glycosaminoglycan accumulation in lysosomes and extracellular matrix. The resulting lysosomal dysfunction drives neuronopathic central nervous system disease, connective-tissue and skeletal-muscle involvement, airway obstruction, hepatosplenomegaly, and cardiac valve thickening. The clinical spectrum ranges from attenuated disease with preserved cognition to severe early-onset disease with progressive cognitive impairment.",
     "pathophysiology": [
       "Iduronate-2-sulfatase deficiency",
@@ -126987,6 +127283,119 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "IFAP Syndrome 2",
+    "disease_id": "MONDO:0100221",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "Genodermatosis"
+    ],
+    "creation_date": "2026-09-02T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "IFAP syndrome 2 is the autosomal dominant form of ichthyosis follicularis, atrichia and photophobia syndrome, caused by heterozygous SREBF1 variants that destroy the site-1 protease cleavage site of SREBP1.\nIt is the mirror image of the X-linked form. IFAP syndrome 1 disables the protease, MBTPS2, that makes the second of two cuts releasing SREBP from the Golgi membrane; IFAP syndrome 2 leaves both proteases intact and instead mutates the substrate at the residues the first protease has to recognise. Either way the transcription factor never reaches the nucleus, which is why one gene on the X chromosome and another on chromosome 17 produce a clinically near-identical triad. Curating them as separate entries records two lesions in one cascade rather than two diseases that merely look alike.\nThe consequences follow the tissues that depend most on locally made lipid. Scalp skin from affected individuals shows collapsed transcription of LDLR and of the keratins expressed in the outer root sheath, alongside raised keratinocyte apoptosis - the follicle fails structurally and the hair is lost. The eye is affected through the meibomian gland rather than the cornea directly: the gland secretes a wax-ester-shifted, higher-melting meibum that will not spread, and the photophobia, punctate keratopathy and vascularising keratitis follow from an unstable tear-film lipid layer. That reframes the ocular disease from an irritation problem to a lipid-secretion one, and it is the part of this entry with the most direct biochemical evidence.\nOne nosological question sits at the centre of the entry rather than at its edge. Hereditary mucoepithelial dysplasia was described as a separate disorder for decades, and is caused by the same recurrent SREBF1 variant; a 2026 series applying ClinGen lumping-and-splitting criteria concluded the two are one condition with variable expressivity, and proposed a unifying name. MONDO still carries them as separate terms, so this entry curates IFAP syndrome 2 as MONDO names it, maps to the HMD term as a close match rather than an exact one, and records the argument in a discussion instead of silently picking a side.",
+    "pathophysiology": [
+      "SREBF1 Cleavage-Site Variant",
+      "Blocked Site-1 Proteolytic Activation of SREBP1",
+      "Reduced Nuclear SREBP1 Transcriptional Output",
+      "Failure of Follicular Keratinization",
+      "Keratinocyte Apoptosis",
+      "Meibomian Gland Lipid Synthesis Failure",
+      "Ocular Surface Lipid Layer Instability"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "outer root sheath cell",
+      "meibocyte",
+      "corneal epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0002561",
+      "CL:0000317",
+      "CL:0000575"
+    ],
+    "biological_processes": [
+      "SREBP signaling pathway",
+      "proteolytic processing of SREBP1",
+      "lipid biosynthetic process",
+      "cholesterol biosynthetic process",
+      "keratinization",
+      "hair follicle development",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Follicular hyperkeratosis",
+      "Atrichia and hypotrichosis",
+      "Photophobia",
+      "Meibomian gland dysfunction",
+      "Vascularizing keratitis",
+      "Corneal opacity",
+      "Cataract",
+      "Nystagmus",
+      "Reduced visual acuity",
+      "Glaucoma",
+      "Erythematous oral mucosa",
+      "Gastroesophageal reflux",
+      "Esophageal stricture",
+      "Psoriasiform dermatitis"
+    ],
+    "phenotype_categories": [
+      "Integument",
+      "Eye",
+      "Head and Neck",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007502",
+      "HP:0500262",
+      "HP:0000613",
+      "HP:0025610",
+      "HP:0011496",
+      "HP:0007957",
+      "HP:0000518",
+      "HP:0000639",
+      "HP:0007663",
+      "HP:0000501",
+      "HP:0034418",
+      "HP:0002020",
+      "HP:0002043",
+      "HP:0003765"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SREBF1"
+    ],
+    "treatments": [
+      "Ocular surface lubrication and meibomian gland care",
+      "Topical corticosteroid for vascularizing keratitis",
+      "Systemic acitretin",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "IFAP_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/IFAP_Syndrome_2.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "IFT140-related Recessive Ciliopathy",
@@ -157715,7 +158124,10 @@ window.searchData = [
     ],
     "creation_date": "2026-06-12T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Rapidly progressing",
+      "Slowly progressing"
+    ],
     "description": "Maroteaux-Lamy syndrome, or mucopolysaccharidosis type VI (MPS VI), is an autosomal recessive lysosomal storage disorder caused by deficient activity of N-acetylgalactosamine-4-sulfatase (arylsulfatase B, ARSB). ARSB deficiency blocks lysosomal degradation of dermatan sulfate, leading to intracellular and extracellular accumulation of undegraded dermatan sulfate (with chondroitin-4-sulfate) in connective-tissue fibroblasts and the extracellular matrix of bone, cartilage, heart valve, cornea, and viscera. Because dermatan sulfate is the only stored glycosaminoglycan and heparan sulfate is not involved, MPS VI engages a purely somatic, connective-tissue arm and produces dysostosis multiplex, short stature, coarse facies, corneal clouding, cardiac valve disease, hepatosplenomegaly, airway obstruction, joint contractures, and carpal tunnel syndrome, while sparing primary central neurodegeneration and preserving intelligence. This preserved cognition distinguishes MPS VI from the heparan-sulfate-storing neuronopathic mucopolysaccharidoses. Enzyme replacement therapy with galsulfase (recombinant human ARSB, Naglazyme) is disease-modifying; hematopoietic stem cell transplantation and intensive multidisciplinary supportive care are also used.",
     "pathophysiology": [
       "ARSB deficiency",
@@ -166447,6 +166859,141 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 1,
     "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Mucopolysaccharidosis type X",
+    "disease_id": "MONDO:0030524",
+    "category": "Mendelian",
+    "parents": [
+      "Mucopolysaccharidosis",
+      "Lysosomal Storage Disorder"
+    ],
+    "creation_date": "2026-08-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mucopolysaccharidosis type X (MPS X, MPS 10) is an autosomal recessive lysosomal storage disorder caused by biallelic loss-of-function variants in ARSK, which encodes the lysosomal sulfatase arylsulfatase K (also called glucuronate 2-sulfatase, GDS). ARSK removes the 2-O-sulfate group from 2-sulfoglucuronate, an obligate step in the stepwise exolytic degradation of heparan sulfate, dermatan sulfate, and chondroitin sulfate. It is the most recently defined mucopolysaccharidosis: the human phenotype was first delineated in 2022, more than twenty years after the previous new MPS subtype. MPS X is the mildest and most narrowly skeletal of the mucopolysaccharidoses. Affected individuals present in mid-childhood with hip and knee pain, a waddling gait, and progressive hip dysplasia, and are typically first diagnosed with bilateral Legg-Calve-Perthes disease, spondyloepiphyseal dysplasia, or multiple epiphyseal dysplasia rather than with a storage disorder. Metaphyseal striation of the long bones is the most consistent radiographic clue. Coarse facial features, short stature, and mild cardiac and ophthalmological involvement are variable and emerge late; classical dysostosis multiplex, hepatosplenomegaly, hearing loss, and cognitive impairment are characteristically absent. The biochemical signal is correspondingly weak - routine dimethylmethylene blue urinary glycosaminoglycan screening is frequently normal, and only sensitive LC-MS/MS disaccharide quantification reveals the modest dermatan sulfate elevation. MPS X is therefore a mucopolysaccharidosis that the standard MPS diagnostic pathway systematically misses, and it is likely underdiagnosed among children carrying a skeletal-dysplasia label. No disease-modifying therapy exists; management is orthopaedic, analgesic, and surveillance-based.",
+    "pathophysiology": [
+      "ARSK glucuronate 2-sulfatase deficiency",
+      "Lysosomal accumulation of 2-O-sulfoglucuronate-capped GAG fragments",
+      "Chondro-osseous storage and epiphyseal-metaphyseal dysplasia",
+      "Cardiac valve storage involvement",
+      "Ocular connective-tissue involvement"
+    ],
+    "cell_types": [
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "glycosaminoglycan catabolic process",
+      "dermatan sulfate proteoglycan catabolic process",
+      "chondroitin sulfate proteoglycan catabolic process",
+      "heparan sulfate proteoglycan catabolic process",
+      "endochondral ossification"
+    ],
+    "phenotypes": [
+      "Arthralgia",
+      "Waddling gait",
+      "Hip dysplasia",
+      "Avascular necrosis of the capital femoral epiphysis",
+      "Metaphyseal striations",
+      "Platyspondyly",
+      "Anterior beaking of lower thoracic vertebrae",
+      "Delayed ossification of carpal bones",
+      "Small epiphyses",
+      "Thickened calvaria",
+      "Broad ribs",
+      "Hypoplastic iliac wing",
+      "Coarse facial features",
+      "Disproportionate short-trunk short stature",
+      "Genu valgum",
+      "Joint hypermobility",
+      "Enamel hypoplasia",
+      "Abnormal mitral valve morphology",
+      "Aortic valve stenosis",
+      "Abnormal lens morphology",
+      "Dysostosis Multiplex Absent",
+      "Hepatosplenomegaly Absent",
+      "Intellectual Disability Absent",
+      "Hearing Impairment Absent"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Skeletal",
+      "Craniofacial",
+      "Growth",
+      "Dental",
+      "Cardiovascular",
+      "Ophthalmologic",
+      "Gastrointestinal",
+      "Neurologic",
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002829",
+      "HP:0002515",
+      "HP:0001385",
+      "HP:0005743",
+      "HP:0031367",
+      "HP:0000926",
+      "HP:0004607",
+      "HP:0001216",
+      "HP:0010585",
+      "HP:0002684",
+      "HP:0000885",
+      "HP:0002866",
+      "HP:0000280",
+      "HP:0003521",
+      "HP:0002857",
+      "HP:0001382",
+      "HP:0006297",
+      "HP:0001633",
+      "HP:0001650",
+      "HP:0000517",
+      "HP:0000943",
+      "HP:0001433",
+      "HP:0001249",
+      "HP:0000365"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "EXCLUDED"
+    ],
+    "genes": [
+      "ARSK pathogenic variants"
+    ],
+    "treatments": [
+      "Supportive orthopaedic and analgesic care",
+      "Cardiac, ophthalmological and audiological surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urinary dermatan sulfate",
+      "Lysosomal enzyme activities for the established MPS subtypes"
+    ],
+    "source_file": "Mucopolysaccharidosis_type_X.yaml",
+    "page_url": "../pages/disorders/Mucopolysaccharidosis_type_X.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "4"
   },
   {
@@ -259377,17 +259924,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2515,
-  "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6074,
-  "total_unique_evidence_sources": 36043,
-  "total_unique_publications": 33911,
+  "total_disorder_pages": 2520,
+  "total_subtypes": 3565,
+  "total_disorders_and_subtypes": 6085,
+  "total_unique_evidence_sources": 36098,
+  "total_unique_publications": 33966,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2510,
-  "total_unique_pathological_events": 14633,
+  "total_pathographs": 2515,
+  "total_unique_pathological_events": 14664,
   "total_modules": 167,
-  "total_research_reports": 2637,
+  "total_research_reports": 2641,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
