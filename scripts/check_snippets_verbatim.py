@@ -7,7 +7,7 @@ call any model, does not fuzzy-match, and does not repair anything — it walks
 the YAML, finds every `snippet` that sits next to a `reference`, and asserts the
 snippet text appears in `references_cache/<REF>.md`.
 
-Unlike `just validate-references`, this reports a per-file PASS/FAIL and an
+Unlike `just validate-kb-references`, this reports a per-file PASS/FAIL and an
 explicit count of what it checked, so an empty result can never be mistaken for
 a clean one.
 

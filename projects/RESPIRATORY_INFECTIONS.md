@@ -257,7 +257,7 @@ thesis (broad-spectrum protection across viral families) and are prioritized acc
 3. Wire treatments to the appropriate drug-mechanism module(s) via
    `target_mechanisms` / `conforms_to` (see ANTIMICROBIAL / ANTIVIRAL /
    ANTIFUNGAL).
-4. Validate: `just validate <file>`, `just validate-references <file>`, `just validate-terms <file>`.
+4. Validate: `just validate <file>`, `just validate-kb-references <file>`, `just validate-terms <file>`.
 
 ### Intercept-aligned deepening track (core 4 already curated)
 

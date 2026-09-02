@@ -919,15 +919,32 @@ gen-priority-dashboard-all-mondo:
 sync-epic-checkboxes *args:
     uv run python scripts/sync_epic_checkboxes.py --kb-dir {{kb_dir}} {{args}}
 
-# Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
+# "kb" is in the name to keep this apart from the deep-research side (#8841):
+#   just validate-kb-references kb/disorders/Foo.yaml   # KB entry: snippet in cited paper?
+#   just validate-research-reference research/Foo-deep-research-falcon.md
+#                                                       # DR report: do its citations exist?
+# Both run linkml-reference-validator, but on different files asking different
+# questions, and a green run of one says nothing about the other -- see
+# docs/deep-research-reference-validation.md ("What this does not replace").
+# The deep-research-client subcommand the research recipes call is itself
+# named `validate-references`, which is the ambiguity the rename removes.
+#
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
 # Note: linkml-reference-validator's "Total checks: 0" counts *issues found*, not
 # checks performed (issue #7252) -- read the "Snippets checked: N/N verified"
 # line the wrapper appends for the affirmative count.
+# Note: slow (full-text download attempts); in the curation loop prefer
+# `just count-verified-snippets`, and before a PR `just validate-disorders`.
+#
+# Validate ONE KB entry's evidence snippets against the papers they cite (not a research report)
 [group('QC')]
-validate-references file:
+validate-kb-references file:
     @just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Former name of `validate-kb-references`, kept so the hundreds of history
+# records, KB notes, and older docs that name it keep resolving (#8841).
+alias validate-references := validate-kb-references
 
 # Count reference/snippet pairs and re-verify each against references_cache/,
 # without running the (network-touching) validator. Advisory only: it reports
@@ -1244,10 +1261,11 @@ check-empty-snippets:
 list-empty-snippets:
     uv run python scripts/check_empty_snippets.py --all
 
-# Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
+#
+# Validate ALL KB entries' evidence snippets against the papers they cite (whole-KB `validate-kb-references`)
 [group('QC')]
-validate-references-all:
+validate-kb-references-all:
     #!/usr/bin/env bash
     set -e
     if command -v rg >/dev/null 2>&1; then
@@ -1262,6 +1280,9 @@ validate-references-all:
     just fix-references-cache "${files[@]}"
     echo "Validating references in ${#files[@]} disorder files (batched)..."
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Former name of `validate-kb-references-all` (#8841).
+alias validate-references-all := validate-kb-references-all
 
 # Fix YAML quoting issues in references cache (workaround for upstream bug).
 # With data-file arguments, only normalize caches cited by those files. Omit
@@ -2251,7 +2272,13 @@ research-providers:
 # tree-wide run rewrites ~1400 committed files and re-resolves tens of thousands
 # of references against PubMed for reports nobody is reading today.
 #
-# Reference-check a deep-research report that already exists on disk.
+# Not to be confused with `just validate-kb-references <kb yaml>`, which checks
+# the evidence snippets *inside a KB entry* against the papers they cite. This
+# recipe checks whether a *report's* citations exist (and, where it quotes
+# them, whether the quotes hold up); it never sees the snippet a curator later
+# pastes into kb/. See docs/deep-research-reference-validation.md.
+#
+# Reference-check a deep-research report that already exists on disk (not a KB entry)
 [group('Research')]
 validate-research-reference +args:
     {{dr_client}} validate-references \
@@ -2316,6 +2343,22 @@ preflight-dr report mondo *args="":
 [group('Research')]
 research-status *args="":
     @uv run python scripts/deep_research_coverage.py status {{args}}
+
+# Tally the reference-validation results already written into research/
+# reports (the `reference_validation:` frontmatter that every research recipe
+# has emitted since deep-research-client 0.2.9, plus the body-only section a
+# retro-fitted `validate-research-reference` run leaves). Offline; reads the
+# reports, never the network. Answers "how are the DR providers doing on
+# citation hygiene?" (#8841) without re-resolving anything.
+# Examples:
+#   just dr-validation-census                       # summary + per-provider table
+#   just dr-validation-census --format tsv          # one row per validated report
+#   just dr-validation-census --needs-review        # list the reports flagged for a look
+#
+# Tally the reference-validation results recorded in research/ reports (offline)
+[group('Research')]
+dr-validation-census *args="":
+    uv run python scripts/dr_reference_validation_census.py {{args}}
 
 # Launch deep research for every disorder missing the requested provider.
 # Use provider slugs from deep-research-client, e.g. falcon or openscientist.

@@ -95,8 +95,11 @@ just qc
 # Validate a single file
 just validate kb/disorders/Asthma.yaml
 
-# Validate references against PubMed abstracts
-just validate-references kb/disorders/Asthma.yaml
+# Validate a KB entry's evidence snippets against the cited abstracts
+just validate-kb-references kb/disorders/Asthma.yaml
+
+# Check a deep-research report's citations (a different question -- see docs)
+just validate-research-reference research/Asthma-deep-research-falcon.md
 
 # Analyze compliance with recommended field coverage
 just compliance-all

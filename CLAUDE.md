@@ -77,8 +77,10 @@ just count-verified-snippets kb/disorders/Asthma.yaml
 # batched pass (slow — run once at the end, not per edit). This is what CI runs.
 just validate-disorders kb/disorders/Asthma.yaml kb/disorders/Cholera.yaml
 
-# Reference validation for a single file (also slow; permits full-text matches)
-just validate-references kb/disorders/Asthma.yaml
+# Reference validation for a single KB entry (also slow; permits full-text matches).
+# "kb" distinguishes it from `just validate-research-reference <report.md>`, which
+# checks a deep-research report's citations instead (#8841)
+just validate-kb-references kb/disorders/Asthma.yaml
 
 # List all available commands
 just --list
