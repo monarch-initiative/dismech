@@ -1,6 +1,6 @@
-# Proposal: how Bgee expression data should be integrated into dismech
+# Proposal: how Bgee and ASAP data should be integrated into dismech
 
-*Draft for review by the Bgee team and @cmungall. Prepared 2026-09-01. AI-assisted
+*Draft for review by the Bgee and ASAP/scFAIR teams and @cmungall. Prepared 2026-09-01, ASAP/scFAIR section added 2026-09-02. AI-assisted
 (Claude Code), with all API behaviour and KB statistics measured rather than
 estimated.*
 
@@ -27,6 +27,14 @@ supply that data, because it already computes cross-species anatomical homology.
 The main thing we need from the Bgee team is a read on **cell-type resolution**
 and on the **stability of the expression-comparison endpoint**. Details in
 [Questions for the Bgee team](#questions-for-the-bgee-team).
+
+We also looked at [ASAP](https://asap.epfl.ch/) and
+[scFAIR](https://sc-fair.org/) in the same pass, since they sit in the same
+Lausanne/SIB orbit and ASAP is cell-type-native. The short version: ASAP's
+**public** catalogue cannot help us today (120 projects, 3 carrying a disease
+term, 21 distinct CL terms), but **scFAIR's schema overlaps dismech's
+analysis-provenance model closely enough to be worth a conversation**. See
+[ASAP and scFAIR](#asap-and-scfair).
 
 ## What dismech is, briefly
 
@@ -400,6 +408,98 @@ what Bgee is for" early than build against a wrong assumption.
    itself, we would rather consume that than maintain a derived pipeline. We are
    proposing to build only because we could not find it.
 
+## ASAP and scFAIR
+
+The same Lausanne/SIB orbit hosts [ASAP](https://asap.epfl.ch/) (Automated
+Single-cell Analysis Portal, EPFL Deplancke lab + SIB) and the
+[scFAIR](https://sc-fair.org/) metadata-standardization consortium. We looked at
+both, because ASAP is cell-type-native and cell-type resolution is exactly where
+the Bgee check above hits its ceiling.
+
+### ASAP's public catalogue does not close that gap
+
+We pulled the full public catalogue (`GET https://asap.epfl.ch/api/projects`,
+11 MB) and measured it:
+
+| | |
+|---|---|
+| Public projects | **120** |
+| Organisms | *Drosophila* 55, human 32, mouse lemur 27, mouse 6 |
+| Projects with a disease term other than `PATO:0000461` "normal" | **3** (2 age-related macular degeneration, 1 cataract) |
+| Distinct **CL** terms across the whole catalogue | **21** |
+| Human projects carrying no cell-type annotation | 18 of 32 |
+| Experiment accessions | GEO Series 29, ArrayExpress 46 |
+
+Three consequences, all negative, and we would rather record them than
+manufacture a use case:
+
+- **Not a disease-dataset source for dismech.** Our `datasets:` records need
+  disease-relevant accessions; three disease projects does not move that.
+- **Does not fix the cell-type gap.** 21 distinct CL terms against dismech's 521.
+  Cell-type annotation in the catalogue is overwhelmingly FBbt (Fly Cell Atlas)
+  and Tabula Microcebus.
+- **The interesting surface is not exposed.** ASAP advertises ~14,000 bulk and
+  single-cell datasets importable from CELLxGENE, Bgee, EBI SC Atlas, HCA and
+  GEO. That federated index is the thing that *would* be useful for dataset
+  discovery, and `/external_catalog_candidates` returns HTTP 406 to JSON clients
+  with no API route.
+
+Note this is a statement about the **public API catalogue**, not about ASAP as a
+platform. We may simply be looking at the wrong surface.
+
+### What ASAP does expose that is interesting
+
+Each project carries a reproducibility triple — `reproducibility_script_url`,
+`reproducibility_instructions_url`, and a versioned `asap_data_db` dump — plus a
+`project_cell_set_key` content hash. That is a working implementation of what
+dismech's hypothesis-analysis `MANIFEST.yaml` regime is reaching for, and worth
+comparing notes on regardless of whether any data flows between us.
+
+There is also `GET /api/compliance/checks`, which looks up a previously-run
+**scFAIR** compliance check by file URL. It does not run one — that needs a
+`.h5ad` / `.loom` upload through the web UI.
+
+### scFAIR is the part with real overlap
+
+scFAIR's schema 7.1.0 includes a structured description of **computational
+analysis workflows**, which maps closely onto dismech's own analysis-provenance
+model. The two are complementary rather than redundant: scFAIR captures the
+happy path in more mechanical detail (container digests, conda environments,
+random seeds, resource usage), while dismech captures failure and
+unverifiability (execution status, auditability, whether a data source was
+actually accessed).
+
+We have written that comparison up separately, including what LinkML modeling
+would give each side, in
+[`docs/reports/scfair-dismech-schema-comparison-2026-09-02.md`](reports/scfair-dismech-schema-comparison-2026-09-02.md).
+It is a schema discussion rather than a data-integration one, so it is kept out
+of this proposal.
+
+### Questions for the ASAP / scFAIR team
+
+8. **Is the external catalogue queryable?** The ~14,000-dataset federated index
+   over CELLxGENE / Bgee / EBI SC Atlas / HCA / GEO is the surface we would
+   actually want for dataset discovery, and we could not reach it
+   programmatically. Is there an API, a dump, or a documented route?
+
+9. **Is there a disease-annotated subset we are missing?** The public catalogue
+   has three non-normal disease terms. If disease-annotated projects exist behind
+   authentication, or if disease annotation is expected to grow, that changes our
+   read considerably.
+
+10. **Can scFAIR compliance be checked programmatically?** `/api/compliance/checks`
+    looks up existing checks; is there a route to submit a file, or to run the
+    validator locally against `rules.yaml`? dismech has no validator for dataset
+    quality at all, and this is the one identifier class in our stack with no
+    resolution check.
+
+11. **Would a LinkML rendering of the scFAIR schema be welcome?** The analysis
+    JSON schema currently has no machine-readable form, so nothing validates it.
+    See the companion report for what this would involve and why we think it is
+    an offer rather than an imposition — but the prior question is whether
+    scFAIR wants a formal schema language at all, given that forking CELLxGENE
+    means inheriting its Markdown-spec convention.
+
 ## Questions for @cmungall / Monarch
 
 - **Route: direct or via Monarch KG?** Monarch KG already ingests Bgee. Should
@@ -426,6 +526,11 @@ building given where cell-type coverage and absent-call access actually stand
 (questions 1 and 4). The prototype exists and runs; we would rather adjust it now
 than after it has produced a worklist curators have started acting on.
 
+From the ASAP / scFAIR side we are mainly asking whether we are looking at the
+right surface (questions 8-10), and whether a schema conversation is wanted at
+all (question 11). Nothing there is blocked on an answer — it just determines
+whether we build anything.
+
 ## Appendix: reproducing the measurements
 
 ```bash
@@ -445,6 +550,22 @@ curl 'https://www.bgee.org/api/?page=species&action=species_list&display_type=js
 # The prototype
 uv run python scripts/bgee_model_fidelity.py --file kb/disorders/AHCY_Deficiency.yaml
 uv run python scripts/bgee_model_fidelity.py --all --findings-only --tsv /tmp/bgee_fidelity.tsv
+```
+
+ASAP:
+
+```bash
+# Full public project catalogue (~11 MB, 120 projects)
+curl -H 'Accept: application/json' 'https://asap.epfl.ch/api/projects'
+
+# One project
+curl -H 'Accept: application/json' 'https://asap.epfl.ch/api/projects/ASAP48'
+
+# OpenAPI spec (Swagger UI lives at /api-doc)
+curl 'https://asap.epfl.ch/api/openapi.yaml'
+
+# scFAIR validator rule config (the machine-readable form of schema 7.1.0)
+curl 'https://raw.githubusercontent.com/DeplanckeLab/asap_web/main/src/config/scfair/7.1.0/rules.yaml'
 ```
 
 ## References
