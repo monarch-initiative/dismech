@@ -18,6 +18,7 @@ year: '2012'
 doi: 10.1038/gim.2012.44
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The emerging phenotype of long-term survivors with infantile Pompe disease

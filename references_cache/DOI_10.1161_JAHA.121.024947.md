@@ -16,6 +16,7 @@ year: '2022'
 doi: 10.1161/JAHA.121.024947
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Sex‐Related Differences in Genetic Cardiomyopathies

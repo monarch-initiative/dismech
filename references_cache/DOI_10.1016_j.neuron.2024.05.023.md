@@ -26,6 +26,7 @@ year: '2024'
 doi: 10.1016/j.neuron.2024.05.023
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Therapeutic potential of human microglia transplantation in a chimeric model of CSF1R-related leukoencephalopathy

@@ -20,6 +20,7 @@ year: '2023'
 doi: 10.3390/jcm12175710
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Revisiting Diagnosis and Treatment of Hypertrophic Cardiomyopathy: Current Practice and Novel Perspectives

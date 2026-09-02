@@ -17,6 +17,7 @@ year: '2003'
 doi: 10.1023/A:1025159103257
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # CblE type of homocystinuria: Mild clinical phenotype in two patients homozygous for a novel mutation in the <i>MTRR</i> gene

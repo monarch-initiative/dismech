@@ -13,6 +13,7 @@ year: '2012'
 doi: 10.3325/cmj.2012.53.529
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # 18O-assisted dynamic metabolomics for individualized diagnostics and treatment of human diseases

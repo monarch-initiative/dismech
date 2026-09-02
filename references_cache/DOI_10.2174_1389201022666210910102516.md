@@ -11,6 +11,7 @@ year: '2022'
 doi: 10.2174/1389201022666210910102516
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Therapies for RYR1-Related Myopathies: Where We Stand and the Perspectives

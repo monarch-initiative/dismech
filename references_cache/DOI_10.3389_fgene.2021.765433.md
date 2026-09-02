@@ -15,6 +15,7 @@ year: '2021'
 doi: 10.3389/fgene.2021.765433
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic and Phenotypic Variability in Chinese Patients With Branchio-Oto-Renal or Branchio-Oto Syndrome

@@ -1,10 +1,11 @@
 ---
-reference_id: "DOI:10.46883/2023.25921002"
+reference_id: DOI:10.46883/2023.25921002
 title: Current Treatments in Mantle Cell Lymphoma
 journal: ONCOLOGY
 year: '2023'
 doi: 10.46883/2023.25921002
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Current Treatments in Mantle Cell Lymphoma

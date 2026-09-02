@@ -11,6 +11,7 @@ year: '2025'
 doi: 10.3390/biomedicines13092135
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Exploring the Cellular and Molecular Landscape of Idiopathic Pulmonary Fibrosis: Integrative Multi-Omics and Single-Cell Analysis

@@ -15,6 +15,7 @@ year: '2024'
 doi: 10.3390/ijms25179139
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutation Spectrum of GAA Gene in Pompe Disease: Current Knowledge and Results of an Italian Study

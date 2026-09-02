@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.3390/ijms25020906
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Glaucoma Animal Models beyond Chronic IOP Increase

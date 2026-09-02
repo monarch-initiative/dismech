@@ -13,6 +13,7 @@ year: '2025'
 doi: 10.3390/genes16010051
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Incidence and Impact of Myocarditis in Genetic Cardiomyopathies: Inflammation as a Potential Therapeutic Target

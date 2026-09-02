@@ -23,6 +23,7 @@ year: '2021'
 doi: 10.3390/metabo11090564
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Identification of a Variant in APOB Gene as a Major Cause of Hypobetalipoproteinemia in Lebanese Families

@@ -9,6 +9,7 @@ year: '2019'
 doi: 10.1111/imj.14215
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The use of biologic agents in the management of uveitis

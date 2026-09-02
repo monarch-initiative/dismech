@@ -24,6 +24,7 @@ year: '2023'
 doi: 10.3390/diagnostics13132284
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Marfan Syndrome: Enhanced Diagnostic Tools and Follow-up Management Strategies

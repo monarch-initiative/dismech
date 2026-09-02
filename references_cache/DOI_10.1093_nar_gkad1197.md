@@ -18,6 +18,7 @@ year: '2024'
 doi: 10.1093/nar/gkad1197
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathological mutations promote proteolysis of mitochondrial tRNA-specific 2-thiouridylase 1 (MTU1) via mitochondrial caseinolytic peptidase (CLPP)

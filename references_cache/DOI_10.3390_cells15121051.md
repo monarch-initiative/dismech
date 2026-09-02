@@ -13,6 +13,7 @@ year: '2026'
 doi: 10.3390/cells15121051
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Lamin Proteins in Nuclear Structure, Functions, and Laminopathies

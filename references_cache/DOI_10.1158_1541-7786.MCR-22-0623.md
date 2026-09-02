@@ -25,6 +25,7 @@ year: '2023'
 doi: 10.1158/1541-7786.MCR-22-0623
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Comparative Tumor Microenvironment Analysis of Primary and Recurrent Ovarian Granulosa Cell Tumors

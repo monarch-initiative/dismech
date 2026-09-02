@@ -21,6 +21,7 @@ year: '2023'
 doi: 10.1093/hmg/ddad094
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A non-coding insertional mutation of<i>Grhl2</i>causes gene over-expression and multiple structural anomalies including cleft palate, spina bifida and encephalocele

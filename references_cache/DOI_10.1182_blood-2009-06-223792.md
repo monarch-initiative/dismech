@@ -21,6 +21,7 @@ year: '2010'
 doi: 10.1182/blood-2009-06-223792
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hereditary fibrinogen A α-chain amyloidosis: phenotypic characterization of a systemic disease and the role of liver transplantation

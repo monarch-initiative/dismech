@@ -12,6 +12,7 @@ year: '2023'
 doi: 10.3389/fnins.2023.1274837
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Electroencephalogram measured functional connectivity for delirium detection: a systematic review

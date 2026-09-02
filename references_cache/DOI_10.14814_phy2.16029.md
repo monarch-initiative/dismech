@@ -15,6 +15,7 @@ year: '2024'
 doi: 10.14814/phy2.16029
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Electrophysiological phenotyping of left ventricular noncompaction cardiomyopathy in pediatric populations: A systematic review

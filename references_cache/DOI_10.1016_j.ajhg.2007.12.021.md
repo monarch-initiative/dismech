@@ -14,6 +14,7 @@ year: '2008'
 doi: 10.1016/j.ajhg.2007.12.021
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Human RFT1 Deficiency Leads to a Disorder of N-Linked Glycosylation

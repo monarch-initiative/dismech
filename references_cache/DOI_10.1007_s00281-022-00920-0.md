@@ -12,6 +12,7 @@ year: '2022'
 doi: 10.1007/s00281-022-00920-0
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mechanisms of vascular damage in ANCA vasculitis

@@ -37,6 +37,7 @@ year: '2019'
 doi: 10.1038/s41588-019-0372-4
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biallelic expansion of an intronic repeat in RFC1 is a common cause of late-onset ataxia

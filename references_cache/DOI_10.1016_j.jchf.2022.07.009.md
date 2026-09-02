@@ -18,6 +18,7 @@ year: '2022'
 doi: 10.1016/j.jchf.2022.07.009
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Family Screening in Dilated Cardiomyopathy

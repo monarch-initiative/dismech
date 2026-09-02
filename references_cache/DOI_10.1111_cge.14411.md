@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1111/cge.14411
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A deep intronic <scp><i>DLG4</i></scp> variant resulting in <scp><i>DLG4</i></scp>‐related synaptopathy

@@ -27,6 +27,7 @@ year: '2025'
 doi: 10.1097/ms9.0000000000002969
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic factors and management strategies in aortic health: a literature review of inherited aortopathy

@@ -12,6 +12,7 @@ year: '2023'
 doi: 10.3390/ph16081172
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pharmaceutical Approaches to Normal Tension Glaucoma

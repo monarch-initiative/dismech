@@ -12,6 +12,7 @@ year: '2021'
 doi: 10.1016/j.hest.2020.10.005
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The role of mural cells in hemorrhage of brain arteriovenous malformation

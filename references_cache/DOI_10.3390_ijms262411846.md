@@ -10,6 +10,7 @@ year: '2025'
 doi: 10.3390/ijms262411846
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic Determinants of Progressive Pulmonary Fibrosis: A Comprehensive Review

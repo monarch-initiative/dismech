@@ -44,6 +44,7 @@ year: '2019'
 doi: 10.1210/js.2018-00130
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Predicted Benign and Synonymous Variants in CYP11A1 Cause Primary Adrenal Insufficiency Through Missplicing

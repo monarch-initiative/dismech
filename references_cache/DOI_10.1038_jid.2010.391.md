@@ -16,6 +16,7 @@ year: '2011'
 doi: 10.1038/jid.2010.391
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Nude Mutant Gene Foxn1 Is a HOXC13 Regulatory Target during Hair Follicle and Nail Differentiation

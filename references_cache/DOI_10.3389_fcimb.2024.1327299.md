@@ -18,6 +18,7 @@ year: '2024'
 doi: 10.3389/fcimb.2024.1327299
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The Aspergillus fumigatus maiA gene contributes to cell wall homeostasis and fungal virulence

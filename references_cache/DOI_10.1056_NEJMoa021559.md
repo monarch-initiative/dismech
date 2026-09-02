@@ -15,6 +15,7 @@ year: '2003'
 doi: 10.1056/NEJMoa021559
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Estrogen Excess Associated with Novel Gain-of-Function Mutations Affecting the Aromatase Gene

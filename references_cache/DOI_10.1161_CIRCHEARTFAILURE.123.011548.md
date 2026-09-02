@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1161/CIRCHEARTFAILURE.123.011548
-title: "REALM-DCM: A Phase 3, Multinational, Randomized, Placebo-Controlled Trial of ARRY-371797 in Patients With Symptomatic
-            <i>LMNA</i>
-            -Related Dilated Cardiomyopathy"
+title: "REALM-DCM: A Phase 3, Multinational, Randomized, Placebo-Controlled Trial of ARRY-371797 in Patients With Symptomatic <i>LMNA</i> -Related Dilated Cardiomyopathy"
 authors:
 - Pablo Garcia-Pavia
 - Jose Fernando Rodriguez Palomares
@@ -84,11 +82,10 @@ year: '2024'
 doi: 10.1161/CIRCHEARTFAILURE.123.011548
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# REALM-DCM: A Phase 3, Multinational, Randomized, Placebo-Controlled Trial of ARRY-371797 in Patients With Symptomatic
-            <i>LMNA</i>
-            -Related Dilated Cardiomyopathy
+# REALM-DCM: A Phase 3, Multinational, Randomized, Placebo-Controlled Trial of ARRY-371797 in Patients With Symptomatic <i>LMNA</i> -Related Dilated Cardiomyopathy
 **Authors:** Pablo Garcia-Pavia, Jose Fernando Rodriguez Palomares, Gianfranco Sinagra, Roberto Barriales-Villa, Neal K. Lakdawala, Robert L. Gottlieb, Randal I. Goldberg, Perry Elliott, Patrice Lee, Huihua Li, Franca S. Angeli, Daniel P. Judge, Calum A. MacRae, Tomas V. Ripoll Vera, Thomas V. McDonald, Juan Carlos Castillo Dominguez, Stuart D. Katz, Stephen Pan, Juan R. Gimeno Blanes, Dinesh K. Gupta, Matthew R.G. Taylor, Cinzia Forleo, Kia Afshar, Matthew T. Wheeler, Silvia G. Priori, Marc Vanderheyden, Iacopo Olivotto, Jose A. Tallaj, Johan Van Cleemput, Ana Garcia Alvarez, April C. Stempien-Otero, Victor Alfonso Jimenez Diaz, Maria Beatrice Musumeci, James Ware, Anjali T. Owens, Julia Cadrin-Tourigny, W. H. Wilson Tang, Gregory A. Ewald, Vito Maurizio Parato, Alonzo E. Jones, Giuseppe Ambrosio, Cristian E. Botta, Kristina H. Haugaa, Kjell Andersen, Alejandro R. Hershson, Nabil M. Dib, Horacio A. Avaca, Serge Lepage, Jeffrey Martindale, Miguel E. Trevino, David A. Hinchman, Juan Loureyro, Frank A. McGrew, Saurabh Kapoor, Michael A. Burke, Joshua Williams, Armando Garcia Castillo, Farhana Latif, John LeDoux, Yigal Pinto, Eloisa Arbustini, Caroline Coats, Pierpaolo Pellicori, Ray Hershberger, John Moses, Martin Gardner, Michael C. Hartleib, Mustafa Toma, Darryl Davis, Mark Hofmeyer, Farooq Sheikh, Marc Klapholz, Marco Metra, Eliud Samuel Montes Cruz, J R. Pineda
 **Journal:** Circulation: Heart Failure (2024)
 **DOI:** [10.1161/CIRCHEARTFAILURE.123.011548](https://doi.org/10.1161/CIRCHEARTFAILURE.123.011548)

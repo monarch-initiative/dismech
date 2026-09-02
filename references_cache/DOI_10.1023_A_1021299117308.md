@@ -13,6 +13,7 @@ year: '2002'
 doi: 10.1023/A:1021299117308
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # CblE type of homocystinuria due to methionine synthase reductase deficiency: Clinical and molecular studies and prenatal diagnosis in two families

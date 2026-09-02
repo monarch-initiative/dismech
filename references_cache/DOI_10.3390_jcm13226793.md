@@ -28,6 +28,7 @@ year: '2024'
 doi: 10.3390/jcm13226793
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Diagnosis and Treatment of Renal ANCA Vasculitis: A Summary of the Consensus Document of the Catalan Group for the Study of Glomerular Diseases (GLOMCAT)

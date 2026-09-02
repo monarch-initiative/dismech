@@ -9,6 +9,7 @@ year: '2014'
 doi: 10.1159/000363107
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel Insight into Etiology, Diagnosis and Management of Primary Adrenal Insufficiency

@@ -17,6 +17,7 @@ year: '2024'
 doi: 10.3390/ijms25189975
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # New Insights into Mitochondria in Health and Diseases

@@ -45,6 +45,7 @@ year: '2017'
 doi: 10.1093/eurheartj/ehx545
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical genetics and outcome of left ventricular non-compaction cardiomyopathy

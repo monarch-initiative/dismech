@@ -10,6 +10,7 @@ year: '2007'
 doi: 10.1002/dvdy.21026
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Loss of Fgfr3 leads to excess hair cell development in the mouse organ of Corti

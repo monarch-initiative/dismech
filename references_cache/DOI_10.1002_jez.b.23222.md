@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1002/jez.b.23222
-title: "Using
-                    <i>Xenopu</i>
-                    s to discover new candidate genes involved in BOR and other congenital hearing loss syndromes"
+title: "Using <i>Xenopu</i> s to discover new candidate genes involved in BOR and other congenital hearing loss syndromes"
 authors:
 - Scott J. Neal
 - Anindita Rajasekaran
@@ -17,11 +15,10 @@ year: '2024'
 doi: 10.1002/jez.b.23222
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Using
-                    <i>Xenopu</i>
-                    s to discover new candidate genes involved in BOR and other congenital hearing loss syndromes
+# Using <i>Xenopu</i> s to discover new candidate genes involved in BOR and other congenital hearing loss syndromes
 **Authors:** Scott J. Neal, Anindita Rajasekaran, Nisveta Jusić, Louis Taylor, Mai Read, Dominique Alfandari, Francesca Pignoni, Sally A. Moody
 **Journal:** Journal of Experimental Zoology Part B: Molecular and Developmental Evolution (2024)
 **DOI:** [10.1002/jez.b.23222](https://doi.org/10.1002/jez.b.23222)

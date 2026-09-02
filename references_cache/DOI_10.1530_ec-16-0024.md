@@ -11,6 +11,7 @@ year: '2016'
 doi: 10.1530/ec-16-0024
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Growth hormone deficiency during young adulthood and the benefits of growth hormone replacement

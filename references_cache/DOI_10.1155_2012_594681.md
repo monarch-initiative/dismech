@@ -9,6 +9,7 @@ year: '2012'
 doi: 10.1155/2012/594681
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Nasopharyngeal Carcinoma Signaling Pathway: An Update on Molecular Biomarkers

@@ -2,6 +2,7 @@
 reference_id: GEO:GSE33940
 title: Gene expression in the mitochondrial syndrome of coenzyme Q deficiency
 content_type: summary
+full_text_attempted: true
 ---
 
 # Gene expression in the mitochondrial syndrome of coenzyme Q deficiency

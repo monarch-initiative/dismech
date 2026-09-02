@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1073/pnas.2011078117
-title: "Mammalian-specific ectodermal enhancers control the expression of
-                    <i>Hoxc</i>
-                    genes in developing nails and hair follicles"
+title: "Mammalian-specific ectodermal enhancers control the expression of <i>Hoxc</i> genes in developing nails and hair follicles"
 authors:
 - Marc Fernandez-Guerrero
 - Nayuta Yakushiji-Kaminatsui
@@ -19,11 +17,10 @@ year: '2020'
 doi: 10.1073/pnas.2011078117
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Mammalian-specific ectodermal enhancers control the expression of
-                    <i>Hoxc</i>
-                    genes in developing nails and hair follicles
+# Mammalian-specific ectodermal enhancers control the expression of <i>Hoxc</i> genes in developing nails and hair follicles
 **Authors:** Marc Fernandez-Guerrero, Nayuta Yakushiji-Kaminatsui, Lucille Lopez-Delisle, Sofía Zdral, Fabrice Darbellay, Rocío Perez-Gomez, Christopher Chase Bolt, Manuel A. Sanchez-Martin, Denis Duboule, Marian A. Ros
 **Journal:** Proceedings of the National Academy of Sciences (2020)
 **DOI:** [10.1073/pnas.2011078117](https://doi.org/10.1073/pnas.2011078117)

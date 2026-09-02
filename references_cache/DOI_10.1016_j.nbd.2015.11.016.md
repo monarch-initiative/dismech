@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.nbd.2015.11.016"
+reference_id: DOI:10.1016/j.nbd.2015.11.016
 title: "A mutation in the Warburg syndrome gene, RAB3GAP1, causes a similar syndrome with polyneuropathy and neuronal vacuolation in Black Russian Terrier dogs"
 authors:
 - Tendai Mhlanga-Mutangadura
@@ -18,6 +18,7 @@ journal: Neurobiology of Disease
 year: '2016'
 doi: 10.1016/j.nbd.2015.11.016
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A mutation in the Warburg syndrome gene, RAB3GAP1, causes a similar syndrome with polyneuropathy and neuronal vacuolation in Black Russian Terrier dogs

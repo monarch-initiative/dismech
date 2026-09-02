@@ -12,6 +12,7 @@ year: '2025'
 doi: 10.3390/pathophysiology32010009
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial Dysfunction in Diabetes: Shedding Light on a Widespread Oversight

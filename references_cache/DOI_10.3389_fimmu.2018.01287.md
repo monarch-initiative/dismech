@@ -9,6 +9,7 @@ year: '2018'
 doi: 10.3389/fimmu.2018.01287
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Altered Functions and Interactions of Glaucoma-Associated Mutants of Optineurin

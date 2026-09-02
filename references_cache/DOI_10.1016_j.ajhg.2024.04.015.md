@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1016/j.ajhg.2024.04.015
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Therapeutic validation of MMR-associated genetic modifiers in a human ex vivo model of Huntington disease

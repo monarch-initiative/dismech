@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.1177/20499361241253751
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Chronic pulmonary aspergillosis: comprehensive insights into epidemiology, treatment, and unresolved challenges

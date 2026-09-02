@@ -13,6 +13,7 @@ year: '2023'
 doi: 10.1002/hbm.26513
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Somatotopic disruption of the functional connectivity of the primary sensorimotor cortex in complex regional pain syndrome type 1

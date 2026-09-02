@@ -21,6 +21,7 @@ year: '2021'
 doi: 10.3390/ijms22010411
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical Impact of Inherited and Acquired Genetic Variants in Mastocytosis

@@ -16,6 +16,7 @@ year: '2015'
 doi: 10.1073/pnas.1517045112
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # PSD-95 family MAGUKs are essential for anchoring AMPA and NMDA receptor complexes at the postsynaptic density

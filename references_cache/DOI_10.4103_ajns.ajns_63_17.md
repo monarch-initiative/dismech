@@ -14,6 +14,7 @@ year: '2018'
 doi: 10.4103/ajns.ajns_63_17
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Controlled trial to compare therapeutic efficacy of endoscopic third ventriculostomy plus choroid plexus cauterization with ventriculoperitoneal shunt in infants with obstructive hydrocephalus
