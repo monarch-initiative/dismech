@@ -2125,7 +2125,7 @@ def test_dataset_accession_prefix_and_shape(filepath):
 # PRs still carry edits to it; deleting it now would conflict with all of them.
 # Nothing may read or write it: dataset verification moved to per-record files
 # under references_cache/, which two PRs can add to without colliding.
-FROZEN_DATASET_CACHE = "cache/dataset_accessions" + ".json"
+FROZEN_DATASET_CACHE = "cache/dataset_accessions.json"
 
 
 def test_no_automation_touches_the_frozen_dataset_cache():
@@ -2157,6 +2157,9 @@ def test_no_automation_touches_the_frozen_dataset_cache():
     ]
     offenders = []
     for path in scanned:
+        # This file names the path in FROZEN_DATASET_CACHE, so it must exclude
+        # itself; that exclusion is the only guard, which is why the constant
+        # above is a plain literal rather than a concatenation.
         if not path.is_file() or path.resolve() == Path(__file__).resolve():
             continue
         try:
