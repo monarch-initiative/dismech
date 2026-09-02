@@ -116,7 +116,8 @@ stalled bot-authored PRs and deterministically merges ready PRs, including weekl
 compliance PRs, through one common closing controller).
 
 **Interactive agents** — `claude.yml` and `dragon-ai.yml` respond to `@`-mentions
-on issues, PRs, and review comments. `claude-issue-triage` and
+on issues, PRs, and review comments (`dragon-ai.yml` is summoned as `@ai4c-agent`;
+the file keeps its old name). `claude-issue-triage` and
 `claude-issue-summarize` process new issues.
 
 **Derived artifacts** — `generate-pages`, `generate-grouping-pages`,
@@ -481,7 +482,7 @@ listens for assignment:
 | Agent | Trigger | Who may fire it |
 |---|---|---|
 | `claude.yml` | `@claude` in the issue body/title, or in an issue/PR/review comment | Author of the issue or comment must be `OWNER`/`MEMBER`/`COLLABORATOR` |
-| `dragon-ai.yml` | `@dragon-ai-agent please …` as ordinary prose — ignored inside code spans and fenced blocks, so documenting the keyword doesn't fire it | Must be listed in [`.github/ai-controllers.json`](https://github.com/monarch-initiative/dismech/blob/main/.github/ai-controllers.json) |
+| `dragon-ai.yml` | `@ai4c-agent please …` as ordinary prose, or the legacy `@dragon-ai-agent please …` — ignored inside code spans and fenced blocks, so documenting the keyword doesn't fire it. Both are text keywords, not accounts: the agent runs as the ai4c-agent GitHub App, which cannot be @-mentioned. The handles live in [`.github/scripts/agent-mention.js`](https://github.com/monarch-initiative/dismech/blob/main/.github/scripts/agent-mention.js), shared with the comment trust gate | Must be listed in [`.github/ai-controllers.json`](https://github.com/monarch-initiative/dismech/blob/main/.github/ai-controllers.json) |
 
 `dragon-ai.yml` once supported assignment dispatch and **dropped it** — its header
 records the retirement of the machine account and of the programmatic assigner
