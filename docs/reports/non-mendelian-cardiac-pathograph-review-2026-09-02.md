@@ -35,10 +35,16 @@ missing or unbound:
   (hypertrophic cardiomyopathy, dilated cardiomyopathy, Brugada syndrome, short QT
   syndrome, left ventricular noncompaction).
 - **Six carry free text with no HPO term bound**, which `CLAUDE.md` already names as the
-  common gap. Two of those are explicit non-Mendelian assertions that should bind
-  `HP:0001426` (multifactorial) or `HP:0003745` (sporadic): `Cardiac_Sarcoidosis`
+  common gap. Two of those are explicit non-Mendelian assertions: `Cardiac_Sarcoidosis`
   ("Multifactorial susceptibility") and `Double_Outlet_Right_Ventricle` ("Multifactorial
   and sporadic").
+
+  Note that HPO has **no "Multifactorial inheritance" term**. `HP:0001426`, which carried
+  that label historically, is now **"Non-Mendelian inheritance"**, and the 23-member
+  `InheritanceTerm` enum contains no multifactorial concept at all. The nearest available
+  terms are `HP:0001426` (Non-Mendelian inheritance), `HP:0010982` (Polygenic
+  inheritance) and `HP:0003745` (Sporadic). A curator reaching for "multifactorial" will
+  not find it, which is a plausible reason these two blocks were left as free text.
 
 ## Method
 
