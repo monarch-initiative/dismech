@@ -83815,6 +83815,71 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Drug-Induced Methemoglobinemia",
+    "disease_id": "MONDO:0018740",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-09-02T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Haemoglobin iron is oxidised all the time. Ferrous haem sits in high oxygen and slowly gives up an electron, and the red cell reduces it back so efficiently that almost none of the oxidised form is ever present. Drug-induced methemoglobinemia is that balance losing on the production side. An oxidant drug or chemical raises the rate of formation past what an intact reductase can recover, and ferric haem accumulates. Ferric haem does not carry oxygen, so carrying capacity falls in proportion to the fraction converted.\n\nThe entry is curated as a phenocopy. Hereditary methemoglobinemia reaches the same accumulated ferric haem by losing the reductase, and this disease reaches it by outrunning one that works. The measurement at the bedside is identical: cyanosis that oxygen does not fix, a pulse oximeter that cannot be trusted, and a normal arterial oxygen tension beside it. What separates them is the exposure and the fact that this one ends when the exposure does.",
+    "pathophysiology": [
+      "Baseline Haemoglobin Autoxidation",
+      "NADH-Cytochrome b5 Reductase Recovery Capacity",
+      "Systemic Oxidant Exposure",
+      "Biotransformation to an Oxidising Intermediate",
+      "Direct Oxidation of Ferrous Haem",
+      "Co-Oxidation of Ferrous Haem",
+      "Methemoglobin Accumulation",
+      "Reduced Oxygen Transport Reserve",
+      "Impaired Oxygen Delivery"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Cyanosis",
+      "Hemolytic anemia",
+      "Metabolic acidosis",
+      "Dyspnea"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000961",
+      "HP:0001878",
+      "HP:0001942",
+      "HP:0002094"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Methylene blue",
+      "Methylene blue failure in G6PD deficiency",
+      "Exposure removal, decontamination and high-flow oxygen",
+      "Ascorbic acid, N-acetylcysteine and tocopherol"
+    ],
+    "environmental": [
+      "Oxidant drug or chemical exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Drug-Induced_Methemoglobinemia.yaml",
+    "page_url": "../pages/disorders/Drug-Induced_Methemoglobinemia.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Drug- or Toxin-Induced Pulmonary Arterial Hypertension",
     "disease_id": "MONDO:0017149",
     "category": "Environmental",
@@ -135962,6 +136027,94 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Isoniazid Toxicity",
+    "disease_id": "MONDO:0027677",
+    "category": "Complex",
+    "parents": [
+      "Drug Toxicity"
+    ],
+    "creation_date": "2026-09-02T03:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Isoniazid toxicity is two different problems wearing one drug's name, and the difference is a matter of direction. The hepatic arm is about what the liver does to isoniazid: it bioactivates the drug to something reactive, and how much it makes depends on the patient's NAT2 acetylator genotype. The neurological arms are about what isoniazid does to vitamin B6. Isoniazid is a hydrazide, it reacts with pyridoxal, and the resulting functional B6 deficiency starves any enzyme that needs pyridoxal 5-phosphate. Given slowly, over months of treatment, that presents as a peripheral neuropathy - the nerve is deprived rather than poisoned. Given all at once in overdose, GABA synthesis fails for want of the same cofactor, and the patient seizes in a way ordinary anticonvulsants do not fix. The antidote is the missing vitamin, matched gram for gram to the dose swallowed.",
+    "pathophysiology": [
+      "Hepatic Bioactivation of Isoniazid",
+      "NAT2 Slow Acetylator Genotype",
+      "Hepatocyte Injury and Death",
+      "Immune-Mediated Amplification of Hepatic Injury",
+      "Isoniazid-Induced Liver Injury",
+      "Functional Pyridoxine Deficiency",
+      "Peripheral Nerve Deprivation of Pyridoxal Phosphate",
+      "Isoniazid-Induced Peripheral Neuropathy",
+      "Impaired GABA Synthesis",
+      "Isoniazid Overdose Seizures",
+      "Lactic Acidosis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Elevated circulating hepatic transaminase concentration",
+      "Decreased liver function",
+      "Peripheral neuropathy",
+      "Seizure",
+      "Metabolic acidosis",
+      "Coma",
+      "Vomiting",
+      "Nausea",
+      "Ataxia",
+      "Jaundice"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002910",
+      "HP:0001410",
+      "HP:0009830",
+      "HP:0001250",
+      "HP:0001942",
+      "HP:0001259",
+      "HP:0002013",
+      "HP:0002018",
+      "HP:0001251",
+      "HP:0000952"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NAT2",
+      "CYP2E1",
+      "GSTM1",
+      "GSTT1",
+      "HLA-B"
+    ],
+    "treatments": [
+      "NAT2 genotype-guided isoniazid dosing",
+      "Pyridoxine as antidote in acute overdose",
+      "Pyridoxine prophylaxis during treatment",
+      "Interruption of therapy on biochemical thresholds",
+      "Intensive supportive care in overdose"
+    ],
+    "environmental": [
+      "Rifampicin co-administration",
+      "Chronic alcohol consumption and pre-existing liver disease",
+      "Isoniazid exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Isoniazid_Toxicity.yaml",
+    "page_url": "../pages/disorders/Isoniazid_Toxicity.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 11,
+    "num_genes": 5,
+    "num_treatments": 5,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Isovaleric Acidemia",
     "disease_id": "MONDO:0009475",
     "category": "Mendelian",
@@ -145427,7 +145580,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "33",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "6"
   },
   {
@@ -232125,6 +232278,128 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Spinocerebellar Ataxia, Autosomal Recessive 32",
+    "disease_id": "MONDO:0859245",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Cerebellar Ataxia"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spinocerebellar ataxia, autosomal recessive 32 (SCAR32), also called PRDX3-associated neurodegeneration (PRAN), is the recessive cerebellar ataxia caused by biallelic loss-of-function variants in PRDX3. Peroxiredoxin 3 is the one member of the six-isoform human peroxiredoxin family that is restricted to mitochondria, where it is the thioredoxin-dependent peroxidase that clears the hydrogen peroxide generated by the respiratory chain. SCAR32 is therefore an ataxia of failed mitochondrial redox buffering rather than of a structural, channel, repeat-expansion or DNA-repair lesion, and it sits alongside TXN2 deficiency as one of two ultra-rare diseases of the mitochondrial thioredoxin system.\nThe entity was defined in 2021 from five unrelated families in the PREPARE recessive-ataxia network. The core picture is a slowly progressive cerebellar syndrome \u2014 gait then limb ataxia, cerebellar dysarthria, nystagmus and dysmetria \u2014 with cerebellar atrophy that is present in every reported patient, frequently disproportionate to the clinical severity, and often accompanied by T2 hyperintensity of the dentate nuclei, cerebellar cortex, middle cerebellar peduncles and posterior pons. Olivary and brainstem degeneration is reported in part of the cohort.\nWhat is distinctive, and unexplained, is the range of onset. It was described in 2023 as birth to 35 years on the cases then published; a Korean report the same year, counting nine patients, put it at infantile onset to 55 years. Either way it spans both nonsense and missense alleles across a literature of roughly twenty patients, with no genotype-phenotype rule established. A second descriptive pattern proposed from the same report is a caudal-to-rostral spatial spread of the disease. The severe infantile end adds early peripheral neuropathy and rapid cerebellar volume loss; the adult end can be a nearly pure, slowly progressive cerebellar syndrome with independent ambulation preserved a decade after onset. Non-cerebellar features reported in individual patients \u2014 profound hearing impairment, dystonia, hypogonadotropic hormonal dysfunction, thyroid autoimmunity, intellectual disability \u2014 are each single-patient or few-patient observations and are curated here without frequency bands for that reason.\nEvery PRDX3 allele characterised so far behaves as loss of function: the mutant protein is absent from patient fibroblasts, glutathione peroxidase activity and maximal mitochondrial respiratory capacity fall, and PRDX5 is co-reduced. One allele, p.Asp163Glu, adds a second mechanism on top of simple enzyme loss \u2014 an unstable protein that aggregates and triggers both the mitochondrial and the endoplasmic-reticulum unfolded protein responses \u2014 which is the current best candidate explanation for why that patient's disease began in infancy.\nA point this entry is deliberate about: no neuropathological study of a SCAR32 patient has been published, and the word Purkinje does not appear anywhere in the PRDX3 ataxia literature. The degeneration is therefore curated at the cerebellar-cortex level that imaging actually supports, and conformance to the `cerebellar_purkinje_degeneration` module is NOT declared. See the open discussion.",
+    "pathophysiology": [
+      "PRDX3 Loss of Function",
+      "Mitochondrial Hydrogen Peroxide Accumulation",
+      "Misfolded PRDX3 Aggregation and Unfolded Protein Response",
+      "Mitochondrial Respiratory Impairment",
+      "Cerebellar Neuronal Oxidative Injury",
+      "Cerebellar Cortical Degeneration"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "hydrogen peroxide catabolic process",
+      "cell redox homeostasis",
+      "mitochondrial unfolded protein response",
+      "endoplasmic reticulum unfolded protein response",
+      "cellular respiration",
+      "cellular response to reactive oxygen species",
+      "neuron apoptotic process"
+    ],
+    "phenotypes": [
+      "Progressive cerebellar ataxia",
+      "Gait ataxia",
+      "Cerebellar atrophy",
+      "Abnormal dentate nucleus signal",
+      "Peripheral neuropathy",
+      "Nystagmus",
+      "Dysarthria",
+      "Dysmetria",
+      "Dysphagia",
+      "Saccadic smooth pursuit interruptions",
+      "Tremor",
+      "Abnormal saccadic eye movements",
+      "Ophthalmoplegia",
+      "Hypokinesia",
+      "Global developmental delay",
+      "Hypotonia",
+      "Dystonia",
+      "Profound hearing impairment",
+      "Intellectual disability",
+      "Anti-thyroid peroxidase antibody positivity",
+      "Goiter",
+      "Hypogonadotropic hypogonadism"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Eye",
+      "Digestive",
+      "Ear",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002073",
+      "HP:0002066",
+      "HP:0001272",
+      "HP:0100321",
+      "HP:0009830",
+      "HP:0000639",
+      "HP:0001260",
+      "HP:0001310",
+      "HP:0002015",
+      "HP:0001152",
+      "HP:0001337",
+      "HP:0000570",
+      "HP:0000602",
+      "HP:0002375",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001332",
+      "HP:0000365",
+      "HP:0001249",
+      "HP:0025379",
+      "HP:0000853",
+      "HP:0000044"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "PRDX3"
+    ],
+    "treatments": [
+      "Physiotherapy and gait/balance training",
+      "Speech and language therapy",
+      "Genetic counselling",
+      "Human chorionic gonadotropin replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spinocerebellar_Ataxia_Autosomal_Recessive_32.yaml",
+    "page_url": "../pages/disorders/Spinocerebellar_Ataxia,_Autosomal_Recessive_32.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Spinocerebellar Ataxia Type 15/16",
     "disease_id": "MONDO:0011694",
     "category": "Mendelian",
@@ -234507,7 +234782,7 @@ window.searchData = [
     "creation_date": "2026-08-15T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Staphylococcal scalded skin syndrome (SSSS) is an acute, superficial blistering disease in which the pathology is produced entirely at a distance from the organism. Toxigenic strains of Staphylococcus aureus colonizing an occult site such as the nasopharynx, conjunctiva, umbilicus, or perineum secrete exfoliative toxins (ETA, ETB, ETD), glutamate-specific serine proteases that circulate hematogenously while the bacterium itself stays put. The toxins hydrolyze a single peptide bond in desmoglein 1, a desmosomal cadherin whose adhesive role is unshared in the superficial epidermis, causing keratinocytes to separate at the stratum granulosum. The result is tender erythroderma, flaccid sterile bullae, a positive Nikolsky sign, and sheet-like exfoliation with a scalded appearance, characteristically sparing mucous membranes. Because the split is intraepidermal and the dermis is untouched, healing is scarless. Disease is concentrated in infants and young children, in whom immature renal clearance of toxin and absent neutralizing antibody permit toxin to accumulate; adult cases cluster in renal failure and immunosuppression. Diagnosis is clinical, with frozen-section biopsy reserved for separating SSSS from toxic epidermal necrolysis. Treatment is an intravenous anti-staphylococcal beta-lactam plus supportive skin, fluid, and thermal care.",
+    "description": "Staphylococcal scalded skin syndrome (SSSS) is an acute, superficial blistering disease in which the pathology is produced entirely at a distance from the organism. Toxigenic strains of Staphylococcus aureus colonizing an occult site such as the nasopharynx, conjunctiva, umbilicus, or perineum secrete exfoliative toxins (ETA and ETB), glutamate-specific serine proteases that circulate hematogenously while the bacterium itself stays put. The toxins hydrolyze a single peptide bond in desmoglein 1, a desmosomal cadherin whose adhesive role is unshared in the superficial epidermis, causing keratinocytes to separate at the stratum granulosum. The result is tender erythroderma, flaccid sterile bullae, a positive Nikolsky sign, and sheet-like exfoliation with a scalded appearance, characteristically sparing mucous membranes. Because the split is intraepidermal and the dermis is untouched, healing is scarless. Disease is concentrated in infants and young children, in whom immature renal clearance of toxin and absent neutralizing antibody permit toxin to accumulate; adult cases cluster in renal failure and immunosuppression. Diagnosis is clinical, with frozen-section biopsy reserved for separating SSSS from toxic epidermal necrolysis. Treatment is an intravenous anti-staphylococcal beta-lactam plus supportive skin, fluid, and thermal care.",
     "pathophysiology": [
       "Localized S. aureus Colonization and Exfoliative Toxin Production",
       "Hematogenous Toxin Dissemination",
@@ -259924,17 +260199,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2520,
+  "total_disorder_pages": 2523,
   "total_subtypes": 3565,
-  "total_disorders_and_subtypes": 6085,
-  "total_unique_evidence_sources": 36098,
-  "total_unique_publications": 33966,
+  "total_disorders_and_subtypes": 6088,
+  "total_unique_evidence_sources": 36124,
+  "total_unique_publications": 33992,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2515,
-  "total_unique_pathological_events": 14664,
+  "total_pathographs": 2518,
+  "total_unique_pathological_events": 14689,
   "total_modules": 167,
-  "total_research_reports": 2641,
+  "total_research_reports": 2644,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
