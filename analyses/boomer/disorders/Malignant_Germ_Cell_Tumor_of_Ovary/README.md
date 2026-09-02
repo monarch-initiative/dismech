@@ -22,7 +22,7 @@ Boomer grounding analysis for [`kb/disorders/Malignant_Germ_Cell_Tumor_of_Ovary.
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0018369` ≡ `NCIT:C39995`
+- `MONDO:0018369` ≡ `NCIT:C8111`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

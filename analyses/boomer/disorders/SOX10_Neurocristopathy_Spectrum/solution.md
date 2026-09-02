@@ -4,31 +4,30 @@
  * 756 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.125 confidence
- * 0.026087323458202343 prior probability
- * 0.0019289760510173527 posterior probability
- * 31.5964 seconds elapsed
+ * 0.026087323458 prior probability
+ * 0.001928976051 posterior probability
 Grounding:
- * True dismech:SOX10_Neurocristopathy_Spectrum (SOX10 Neurocristopathy Spectrum (dismech entry)) ≡ MONDO:0013202 (Waardenburg syndrome type 4C) :: prior: 0.9 posterior: 0.48900196875478996
- * False dismech:SOX10_Neurocristopathy_Spectrum (SOX10 Neurocristopathy Spectrum (dismech entry)) ⊆ MONDO:0013202 (Waardenburg syndrome type 4C) :: prior: 0.07 posterior: 0.0032760443333522977
- * False MONDO:0013202 (Waardenburg syndrome type 4C) ⊆ dismech:SOX10_Neurocristopathy_Spectrum (SOX10 Neurocristopathy Spectrum (dismech entry)) :: prior: 0.03 posterior: 0.016755522823449092
- * False dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 4C (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 4C (dismech subtype)) ≡ MONDO:0013202 (Waardenburg syndrome type 4C) :: prior: 0.9 posterior: 0.46697155723892647
- * False dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 4C (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 4C (dismech subtype)) ⊆ MONDO:0013202 (Waardenburg syndrome type 4C) :: prior: 0.07 posterior: 0.04077777776746198
- * False MONDO:0013202 (Waardenburg syndrome type 4C) ⊆ dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 4C (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 4C (dismech subtype)) :: prior: 0.03 posterior: 0.001284200905203926
- * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ DOID:0110955 :: prior: 0.95 posterior: 0.9977963171735209
- * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ MESH:C567679 :: prior: 0.95 posterior: 0.9977963171735209
- * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ OMIM:613266 :: prior: 0.95 posterior: 0.9977963171735209
- * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ DOID:0110955 :: prior: 0.95 posterior: 0.9977963171735209
- * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ MESH:C567679 :: prior: 0.95 posterior: 0.9977963171735209
- * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ OMIM:613266 :: prior: 0.95 posterior: 0.9977963171735209
- * True dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 2E (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 2E (dismech subtype)) ≡ MONDO:0012698 (Waardenburg syndrome type 2E) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 2E (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 2E (dismech subtype)) ⊆ MONDO:0012698 (Waardenburg syndrome type 2E) :: prior: 0.07 posterior: 0.004045362876199383
- * False MONDO:0012698 (Waardenburg syndrome type 2E) ⊆ dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 2E (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 2E (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233096
- * True MONDO:0012698 (Waardenburg syndrome type 2E) ≡ DOID:0110956 :: prior: 0.95 posterior: 0.9500000000000001
- * True MONDO:0012698 (Waardenburg syndrome type 2E) ≡ OMIM:611584 :: prior: 0.95 posterior: 0.9500000000000001
- * True dismech:SOX10_Neurocristopathy_Spectrum#PCWH Syndrome (SOX10 Neurocristopathy Spectrum / PCWH Syndrome (dismech subtype)) ≡ MONDO:0012198 (PCWH syndrome) :: prior: 0.9 posterior: 0.9674196363939664
- * False dismech:SOX10_Neurocristopathy_Spectrum#PCWH Syndrome (SOX10 Neurocristopathy Spectrum / PCWH Syndrome (dismech subtype)) ⊆ MONDO:0012198 (PCWH syndrome) :: prior: 0.07 posterior: 0.0040453628761993755
- * False MONDO:0012198 (PCWH syndrome) ⊆ dismech:SOX10_Neurocristopathy_Spectrum#PCWH Syndrome (SOX10 Neurocristopathy Spectrum / PCWH Syndrome (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233072
- * True MONDO:0012198 (PCWH syndrome) ≡ DOID:0090111 :: prior: 0.95 posterior: 0.9499999999999991
- * True MONDO:0012198 (PCWH syndrome) ≡ MESH:C563789 :: prior: 0.95 posterior: 0.9499999999999991
- * True MONDO:0012198 (PCWH syndrome) ≡ OMIM:609136 :: prior: 0.95 posterior: 0.9499999999999991
- * True MONDO:0012198 (PCWH syndrome) ≡ ORDO:163746 :: prior: 0.95 posterior: 0.9499999999999991
+ * False dismech:SOX10_Neurocristopathy_Spectrum (SOX10 Neurocristopathy Spectrum (dismech entry)) ≡ MONDO:0013202 (Waardenburg syndrome type 4C) :: prior: 0.9 posterior: 0.489001968755
+ * False dismech:SOX10_Neurocristopathy_Spectrum (SOX10 Neurocristopathy Spectrum (dismech entry)) ⊆ MONDO:0013202 (Waardenburg syndrome type 4C) :: prior: 0.07 posterior: 0.003276044333
+ * False MONDO:0013202 (Waardenburg syndrome type 4C) ⊆ dismech:SOX10_Neurocristopathy_Spectrum (SOX10 Neurocristopathy Spectrum (dismech entry)) :: prior: 0.03 posterior: 0.016755522823
+ * True dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 4C (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 4C (dismech subtype)) ≡ MONDO:0013202 (Waardenburg syndrome type 4C) :: prior: 0.9 posterior: 0.466971557239
+ * False dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 4C (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 4C (dismech subtype)) ⊆ MONDO:0013202 (Waardenburg syndrome type 4C) :: prior: 0.07 posterior: 0.040777777767
+ * False MONDO:0013202 (Waardenburg syndrome type 4C) ⊆ dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 4C (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 4C (dismech subtype)) :: prior: 0.03 posterior: 0.001284200905
+ * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ DOID:0110955 :: prior: 0.95 posterior: 0.997796317174
+ * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ MESH:C567679 :: prior: 0.95 posterior: 0.997796317174
+ * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ OMIM:613266 :: prior: 0.95 posterior: 0.997796317174
+ * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ DOID:0110955 :: prior: 0.95 posterior: 0.997796317174
+ * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ MESH:C567679 :: prior: 0.95 posterior: 0.997796317174
+ * True MONDO:0013202 (Waardenburg syndrome type 4C) ≡ OMIM:613266 :: prior: 0.95 posterior: 0.997796317174
+ * True dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 2E (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 2E (dismech subtype)) ≡ MONDO:0012698 (Waardenburg syndrome type 2E) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 2E (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 2E (dismech subtype)) ⊆ MONDO:0012698 (Waardenburg syndrome type 2E) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0012698 (Waardenburg syndrome type 2E) ⊆ dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 2E (SOX10 Neurocristopathy Spectrum / Waardenburg Syndrome Type 2E (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0012698 (Waardenburg syndrome type 2E) ≡ DOID:0110956 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0012698 (Waardenburg syndrome type 2E) ≡ OMIM:611584 :: prior: 0.95 posterior: 0.95
+ * True dismech:SOX10_Neurocristopathy_Spectrum#PCWH Syndrome (SOX10 Neurocristopathy Spectrum / PCWH Syndrome (dismech subtype)) ≡ MONDO:0012198 (PCWH syndrome) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:SOX10_Neurocristopathy_Spectrum#PCWH Syndrome (SOX10 Neurocristopathy Spectrum / PCWH Syndrome (dismech subtype)) ⊆ MONDO:0012198 (PCWH syndrome) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0012198 (PCWH syndrome) ⊆ dismech:SOX10_Neurocristopathy_Spectrum#PCWH Syndrome (SOX10 Neurocristopathy Spectrum / PCWH Syndrome (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0012198 (PCWH syndrome) ≡ DOID:0090111 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0012198 (PCWH syndrome) ≡ MESH:C563789 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0012198 (PCWH syndrome) ≡ OMIM:609136 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0012198 (PCWH syndrome) ≡ ORDO:163746 :: prior: 0.95 posterior: 0.95

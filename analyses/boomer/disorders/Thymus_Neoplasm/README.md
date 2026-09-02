@@ -19,7 +19,7 @@ Boomer grounding analysis for [`kb/disorders/Thymus_Neoplasm.yaml`](../../../../
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0006451` ≡ `DOID:4554`
+- `MONDO:0006451` ≡ `DOID:3284`
 - `MONDO:0006451` ≡ `NCIT:C7569`
 
 A retraction means these assertions are jointly unsatisfiable, not that the

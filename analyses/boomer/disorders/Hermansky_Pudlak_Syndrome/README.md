@@ -27,7 +27,7 @@ Boomer grounding analysis for [`kb/disorders/Hermansky_Pudlak_Syndrome.yaml`](..
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0011997` ≡ `ORDO:664500`
+- `MONDO:0011997` ≡ `ORDO:183678`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

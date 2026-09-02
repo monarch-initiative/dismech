@@ -16,6 +16,11 @@ without reconstructing anything. The scripts that generate each tree are
 committed under `<kind>/scripts/` — nothing here should be hand-edited, and
 everything here should regenerate.
 
+Regeneration is not always byte-stable: where a generator calls a solver whose
+search is non-deterministic, the human-readable summaries and the inputs are
+reproducible while the raw solver output drifts. Each kind's README states
+exactly which of its files are stable.
+
 | Kind | What it analyses |
 |---|---|
 | [`boomer/`](boomer/) | Whether dismech's curated structure is logically consistent with MONDO's and with the external vocabularies MONDO confirms equivalencies into, resolved with the BOOMER probabilistic ontology-alignment solver. |

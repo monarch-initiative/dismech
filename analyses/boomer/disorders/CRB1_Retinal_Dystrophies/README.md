@@ -19,7 +19,7 @@ Boomer grounding analysis for [`kb/disorders/CRB1_Retinal_Dystrophies.yaml`](../
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:CRB1_Retinal_Dystrophies` ≡ `MONDO:0013453`
+- `dismech:CRB1_Retinal_Dystrophies#LCA8` ≡ `MONDO:0013453`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

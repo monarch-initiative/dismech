@@ -1,60 +1,59 @@
 
  ## dismech-Plasma_Cell_Neoplasm
- * 1876 combinations
- * 1867 satisfiable combinations
- * 0.76416015625 proportion of combinations explored
+ * 1844 combinations
+ * 1835 satisfiable combinations
+ * 0.74853515625 proportion of combinations explored
  * 0.0078125 confidence
- * 0.002765102903493527 prior probability
- * 7.441659503159028e-06 posterior probability
- * 64.7201 seconds elapsed
+ * 0.002765102903 prior probability
+ * 7.441659e-06 posterior probability
 Grounding:
- * True dismech:Plasma_Cell_Neoplasm (Plasma Cell Neoplasm (dismech entry)) ≡ MONDO:0004959 (plasma cell neoplasm) :: prior: 0.9 posterior: 0.9674196363939664
- * False dismech:Plasma_Cell_Neoplasm (Plasma Cell Neoplasm (dismech entry)) ⊆ MONDO:0004959 (plasma cell neoplasm) :: prior: 0.07 posterior: 0.0040453628761993755
- * False MONDO:0004959 (plasma cell neoplasm) ⊆ dismech:Plasma_Cell_Neoplasm (Plasma Cell Neoplasm (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233074
- * True MONDO:0004959 (plasma cell neoplasm) ≡ DOID:6536 :: prior: 0.95 posterior: 0.9499999999999991
- * True MONDO:0004959 (plasma cell neoplasm) ≡ MESH:D054219 :: prior: 0.95 posterior: 0.9499999999999991
- * True MONDO:0004959 (plasma cell neoplasm) ≡ NCIT:C4665 :: prior: 0.95 posterior: 0.9499999999999991
- * True MONDO:0004959 (plasma cell neoplasm) ≡ ORDO:98282 :: prior: 0.95 posterior: 0.9499999999999991
- * True dismech:Plasma_Cell_Neoplasm#Monoclonal Gammopathy of Uncertain Significance (Plasma Cell Neoplasm / Monoclonal Gammopathy of Uncertain Significance (dismech subtype)) ≡ MONDO:0004225 (monoclonal gammopathy of uncertain significance) :: prior: 0.9 posterior: 0.9674196363939683
- * False dismech:Plasma_Cell_Neoplasm#Monoclonal Gammopathy of Uncertain Significance (Plasma Cell Neoplasm / Monoclonal Gammopathy of Uncertain Significance (dismech subtype)) ⊆ MONDO:0004225 (monoclonal gammopathy of uncertain significance) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0004225 (monoclonal gammopathy of uncertain significance) ⊆ dismech:Plasma_Cell_Neoplasm#Monoclonal Gammopathy of Uncertain Significance (Plasma Cell Neoplasm / Monoclonal Gammopathy of Uncertain Significance (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
+ * True dismech:Plasma_Cell_Neoplasm (Plasma Cell Neoplasm (dismech entry)) ≡ MONDO:0004959 (plasma cell neoplasm) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Plasma_Cell_Neoplasm (Plasma Cell Neoplasm (dismech entry)) ⊆ MONDO:0004959 (plasma cell neoplasm) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0004959 (plasma cell neoplasm) ⊆ dismech:Plasma_Cell_Neoplasm (Plasma Cell Neoplasm (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0004959 (plasma cell neoplasm) ≡ DOID:6536 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0004959 (plasma cell neoplasm) ≡ MESH:D054219 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0004959 (plasma cell neoplasm) ≡ NCIT:C4665 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0004959 (plasma cell neoplasm) ≡ ORDO:98282 :: prior: 0.95 posterior: 0.95
+ * True dismech:Plasma_Cell_Neoplasm#Monoclonal Gammopathy of Uncertain Significance (Plasma Cell Neoplasm / Monoclonal Gammopathy of Uncertain Significance (dismech subtype)) ≡ MONDO:0004225 (monoclonal gammopathy of uncertain significance) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Plasma_Cell_Neoplasm#Monoclonal Gammopathy of Uncertain Significance (Plasma Cell Neoplasm / Monoclonal Gammopathy of Uncertain Significance (dismech subtype)) ⊆ MONDO:0004225 (monoclonal gammopathy of uncertain significance) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0004225 (monoclonal gammopathy of uncertain significance) ⊆ dismech:Plasma_Cell_Neoplasm#Monoclonal Gammopathy of Uncertain Significance (Plasma Cell Neoplasm / Monoclonal Gammopathy of Uncertain Significance (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
  * True MONDO:0004225 (monoclonal gammopathy of uncertain significance) ≡ DOID:7442 :: prior: 0.95 posterior: 0.95
  * True MONDO:0004225 (monoclonal gammopathy of uncertain significance) ≡ MESH:D008998 :: prior: 0.95 posterior: 0.95
  * True MONDO:0004225 (monoclonal gammopathy of uncertain significance) ≡ NCIT:C3996 :: prior: 0.95 posterior: 0.95
- * True dismech:Plasma_Cell_Neoplasm#Plasma Cell Myeloma (Plasma Cell Neoplasm / Plasma Cell Myeloma (dismech subtype)) ≡ MONDO:0009693 (plasma cell myeloma) :: prior: 0.9 posterior: 0.9599518670717889
- * False dismech:Plasma_Cell_Neoplasm#Plasma Cell Myeloma (Plasma Cell Neoplasm / Plasma Cell Myeloma (dismech subtype)) ⊆ MONDO:0009693 (plasma cell myeloma) :: prior: 0.07 posterior: 0.0043757238580815335
- * False MONDO:0009693 (plasma cell myeloma) ⊆ dismech:Plasma_Cell_Neoplasm#Plasma Cell Myeloma (Plasma Cell Neoplasm / Plasma Cell Myeloma (dismech subtype)) :: prior: 0.03 posterior: 0.0017980172489006489
- * True MONDO:0009693 (plasma cell myeloma) ≡ DOID:9538 :: prior: 0.95 posterior: 0.9828831123450318
- * True MONDO:0009693 (plasma cell myeloma) ≡ ICD10CM:C90.0 :: prior: 0.95 posterior: 0.9828831089263629
- * True MONDO:0009693 (plasma cell myeloma) ≡ MESH:D009101 :: prior: 0.95 posterior: 0.9828831022806253
- * True MONDO:0009693 (plasma cell myeloma) ≡ NCIT:C3242 :: prior: 0.95 posterior: 0.9828829546232619
- * True MONDO:0009693 (plasma cell myeloma) ≡ OMIM:254500 :: prior: 0.95 posterior: 0.9828829582499379
- * True MONDO:0009693 (plasma cell myeloma) ≡ ORDO:29073 :: prior: 0.95 posterior: 0.9828829740334682
- * False MONDO:0009693 (plasma cell myeloma) ≡ icd11f:1582389689 :: prior: 0.95 posterior: 0.49561095153822626
- * True MONDO:0009693 (plasma cell myeloma) ≡ icd11f:526287100 :: prior: 0.95 posterior: 0.49561107655865694
- * True dismech:Plasma_Cell_Neoplasm#Smoldering Plasma Cell Myeloma (Plasma Cell Neoplasm / Smoldering Plasma Cell Myeloma (dismech subtype)) ≡ MONDO:0005235 (smoldering plasma cell myeloma) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Plasma_Cell_Neoplasm#Smoldering Plasma Cell Myeloma (Plasma Cell Neoplasm / Smoldering Plasma Cell Myeloma (dismech subtype)) ⊆ MONDO:0005235 (smoldering plasma cell myeloma) :: prior: 0.07 posterior: 0.004045362876199382
- * False MONDO:0005235 (smoldering plasma cell myeloma) ⊆ dismech:Plasma_Cell_Neoplasm#Smoldering Plasma Cell Myeloma (Plasma Cell Neoplasm / Smoldering Plasma Cell Myeloma (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233094
- * True MONDO:0005235 (smoldering plasma cell myeloma) ≡ DOID:9551 :: prior: 0.95 posterior: 0.9500000000000001
- * True MONDO:0005235 (smoldering plasma cell myeloma) ≡ NCIT:C7149 :: prior: 0.95 posterior: 0.9500000000000001
- * True dismech:Plasma_Cell_Neoplasm#Plasma Cell Leukemia (Plasma Cell Neoplasm / Plasma Cell Leukemia (dismech subtype)) ≡ MONDO:0018689 (plasma cell leukemia) :: prior: 0.9 posterior: 0.9674196363939687
- * False dismech:Plasma_Cell_Neoplasm#Plasma Cell Leukemia (Plasma Cell Neoplasm / Plasma Cell Leukemia (dismech subtype)) ⊆ MONDO:0018689 (plasma cell leukemia) :: prior: 0.07 posterior: 0.004045362876199373
- * False MONDO:0018689 (plasma cell leukemia) ⊆ dismech:Plasma_Cell_Neoplasm#Plasma Cell Leukemia (Plasma Cell Neoplasm / Plasma Cell Leukemia (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
- * True MONDO:0018689 (plasma cell leukemia) ≡ DOID:9513 :: prior: 0.95 posterior: 0.949999999999998
- * True MONDO:0018689 (plasma cell leukemia) ≡ ICD10CM:C90.1 :: prior: 0.95 posterior: 0.949999999999998
- * True MONDO:0018689 (plasma cell leukemia) ≡ MESH:D007952 :: prior: 0.95 posterior: 0.949999999999998
- * True MONDO:0018689 (plasma cell leukemia) ≡ NCIT:C3180 :: prior: 0.95 posterior: 0.949999999999998
- * True MONDO:0018689 (plasma cell leukemia) ≡ ORDO:454714 :: prior: 0.95 posterior: 0.949999999999998
- * True MONDO:0018689 (plasma cell leukemia) ≡ icd11f:2048216430 :: prior: 0.95 posterior: 0.949999999999998
- * True dismech:Plasma_Cell_Neoplasm#Plasmacytoma (Plasma Cell Neoplasm / Plasmacytoma (dismech subtype)) ≡ MONDO:0005615 (plasmacytoma) :: prior: 0.9 posterior: 0.9674196363939713
- * False dismech:Plasma_Cell_Neoplasm#Plasmacytoma (Plasma Cell Neoplasm / Plasmacytoma (dismech subtype)) ⊆ MONDO:0005615 (plasmacytoma) :: prior: 0.07 posterior: 0.004045362876199389
- * False MONDO:0005615 (plasmacytoma) ⊆ dismech:Plasma_Cell_Neoplasm#Plasmacytoma (Plasma Cell Neoplasm / Plasmacytoma (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * True dismech:Plasma_Cell_Neoplasm#Plasma Cell Myeloma (Plasma Cell Neoplasm / Plasma Cell Myeloma (dismech subtype)) ≡ MONDO:0009693 (plasma cell myeloma) :: prior: 0.9 posterior: 0.95995177109
+ * False dismech:Plasma_Cell_Neoplasm#Plasma Cell Myeloma (Plasma Cell Neoplasm / Plasma Cell Myeloma (dismech subtype)) ⊆ MONDO:0009693 (plasma cell myeloma) :: prior: 0.07 posterior: 0.004375825172
+ * False MONDO:0009693 (plasma cell myeloma) ⊆ dismech:Plasma_Cell_Neoplasm#Plasma Cell Myeloma (Plasma Cell Neoplasm / Plasma Cell Myeloma (dismech subtype)) :: prior: 0.03 posterior: 0.001798015231
+ * True MONDO:0009693 (plasma cell myeloma) ≡ DOID:9538 :: prior: 0.95 posterior: 0.982883003571
+ * True MONDO:0009693 (plasma cell myeloma) ≡ ICD10CM:C90.0 :: prior: 0.95 posterior: 0.982882971228
+ * True MONDO:0009693 (plasma cell myeloma) ≡ MESH:D009101 :: prior: 0.95 posterior: 0.982883005315
+ * True MONDO:0009693 (plasma cell myeloma) ≡ NCIT:C3242 :: prior: 0.95 posterior: 0.982883008042
+ * True MONDO:0009693 (plasma cell myeloma) ≡ OMIM:254500 :: prior: 0.95 posterior: 0.982882962746
+ * True MONDO:0009693 (plasma cell myeloma) ≡ ORDO:29073 :: prior: 0.95 posterior: 0.982882983623
+ * False MONDO:0009693 (plasma cell myeloma) ≡ icd11f:1582389689 :: prior: 0.95 posterior: 0.495611025759
+ * True MONDO:0009693 (plasma cell myeloma) ≡ icd11f:526287100 :: prior: 0.95 posterior: 0.495611042803
+ * True dismech:Plasma_Cell_Neoplasm#Smoldering Plasma Cell Myeloma (Plasma Cell Neoplasm / Smoldering Plasma Cell Myeloma (dismech subtype)) ≡ MONDO:0005235 (smoldering plasma cell myeloma) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Plasma_Cell_Neoplasm#Smoldering Plasma Cell Myeloma (Plasma Cell Neoplasm / Smoldering Plasma Cell Myeloma (dismech subtype)) ⊆ MONDO:0005235 (smoldering plasma cell myeloma) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0005235 (smoldering plasma cell myeloma) ⊆ dismech:Plasma_Cell_Neoplasm#Smoldering Plasma Cell Myeloma (Plasma Cell Neoplasm / Smoldering Plasma Cell Myeloma (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0005235 (smoldering plasma cell myeloma) ≡ DOID:9551 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0005235 (smoldering plasma cell myeloma) ≡ NCIT:C7149 :: prior: 0.95 posterior: 0.95
+ * True dismech:Plasma_Cell_Neoplasm#Plasma Cell Leukemia (Plasma Cell Neoplasm / Plasma Cell Leukemia (dismech subtype)) ≡ MONDO:0018689 (plasma cell leukemia) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Plasma_Cell_Neoplasm#Plasma Cell Leukemia (Plasma Cell Neoplasm / Plasma Cell Leukemia (dismech subtype)) ⊆ MONDO:0018689 (plasma cell leukemia) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0018689 (plasma cell leukemia) ⊆ dismech:Plasma_Cell_Neoplasm#Plasma Cell Leukemia (Plasma Cell Neoplasm / Plasma Cell Leukemia (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0018689 (plasma cell leukemia) ≡ DOID:9513 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0018689 (plasma cell leukemia) ≡ ICD10CM:C90.1 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0018689 (plasma cell leukemia) ≡ MESH:D007952 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0018689 (plasma cell leukemia) ≡ NCIT:C3180 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0018689 (plasma cell leukemia) ≡ ORDO:454714 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0018689 (plasma cell leukemia) ≡ icd11f:2048216430 :: prior: 0.95 posterior: 0.95
+ * True dismech:Plasma_Cell_Neoplasm#Plasmacytoma (Plasma Cell Neoplasm / Plasmacytoma (dismech subtype)) ≡ MONDO:0005615 (plasmacytoma) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Plasma_Cell_Neoplasm#Plasmacytoma (Plasma Cell Neoplasm / Plasmacytoma (dismech subtype)) ⊆ MONDO:0005615 (plasmacytoma) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0005615 (plasmacytoma) ⊆ dismech:Plasma_Cell_Neoplasm#Plasmacytoma (Plasma Cell Neoplasm / Plasmacytoma (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
  * True MONDO:0005615 (plasmacytoma) ≡ DOID:3721 :: prior: 0.95 posterior: 0.95
  * True MONDO:0005615 (plasmacytoma) ≡ MESH:D010954 :: prior: 0.95 posterior: 0.95
  * True MONDO:0005615 (plasmacytoma) ≡ NCIT:C9349 :: prior: 0.95 posterior: 0.95
  * True MONDO:0005615 (plasmacytoma) ≡ ORDO:86855 :: prior: 0.95 posterior: 0.95
  * True MONDO:0005615 (plasmacytoma) ≡ icd11f:1811140613 :: prior: 0.95 posterior: 0.95
- * True dismech:Plasma_Cell_Neoplasm#Non-amyloid Monoclonal Immunoglobulin Deposition Disease (Plasma Cell Neoplasm / Non-amyloid Monoclonal Immunoglobulin Deposition Disease (dismech subtype)) ≡ MONDO:0019463 (non-amyloid monoclonal immunoglobulin deposition disease) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Plasma_Cell_Neoplasm#Non-amyloid Monoclonal Immunoglobulin Deposition Disease (Plasma Cell Neoplasm / Non-amyloid Monoclonal Immunoglobulin Deposition Disease (dismech subtype)) ⊆ MONDO:0019463 (non-amyloid monoclonal immunoglobulin deposition disease) :: prior: 0.07 posterior: 0.004045362876199383
- * False MONDO:0019463 (non-amyloid monoclonal immunoglobulin deposition disease) ⊆ dismech:Plasma_Cell_Neoplasm#Non-amyloid Monoclonal Immunoglobulin Deposition Disease (Plasma Cell Neoplasm / Non-amyloid Monoclonal Immunoglobulin Deposition Disease (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233103
+ * True dismech:Plasma_Cell_Neoplasm#Non-amyloid Monoclonal Immunoglobulin Deposition Disease (Plasma Cell Neoplasm / Non-amyloid Monoclonal Immunoglobulin Deposition Disease (dismech subtype)) ≡ MONDO:0019463 (non-amyloid monoclonal immunoglobulin deposition disease) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Plasma_Cell_Neoplasm#Non-amyloid Monoclonal Immunoglobulin Deposition Disease (Plasma Cell Neoplasm / Non-amyloid Monoclonal Immunoglobulin Deposition Disease (dismech subtype)) ⊆ MONDO:0019463 (non-amyloid monoclonal immunoglobulin deposition disease) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0019463 (non-amyloid monoclonal immunoglobulin deposition disease) ⊆ dismech:Plasma_Cell_Neoplasm#Non-amyloid Monoclonal Immunoglobulin Deposition Disease (Plasma Cell Neoplasm / Non-amyloid Monoclonal Immunoglobulin Deposition Disease (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
  * True MONDO:0019463 (non-amyloid monoclonal immunoglobulin deposition disease) ≡ ORDO:86861 :: prior: 0.95 posterior: 0.95

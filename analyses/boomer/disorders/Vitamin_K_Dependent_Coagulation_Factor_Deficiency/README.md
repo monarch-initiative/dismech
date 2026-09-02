@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/Vitamin_K_Dependent_Coagulation_Fac
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0015722` ≡ `ORDO:169826`
+- `MONDO:0015722` ≡ `ORDO:98434`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

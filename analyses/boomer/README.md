@@ -256,6 +256,36 @@ of.
 That is a real but bounded benefit. It is not a case for taking on boomer as a
 dependency, and none has been taken.
 
+## Reproducibility
+
+Regeneration is **partially** reproducible, and it is worth being precise about
+which half:
+
+| File | Stable across runs? |
+|---|---|
+| `kb.yaml` | **yes** — byte-identical; the generator's input assembly is deterministic |
+| `README.md` | **yes** — byte-identical; every verdict and retraction is stable |
+| `solution.yaml` / `solution.md` | **no** — posterior magnitudes and combination counts drift |
+
+The drift is not rounding. Given the *same* `kb.yaml`, two boomer runs report
+different totals — 668 versus 568 `number_of_combinations` for
+`Adult_Refsum_Disease` — while both claim
+`proportion_of_combinations_explored: 1.0`, and posteriors differ in the fourth
+significant figure (0.919037 against 0.920144). Same input, different output:
+the non-determinism is inside the solver's search, not in this generator.
+
+**Every True/False verdict was identical across those runs.** The decisions are
+reproducible; only the magnitudes are not. Since the verdicts are what
+`README.md` and `index.tsv` carry, and what a curator acts on, the tree is
+usable — but do not read a posterior difference between two regenerations as a
+change in the analysis, and do not diff `solution.*` expecting a clean result.
+`just boomer-check` therefore diffs only the solver-free outputs.
+
+Floats are rounded to 12 decimal places and wall-clock timings dropped, which
+removes a separate and purely cosmetic source of churn (last-bit float noise and
+`time_started`/`time_finished`), but cannot address the search non-determinism
+above.
+
 ## Limits
 
 - **`SILENT` is not proof of a MONDO gap.** It is the absence of an asserted path.

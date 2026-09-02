@@ -463,6 +463,38 @@ def build_kb_dict(mondo, external, rec):
     }
 
 
+# Posteriors accumulate in an order that depends on set/dict iteration, so repeated
+# runs differ in the last bits of the float -- 0.3044046168087602 against
+# 0.30440461680876013. Semantically identical, but it churns ~590 committed files
+# per regeneration and makes review diffs useless. Rounding well below any
+# meaningful precision, and dropping wall-clock timings (a property of the run, not
+# of the result), makes regeneration byte-stable.
+FLOAT_PRECISION = 12
+
+
+def stabilise_floats(solution):
+    """Round solution floats and drop timings so regeneration is byte-stable."""
+    # time_elapsed is a read-only property computed from these two
+    for attr in ("time_started", "time_finished"):
+        with contextlib.suppress(AttributeError, ValueError, TypeError):
+            setattr(solution, attr, None)
+    for attr in (
+        "confidence",
+        "prior_prob",
+        "posterior_prob",
+        "proportion_of_combinations_explored",
+    ):
+        value = getattr(solution, attr, None)
+        if isinstance(value, float):
+            with contextlib.suppress(AttributeError, ValueError, TypeError):
+                setattr(solution, attr, round(value, FLOAT_PRECISION))
+    for solved in solution.solved_pfacts or []:
+        if isinstance(getattr(solved, "posterior_prob", None), float):
+            solved.posterior_prob = round(solved.posterior_prob, FLOAT_PRECISION)
+    for sub in solution.sub_solutions or []:
+        stabilise_floats(sub)
+
+
 VERDICT_NOTE = {
     "AGREES": "MONDO has this subtype's term as a descendant of the entry's term.",
     "SILENT": "MONDO relates the two terms in neither direction - usually a missing MONDO `is_a` edge.",
@@ -633,6 +665,7 @@ def main(argv=None):
             sol = solve(kb, cfg)
         # the markdown renderer titles the solution from this; unset it renders "## None"
         sol.name = kb_dict["name"]
+        stabilise_floats(sol)
 
         # A rejected identity claim only counts as a RETRACTION if we asserted it
         # with confidence. Where a curator has recorded the mapping as

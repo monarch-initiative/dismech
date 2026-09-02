@@ -28,7 +28,7 @@ Boomer grounding analysis for [`kb/disorders/Autosomal_Agammaglobulinemia.yaml`]
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0013287` ≡ `DOID:0081135`
+- `MONDO:0013287` ≡ `DOID:0060024`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

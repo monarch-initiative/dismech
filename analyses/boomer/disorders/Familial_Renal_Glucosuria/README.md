@@ -18,9 +18,9 @@ Boomer grounding analysis for [`kb/disorders/Familial_Renal_Glucosuria.yaml`](..
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0009297` ≡ `DOID:9432`
-- `MONDO:0009297` ≡ `DOID:9432`
-- `MONDO:0009297` ≡ `DOID:9432`
+- `MONDO:0009297` ≡ `DOID:0070613`
+- `MONDO:0009297` ≡ `DOID:0070613`
+- `MONDO:0009297` ≡ `DOID:0070613`
 - `dismech:Familial_Renal_Glucosuria` ≡ `MONDO:0009297`
 - `dismech:Familial_Renal_Glucosuria#SLC5A2-Related` ≡ `MONDO:0009297`
 

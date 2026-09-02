@@ -20,7 +20,7 @@ Boomer grounding analysis for [`kb/disorders/MHC_Class_II_Deficiency.yaml`](../.
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0008855` ≡ `NCIT:C3895`
+- `MONDO:0008855` ≡ `NCIT:C176823`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

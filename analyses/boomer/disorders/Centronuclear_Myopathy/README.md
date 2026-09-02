@@ -21,7 +21,7 @@ Boomer grounding analysis for [`kb/disorders/Centronuclear_Myopathy.yaml`](../..
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0008048` ≡ `DOID:0111217`
+- `MONDO:0008048` ≡ `DOID:0111223`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

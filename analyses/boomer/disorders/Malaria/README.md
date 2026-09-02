@@ -20,7 +20,7 @@ Boomer grounding analysis for [`kb/disorders/Malaria.yaml`](../../../../kb/disor
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Malaria#Plasmodium vivax malaria` ≡ `MONDO:0005921`
+- `dismech:Malaria#Recurrent vivax malaria` ≡ `MONDO:0005921`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

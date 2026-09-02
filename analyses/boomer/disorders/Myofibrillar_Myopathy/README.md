@@ -35,8 +35,8 @@ Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
 - `MONDO:0012215` ≡ `MESH:C000598645`
-- `MONDO:0012215` ≡ `MESH:C535906`
-- `MONDO:0012215` ≡ `ORDO:268129`
+- `MONDO:0012215` ≡ `MESH:C563775`
+- `MONDO:0012215` ≡ `ORDO:98911`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a
