@@ -124,10 +124,7 @@ class TestEvidenceItemToLine:
         ("supports", "expected"),
         [
             ("SUPPORT", "SUPPORT"),
-            ("PARTIAL", "PARTIAL"),
             ("REFUTE", "REFUTE"),
-            ("WRONG_STATEMENT", "REFUTE"),
-            ("NO_EVIDENCE", "NEUTRAL"),
         ],
     )
     def test_supports_maps_to_direction(self, supports, expected):
@@ -137,17 +134,49 @@ class TestEvidenceItemToLine:
         )
         assert line.direction_of_evidence_provided == expected
 
-    def test_raw_supports_survives_the_lossy_direction_mapping(self):
-        """WRONG_STATEMENT and REFUTE share a direction, so the raw value round-trips."""
-        wrong = evidence_item_to_line(
-            {"reference": "PMID:1", "snippet": "t", "supports": "WRONG_STATEMENT"}, "s", 0
+    def test_no_evidence_is_not_given_a_sepio_direction(self):
+        """NO_EVIDENCE has no SEPIO counterpart and must not be emitted as NEUTRAL.
+
+        SEPIO's `neutral` means the evidence bears on the claim without favouring
+        either side. NO_EVIDENCE means the cited reference does not bear on the
+        claim at all. Mapping one onto the other (which this exporter used to do)
+        asserts something the curator did not, so the direction is left unset and
+        the value survives on the dismech-only field.
+        """
+        line = evidence_item_to_line(
+            {"reference": "PMID:1", "snippet": "t", "supports": "NO_EVIDENCE"}, "s", 0
         )
+        assert line.direction_of_evidence_provided is None
+        assert line.dismech_supports == "NO_EVIDENCE"
+
+    def test_raw_supports_round_trips(self):
+        """The raw enum value is carried through alongside the SEPIO direction."""
         refute = evidence_item_to_line(
             {"reference": "PMID:1", "snippet": "t", "supports": "REFUTE"}, "s", 0
         )
-        assert wrong.direction_of_evidence_provided == refute.direction_of_evidence_provided
-        assert wrong.dismech_supports == "WRONG_STATEMENT"
+        assert refute.direction_of_evidence_provided == "REFUTE"
         assert refute.dismech_supports == "REFUTE"
+
+    def test_directness_is_carried_as_a_dismech_extension(self):
+        """SEPIO has no directness slot, so it rides on the dismech-only field."""
+        line = evidence_item_to_line(
+            {
+                "reference": "PMID:1",
+                "snippet": "t",
+                "supports": "SUPPORT",
+                "directness": "INDIRECT",
+            },
+            "s",
+            0,
+        )
+        assert line.dismech_directness == "INDIRECT"
+
+    def test_directness_absent_when_unset(self):
+        """Most of the KB has no directness assessment; that must stay absent."""
+        line = evidence_item_to_line(
+            {"reference": "PMID:1", "snippet": "t", "supports": "SUPPORT"}, "s", 0
+        )
+        assert line.dismech_directness is None
 
     def test_raw_supports_absent_when_unset(self):
         """An item with no `supports` gets neither a direction nor a raw value."""

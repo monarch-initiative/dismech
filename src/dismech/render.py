@@ -34,6 +34,11 @@ from dismech.graph import (
     graph_to_json,
     iter_variant_items,
 )
+from dismech.module_collections import (
+    build_module_collection_tree,
+    load_module_collections,
+    module_collection_reference_errors,
+)
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
 from dismech.term_labels import label_restates_title
@@ -637,7 +642,11 @@ def _annotate_ref_target_anchors(disorder: dict) -> None:
             if not isinstance(item, dict):
                 continue
             value = next(
-                (item.get(k) for k in key_slots if isinstance(item.get(k), str) and item.get(k)),
+                (
+                    item.get(k)
+                    for k in key_slots
+                    if isinstance(item.get(k), str) and item.get(k)
+                ),
                 None,
             )
             if not value:
@@ -1019,9 +1028,7 @@ def _coerce_string_list(value: object) -> list[str]:
 #: Order in which evidence-balance chips are shown on a hypothesis box.
 _HYPOTHESIS_EVIDENCE_ORDER = (
     "SUPPORT",
-    "PARTIAL",
     "REFUTE",
-    "WRONG_STATEMENT",
     "NO_EVIDENCE",
 )
 
@@ -1267,6 +1274,107 @@ def load_comorbidity(yaml_path: Path) -> dict:
         return _fast_yaml_load(f)
 
 
+# Module-category pill hues are generated, not hand-picked: each category takes
+# the next step of the golden angle around the colour wheel, so the palette
+# spreads itself and nobody has to choose or maintain a hex value. Stepping by
+# an irrational fraction of a turn means appending a category to the end of
+# ModuleCategoryEnum leaves every existing hue untouched — only reordering or
+# removing a value reshuffles. A plain hash of the key would also be
+# maintenance-free but does not spread: it put Oncology and Infectious disease
+# three degrees apart, which is one colour with two names.
+_CATEGORY_HUE_STEP = 137.508
+_CATEGORY_HUE_OFFSET = 15.0
+_UNKNOWN_CATEGORY_PALETTE = {
+    "hue": "",
+    "background": "var(--gray-100, #f1f5f9)",
+    "border": "var(--gray-300, #cbd5e1)",
+    "text": "var(--gray-600, #475569)",
+}
+
+
+def _category_palette(index: int) -> dict[str, str]:
+    """Build the pill colours for the category at ``index`` in the enum.
+
+    Saturation and lightness are held fixed across every category, which is what
+    keeps nine independently generated hues reading as one family rather than as
+    nine unrelated stickers. The fixed pair also settles legibility for any
+    category added later: the worst contrast ratio between this text and this
+    background over all 360 hues is 5.4:1, clearing WCAG AA by construction
+    rather than by luck (the yellow-green band near hue 60 is the weak spot).
+    """
+    hue = round((_CATEGORY_HUE_OFFSET + index * _CATEGORY_HUE_STEP) % 360)
+    return {
+        "hue": str(hue),
+        "background": f"hsl({hue}, 68%, 96%)",
+        "border": f"hsl({hue}, 52%, 78%)",
+        "text": f"hsl({hue}, 62%, 26%)",
+    }
+
+
+@lru_cache(maxsize=1)
+def _module_category_display() -> dict[str, dict]:
+    """Map each ModuleCategoryEnum key to its display label, blurb, and colours.
+
+    Labels and descriptions come from the enum's own ``title``/``description``
+    in ``schema/dismech.yaml``, so the vocabulary has exactly one home and a
+    category cannot be renamed on a page without being renamed in the schema.
+    """
+    permissible_values = (_load_schema().get("enums") or {}).get(
+        "ModuleCategoryEnum", {}
+    ).get("permissible_values") or {}
+    display: dict[str, dict] = {}
+    for index, (key, meta) in enumerate(permissible_values.items()):
+        meta = meta if isinstance(meta, dict) else {}
+        key_text = str(key)
+        display[key_text] = {
+            "key": key_text,
+            "label": str(meta.get("title") or key_text.replace("_", " ").title()),
+            "description": _collapse_whitespace(meta.get("description")),
+            **_category_palette(index),
+        }
+    return display
+
+
+def _collapse_whitespace(value: object) -> str:
+    """Flatten a folded YAML block to a single line for use in a tooltip."""
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def _resolve_module_categories(module: dict) -> list[dict]:
+    """Resolve a module's ``module_categories`` values to display records.
+
+    An unrecognized value is still rendered — dropping it would hide a curation
+    error behind a page that looks fine — but it gets a neutral label derived
+    from the key and no blurb, so it is visibly not part of the vocabulary.
+    """
+    display = _module_category_display()
+    resolved: list[dict] = []
+    seen: set[str] = set()
+    for raw in module.get("module_categories") or []:
+        key = str(raw).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        resolved.append(
+            display.get(key)
+            or {
+                "key": key,
+                "label": key.replace("_", " ").title(),
+                "description": "",
+                **_UNKNOWN_CATEGORY_PALETTE,
+            }
+        )
+    # Pills follow the enum's declaration order rather than the order a curator
+    # typed them, so a category always appears in the same slot across modules
+    # and in the same order as the index legend. Values outside the vocabulary
+    # sort last.
+    order = {key: index for index, key in enumerate(display)}
+    resolved.sort(key=lambda record: order.get(record["key"], len(order)))
+    return resolved
+
+
 def _parse_module_reference(value: str | None) -> tuple[str, str] | None:
     """Split a conforms_to reference into (module_id, module_node_name)."""
     if not isinstance(value, str) or "#" not in value:
@@ -1496,6 +1604,7 @@ def _load_module_context(
             )
 
     module["_module_id"] = module_id
+    module["_categories"] = _resolve_module_categories(module)
     module["_pathophysiology_count"] = len(
         [node for node in pathophysiology_items if isinstance(node, dict)]
     )
@@ -1513,7 +1622,7 @@ def _load_module_context(
 
 
 def _build_module_summary(module: dict) -> dict:
-    """Build a compact card payload for the module index page."""
+    """Build a compact row payload for the module index page."""
     module_id = str(module.get("_module_id") or "")
     used_by_disorders = module.get("_used_by_disorders") or []
     return {
@@ -1521,12 +1630,89 @@ def _build_module_summary(module: dict) -> dict:
         "name": module.get("name") or module_id,
         "description": module.get("description"),
         "href": f"{module_id}.html",
+        "categories": module.get("_categories") or [],
         "pathophysiology_count": module.get("_pathophysiology_count") or 0,
         "cell_type_count": len(module.get("_cell_types") or []),
         "biological_process_count": len(module.get("_biological_processes") or []),
         "disorder_count": len(used_by_disorders),
         "used_by_disorders": used_by_disorders,
+        "collections": module.get("_module_collections") or [],
     }
+
+
+def _build_module_collection_context(
+    collections_dir: Path,
+    module_summaries_by_id: dict[str, dict],
+) -> tuple[list[dict], dict[str, list[dict]]]:
+    """Resolve collection members and build module-to-collection backlinks."""
+    collections: list[dict] = []
+    reverse: dict[str, list[dict]] = defaultdict(list)
+
+    for yaml_path, data in load_module_collections(collections_dir):
+        name = str(data.get("name") or yaml_path.stem)
+        page_name = f"{slugify(name)}.html"
+        members: list[dict] = []
+        for member in data.get("module_members") or []:
+            if not isinstance(member, dict):
+                continue
+            module_id = str(member.get("module") or "").strip()
+            module_summary = module_summaries_by_id.get(module_id, {})
+            resolved = {
+                "id": module_id,
+                "name": module_summary.get("name") or module_id,
+                "href": f"../modules/{module_id}.html",
+                "description": member.get("description"),
+                "framework_terms": member.get("framework_terms") or [],
+                "pathophysiology_count": module_summary.get("pathophysiology_count", 0),
+                "disorder_count": module_summary.get("disorder_count", 0),
+            }
+            members.append(resolved)
+            reverse[module_id].append(
+                {
+                    "name": name,
+                    "display_name": data.get("display_name"),
+                    "collection_type": data.get("collection_type"),
+                    "href": f"../module-collections/{page_name}",
+                    "framework_terms": resolved["framework_terms"],
+                }
+            )
+
+        collections.append(
+            {
+                "name": name,
+                "display_name": data.get("display_name"),
+                "description": data.get("description"),
+                "collection_type": data.get("collection_type"),
+                "creation_date": data.get("creation_date"),
+                "evidence": data.get("evidence") or [],
+                "notes": data.get("notes"),
+                "members": members,
+                "module_count": len(members),
+                "framework_term_count": sum(
+                    len(member["framework_terms"]) for member in members
+                ),
+                "child_collection_names": data.get("child_collections") or [],
+                "href": f"../module-collections/{page_name}",
+                "page_name": page_name,
+                "source_file": (
+                    "https://github.com/monarch-initiative/dismech/blob/main/"
+                    f"kb/module_collections/{yaml_path.name}"
+                ),
+            }
+        )
+
+    for memberships in reverse.values():
+        memberships.sort(
+            key=lambda item: str(
+                item.get("display_name") or item.get("name") or ""
+            ).casefold()
+        )
+    collections.sort(
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold()
+    )
+    return collections, dict(reverse)
 
 
 def _build_comorbidity_summary(
@@ -2272,8 +2458,8 @@ def render_disorder(
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
     env.filters["curie_to_url"] = curie_to_url
-    env.filters["semantic_ref_href"] = (
-        lambda ref: semantic_ref_index.get(str(ref), "") if ref is not None else ""
+    env.filters["semantic_ref_href"] = lambda ref: (
+        semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
     env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
@@ -2509,6 +2695,7 @@ def render_module(
     *,
     disorders_dir: Path = Path("kb/disorders"),
     usage_index: dict[str, list[dict]] | None = None,
+    collections: list[dict] | None = None,
 ) -> Path:
     """Render a single shared module YAML file to HTML."""
     module, disorder_usage = _load_module_context(
@@ -2516,6 +2703,13 @@ def render_module(
         disorders_dir=disorders_dir,
         usage_index=usage_index,
     )
+    if collections is None:
+        _, reverse = _build_module_collection_context(
+            yaml_path.parent.parent / "module_collections",
+            {yaml_path.stem: _build_module_summary(module)},
+        )
+        collections = reverse.get(yaml_path.stem, [])
+    module["_module_collections"] = collections
     # Module hypothesis boxes show the same support/refute balance as disorder
     # pages. Only the tally is computed here: modules do not render hypothesis
     # chips on pathophysiology nodes, so the rest of
@@ -2570,19 +2764,86 @@ def render_module(
 def render_module_index(
     modules: list[dict],
     output_path: Path = Path("pages/modules/index.html"),
+    *,
+    collections: list[dict] | None = None,
 ) -> Path:
     """Render the shared-module index page."""
     template_dir = Path(__file__).parent / "templates"
     env = _get_shared_env(str(template_dir))
     template = env.get_template("module_index.html.j2")
 
+    sorted_modules = sorted(
+        modules,
+        key=lambda module: str(module.get("name") or "").casefold(),
+    )
+    sorted_collections = sorted(
+        collections or [],
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold(),
+    )
+    # The legend lists only categories actually used by the rendered modules.
+    categories_in_use = {
+        category["key"]: category
+        for module in sorted_modules
+        for category in module.get("categories") or []
+    }
     html = template.render(
-        modules=sorted(
-            modules,
-            key=lambda module: str(module.get("name") or "").casefold(),
-        )
+        modules=sorted_modules,
+        collections=sorted_collections,
+        collection_tree=build_module_collection_tree(sorted_collections),
+        collected_module_count=sum(
+            1 for module in sorted_modules if module.get("collections")
+        ),
+        category_legend=[
+            categories_in_use[key]
+            for key in _module_category_display()
+            if key in categories_in_use
+        ],
     )
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_module_collection(
+    collection: dict,
+    output_path: Path,
+    template_path: Path | None = None,
+) -> Path:
+    """Render one curated module-collection page."""
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "module_collection.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+    env = _get_shared_env(str(template_dir))
+    env.filters["curie_to_url"] = curie_to_url
+    html = env.get_template(template_name).render(collection=collection)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_module_collection_index(
+    collections: list[dict],
+    output_path: Path = Path("pages/module-collections/index.html"),
+) -> Path:
+    """Render the standalone module-collection index."""
+    template_dir = Path(__file__).parent / "templates"
+    env = _get_shared_env(str(template_dir))
+    sorted_collections = sorted(
+        collections,
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold(),
+    )
+    html = env.get_template("module_collection_index.html.j2").render(
+        collections=sorted_collections,
+        collection_tree=build_module_collection_tree(sorted_collections),
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
     return output_path
@@ -2903,6 +3164,10 @@ _PREPRINT_DOI_RE = re.compile(
 # `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
 _REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
 
+#: Frontmatter key a research recipe writes to record which revision of the
+#: prompt produced a report (issue #10183).
+STAMP_KEY_TEMPLATE_SHA = "template_sha"
+
 
 @lru_cache(maxsize=4096)
 def _reference_is_preprint(reference: str | None) -> bool:
@@ -2920,7 +3185,9 @@ def _reference_is_preprint(reference: str | None) -> bool:
     prefix, local = prefix.strip(), local.strip()
     if prefix.upper() == "DOI" and _PREPRINT_DOI_RE.match(local):
         return True
-    cache_path = _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+    cache_path = (
+        _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+    )
     try:
         with cache_path.open(encoding="utf-8") as handle:
             if handle.readline().strip() != "---":
@@ -3065,6 +3332,66 @@ def _research_report_template():
     return env.get_template("research_report.html.j2")
 
 
+def _prompt_provenance(metadata: dict) -> dict | None:
+    """Describe the prompt revision a report records, for the report page.
+
+    Args:
+        metadata: The report's parsed YAML frontmatter.
+
+    Returns:
+        A dict with ``sha``, ``short``, ``name`` and ``url``, or ``None`` when
+        the report carries no ``template_sha``.
+
+    Note:
+        Only a *stamped* hash is shown. Older reports predate stamping and their
+        revision is inferable from ``start_time`` against the template's commit
+        history, but inference is a reconstruction rather than a record -- see
+        issue #10183 -- and a page chip has no room to say which it is showing.
+        Displaying only what the generator recorded keeps the chip a fact.
+
+        ``name`` links to the template at ``main``, which is the file's *current*
+        content and so may differ from the revision the hash names. That is the
+        point of showing the hash beside it; the tooltip carries the lookup that
+        resolves it. The link can also 404 outright when a template has since
+        been deleted -- two committed reports name
+        ``disease_pathophysiology_research_scanner.md``, which no longer exists.
+        Nothing better is available: GitHub's ``/blob/<ref>/<path>`` needs a
+        commit-ish and a blob hash is not one, and the git-blobs API returns
+        base64 JSON rather than a page.
+
+        The unlinked branches are defensive rather than expected. ``stamp_report``
+        declines unless ``template_file`` resolves to a file on disk, so a
+        free-text label or an ephemeral ``/tmp`` path is never stamped by the
+        pipeline; reaching them takes a hand-written stamp. They are handled
+        anyway so that a hand-written one degrades to "shown but not linked"
+        rather than to a 404 dressed up as provenance.
+    """
+    raw = metadata.get(STAMP_KEY_TEMPLATE_SHA)
+    sha = raw.strip() if isinstance(raw, str) else ""
+    if not sha:
+        return None
+
+    template_file = metadata.get("template_file")
+    name = None
+    url = None
+    if isinstance(template_file, str) and template_file.strip():
+        # Reports written on Windows record backslashes; they name the same file.
+        normalized = template_file.strip().replace("\\", "/")
+        # A free-text label (``manual_curation``) is not a path and gets no link.
+        if normalized.startswith("templates/"):
+            name = normalized.rsplit("/", 1)[-1]
+            url = _github_blob_url(Path(normalized))
+        else:
+            name = normalized
+
+    return {
+        "sha": sha,
+        "short": sha[:12],
+        "name": name,
+        "url": url,
+    }
+
+
 def render_research_report(
     report: dict,
     siblings: list[dict],
@@ -3095,6 +3422,7 @@ def render_research_report(
             "mondo_url": _curie_url(report.get("mondo_id")),
             "model": metadata.get("model"),
             "citation_count": metadata.get("citation_count"),
+            "prompt": _prompt_provenance(metadata),
             "date": _format_report_date(
                 metadata.get("end_time") or metadata.get("start_time")
             ),
@@ -3314,16 +3642,22 @@ def render_all_modules(
     template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
+    collections_dir: Path | None = None,
+    collections_output_dir: Path | None = None,
 ) -> list[Path]:
-    """Render all shared mechanism modules plus their index page."""
+    """Render mechanism modules, their collections, and both index pages."""
     if not input_dir.exists():
         return []
 
     output_dir.mkdir(parents=True, exist_ok=True)
     usage_index = _collect_module_usage(disorders_dir)
+    if collections_dir is None:
+        collections_dir = input_dir.parent / "module_collections"
+    if collections_output_dir is None:
+        collections_output_dir = output_dir.parent / "module-collections"
 
     output_files: list[Path] = []
-    module_summaries: list[dict] = []
+    module_contexts: dict[str, dict] = {}
 
     for yaml_path in sorted(input_dir.glob("*.yaml")):
         module, _ = _load_module_context(
@@ -3331,6 +3665,28 @@ def render_all_modules(
             disorders_dir=disorders_dir,
             usage_index=usage_index,
         )
+        module_contexts[yaml_path.stem] = module
+
+    initial_summaries = {
+        module_id: _build_module_summary(module)
+        for module_id, module in module_contexts.items()
+    }
+    collection_records = load_module_collections(collections_dir)
+    collection_errors = module_collection_reference_errors(
+        collection_records,
+        set(module_contexts),
+    )
+    if collection_errors:
+        raise ValueError("Invalid module collections:\n" + "\n".join(collection_errors))
+    collections, collections_by_module = _build_module_collection_context(
+        collections_dir,
+        initial_summaries,
+    )
+
+    module_summaries: list[dict] = []
+    for yaml_path in sorted(input_dir.glob("*.yaml")):
+        module = module_contexts[yaml_path.stem]
+        module["_module_collections"] = collections_by_module.get(yaml_path.stem, [])
         output_path = output_dir / f"{yaml_path.stem}.html"
         render_module(
             yaml_path,
@@ -3338,15 +3694,39 @@ def render_all_modules(
             template_path,
             disorders_dir=disorders_dir,
             usage_index=usage_index,
+            collections=module["_module_collections"],
         )
         output_files.append(output_path)
         module_summaries.append(_build_module_summary(module))
         print(f"Rendered module: {yaml_path.stem} -> {output_path}")
 
-    index_path = render_module_index(module_summaries, output_dir / "index.html")
+    index_path = render_module_index(
+        module_summaries,
+        output_dir / "index.html",
+        collections=collections,
+    )
     output_files.append(index_path)
     print(f"Rendered module index -> {index_path}")
     _prune_orphan_pages(output_dir, output_files, label="module")
+
+    collection_output_files: list[Path] = []
+    for collection in collections:
+        output_path = collections_output_dir / collection["page_name"]
+        render_module_collection(collection, output_path)
+        collection_output_files.append(output_path)
+        print(f"Rendered module collection: {collection['name']} -> {output_path}")
+    collection_index_path = render_module_collection_index(
+        collections,
+        collections_output_dir / "index.html",
+    )
+    collection_output_files.append(collection_index_path)
+    print(f"Rendered module collection index -> {collection_index_path}")
+    _prune_orphan_pages(
+        collections_output_dir,
+        collection_output_files,
+        label="module collection",
+    )
+    output_files.extend(collection_output_files)
     return output_files
 
 
@@ -3471,8 +3851,6 @@ def _resolve_member_href(member: dict, by_name: dict[str, str]) -> str | None:
     if mtype in ("DISEASE", "SUBTYPE"):
         page = by_name.get(_normalize_disorder_lookup(ref))
         return f"../disorders/{page}" if page else None
-    if mtype == "MODULE":
-        return f"../modules/{ref.split('#', 1)[0].strip()}.html"
     if mtype == "GROUPING":
         return f"{slugify(ref)}.html"
     return None
