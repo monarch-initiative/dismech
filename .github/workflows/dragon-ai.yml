@@ -1,14 +1,16 @@
-name: Dragon AI Agent GitHub Mentions
+name: AI4C Agent GitHub Mentions
 
 env:
   ROBOT_VERSION: v1.9.7
   TOOLS_DIR: ${{ github.workspace }}/tools
 
 on:
-  # Trigger is a `@dragon-ai-agent please …` mention from an authorized controller
-  # (a text keyword — the dragon-ai-agent machine account is retired). Assignment
-  # dispatch was dropped: GitHub Apps cannot be assignees, and the programmatic
-  # assigner (stale-pr-reassign) was retired.
+  # Trigger is a `@ai4c-agent please …` mention from an authorized controller; the
+  # legacy `@dragon-ai-agent please …` still works. Both are text keywords, not
+  # accounts: the agent runs as the ai4c-agent GitHub App, and Apps cannot be
+  # @-mentioned. The handles and the parser live in .github/scripts/agent-mention.js,
+  # shared with the comment trust gate. Assignment dispatch was dropped: GitHub Apps
+  # cannot be assignees, and the programmatic assigner (stale-pr-reassign) was retired.
   issues:
     types: [opened, edited]
   issue_comment:
@@ -82,30 +84,35 @@ jobs:
               itemNumber = context.payload.pull_request.number;
             }
 
-            // Check if user is allowed and mention exists
-            const isAllowed = allowedUsers.includes(userLogin);
-            // Strip fenced and inline code spans before matching so that merely
-            // *documenting* the mention keyword (e.g. in a PR description, as this
-            // very PR did) does not dispatch the agent. Only a real, prose-level
-            // "@dragon-ai-agent please ..." qualifies.
-            const forMatching = content
-              .replace(/```[\s\S]*?```/g, ' ')
-              .replace(/`[^`]*`/g, ' ');
-            const mentionRegex = /@dragon-ai-agent\s+please\s+(.*)/i;
-            const mentionMatch = forMatching.match(mentionRegex);
+            // Never act on our own output. Unlike GITHUB_TOKEN, events authored
+            // with an App installation token do retrigger workflows. The allowlist
+            // already excludes the App's login; this makes the intent explicit.
+            if (userLogin.endsWith('[bot]')) {
+              console.log(`Ignoring bot author: ${userLogin}`);
+              return { qualifiedMention: false };
+            }
 
-            const qualifiedMention = isAllowed && mentionMatch !== null;
-            const prompt = mentionMatch !== null ? mentionMatch[1].trim() : '';
+            // Check if user is allowed and a summon exists. The accepted handles and
+            // the parser (which ignores code spans and fenced blocks, so documenting
+            // the keyword does not dispatch the agent) are shared with the comment
+            // trust gate and live in one place; see that module's header.
+            const { AGENT_MENTION, parseAgentMention } = require('./.github/scripts/agent-mention.js');
+            const isAllowed = allowedUsers.includes(userLogin);
+            const mention = parseAgentMention(content);
+            const qualifiedMention = isAllowed && mention.matched;
 
             console.log(
-              `User: ${userLogin}, Allowed: ${isAllowed}, Has mention: ${mentionMatch !== null}`
+              `User: ${userLogin}, Allowed: ${isAllowed}, Has mention: ${mention.matched}, Handle: ${mention.handle}`
             );
 
             return {
               qualifiedMention,
               itemType,
               itemNumber,
-              prompt,
+              prompt: qualifiedMention ? mention.prompt : '',
+              handle: mention.handle,
+              isLegacy: mention.isLegacy,
+              agentName: AGENT_MENTION,
               user: userLogin,
               controllers: allowedUsers.map(u => '@' + u).join(', ')
             };
@@ -191,11 +198,21 @@ jobs:
           ITEM_TYPE: ${{ fromJSON(needs.check-mention.outputs.result).itemType }}
           ITEM_NUMBER: ${{ fromJSON(needs.check-mention.outputs.result).itemNumber }}
           CONTROLLERS: ${{ fromJSON(needs.check-mention.outputs.result).controllers }}
+          # The handle the agent introduces itself by, and the one the controller
+          # actually typed: a deprecated alias earns a one-line nudge in the reply.
+          AGENT_NAME: ${{ fromJSON(needs.check-mention.outputs.result).agentName }}
+          HANDLE_USED: ${{ fromJSON(needs.check-mention.outputs.result).handle }}
+          USED_LEGACY_HANDLE: ${{ fromJSON(needs.check-mention.outputs.result).isLegacy }}
         run: |
+          LEGACY_NOTE=""
+          if [ "${USED_LEGACY_HANDLE}" = "true" ]; then
+            LEGACY_NOTE="The request used the deprecated handle @${HANDLE_USED}. In your closing message, note once and briefly that @${AGENT_NAME} is now the handle to use."
+          fi
           cat > /tmp/claude-input/claude_prompt.txt << EOL
-          You are @dragon-ai-agent.
+          You are @${AGENT_NAME}.
           You're responding to a request from or relayed by @${USER_LOGIN} on GitHub ${ITEM_TYPE} #${ITEM_NUMBER}.
           You only respond to requests from the following authorized controllers: ${CONTROLLERS}.
+          ${LEGACY_NOTE}
 
           You should use \`gh\` to communicate with the user via the GitHub issue/ticket.
           If instructed to modify files, you should make changes on a branch and submit a PR, communicating clearly and in
