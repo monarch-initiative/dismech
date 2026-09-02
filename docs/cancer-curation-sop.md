@@ -35,6 +35,32 @@ difference is:
 If you are unsure: prefer one entry with multiple subtype axes over fragmenting
 the mechanism graph across files.
 
+### Say which node the disease starts at
+
+"Different cell of origin" is the first split criterion above, so record it in a
+form the split can actually be checked against. There is **no `cell_of_origin:`
+slot**: put a `genetic_context` with `variant_origin: SOMATIC` on the
+pathophysiology node carrying the initiating lesion, and the cell of origin
+derives from that node's `cell_types`.
+
+```yaml
+- name: KRAS Oncogene Activation
+  genetic_context:
+    variant_origin: SOMATIC
+    functional_impact_category: GAIN_OF_FUNCTION
+  cell_types:
+  - preferred_term: pancreatic ductal cell
+    term:
+      id: CL:0002079
+      label: pancreatic ductal cell
+```
+
+Then read the derivation back with `just check-cancer-origin`. Deriving **more
+than one** cell of origin is the signal to revisit the lump/split call: it is
+usually a grouping, sometimes cell-of-origin subtypes, occasionally an unsettled
+origin. See [cancer-cell-of-origin.md](cancer-cell-of-origin.md) and design
+decisions Sec 3b.
+
 ## `disease_term`: MONDO-first
 
 Always anchor `disease_term` to MONDO when a `MONDO:0000001` (disease) descendant exists:

@@ -60,6 +60,44 @@ supersedes the older "molecular subtypes as discrete entities" framing in
 6. **Germline predisposition syndromes** follow the Mendelian rules and stay
    separate from the somatic cancers they predispose to.
 
+## Mark the cell of origin (no new slot)
+
+The cell of origin is **derived**, not stored: put a `genetic_context` carrying
+`variant_origin: SOMATIC` on the pathophysiology node with the initiating
+lesion, and the cell of origin is that node's `cell_types`.
+
+```yaml
+- name: BCR-ABL1 Fusion Oncogene Formation
+  genetic_context:
+    variant_origin: SOMATIC
+    functional_impact_category: GAIN_OF_FUNCTION
+  cell_types:
+  - preferred_term: hematopoietic stem cell
+    term:
+      id: CL:0000037
+      label: hematopoietic stem cell
+```
+
+- Prefer this marker over `role: trigger`. `role` is free text with ~90 values
+  in the KB, and the derivation only reads it on a root node as a fallback.
+- Do **not** mark a microenvironment / chronic-inflammation / immune-evasion
+  node. Those bind macrophage, Treg and fibroblast, which are where the tumor
+  lives, not where it came from. `just check-cancer-origin` reports that case
+  as `CONTEXT_NODE_MARKED`.
+- Deriving more than one cell of origin is a lump/split prompt, not a defect.
+- NCIT asserts its own cell of origin (`NCIT:R104`) and transformed cell state
+  (`NCIT:R105`, the Abnormal Cell branch) per disease, quotable from
+  `references_cache/NCIT_*.md`. Useful as a cross-check and as evidence;
+  **never** as the `term:` of `cell_types`, which is CL-only.
+
+```bash
+just check-cancer-origin                  # summary + multi-origin worklist
+just list-cancer-origin                   # per-entry census
+```
+
+Worked examples: `Chronic_Myeloid_Leukemia`, `Pancreatic_Ductal_Adenocarcinoma`.
+Full guidance: `docs/cancer-cell-of-origin.md`.
+
 ## Cancer-Specific Schema Features
 
 ### Disease Stages (not Subtypes)

@@ -217,6 +217,18 @@ class OntologyEdgeSource(StructuredSource):
                 )
                 raw.extend(conn.execute(stmt, params).fetchall())
 
+            # Relation predicates may not appear as direct triples at all. NCIT
+            # states its disease relations (Disease_Has_Normal_Cell_Origin and
+            # friends) inside owl:equivalentClass intersections, so in semsql the
+            # subject-predicate-object form lives in `edge`, materialized from
+            # those existential restrictions, while `statements` holds only the
+            # blank-node scaffolding. Query both and merge; a predicate present
+            # in both yields one row after de-duplication below.
+            relation_ids = [p.id for p in self._predicates if p.is_relation]
+            if relation_ids:
+                raw.extend(self._edge_table_rows(conn, relation_ids))
+
+        seen: set[tuple[str, str, str, str]] = set()
         for subject, predicate, value, obj in raw:
             spec = pred_map.get(predicate)
             if spec is None or subject is None:
@@ -230,6 +242,10 @@ class OntologyEdgeSource(StructuredSource):
                 if value is None or value == "":
                     continue
                 edge = _EdgeRow(spec.id, spec.label, "", "", _clean(value))
+            key = (str(subject), edge.predicate_id, edge.target_id, edge.metadata)
+            if key in seen:
+                continue
+            seen.add(key)
             rec = records.get(subject)
             if rec is None:
                 rec = _SubjectRecord(subject_id=subject, subject_label="")
@@ -257,6 +273,37 @@ class OntologyEdgeSource(StructuredSource):
             rec.edges.sort(key=lambda e: e.sort_key())
 
         return records
+
+    @staticmethod
+    def _edge_table_rows(
+        conn, predicate_ids: list[str]
+    ) -> list[tuple[str, str, None, str]]:
+        """Read relation edges from semsql's ``edge`` table, if it has any.
+
+        Returned shaped like a ``statements`` row (subject, predicate, value,
+        object) so the caller can treat both sources identically. Missing table
+        or unreadable column layout is not an error: an ontology whose relations
+        are plain triples simply has nothing extra to contribute here.
+        """
+        from sqlalchemy import text
+        from sqlalchemy.exc import SQLAlchemyError
+
+        rows: list[tuple[str, str, None, str]] = []
+        try:
+            for chunk in _chunked(predicate_ids, _SQL_CHUNK):
+                placeholders = ",".join(f":p{i}" for i in range(len(chunk)))
+                params = {f"p{i}": pid for i, pid in enumerate(chunk)}
+                stmt = text(
+                    "SELECT subject, predicate, object FROM edge "
+                    f"WHERE predicate IN ({placeholders})"
+                )
+                for subject, predicate, obj in conn.execute(stmt, params).fetchall():
+                    if subject and obj:
+                        rows.append((str(subject), str(predicate), None, str(obj)))
+        except SQLAlchemyError as exc:
+            logger.debug("edge table unavailable or unreadable: %s", exc)
+            return []
+        return rows
 
     @staticmethod
     def _fetch_labels(adapter, ids: Iterable[str]) -> dict[str, str]:

@@ -794,6 +794,64 @@ creating any new cancer/neoplasm entry. The short version:
   Mendelian lump/split rules; keep them separate from the somatic cancer
   entries they predispose to.
 
+### Cancer Cell of Origin (derived, not a slot)
+
+A neoplasm entry's **cell of origin is derived from its own pathograph** — there is
+no `cell_of_origin:` slot and one should not be added (design decisions §3b). Mark
+the node where the transforming lesion happened, and the cell of origin is that
+node's `cell_types`:
+
+```yaml
+pathophysiology:
+- name: KRAS Oncogene Activation
+  genetic_context:
+    variant_origin: SOMATIC          # <- this makes it the origin node
+    functional_impact_category: GAIN_OF_FUNCTION
+  cell_types:
+  - preferred_term: pancreatic ductal cell
+    term:
+      id: CL:0002079
+      label: pancreatic ductal cell
+```
+
+```bash
+just check-cancer-origin                 # summary + the multi-origin worklist
+just check-cancer-origin --format list   # every entry, one line each
+just list-cancer-origin
+```
+
+Three rules identify the origin node, strongest first: a somatic
+`genetic_context` (preferred, and not restricted to root nodes); an initiating
+free-text `role` on a **root** node (weak — `role` carries ~90 distinct values);
+a root node with `triggers` (non-mutational initiation such as HTLV-1). A
+stronger rule wins only if it actually yields a cell, so a lesion node that names
+the gene but not the cell does not mask a correct answer one node over.
+
+**Deriving more than one cell of origin is the lump/split signal**, reported and
+never gated. It means a grouping wearing a Disease entry's clothes
+(`Kidney_Sarcoma`, `Appendiceal_Neoplasm` — remedy a `Grouping`), a disease with
+cell-of-origin subtypes (DLBCL's GCB/ABC — remedy `has_subtypes`), or an
+unsettled origin (Ewing sarcoma — remedy a note). Separately,
+`CONTEXT_NODE_MARKED` says the derivation landed on a microenvironment,
+inflammation or immune-evasion node; those bind macrophage/Treg/fibroblast, which
+are where the tumor lives, not where it came from, and the fix is to mark the
+lesion instead.
+
+The check is **advisory** and runs inside `just qc`. It exits 0 by default
+because 220 of 250 assessed neoplasm entries are still unmarked; `--fail-on
+<CLASS>` or `--strict` gates when you want one.
+
+**NCIT is a cross-check, never a binding target.** `NCIT:R104`
+(Disease_Has_Normal_Cell_Origin), `NCIT:R112` and `NCIT:R105`
+(Disease_Has_Abnormal_Cell, into the Abnormal Cell branch `NCIT:C12913`) are
+ingested by `OntologyEdgeSource` into quotable `references_cache/NCIT_*.md` rows
+— DLBCL is *Mature B-Lymphocyte* → *Neoplastic Large B-Lymphocyte*. `cell_types`
+stays CL-only (`CellTypeTerm` is `reachable_from: CL:0000000`), and there is no
+NCIT-to-CL mapping in the repo, so agreement is a curator's judgement rather than
+a computed match. Worked examples: `Chronic_Myeloid_Leukemia`,
+`Pancreatic_Ductal_Adenocarcinoma`. See
+[`docs/cancer-cell-of-origin.md`](docs/cancer-cell-of-origin.md).
+
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
