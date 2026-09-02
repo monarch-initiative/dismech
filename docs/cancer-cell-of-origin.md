@@ -53,29 +53,65 @@ committed worked examples.
 `allelic_hit_role: FIRST_HIT` is worth adding on a two-hit tumor suppressor,
 where the first hit is the origin event and the second is progression.
 
-## The three rules, and why there are three
+## The two rules
 
-The checker applies these in order and reports which one fired, so a deliberate
-marking is distinguishable from a lucky guess.
+Both read a structured claim the entry makes. Neither reads a naming convention,
+and there is no fallback chain: an entry that does not say where it starts is
+reported as not saying it, rather than guessed at.
 
 1. **`SOMATIC_LESION`** — a node with `variant_origin: SOMATIC` or
-   `GERMLINE_AND_SOMATIC`. Prefer this. It is a structured claim about a
-   mutational event rather than a naming convention, and it is the only rule
-   that is unambiguous. It is not restricted to root nodes, because a
-   transformation or second-hit lesion is still a somatic event.
-2. **`INITIATING_ROLE`** — a root node whose free-text `role` reads as
-   initiating (`trigger`, `driver`, `root`, `primary`, …). Weaker by
-   construction: `role` is an unconstrained string and the KB holds around 90
-   distinct values on pathophysiology nodes. Only root nodes count, because off
-   a root node "trigger" names a step inside the cascade.
-3. **`EXPOSURE_TRIGGER`** — a root node carrying `triggers`. This is
-   non-mutational initiation, where there is no host lesion to mark at all:
-   HTLV-1 in adult T-cell leukemia, EBV, a chemical carcinogen.
+   `GERMLINE_AND_SOMATIC`. Not restricted to root nodes: a transformation or
+   second-hit lesion is still a somatic event.
+2. **`ENVIRONMENTAL_TRIGGER`** — a node that an
+   `environmental[].influences_mechanisms` link marks
+   `environmental_effect: TRIGGERS`. This is non-mutational initiation, where
+   there is no host lesion to mark: HPV in anal carcinoma, H. pylori in gastric
+   adenocarcinoma, asbestos in mesothelioma, UV in cutaneous SCC. It is the same
+   value the KGX exporter and compliance scoring already treat as causal, so it
+   is not a cell-of-origin-specific convention.
 
-A stronger rule wins **only if it actually yields a cell**. A lesion node often
-carries the gene and not the cell it occurred in, and letting rule 1 win
-outright there would throw away a correct answer sitting one node over and
-report the entry as unmarked.
+**Rule 2 applies only when no lesion is recorded**, and that is a statement about
+meaning rather than confidence. The cell of origin is the cell the transforming
+event occurred in, so once the entry records that event, the exposure is upstream
+context. Pancreatic ductal adenocarcinoma is where the difference shows: chronic
+pancreatitis genuinely triggers its inflammation node, but that node binds
+macrophage and pancreatic stellate cell, while the disease arises in the ductal
+cell named on the KRAS lesion.
+
+### What was removed, and why
+
+An earlier version had a third rule that read an initiating-sounding `role`
+string on a root node, plus a fallback chain so a stronger rule could not discard
+a weaker rule's answer. Both existed to paper over entries that had not recorded
+their origin, and both mis-fired — the role rule is what derived macrophage and
+pancreatic stellate cell as the cell of origin of pancreatic cancer. There was
+also a `CONTEXT_NODE_MARKED` finding whose only job was catching those mistakes,
+and which false-positived on cancers that really are inflammation-initiated
+(cholangiocarcinoma, hepatocellular carcinoma).
+
+The records were marked instead, and all of it was deleted.
+
+## Backfilling an entry
+
+`just backfill-cancer-origin` proposes markings, and **invents nothing**: it only
+marks a node whose own `name` already states a somatic lesion — mutation, fusion,
+translocation, amplification, biallelic inactivation, loss of heterozygosity.
+A node saying merely that a pathway is active is not a lesion. Nodes reading as
+germline, as microenvironment, or as acquired resistance are excluded, the last
+because "ESR1 Mutation-Driven Endocrine Resistance" is a real somatic event that
+happens years after the disease starts.
+
+`--bind-single-cell` additionally copies the entry's cell type onto the lesion
+node when the entry names exactly one. Entries naming several are left alone:
+choosing among them is a curator's call.
+
+```bash
+just backfill-cancer-origin                     # dry run
+just backfill-cancer-origin --bind-single-cell  # dry run, wider
+just backfill-cancer-origin --apply
+```
+
+Always re-validate afterwards — `just validate-disorders` on the changed files.
 
 ## Reading the findings
 
@@ -84,49 +120,45 @@ report the entry as unmarked.
   and it never gates**, because it means one of three quite different things
   and only a curator can say which:
 
-    1. a grouping wearing a Disease entry's clothes — `Kidney_Sarcoma` derives
-       four mesenchymal lineages, `Appendiceal_Neoplasm` derives epithelial plus
-       goblet plus enteroendocrine. These are L1 pools on the granularity ladder
-       and the remedy is a `Grouping`;
-    2. one disease with genuine cell-of-origin **subtypes** — DLBCL's centrocyte
-       and centroblast, which WHO treats as GCB/ABC strata of a single entity.
-       The remedy is `has_subtypes`;
-    3. an origin the literature has not settled — Ewing sarcoma's mesenchymal
-       stem cell versus neural crest cell. Naming both is the honest answer, and
-       the remedy is a note saying so.
+    1. a pool wearing a Disease entry's clothes — `Non-Small_Cell_Lung_Cancer`
+       derives alveolar type 2 cell *and* bronchial epithelial cell, which is
+       what NSCLC is: adenocarcinoma plus squamous carcinoma. These are L1/L2
+       pools on the granularity ladder and the remedy is a `Grouping` or a split;
+    2. one disease with genuine cell-of-origin **subtypes** —
+       `B-Lymphoblastic_Leukemia_Lymphoma_With_Recurrent_Genetic_Abnormality`
+       (B-lymphoblast and precursor B cell across 19 subtypes),
+       `GPR101-related_pituitary_adenoma_2` (somatotroph and mammotroph). The
+       remedy is `has_subtypes`;
+    3. an origin the literature has not settled —
+       `Melanoma_in_Congenital_Melanocytic_Nevus` names melanocyte and neural
+       crest cell on one node. Naming both is the honest answer, and the remedy
+       is a note saying so.
 
-`CONTEXT_NODE_MARKED`
-: The derivation landed on a node describing the setting rather than the
-  origin: microenvironment remodeling, chronic inflammation, immune evasion.
-  Binding macrophage, Treg and fibroblast there is correct curation; treating
-  them as the cell of origin is not. This is the failure mode of rule 2, and the
-  fix is to mark the transforming lesion so rule 1 wins. Pancreatic ductal
-  adenocarcinoma was exactly this case before the marking was added: a "Chronic
-  Pancreatic Inflammation" root node marked `role: trigger` derived macrophage
-  plus pancreatic stellate cell.
-
-  The test is on the node **name**, not on a list of stromal cell types, because
-  no cell type is stromal everywhere: a T cell is microenvironment in a
-  carcinoma and the cell of origin in a T-cell lymphoma.
+  The five current findings are all of these kinds, which is the point: the list
+  is short enough to work through, and every row is a real modeling question.
 
 `ORIGIN_WITHOUT_CELL`
 : An origin node was identified but binds no CL term. The cheapest class to fix,
   since the marking is already there.
 
 `NO_ORIGIN`
-: No rule fired. This is most of the corpus, which is why the check is advisory.
+: Neither marker is present. This is the remaining backlog: 122 of 245 assessed
+  neoplasm entries, down from 220 before the backfill. Most are entries whose
+  pathograph names no genetic lesion at all, or names one with no cell type
+  anywhere in the entry — both need a curator, not a script.
 
 ```bash
 just check-cancer-origin                  # summary + the multi-origin worklist
 just check-cancer-origin --format list    # every entry, one line each
 just check-cancer-origin --format tsv     # machine-readable
-just check-cancer-origin --fail-on MULTI_ORIGIN_CELL   # gate one class
+just check-cancer-origin --fail-on ORIGIN_WITHOUT_CELL # gate one class
 just list-cancer-origin
 ```
 
-It runs inside `just qc` as a report. It exits 0 by default and is not wired
-into CI as a gate: with most entries unmarked, a gating default would be noise
-rather than signal.
+It runs inside `just qc` as a report and exits 0 by default, because 122 entries
+are still unmarked. `ORIGIN_WITHOUT_CELL` is currently at **zero**, though, so
+that class is a candidate for a real gate: every entry that marks an origin
+binds a cell there, and it would be a regression for one to stop doing so.
 
 ## What NCIT contributes
 

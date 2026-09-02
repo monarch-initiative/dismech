@@ -820,26 +820,40 @@ just check-cancer-origin --format list   # every entry, one line each
 just list-cancer-origin
 ```
 
-Three rules identify the origin node, strongest first: a somatic
-`genetic_context` (preferred, and not restricted to root nodes); an initiating
-free-text `role` on a **root** node (weak — `role` carries ~90 distinct values);
-a root node with `triggers` (non-mutational initiation such as HTLV-1). A
-stronger rule wins only if it actually yields a cell, so a lesion node that names
-the gene but not the cell does not mask a correct answer one node over.
+Two rules identify the origin node, and both read a structured claim rather than
+a naming convention: a somatic `genetic_context` (not restricted to root nodes —
+a second-hit or transformation lesion is still a somatic event), or an
+`environmental[].influences_mechanisms` link marking the node
+`environmental_effect: TRIGGERS` for non-mutational initiation (HPV, H. pylori,
+asbestos, UV). The exposure rule applies **only when no lesion is recorded**:
+once the entry names the transforming event, the exposure is upstream context.
+
+There is deliberately **no fallback chain and no role-string reading**. An
+earlier version had both, to cover entries that had not recorded their origin,
+and they mis-fired — deriving macrophage and pancreatic stellate cell as the cell
+of origin of pancreatic cancer from a chronic-inflammation node. The records were
+marked instead (`just backfill-cancer-origin`), and an entry that does not say
+where it starts is now reported as not saying it.
 
 **Deriving more than one cell of origin is the lump/split signal**, reported and
 never gated. It means a grouping wearing a Disease entry's clothes
 (`Kidney_Sarcoma`, `Appendiceal_Neoplasm` — remedy a `Grouping`), a disease with
 cell-of-origin subtypes (DLBCL's GCB/ABC — remedy `has_subtypes`), or an
-unsettled origin (Ewing sarcoma — remedy a note). Separately,
-`CONTEXT_NODE_MARKED` says the derivation landed on a microenvironment,
-inflammation or immune-evasion node; those bind macrophage/Treg/fibroblast, which
-are where the tumor lives, not where it came from, and the fix is to mark the
-lesion instead.
+unsettled origin (melanoma in congenital melanocytic nevus — remedy a note).
 
-The check is **advisory** and runs inside `just qc`. It exits 0 by default
-because 220 of 250 assessed neoplasm entries are still unmarked; `--fail-on
-<CLASS>` or `--strict` gates when you want one.
+The check is **advisory** and runs inside `just qc`, exiting 0 because 122 of 245
+assessed neoplasm entries are still unmarked; `--fail-on <CLASS>` or `--strict`
+gates when you want one. `ORIGIN_WITHOUT_CELL` is currently at zero — every entry
+that marks an origin binds a cell there — so that class is ready to become a real
+gate.
+
+**Backfilling.** `just backfill-cancer-origin [--bind-single-cell] [--apply]`
+marks entries whose prose already states the lesion. It only marks a node whose
+own **name** says mutation/fusion/translocation/amplification/inactivation —
+never a pathway state, a germline variant, a microenvironment node, or an
+acquired-resistance node ("ESR1 Mutation-Driven Endocrine Resistance" is a real
+somatic event that happens years after the disease starts). Re-validate the
+changed files with `just validate-disorders` afterwards.
 
 **NCIT is a cross-check, never a binding target.** `NCIT:R104`
 (Disease_Has_Normal_Cell_Origin), `NCIT:R112` and `NCIT:R105`

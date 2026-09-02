@@ -78,12 +78,14 @@ lesion, and the cell of origin is that node's `cell_types`.
       label: hematopoietic stem cell
 ```
 
-- Prefer this marker over `role: trigger`. `role` is free text with ~90 values
-  in the KB, and the derivation only reads it on a root node as a fallback.
-- Do **not** mark a microenvironment / chronic-inflammation / immune-evasion
-  node. Those bind macrophage, Treg and fibroblast, which are where the tumor
-  lives, not where it came from. `just check-cancer-origin` reports that case
-  as `CONTEXT_NODE_MARKED`.
+- `role: trigger` marks nothing. `role` is free text with ~90 values in the KB,
+  and the derivation reads structured markers only.
+- For a cancer with no host lesion to mark (HPV, H. pylori, asbestos, UV), the
+  marker is the `environmental[].influences_mechanisms` link carrying
+  `environmental_effect: TRIGGERS`. It only speaks when no lesion is recorded.
+- Do **not** mark a microenvironment or chronic-inflammation node. Those bind
+  macrophage, Treg and fibroblast, which are where the tumor lives, not where it
+  came from.
 - Deriving more than one cell of origin is a lump/split prompt, not a defect.
 - NCIT asserts its own cell of origin (`NCIT:R104`) and transformed cell state
   (`NCIT:R105`, the Abnormal Cell branch) per disease, quotable from

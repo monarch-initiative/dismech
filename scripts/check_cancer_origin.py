@@ -19,28 +19,33 @@ So the cell of origin is *derived*: find the initiating node, read its cell
 types. This script implements that derivation, reports the entries where it
 fails, and turns the multi-origin case into the grouping signal it should be.
 
-Three ways a node is recognized as the origin
----------------------------------------------
-Applied in order; the first that matches wins, and the rule that fired is
-reported so a curator can tell a deliberate marking from a lucky guess.
+Two ways a node is recognized as the origin
+-------------------------------------------
+Both read a **structured claim the entry makes**. Neither reads a naming
+convention, and there is no fallback chain: an entry that does not say where it
+starts is reported as not saying it, rather than guessed at.
 
 ``SOMATIC_LESION``
     A node carrying ``genetic_context.variant_origin: SOMATIC`` (or
-    ``GERMLINE_AND_SOMATIC``). This is the marker to prefer, and the only one
-    that is unambiguous: it is a structured claim about a mutational event, not
-    a naming convention. ``allelic_hit_role: FIRST_HIT`` narrows it further.
+    ``GERMLINE_AND_SOMATIC``) -- the transforming lesion. Not restricted to root
+    nodes: a transformation or second-hit lesion is still a somatic event.
+    ``allelic_hit_role: FIRST_HIT`` narrows it further.
 
-``INITIATING_ROLE``
-    A **root** node (nothing in the entry lists it as a ``downstream`` target)
-    whose free-text ``role`` is one of the initiating spellings. Weaker: ``role``
-    is an unconstrained string and the KB holds ~90 distinct values on
-    pathophysiology nodes, so this rule reads a convention rather than a claim.
+``ENVIRONMENTAL_TRIGGER``
+    A node that an ``environmental[].influences_mechanisms`` link marks with
+    ``environmental_effect: TRIGGERS`` -- non-mutational initiation, where there
+    is no host lesion to mark at all: HPV in anal carcinoma, H. pylori in gastric
+    adenocarcinoma, asbestos in mesothelioma, UV in cutaneous SCC. It applies
+    only when no somatic lesion is recorded, because a recorded lesion *is* the
+    transforming event and the exposure is then upstream context.
 
-``EXPOSURE_TRIGGER``
-    A root node carrying ``triggers`` -- the non-mutational initiation case
-    (HTLV-1 in adult T-cell leukemia, EBV, chemical carcinogens), where there is
-    no somatic lesion in the host genome to mark, yet the entry still names the
-    initiating event and the cell it acts on.
+An earlier version had a third rule that read an initiating-sounding ``role``
+string on a root node, plus a fallback chain so a stronger rule could not
+discard a weaker rule's answer. Both existed to paper over entries that had not
+recorded their origin, and both mis-fired: the role rule derived macrophage and
+pancreatic stellate cell as the "cell of origin" of pancreatic ductal
+adenocarcinoma from a chronic-inflammation node. The records were marked instead
+(``scripts/backfill_cancer_origin.py``) and the rules deleted.
 
 What is reported
 ----------------
@@ -68,18 +73,6 @@ What is reported
 
     So this never gates. It is a worklist for the lump/split call, and the
     remedy for (1) is a `Grouping`, for (2) `has_subtypes`, and for (3) a note.
-
-``CONTEXT_NODE_MARKED``
-    The node the derivation landed on describes the setting rather than the
-    origin -- microenvironment remodeling, chronic inflammation, immune evasion.
-    Binding macrophage, Treg and fibroblast there is correct curation; treating
-    them as the cell of origin is not. This is the failure mode of the
-    ``INITIATING_ROLE`` rule, and the remedy is to mark the transforming lesion
-    with ``genetic_context`` so the stronger rule wins. Pancreatic ductal
-    adenocarcinoma was the worked case: a "Chronic Pancreatic Inflammation" root
-    node marked ``role: trigger`` yielded macrophage + pancreatic stellate cell,
-    while the actual origin sat unmarked one node over on ``KRAS Oncogene
-    Activation`` with ``pancreatic ductal cell``.
 
 Usage
 -----
@@ -123,6 +116,17 @@ NEOPLASM_RE = re.compile(
     re.I,
 )
 
+# Two ways the sweep above picks up something that is not a neoplasm: a
+# paraneoplastic syndrome is a disease *of* a tumor's host, not a tumor; and
+# MONDO labels a handful of non-oncologic entities "malignant" in the older
+# clinical sense ("malignant migrating partial seizures of infancy", which is an
+# epilepsy). Both were derived a cell of origin they cannot have.
+NOT_NEOPLASM_RE = re.compile(
+    r"paraneoplastic|migrating partial seizures|malignant hyperthermia"
+    r"|malignant atrophic papulosis",
+    re.I,
+)
+
 # Germline predisposition syndromes are Mendelian diseases (design decisions
 # Sec 3a says so in as many words) and are assessed under the plain lump/split
 # rules, not this one. They are counted and skipped.
@@ -141,56 +145,12 @@ SOMATIC_CATEGORY_RE = re.compile(
 
 SOMATIC_ORIGINS = {"SOMATIC", "GERMLINE_AND_SOMATIC"}
 
-# `role` is an unconstrained string; these are the spellings that assert the
-# node is where the disease starts, normalized for case and separator. Values
-# meaning "downstream" (consequence, effector, outcome...) are absent on
-# purpose -- this set is not a vocabulary for `role`, it is the subset of it
-# that this derivation reads.
-INITIATING_ROLES = {
-    "trigger",
-    "driver",
-    "root",
-    "primary",
-    "primary defect",
-    "initiator",
-    "initiating",
-    "initiating mechanism",
-    "initiating event",
-    "commitment step",
-    "upstream",
-}
-
 RULE_SOMATIC = "SOMATIC_LESION"
-RULE_ROLE = "INITIATING_ROLE"
-RULE_TRIGGER = "EXPOSURE_TRIGGER"
+RULE_TRIGGER = "ENVIRONMENTAL_TRIGGER"
 
 FINDING_NO_ORIGIN = "NO_ORIGIN"
 FINDING_NO_CELL = "ORIGIN_WITHOUT_CELL"
 FINDING_MULTI = "MULTI_ORIGIN_CELL"
-FINDING_CONTEXT = "CONTEXT_NODE_MARKED"
-
-# A node whose name says "microenvironment", "immune evasion" or "chronic
-# inflammation" describes the setting the tumor grows in, not the cell it came
-# from. Such nodes routinely bind macrophage / Treg / fibroblast, and they are
-# root nodes, so the role rule can pick them up and hand back a stromal "cell of
-# origin". Matched on the node NAME rather than on a list of stromal CL terms,
-# because there is no cell type that is stromal everywhere: a T cell is
-# microenvironment in a carcinoma and the cell of origin in a T-cell lymphoma.
-CONTEXT_NODE_RE = re.compile(
-    r"microenvironment|immune (evasion|escape|suppress|surveillance)"
-    r"|immunosuppress|t-?cell exhaustion|inflammat|desmoplas"
-    r"|tumou?r stroma|stromal (remodel|activation|reaction)"
-    r"|angiogen|myeloid suppression|regulatory t-?cell",
-    re.I,
-)
-
-
-def normalize_role(value: object) -> str:
-    """Case- and separator-fold a free-text ``role`` for comparison only."""
-    if not isinstance(value, str):
-        return ""
-    return re.sub(r"[\s_-]+", " ", value).strip().lower()
-
 
 @dataclass
 class OriginNode:
@@ -270,8 +230,15 @@ def _downstream_targets(nodes: Iterable[dict]) -> set[str]:
     return targets
 
 
-def find_origins(pathophysiology: list[dict]) -> list[OriginNode]:
-    """Apply the three origin rules in precedence order."""
+def find_origins(data: dict) -> list[OriginNode]:
+    """Return the nodes this entry marks as where the disease starts.
+
+    Both rules read a structured claim, so their results are unioned rather than
+    ranked: an entry that marks a somatic lesion *and* an initiating exposure is
+    making two compatible statements about one origin. If they disagree about
+    the cell, that disagreement is the finding, not something to resolve here.
+    """
+    pathophysiology = data.get("pathophysiology") or []
     nodes = [n for n in pathophysiology if isinstance(n, dict)]
     targeted = _downstream_targets(nodes)
 
@@ -289,46 +256,45 @@ def find_origins(pathophysiology: list[dict]) -> list[OriginNode]:
             first_hit=first_hit,
         )
 
-    # Rule 1 -- a somatic lesion is a claim, not a convention, so it ranks
-    # first and is NOT restricted to root nodes: a second-hit or transformation
-    # lesion is still where a somatic event occurred.
-    somatic = [
-        build(node, RULE_SOMATIC)
-        for node in nodes
-        if isinstance(node.get("genetic_context"), dict)
-        and node["genetic_context"].get("variant_origin") in SOMATIC_ORIGINS
-    ]
+    origins: dict[str, OriginNode] = {}
 
-    # Rule 2 -- an initiating role, on a root node only. Off a root node the
-    # word "trigger" describes a step within the cascade, not the origin.
-    by_role = [
-        build(node, RULE_ROLE)
-        for node in nodes
-        if node.get("name") not in targeted
-        and normalize_role(node.get("role")) in INITIATING_ROLES
-    ]
+    # Rule 1 -- the transforming lesion.
+    for node in nodes:
+        genetic_context = node.get("genetic_context")
+        if (
+            isinstance(genetic_context, dict)
+            and genetic_context.get("variant_origin") in SOMATIC_ORIGINS
+        ):
+            origins[str(node.get("name", ""))] = build(node, RULE_SOMATIC)
 
-    # Rule 3 -- non-mutational initiation (oncovirus, carcinogen exposure).
-    by_trigger = [
-        build(node, RULE_TRIGGER)
-        for node in nodes
-        if node.get("name") not in targeted and node.get("triggers")
-    ]
+    # Rule 2 -- non-mutational initiation, read from the environmental link that
+    # says so. `environmental_effect: TRIGGERS` is the same value the KGX
+    # exporter and compliance scoring treat as causal, so this is not a
+    # cell-of-origin-specific convention.
+    triggered: set[str] = set()
+    for exposure in data.get("environmental") or []:
+        if not isinstance(exposure, dict):
+            continue
+        for link in exposure.get("influences_mechanisms") or []:
+            if isinstance(link, dict) and link.get("environmental_effect") == "TRIGGERS":
+                target = link.get("target")
+                if isinstance(target, str):
+                    triggered.add(target)
+    # An exposure link speaks only when no lesion is recorded, and that is a
+    # statement about meaning rather than confidence: the cell of origin is the
+    # cell the transforming event occurred in, so if the entry records that
+    # event, the exposure is upstream context and not the origin. Pancreatic
+    # ductal adenocarcinoma is the case that makes the difference visible --
+    # chronic pancreatitis genuinely TRIGGERS its inflammation node, but that
+    # node binds macrophage and pancreatic stellate cell, while the disease
+    # arises in the ductal cell named on the KRAS lesion.
+    if not origins:
+        for node in nodes:
+            name = str(node.get("name", ""))
+            if name in triggered:
+                origins[name] = build(node, RULE_TRIGGER)
 
-    # Precedence with a fallback: take the strongest rule that actually yields a
-    # cell. A lesion node routinely carries the gene and not the cell it occurred
-    # in, and letting the strongest rule win *outright* would then throw away a
-    # weaker rule's correct answer and report the entry as unmarked. If no rule
-    # yields a cell, still return the strongest match so the entry is reported
-    # as ORIGIN_WITHOUT_CELL rather than silently as NO_ORIGIN.
-    ranked = [somatic, by_role, by_trigger]
-    for candidates in ranked:
-        if candidates and any(c.cell_terms for c in candidates):
-            return candidates
-    for candidates in ranked:
-        if candidates:
-            return candidates
-    return []
+    return list(origins.values())
 
 
 def _display_path(path: Path) -> str:
@@ -364,7 +330,9 @@ def assess(path: Path) -> EntryReport | None:
         classifications.get("icdo_morphology")
     )
     haystack = f"{name} {category_text} {label}"
-    is_neoplasm = bool(NEOPLASM_RE.search(haystack)) or has_icdo
+    is_neoplasm = (
+        bool(NEOPLASM_RE.search(haystack)) or has_icdo
+    ) and not NOT_NEOPLASM_RE.search(haystack)
     is_predisposition = bool(PREDISPOSITION_RE.search(haystack)) and not (
         SOMATIC_CATEGORY_RE.search(category_text)
     )
@@ -383,7 +351,7 @@ def assess(path: Path) -> EntryReport | None:
         pathophysiology = []
     report.n_pathophysiology = len(pathophysiology)
     report.subtype_count = len(data.get("has_subtypes") or [])
-    report.origins = find_origins(pathophysiology)
+    report.origins = find_origins(data)
     for node in pathophysiology:
         if isinstance(node, dict):
             report.all_cell_ids.update(cid for cid, _ in _terms(node.get("cell_types")))
@@ -396,8 +364,6 @@ def assess(path: Path) -> EntryReport | None:
                 if isinstance(term, dict) and term.get("id"):
                     report.ncit_ids.append(str(term["id"]))
 
-    if any(CONTEXT_NODE_RE.search(o.name) for o in report.origins):
-        report.findings.append(FINDING_CONTEXT)
     if not report.origins:
         report.findings.append(FINDING_NO_ORIGIN)
     elif not report.origin_cells:
@@ -438,7 +404,7 @@ def render_summary(reports: list[EntryReport], *, verbose: bool) -> None:
     print(f"Neoplasm entries assessed: {len(assessed)}")
     print(f"  germline predisposition syndromes skipped: {len(skipped)}")
     print(f"  origin node identified:                    {len(marked)}")
-    for rule in (RULE_SOMATIC, RULE_ROLE, RULE_TRIGGER):
+    for rule in (RULE_SOMATIC, RULE_TRIGGER):
         count = sum(1 for r in marked if rule in r.rules)
         print(f"      via {rule:<16} {count}")
     print(f"  cell of origin derived:                    {len(derived)}")
@@ -454,31 +420,12 @@ def render_summary(reports: list[EntryReport], *, verbose: bool) -> None:
             "   a genuinely unsettled origin. See docs/cancer-cell-of-origin.md.\n"
         )
         for report in sorted(multi, key=lambda r: -len(r.origin_cells)):
-            flag = " [context node marked]" if FINDING_CONTEXT in report.findings else ""
-            print(f"  {report.path}  (subtypes={report.subtype_count}){flag}")
+            print(f"  {report.path}  (subtypes={report.subtype_count})")
             for origin in report.origins:
                 if not origin.cell_terms:
                     continue
                 cells = "; ".join(f"{c} {lab}".strip() for c, lab in origin.cell_terms)
                 print(f"     [{origin.rule}] {origin.name!r}: {cells}")
-        print()
-
-    context_only = [
-        r for r in assessed if FINDING_CONTEXT in r.findings and FINDING_MULTI not in r.findings
-    ]
-    if context_only:
-        print(
-            f"-- {len(context_only)} entry(ies) whose only marked origin is a "
-            "context node --"
-        )
-        print(
-            "   A microenvironment / inflammation / immune-evasion node is where the\n"
-            "   tumor lives, not where it came from. Mark the transforming lesion\n"
-            "   instead, with genetic_context.variant_origin: SOMATIC.\n"
-        )
-        for report in context_only:
-            names = ", ".join(repr(o.name) for o in report.origins)
-            print(f"  {report.path}: {names}")
         print()
 
     if no_cell:
@@ -604,7 +551,7 @@ def main(argv: list[str] | None = None) -> int:
         "--fail-on",
         action="append",
         default=[],
-        choices=(FINDING_NO_ORIGIN, FINDING_NO_CELL, FINDING_MULTI, FINDING_CONTEXT),
+        choices=(FINDING_NO_ORIGIN, FINDING_NO_CELL, FINDING_MULTI),
         help="exit 1 on this finding class only; repeatable",
     )
     args = parser.parse_args(argv)
@@ -622,7 +569,7 @@ def main(argv: list[str] | None = None) -> int:
 
     gating = set(args.fail_on)
     if args.strict:
-        gating |= {FINDING_NO_ORIGIN, FINDING_NO_CELL, FINDING_MULTI, FINDING_CONTEXT}
+        gating |= {FINDING_NO_ORIGIN, FINDING_NO_CELL, FINDING_MULTI}
     if gating:
         hits = [r for r in reports if gating.intersection(r.findings)]
         if hits:

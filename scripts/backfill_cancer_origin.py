@@ -1,0 +1,354 @@
+#!/usr/bin/env python3
+"""Mark the somatic origin lesion on neoplasm entries that already describe one.
+
+``scripts/check_cancer_origin.py`` derives a cancer's cell of origin from the
+pathophysiology node carrying ``genetic_context.variant_origin: SOMATIC``. When
+that marking was introduced, almost no entry had it -- not because the entries
+lack the information, but because it lived only in prose. This script moves it
+into structure.
+
+**It invents nothing.** A node is only marked when its own ``name`` already
+states a somatic genetic lesion in as many words --
+mutation, fusion, translocation, rearrangement, amplification, biallelic
+inactivation, loss of heterozygosity. A node saying merely that a pathway is
+active is not a lesion and is left alone, and any node whose text says the
+variant is germline, inherited or constitutional is excluded outright. So the
+edit is a transcription of what the curator already wrote, not a new claim.
+
+Candidate selection, per unmarked somatic-neoplasm entry:
+
+1. the node's **name** states a genetic lesion (``LESION_RE``). Matching the
+   description too was tried and rejected: it pulled in pathway and consequence
+   nodes whose description merely mentions the driver ("MAPK/ERK Pathway
+   Activation", "Erythroid Maturation Arrest at the Proerythroblast Stage"),
+   and stamping ``variant_origin: SOMATIC`` on those asserts a lesion the node
+   does not carry, even when the cell it binds happens to be the right one;
+2. the node's text does not state a germline/inherited origin (``GERMLINE_RE``);
+3. the node is neither a microenvironment node (macrophage, Treg and fibroblast
+   are where the tumor lives, not where it came from) nor an acquired-resistance
+   or progression node -- those carry lesion vocabulary and are real somatic
+   events, but they happen long after the disease starts;
+4. the node binds at least one CL term, so the derivation actually yields a
+   cell. ``--bind-single-cell`` relaxes this one case: when the lesion node
+   binds nothing but the entry as a whole names exactly one cell type, that cell
+   is bound onto the lesion node as well. The entry is then already asserting a
+   single lineage, and the only thing being added is *where* in the graph it
+   belongs. Entries naming several cells are left alone: choosing among them is
+   the curator's call, not a script's;
+5. root nodes win when the entry has any, since the origin lesion is the one
+   nothing upstream causes.
+
+An entry with exactly one surviving candidate is applied automatically. An entry
+with several candidates binding **different** cells is left for a human: that is
+either a genuine multi-lineage entry (a grouping in disguise) or a curation
+error, and this script must not decide which.
+
+Usage::
+
+    just backfill-cancer-origin              # dry run: proposals + counts
+    just backfill-cancer-origin --apply      # write the single-candidate cases
+    just backfill-cancer-origin --format tsv
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from check_cancer_origin import (  # noqa: E402
+    _downstream_targets,
+    _terms,
+    assess,
+    iter_paths,
+)
+from dismech.yaml_io import safe_load_path  # noqa: E402
+
+# Vocabulary of an actual genetic lesion. "Activation" and "signaling" are
+# deliberately absent: a pathway running hot is a state, not a lesion, and the
+# node describing it is downstream of the event we are looking for.
+LESION_RE = re.compile(
+    r"\bmutation|\bmutant|\bmutated|missense|nonsense|frameshift|\bfusion\b"
+    r"|translocation|translocated|rearrangement|rearranged|amplification|amplified"
+    r"|\bdeletion\b|\bduplication\b|copy[- ]number|loss of heterozygosity|\bLOH\b"
+    r"|biallelic|oncohistone|\bsomatic\b|\bacquired\b|hypermethylation"
+    r"|epigenetic silencing|promoter methylation|\bt\(\d+;\d+\)|internal tandem"
+    r"|\bITD\b|hotspot|truncating|splice[- ]site|oncogene formation"
+    # "Inactivation" and "loss" are lesion words only when they qualify a gene
+    # or an allele. "TP53 Pathway Inactivation" and "Loss of p53-Dependent
+    # Checkpoint Control" are downstream states, and marking them would assert
+    # a lesion the node does not carry.
+    r"|(?<!pathway )(?<!signaling )inactivation of\b"
+    r"|(?<!pathway )(?<!signaling )(?<!axis )inactivation\b(?! of (a |the )?(pathway|signaling|checkpoint))"
+    r"|loss of function|loss[- ]of[- ]function"
+    r"|(tumou?r[- ]suppressor|second[- ]hit|biallelic|allelic|homozygous|gene)\s+loss"
+    r"|\bdriver (lesion|alteration|mutation|event)|oncogenic (lesion|alteration)"
+    r"|(genetic|genomic|molecular|chromosomal|cytogenetic|epigenetic[- ]regulator)"
+    r"\s+(alteration|lesion|abnormalit)",
+    re.I,
+)
+
+# A node naming the setting rather than the lesion. The checker no longer needs
+# this -- it reads structured markers only -- but a *proposal* pass does, because
+# a microenvironment node can carry lesion vocabulary ("stromal MYC
+# amplification") while binding macrophage and fibroblast.
+CONTEXT_NODE_RE = re.compile(
+    r"microenvironment|immune (evasion|escape|suppress|surveillance)"
+    r"|immunosuppress|t-?cell exhaustion|desmoplas|tumou?r stroma"
+    r"|stromal (remodel|activation|reaction)|angiogen|myeloid suppression",
+    re.I,
+)
+
+# Acquired-resistance and relapse nodes carry lesion vocabulary ("ESR1
+# Mutation-Driven Endocrine Resistance", "Acquired MAPK Reactivation") and are
+# genuinely somatic events, but they happen years after the disease starts. A
+# curator may still mark one; a script proposing them would systematically
+# mistake progression for origin.
+RESISTANCE_RE = re.compile(
+    r"resistan|relapse|refractory|selection pressure|escape|reactivation"
+    r"|bypass|progression|metasta|transformation to|richter",
+    re.I,
+)
+
+# Any hint that the variant is inherited rather than acquired. Conservative on
+# purpose: a false exclusion costs one manual entry, a false inclusion asserts
+# the wrong variant origin.
+GERMLINE_RE = re.compile(
+    r"germline|inherited|heritable|hereditary|constitutional|familial"
+    r"|de novo|autosomal|carrier|predispos",
+    re.I,
+)
+
+
+@dataclass
+class Proposal:
+    path: Path
+    node_name: str
+    cell_ids: list[str]
+    cell_labels: list[str]
+    is_root: bool
+    matched: str
+    has_genetic_context: bool = False
+    borrowed_cell: bool = False
+
+
+# CL's two generic transformed-cell terms. They name "a neoplastic cell", which
+# is true of every tumor and identifies no lineage, so they cannot answer "what
+# did this arise from".
+GENERIC_CELLS = {"CL:0001063", "CL:0001064"}
+
+
+def _node_text(node: dict) -> str:
+    return f"{node.get('name', '')} {node.get('description', '') or ''}"
+
+
+def propose(path: Path, *, bind_single_cell: bool = False) -> tuple[list[Proposal], str]:
+    """Return candidate origin nodes for one entry, plus a status word."""
+    report = assess(path)
+    if report is None or not report.is_neoplasm or report.is_predisposition:
+        return [], "skipped"
+    if any(o.rule == "SOMATIC_LESION" for o in report.origins):
+        return [], "already-marked"
+
+    data = safe_load_path(path)
+    nodes = [n for n in (data.get("pathophysiology") or []) if isinstance(n, dict)]
+    targeted = _downstream_targets(nodes)
+
+    candidates: list[Proposal] = []
+    for node in nodes:
+        name = str(node.get("name", ""))
+        # The lesion must be in the NAME. A description mentioning the driver
+        # does not make a downstream node the site of the lesion.
+        match = LESION_RE.search(name)
+        if not match:
+            continue
+        # Germline wording is checked against name AND description: excluding
+        # too much costs one manual entry, including too much asserts the wrong
+        # variant origin.
+        if GERMLINE_RE.search(_node_text(node)):
+            continue
+        if CONTEXT_NODE_RE.search(name) or RESISTANCE_RE.search(name):
+            continue
+        cells = [
+            (cid, label)
+            for cid, label in _terms(node.get("cell_types"))
+            if cid not in GENERIC_CELLS
+        ]
+        borrowed = False
+        if not cells and bind_single_cell:
+            entry_cells = {
+                cid: label
+                for other in nodes
+                for cid, label in _terms(other.get("cell_types"))
+                if cid not in GENERIC_CELLS
+            }
+            if len(entry_cells) == 1:
+                cells = list(entry_cells.items())
+                borrowed = True
+        if not cells:
+            continue
+        candidates.append(
+            Proposal(
+                path=path,
+                node_name=str(node.get("name", "")),
+                cell_ids=[c for c, _ in cells],
+                cell_labels=[label for _, label in cells],
+                is_root=node.get("name") not in targeted,
+                matched=match.group(0),
+                has_genetic_context=isinstance(node.get("genetic_context"), dict),
+                borrowed_cell=borrowed,
+            )
+        )
+
+    if not candidates:
+        return [], "no-candidate"
+
+    # The origin lesion is the one nothing upstream causes.
+    roots = [c for c in candidates if c.is_root]
+    if roots:
+        candidates = roots
+
+    distinct_cells = {tuple(sorted(set(c.cell_ids))) for c in candidates}
+    if len(candidates) > 1 and len(distinct_cells) > 1:
+        return candidates, "ambiguous"
+    return candidates, "ready"
+
+
+def _name_line_pattern(name: str) -> re.Pattern:
+    escaped = re.escape(name)
+    return re.compile(rf"^- name: (?:{escaped}|\"{escaped}\"|'{escaped}')\s*$", re.M)
+
+
+def apply_proposal(path: Path, proposals: list[Proposal]) -> bool:
+    """Insert `genetic_context.variant_origin: SOMATIC` after each node's name.
+
+    Text insertion rather than a YAML round-trip: ruamel would reflow quoting
+    and folded scalars across the whole file, burying a two-line change in a
+    thousand-line diff.
+    """
+    text = path.read_text()
+    for proposal in proposals:
+        pattern = _name_line_pattern(proposal.node_name)
+        matches = list(pattern.finditer(text))
+        if len(matches) != 1:
+            # Zero means a multi-line or quoted name this script should not
+            # rewrite; more than one means the name is ambiguous in the file.
+            print(
+                f"  skip (name matched {len(matches)}x): "
+                f"{path.name}: {proposal.node_name!r}",
+                file=sys.stderr,
+            )
+            return False
+        match = matches[0]
+        if proposal.has_genetic_context:
+            # The node already carries a genetic_context (gene, allele type,
+            # functional impact) that simply never recorded variant_origin.
+            # Adding a second block would be a duplicate YAML key: legal to
+            # PyYAML, which silently keeps the last one, and fatal to the
+            # ruamel-based reference validator (dismech#8623). Merge instead.
+            block = re.compile(r"^  genetic_context:\s*$", re.M)
+            existing = block.search(text, match.end())
+            if existing is None:
+                print(
+                    f"  skip (genetic_context not found): "
+                    f"{path.name}: {proposal.node_name!r}",
+                    file=sys.stderr,
+                )
+                return False
+            insert_at = existing.end() + 1
+            text = text[:insert_at] + "    variant_origin: SOMATIC\n" + text[insert_at:]
+            continue
+        insertion = "  genetic_context:\n    variant_origin: SOMATIC\n"
+        if proposal.borrowed_cell:
+            insertion += "  cell_types:\n"
+            for cid, label in zip(proposal.cell_ids, proposal.cell_labels):
+                insertion += (
+                    f"  - preferred_term: {label}\n"
+                    f"    term:\n      id: {cid}\n      label: {label}\n"
+                )
+        text = text[: match.end() + 1] + insertion + text[match.end() + 1 :]
+    path.write_text(text)
+    return True
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("files", nargs="*")
+    parser.add_argument(
+        "--apply", action="store_true", help="write the single-candidate cases"
+    )
+    parser.add_argument("--format", choices=("summary", "tsv"), default="summary")
+    parser.add_argument(
+        "--bind-single-cell",
+        action="store_true",
+        help="also bind the entry's sole cell type onto a lesion node that has none",
+    )
+    args = parser.parse_args(argv)
+
+    ready: dict[Path, list[Proposal]] = {}
+    ambiguous: dict[Path, list[Proposal]] = {}
+    no_candidate: list[Path] = []
+    already = 0
+
+    for path in iter_paths(args.files):
+        proposals, status = propose(path, bind_single_cell=args.bind_single_cell)
+        if status == "ready":
+            ready[path] = proposals
+        elif status == "ambiguous":
+            ambiguous[path] = proposals
+        elif status == "no-candidate":
+            no_candidate.append(path)
+        elif status == "already-marked":
+            already += 1
+
+    if args.format == "tsv":
+        print("status\tpath\tnode\tcells\tmatched\troot")
+        for status, group in (("ready", ready), ("ambiguous", ambiguous)):
+            for path, proposals in group.items():
+                for p in proposals:
+                    cells = ";".join(
+                        f"{i} {label}" for i, label in zip(p.cell_ids, p.cell_labels)
+                    )
+                    print(
+                        f"{status}\t{path.relative_to(ROOT)}\t{p.node_name}\t"
+                        f"{cells}\t{p.matched}\t{p.is_root}"
+                    )
+        for path in no_candidate:
+            print(f"no-candidate\t{path.relative_to(ROOT)}\t\t\t\t")
+        return 0
+
+    print(f"already marked:            {already}")
+    print(f"ready (one candidate):     {len(ready)}")
+    print(f"ambiguous (several cells): {len(ambiguous)}")
+    print(f"no candidate in prose:     {len(no_candidate)}")
+    print()
+
+    if ambiguous:
+        print("-- ambiguous, left for a human --")
+        for path, proposals in ambiguous.items():
+            print(f"  {path.relative_to(ROOT)}")
+            for p in proposals:
+                cells = "; ".join(p.cell_labels)
+                print(f"     {p.node_name!r}: {cells}")
+        print()
+
+    if not args.apply:
+        print("Dry run. Re-run with --apply to write the ready cases.")
+        return 0
+
+    written = 0
+    for path, proposals in ready.items():
+        if apply_proposal(path, proposals):
+            written += 1
+    print(f"Marked {written} entry(ies).")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

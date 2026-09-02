@@ -180,18 +180,28 @@ MONDO NTR list for promoted strata; creating remaining missing L2 parents (e.g.
 pathophysiology node where the transforming lesion occurred and reading that node's
 `cell_types`. dismech adds **no `cell_of_origin:` slot**, on `Disease` or on `Subtype`.
 
-The origin node is identified by three rules, applied in precedence order, with the
-rule that fired reported alongside the answer:
+The origin node is identified by two rules, **both reading a structured claim** rather
+than a naming convention, with the rule that fired reported alongside the answer:
 
-| Rule | Marker | Strength |
-|---|---|---|
-| `SOMATIC_LESION` | `pathophysiology[].genetic_context.variant_origin: SOMATIC` (or `GERMLINE_AND_SOMATIC`) | **Preferred.** A structured claim about a mutational event. Not restricted to root nodes: a transformation or second-hit lesion is still a somatic event. `allelic_hit_role: FIRST_HIT` narrows it further |
-| `INITIATING_ROLE` | a **root** node (no incoming `downstream` edge) whose free-text `role` reads as initiating | Weak — `role` is an unconstrained string carrying ~90 distinct values on pathophysiology nodes, so this reads a convention, not a claim. Root-only, because off a root node "trigger" names a step inside the cascade |
-| `EXPOSURE_TRIGGER` | a root node carrying `triggers` | Covers non-mutational initiation (HTLV-1, EBV, chemical carcinogens), where there is no host lesion to mark |
+| Rule | Marker |
+|---|---|
+| `SOMATIC_LESION` | `pathophysiology[].genetic_context.variant_origin: SOMATIC` (or `GERMLINE_AND_SOMATIC`) — the transforming lesion. Not restricted to root nodes: a second-hit or transformation lesion is still a somatic event. `allelic_hit_role: FIRST_HIT` narrows it further |
+| `ENVIRONMENTAL_TRIGGER` | an `environmental[].influences_mechanisms` link marking the node `environmental_effect: TRIGGERS` — non-mutational initiation (HPV, H. pylori, asbestos, UV), where there is no host lesion to mark. The same value the KGX exporter and compliance scoring already treat as causal |
 
-A stronger rule wins **only if it yields a cell**. A lesion node routinely carries the
-gene and not the cell it occurred in; letting rule 1 win outright would discard a correct
-answer one node over and report the entry as unmarked.
+The exposure rule applies **only when no lesion is recorded**, which is a statement about
+meaning and not confidence: the cell of origin is the cell the transforming event occurred
+in, so once the entry records that event the exposure is upstream context.
+
+**Rejected: fallback rules for unmarked entries.** The first implementation also read an
+initiating-sounding free-text `role` on a root node, and chained fallbacks so a stronger
+rule could not discard a weaker rule's answer. Both existed to cover entries that had not
+recorded their origin, and both mis-fired — the role rule derived macrophage and pancreatic
+stellate cell as the cell of origin of pancreatic ductal adenocarcinoma, from a
+chronic-inflammation node. A `CONTEXT_NODE_MARKED` finding was added to catch that, and
+then false-positived on cancers that really are inflammation-initiated. The correct fix was
+to mark the records (`scripts/backfill_cancer_origin.py`, 105 entries) and delete the
+heuristics; an entry that does not say where it starts is now reported as not saying it
+(@cmungall, 2026-09-02).
 
 **Rationale.** A dedicated slot would restate what the pathograph already says, and the
 two would drift. It would also sit at the disease level, unable to distinguish a
@@ -203,15 +213,14 @@ marker on the node (@cmungall, 2026-09-02 session).
 
 **Consequence — the multi-origin finding is the lump/split signal.** Deriving more than
 one cell of origin is reported and **never gated**, because it means one of three
-different things and only a curator can say which: (a) a grouping wearing a Disease
-entry's clothes (`Kidney_Sarcoma`'s four mesenchymal lineages, `Appendiceal_Neoplasm`'s
-epithelial + goblet + enteroendocrine) — an L1 pool per §3a, remedy a `Grouping`; (b) one
-disease with genuine cell-of-origin **subtypes** (DLBCL's centrocyte/centroblast, which
-WHO treats as GCB/ABC strata of one entity) — remedy `has_subtypes`; (c) an origin the
-literature has not settled (Ewing sarcoma's mesenchymal stem cell vs. neural crest cell)
-— remedy a note. Distinct from this, a derivation landing on a *microenvironment*,
-inflammation or immune-evasion node is reported as `CONTEXT_NODE_MARKED`: that is the
-failure mode of rule 2, and the fix is to mark the lesion so rule 1 wins.
+different things and only a curator can say which: (a) a pool wearing a Disease entry's
+clothes (`Non-Small_Cell_Lung_Cancer` derives alveolar type 2 *and* bronchial epithelial
+cell, which is exactly what NSCLC is) — remedy a `Grouping` or a split per §3a; (b) one
+disease with genuine cell-of-origin **subtypes** (B-lymphoblastic leukemia across its 19
+subtypes; `GPR101-related_pituitary_adenoma_2`'s somatotroph and mammotroph) — remedy
+`has_subtypes`; (c) an origin the literature has not settled
+(`Melanoma_in_Congenital_Melanocytic_Nevus` names melanocyte and neural crest cell) —
+remedy a note. Five entries currently report it, which is short enough to work through.
 
 **NCIT is a cross-check, not a binding target.** NCIT asserts cell of origin per disease
 inside its `owl:equivalentClass` definitions — `NCIT:R104` Disease_Has_Normal_Cell_Origin,
@@ -224,13 +233,15 @@ is no NCIT-to-CL mapping in the repo, so agreement between our derived CL term a
 class is a curator's judgement, not a computed match.
 
 **Enacted.** `scripts/check_cancer_origin.py` (`just check-cancer-origin`, advisory,
-inside `just qc`), `tests/test_cancer_origin.py`, worked exemplars
-`Chronic_Myeloid_Leukemia` and `Pancreatic_Ductal_Adenocarcinoma`. **Still open:** the
-backfill — 220 of 250 assessed neoplasm entries have no origin node marked, and 13 mark
-one that binds no cell; whether CL should gain lineage-specific transformed-cell terms, or
-`CellTypeTerm` gain `NCIT:C12913` as a second source node, so an entry needing "H3
-K27M-mutant glioma cell" stops binding the generic `CL:0001063`. See
-[cancer-cell-of-origin.md](../cancer-cell-of-origin.md).
+inside `just qc`), `scripts/backfill_cancer_origin.py`, `tests/test_cancer_origin.py`, and
+105 entries marked. 123 of 245 assessed neoplasm entries now derive a cell of origin, and
+`ORIGIN_WITHOUT_CELL` is at zero — every entry that marks an origin binds a cell there,
+which makes that class ready to become a hard gate. **Still open:** the remaining 122
+unmarked entries, whose pathographs name no genetic lesion, or name one with no cell type
+anywhere in the entry — both need a curator rather than a script; and whether CL should
+gain lineage-specific transformed-cell terms, or `CellTypeTerm` gain `NCIT:C12913` as a
+second source node, so an entry needing "H3 K27M-mutant glioma cell" stops binding the
+generic `CL:0001063`. See [cancer-cell-of-origin.md](../cancer-cell-of-origin.md).
 
 ## 4. Ontology constraints
 

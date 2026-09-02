@@ -5,10 +5,13 @@ node carrying ``genetic_context.variant_origin: SOMATIC`` already says *this is
 where the transforming lesion happened*, and that node's ``cell_types`` already
 say *in which cell*. ``scripts/check_cancer_origin.py`` reads the two together.
 
-These tests fix the parts of that derivation that are easy to get subtly wrong:
-the precedence between the three origin rules, the fallback that stops a strong
-rule from discarding a weak rule's correct answer, and the separation of
-microenvironment nodes from origin nodes.
+The derivation reads two structured markers and nothing else: a somatic
+``genetic_context``, and an ``environmental_effect: TRIGGERS`` link for
+non-mutational initiation. An earlier version also read an initiating-sounding
+``role`` string and chained fallbacks between the rules; both existed to cover
+entries that had not recorded their origin, and both mis-fired. The records were
+marked instead and the rules deleted, so these tests pin the two that remain --
+including the one case where they must not both speak.
 """
 
 import subprocess
@@ -21,16 +24,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from check_cancer_origin import (  # noqa: E402
-    FINDING_CONTEXT,
     FINDING_MULTI,
     FINDING_NO_CELL,
     FINDING_NO_ORIGIN,
-    RULE_ROLE,
     RULE_SOMATIC,
     RULE_TRIGGER,
     assess,
     find_origins,
-    normalize_role,
 )
 
 ROOT = Path(__file__).parent.parent
@@ -41,165 +41,162 @@ def _cell(term_id, label):
     return {"preferred_term": label, "term": {"id": term_id, "label": label}}
 
 
-def test_somatic_lesion_outranks_an_initiating_role():
-    """A structured mutational claim beats a naming convention."""
+def _entry(pathophysiology, environmental=None):
+    data = {"pathophysiology": pathophysiology}
+    if environmental is not None:
+        data["environmental"] = environmental
+    return data
+
+
+def test_somatic_lesion_is_read_from_the_marker_not_from_a_role_string():
     origins = find_origins(
-        [
-            {
-                "name": "Chronic Inflammation",
-                "role": "trigger",
-                "cell_types": [_cell("CL:0000235", "macrophage")],
-            },
-            {
-                "name": "KRAS Oncogene Activation",
-                "genetic_context": {"variant_origin": "SOMATIC"},
-                "cell_types": [_cell("CL:0002079", "pancreatic ductal cell")],
-            },
-        ]
+        _entry(
+            [
+                {
+                    "name": "Chronic Inflammation",
+                    "role": "trigger",
+                    "cell_types": [_cell("CL:0000235", "macrophage")],
+                },
+                {
+                    "name": "KRAS Oncogene Activation",
+                    "genetic_context": {"variant_origin": "SOMATIC"},
+                    "cell_types": [_cell("CL:0002079", "pancreatic ductal cell")],
+                },
+            ]
+        )
     )
     assert [o.rule for o in origins] == [RULE_SOMATIC]
     assert origins[0].cell_ids == {"CL:0002079"}
 
 
-def test_somatic_node_without_a_cell_falls_back_to_the_role_rule():
-    """The strongest rule must not discard a weaker rule's actual answer.
-
-    A lesion node routinely carries the gene and not the cell it occurred in.
-    Letting rule 1 win outright there would report an entry that names its
-    origin cell perfectly well as having none.
-    """
+def test_an_initiating_role_alone_marks_nothing():
+    """`role` is free text with ~90 values in the KB; it is not a claim."""
     origins = find_origins(
-        [
-            {
-                "name": "EWSR1-FLI1 Fusion",
-                "genetic_context": {"variant_origin": "SOMATIC"},
-            },
-            {
-                "name": "Permissive Progenitor Cell State",
-                "role": "driver",
-                "cell_types": [_cell("CL:0000134", "mesenchymal stem cell")],
-            },
-        ]
-    )
-    assert [o.rule for o in origins] == [RULE_ROLE]
-    assert origins[0].cell_ids == {"CL:0000134"}
-
-
-def test_no_rule_yielding_a_cell_still_reports_the_strongest_match():
-    """Falling back must not degrade into reporting the entry as unmarked."""
-    origins = find_origins(
-        [
-            {
-                "name": "Somatic BRAF Codon-600 Driver",
-                "genetic_context": {"variant_origin": "SOMATIC"},
-            },
-            {"name": "Downstream MAPK Activation"},
-        ]
-    )
-    assert [o.rule for o in origins] == [RULE_SOMATIC]
-    assert origins[0].cell_terms == []
-
-
-def test_initiating_role_only_counts_on_a_root_node():
-    """Off a root node, "trigger" names a step in the cascade, not the origin."""
-    origins = find_origins(
-        [
-            {
-                "name": "Upstream Lesion",
-                "downstream": [{"target": "Inner Trigger"}],
-            },
-            {
-                "name": "Inner Trigger",
-                "role": "trigger",
-                "cell_types": [_cell("CL:0000057", "fibroblast")],
-            },
-        ]
+        _entry(
+            [
+                {
+                    "name": "Malignant Transformation",
+                    "role": "trigger",
+                    "cell_types": [_cell("CL:0000134", "mesenchymal stem cell")],
+                }
+            ]
+        )
     )
     assert origins == []
 
 
-def test_self_loop_does_not_make_a_node_non_root():
-    """A node listed as its own downstream is issue #9896, not an incoming edge."""
+def test_a_somatic_lesion_off_a_root_node_still_counts():
+    """A transformation or second-hit lesion is still where a somatic event was."""
     origins = find_origins(
-        [
-            {
-                "name": "Clonal Expansion",
-                "role": "trigger",
-                "downstream": [{"target": "Clonal Expansion"}],
-                "cell_types": [_cell("CL:0000037", "hematopoietic stem cell")],
-            }
-        ]
+        _entry(
+            [
+                {"name": "Precursor Lesion", "downstream": [{"target": "Second Hit"}]},
+                {
+                    "name": "Second Hit",
+                    "genetic_context": {
+                        "variant_origin": "SOMATIC",
+                        "allelic_hit_role": "FIRST_HIT",
+                    },
+                    "cell_types": [_cell("CL:0000066", "epithelial cell")],
+                },
+            ]
+        )
     )
-    assert [o.name for o in origins] == ["Clonal Expansion"]
+    assert [o.name for o in origins] == ["Second Hit"]
+    assert origins[0].first_hit
 
 
-def test_exposure_trigger_covers_non_mutational_initiation():
-    """An oncovirus leaves no host lesion to mark, but still names an origin."""
+def test_environmental_trigger_covers_non_mutational_initiation():
+    """HPV, H. pylori, asbestos: no host lesion to mark, but a curated link."""
     origins = find_origins(
-        [
-            {
-                "name": "HTLV-1 Infection of CD4 T Cells",
-                "triggers": [{"preferred_term": "HTLV-1 infection"}],
-                "cell_types": [_cell("CL:0000624", "CD4-positive T cell")],
-            }
-        ]
+        _entry(
+            [
+                {
+                    "name": "HPV Infection of Anal Squamous Epithelium",
+                    "cell_types": [_cell("CL:0009066", "stratified squamous epithelial cell")],
+                }
+            ],
+            environmental=[
+                {
+                    "name": "HPV exposure",
+                    "influences_mechanisms": [
+                        {
+                            "target": "HPV Infection of Anal Squamous Epithelium",
+                            "environmental_effect": "TRIGGERS",
+                        }
+                    ],
+                }
+            ],
+        )
     )
     assert [o.rule for o in origins] == [RULE_TRIGGER]
 
 
-def test_role_normalization_folds_case_and_separators():
-    assert normalize_role("TRIGGER") == "trigger"
-    assert normalize_role("Primary_Defect") == "primary defect"
-    assert normalize_role(None) == ""
+def test_a_non_triggering_environmental_effect_marks_nothing():
+    origins = find_origins(
+        _entry(
+            [{"name": "Some Node", "cell_types": [_cell("CL:0000066", "epithelial cell")]}],
+            environmental=[
+                {
+                    "name": "Exposure",
+                    "influences_mechanisms": [
+                        {"target": "Some Node", "environmental_effect": "EXACERBATES"}
+                    ],
+                }
+            ],
+        )
+    )
+    assert origins == []
 
 
-def test_microenvironment_node_is_flagged_not_silently_accepted(tmp_path):
-    """The known failure mode of the role rule, kept visible.
+def test_a_recorded_lesion_silences_the_exposure_link():
+    """The PDAC case, and the reason rule 2 yields to rule 1.
 
-    PDAC is the worked case: a "Chronic Pancreatic Inflammation" root node
-    marked `role: trigger` derived macrophage + pancreatic stellate cell as the
-    cell of origin, while the real origin sat one node over.
+    Chronic pancreatitis genuinely TRIGGERS the inflammation node, which binds
+    macrophage and pancreatic stellate cell. But the entry also records the
+    transforming lesion, and the cell of origin is the cell that lesion occurred
+    in -- so the exposure is upstream context, not the origin.
     """
-    entry = tmp_path / "Fake_Carcinoma.yaml"
+    origins = find_origins(
+        _entry(
+            [
+                {
+                    "name": "Chronic Pancreatic Inflammation",
+                    "cell_types": [_cell("CL:0000235", "macrophage")],
+                },
+                {
+                    "name": "KRAS Oncogene Activation",
+                    "genetic_context": {"variant_origin": "SOMATIC"},
+                    "cell_types": [_cell("CL:0002079", "pancreatic ductal cell")],
+                },
+            ],
+            environmental=[
+                {
+                    "name": "Chronic pancreatitis",
+                    "influences_mechanisms": [
+                        {
+                            "target": "Chronic Pancreatic Inflammation",
+                            "environmental_effect": "TRIGGERS",
+                        }
+                    ],
+                }
+            ],
+        )
+    )
+    assert [o.rule for o in origins] == [RULE_SOMATIC]
+    assert origins[0].cell_ids == {"CL:0002079"}
+
+
+def test_a_paraneoplastic_syndrome_is_not_a_neoplasm(tmp_path):
+    """It is a disease of a tumor's host; it has no cell of origin of its own."""
+    entry = tmp_path / "Fake_Paraneoplastic.yaml"
     entry.write_text(
-        "name: Fake Carcinoma\n"
-        "categories:\n- Solid Tumor\n"
-        "pathophysiology:\n"
-        "- name: Tumor Microenvironment Remodeling\n"
-        "  role: trigger\n"
-        "  cell_types:\n"
-        "  - preferred_term: macrophage\n"
-        "    term:\n"
-        "      id: CL:0000235\n"
-        "      label: macrophage\n"
+        "name: Paraneoplastic Something\ncategory: Autoimmune\n"
+        "pathophysiology:\n- name: Autoantibody Production\n"
     )
     report = assess(entry)
     assert report is not None
-    assert FINDING_CONTEXT in report.findings
-
-
-def test_stromal_cell_of_origin_is_not_mistaken_for_a_context_node(tmp_path):
-    """Giant cell tumor of bone really does arise in mesenchymal stromal cells.
-
-    The context-node test is on the node NAME and must not fire merely because
-    a legitimate origin cell has "stromal" in its own name.
-    """
-    entry = tmp_path / "Fake_Bone_Tumor.yaml"
-    entry.write_text(
-        "name: Fake Bone Tumor\n"
-        "categories:\n- Solid Tumor\n"
-        "pathophysiology:\n"
-        "- name: Somatic H3-3A G34W Mutation in Mesenchymal Stromal Cells\n"
-        "  role: trigger\n"
-        "  cell_types:\n"
-        "  - preferred_term: mesenchymal stem cell\n"
-        "    term:\n"
-        "      id: CL:0000134\n"
-        "      label: mesenchymal stem cell\n"
-    )
-    report = assess(entry)
-    assert report is not None
-    assert FINDING_CONTEXT not in report.findings
+    assert not report.is_neoplasm
 
 
 def test_multiple_origin_cells_are_reported_as_the_lump_split_signal(tmp_path):
@@ -209,7 +206,7 @@ def test_multiple_origin_cells_are_reported_as_the_lump_split_signal(tmp_path):
         "categories:\n- Sarcoma\n"
         "pathophysiology:\n"
         "- name: Malignant Transformation of Renal Mesenchyme\n"
-        "  role: trigger\n"
+        "  genetic_context:\n    variant_origin: SOMATIC\n"
         "  cell_types:\n"
         "  - preferred_term: mesenchymal stem cell\n"
         "    term:\n"
@@ -300,7 +297,7 @@ def test_worked_exemplars_still_derive_their_documented_cell():
     assert pdac.rules == [RULE_SOMATIC]
     assert [cid for cid, _ in pdac.origin_cells] == ["CL:0002079"]
     # The stromal cells of the chronic-inflammation node must not come back.
-    assert FINDING_CONTEXT not in pdac.findings
+    assert "CL:0000235" not in {cid for cid, _ in pdac.origin_cells}
 
 
 def test_script_is_advisory_by_default_and_gates_only_when_asked():
