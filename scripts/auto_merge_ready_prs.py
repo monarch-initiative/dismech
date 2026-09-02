@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""Deterministically squash-merge pull requests that are ready by every signal.
+"""Deterministically clear for merge the pull requests ready by every signal.
 
 This runs in the ``pr-shepherd`` workflow's fresh closing job, isolated from the
 LLM runner. The shepherd agent *judges* stuck PRs; this controller deliberately
 does not. It applies a fixed predicate to GitHub-reported state and merges what
 passes, so the outcome of a run is reproducible from the API response alone.
 
-A PR is merged only when ALL of these hold:
+Where the base branch requires a merge queue (``main`` does), "merges what
+passes" means *enqueues* what passes: GitHub then tests the PR against current
+``main`` on a temporary branch and merges it only if that build is green. See
+``merge_pr`` for how the two paths differ.
+
+A PR is cleared for merge only when ALL of these hold:
 
 - open and targeting the expected base branch (``main``); a draft is treated as
   queue metadata and promoted immediately before the final verification
@@ -70,11 +75,11 @@ optimization; two independent forces require it:
 The list stage therefore defers the mergeability, merge-state, and status-check
 criteria rather than rejecting on them. Immediately before merging, the
 controller checks the required status on current main, performs a final PR read,
-and proves main still has that healthy SHA. It merges at most one PR per run, so
+and proves main still has that healthy SHA. It acts on at most one PR per run, so
 serialization does not depend on GitHub immediately exposing the post-merge SHA.
 GitHub can atomically pin the expected PR head but offers no expected-base field;
-strict branch protection or a merge queue is required to eliminate the final
-narrow race after the last base read.
+the merge queue now eliminates the final narrow race after the last base read,
+and the head pin carries over to the enqueue path as ``expectedHeadOid``.
 
 Usage::
 
