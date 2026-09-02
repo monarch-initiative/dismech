@@ -121,3 +121,57 @@ def test_stale_pr_mapping_is_skipped_not_guessed(squash_repo, monkeypatch):
     )
     result = vmi.verify_commit("owner/name", commit)
     assert result.status == vmi.SKIPPED_PR_MAPPING
+
+
+def test_conflicting_reconstruction_is_unverifiable_not_a_mismatch(
+    tmp_path, monkeypatch
+):
+    # Both sides touch the same line of a.txt, so merge-tree reports a
+    # conflict. GitHub would never have auto-merged that pair, so the
+    # reconstruction is wrong, not the merge -- this must not raise the
+    # corruption alarm.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "test@example.org")
+    _git(repo, "config", "user.name", "Test")
+    base = _commit_file(repo, "a.txt", "base\n", "base")
+    _git(repo, "checkout", "-q", "-b", "feature", base)
+    head = _commit_file(repo, "a.txt", "feature version\n", "feature work")
+    _git(repo, "checkout", "-q", "-")
+    m2 = _commit_file(repo, "a.txt", "main version\n", "Other change (#6)")
+    fake_tree = _git(repo, "rev-parse", f"{m2}^{{tree}}")
+    commit = _squash_commit(repo, fake_tree, m2, "Feature work (#7)")
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(
+        vmi, "gh_pr",
+        lambda repo_, n: {"head_sha": head, "merge_commit_sha": commit},
+    )
+    result = vmi.verify_commit("owner/name", commit)
+    assert result.status == vmi.UNVERIFIABLE
+    assert "conflict" in result.detail
+
+
+def test_failed_pr_lookup_is_a_lookup_error_not_a_mapping_skip(
+    squash_repo, monkeypatch
+):
+    # Lookup failures (rate limit, outage, missing binary) must be
+    # distinguishable from legitimate mapping skips: main() fails closed when
+    # a run's only outcomes are broken lookups.
+    repo, _head, m2, expected_tree = squash_repo
+    commit = _squash_commit(repo, expected_tree, m2, "Feature work (#7)")
+
+    def boom(repo_, n):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="rate limited")
+
+    monkeypatch.setattr(vmi, "gh_pr", boom)
+    result = vmi.verify_commit("owner/name", commit)
+    assert result.status == vmi.SKIPPED_LOOKUP_ERROR
+
+
+def test_merge_tree_distinguishes_error_from_conflict(squash_repo):
+    _repo, head, m2, _ = squash_repo
+    _tree, outcome = vmi.merge_tree(m2, head)
+    assert outcome == "clean"
+    _tree2, outcome2 = vmi.merge_tree(m2, "0" * 40)
+    assert outcome2.startswith("merge-tree failed")

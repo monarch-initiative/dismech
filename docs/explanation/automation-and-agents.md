@@ -362,7 +362,11 @@ should have produced (`git merge-tree --write-tree`), compares it to the tree
 actually pushed, and on mismatch fails red and opens (or comments on) a
 `merge-integrity`-labelled issue. Merge commits, rebase merges, and direct
 pushes are reported as skipped, not judged — see
-`scripts/verify_merge_integrity.py` for the exact contract. This must be live
+`scripts/verify_merge_integrity.py` for the exact contract, including the two
+known false-positive sources (a PR branch reused after merge, and rename-
+detection divergence between local merge-ort and GitHub's merge machinery):
+a `MISMATCH` alarm warrants comparing the trees by hand before declaring an
+incident, especially in the workflow's first weeks. This must be live
 **before** a merge queue with build concurrency above 1 is enabled on `main`,
 because speculative merge groups contain multiple PRs — the structural shape
 of the incident — and it is cheap insurance against non-queue merge anomalies
