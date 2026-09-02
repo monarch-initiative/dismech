@@ -77,8 +77,10 @@ just count-verified-snippets kb/disorders/Asthma.yaml
 # batched pass (slow — run once at the end, not per edit). This is what CI runs.
 just validate-disorders kb/disorders/Asthma.yaml kb/disorders/Cholera.yaml
 
-# Reference validation for a single file (also slow; permits full-text matches)
-just validate-references kb/disorders/Asthma.yaml
+# Reference validation for a single KB entry (also slow; permits full-text matches).
+# "kb" distinguishes it from `just validate-research-reference <report.md>`, which
+# checks a deep-research report's citations instead (#8841)
+just validate-kb-references kb/disorders/Asthma.yaml
 
 # List all available commands
 just --list
@@ -2616,7 +2618,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | Path | Commit? | Reason |
 |------|---------|--------|
 | `kb/disorders/*.yaml`, `kb/modules/*.yaml` | YES | Core content |
-| `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
+| `references_cache/*.md` | YES | Required for deterministic `validate-kb-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `stubs/*.yaml` | YES | The curation queue. A curation PR **deletes** the stub it curates |

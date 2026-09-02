@@ -9909,6 +9909,77 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Acute Radiation Syndrome",
+    "disease_id": "MONDO:0033938",
+    "category": "Complex",
+    "parents": [
+      "Radiation Injury"
+    ],
+    "creation_date": "2026-09-01T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acute radiation syndrome is the constellation of organ failures produced by whole-body or substantial partial-body exposure to a high dose of penetrating ionizing radiation delivered over a short period. It is the clinical expression of a single physical exposure acting on several proliferating tissues at once, and its presentation is ordered by how fast those tissues turn over: the haematopoietic syndrome appears first and at the lowest doses, followed by the gastrointestinal syndrome, then the neurovascular syndrome at doses that are almost uniformly fatal. The haematopoietic arm is the dose-limiting and most treatable component, and it follows the same cytotoxic marrow-injury pathway as chemotherapy-induced myelosuppression, which is why growth-factor support developed for oncology is the mainstay of radiation casualty management.",
+    "pathophysiology": [
+      "Hematopoietic Progenitor Injury",
+      "Bone Marrow Hematopoietic Suppression",
+      "Multilineage Peripheral Cytopenias",
+      "Cytopenia-Related Clinical Complications"
+    ],
+    "cell_types": [
+      "hematopoietic stem cell",
+      "hematopoietic progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000037",
+      "CL:0008001"
+    ],
+    "biological_processes": [
+      "cellular response to ionizing radiation"
+    ],
+    "phenotypes": [
+      "Decreased total lymphocyte count",
+      "Decreased total neutrophil count",
+      "Thrombocytopenia",
+      "Anemia",
+      "Recurrent infections",
+      "Petechiae"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0001888",
+      "HP:0001875",
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0002719",
+      "HP:0000967"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Granulocyte colony-stimulating factor (filgrastim)",
+      "Sargramostim",
+      "Romiplostim"
+    ],
+    "environmental": [
+      "Acute whole-body ionizing radiation exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Acute_Radiation_Syndrome.yaml",
+    "page_url": "../pages/disorders/Acute_Radiation_Syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Acute Respiratory Distress Syndrome",
     "disease_id": "MONDO:0006502",
     "category": "Complex",
@@ -9994,7 +10065,11 @@ window.searchData = [
       "Neuromuscular Blockade for Early Severe ARDS",
       "Venovenous Extracorporeal Membrane Oxygenation"
     ],
-    "environmental": [],
+    "environmental": [
+      "Inhalation of chlorine gas",
+      "Inhalation of bromine gas",
+      "Smoke inhalation"
+    ],
     "biochemical": [
       "Alveolar and circulating lactate",
       "Alveolar succinate"
@@ -10005,7 +10080,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 0,
     "num_treatments": 8,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "7"
   },
   {
@@ -14715,8 +14790,7 @@ window.searchData = [
       "HLA-B*58:01 pharmacogenomic susceptibility"
     ],
     "treatments": [
-      "Causative drug withdrawal and supportive care",
-      "HLA-B*58:01 pre-prescription screening"
+      "Causative drug withdrawal and supportive care"
     ],
     "environmental": [
       "Allopurinol exposure",
@@ -14728,7 +14802,7 @@ window.searchData = [
     "num_phenotypes": 6,
     "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 2,
+    "num_treatments": 1,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
   },
@@ -19511,6 +19585,73 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Anthracycline-Induced Cardiomyopathy",
+    "disease_id": "MONDO:0022653",
+    "category": "Complex",
+    "parents": [
+      "Cardiomyopathy"
+    ],
+    "creation_date": "2026-09-01T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Anthracycline-induced cardiomyopathy is a treatment-toxicity cardiomyopathy caused by cumulative exposure to anthracycline chemotherapy (doxorubicin, daunorubicin, epirubicin, idarubicin). It is the archetypal dose-limiting cardiotoxicity of cytotoxic cancer therapy, and it is the reason cumulative anthracycline dose is capped in treatment protocols. Cardiomyocytes are injured through topoisomerase II-beta-mediated DNA damage and mitochondrial dysfunction rather than through the proliferative mechanism that makes anthracyclines effective against tumour cells, which is why the heart is preferentially affected. The resulting cardiomyocyte loss drives the conserved maladaptive remodelling sequence shared by structural cardiomyopathies, producing progressive contractile dysfunction and heart failure that may present years or decades after treatment ends.",
+    "pathophysiology": [
+      "Anthracycline Exposure and Topoisomerase II-beta-Mediated Cardiomyocyte Injury",
+      "Iron-Dependent Reactive Oxygen Species Generation",
+      "Mitochondrial Injury",
+      "Sarcomere Disruption",
+      "Ventricular Remodeling",
+      "Progressive Contractile Dysfunction"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "apoptotic process",
+      "reactive oxygen species biosynthetic process",
+      "sarcomere organization",
+      "muscle contraction"
+    ],
+    "phenotypes": [
+      "Reduced left ventricular ejection fraction",
+      "Dilated cardiomyopathy",
+      "Congestive heart failure"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0012664",
+      "HP:0001644",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RARG",
+      "TTN"
+    ],
+    "treatments": [
+      "Dexrazoxane",
+      "Spironolactone"
+    ],
+    "environmental": [
+      "Cumulative anthracycline chemotherapy exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Anthracycline_Induced_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/Anthracycline-Induced_Cardiomyopathy.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Anti-Glomerular Basement Membrane Disease",
@@ -34138,6 +34279,79 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Balkan Endemic Nephropathy",
+    "disease_id": "MONDO:0007416",
+    "category": "Complex",
+    "parents": [
+      "Chronic Kidney Disease"
+    ],
+    "creation_date": "2026-09-01T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Balkan endemic nephropathy is a chronic tubulointerstitial kidney disease occurring in rural communities along the Danube basin, caused by long-term dietary exposure to aristolochic acid from Aristolochia clematitis seeds that contaminate locally grown and milled wheat. It is the environmental counterpart of aristolochic acid nephropathy, first recognised in users of herbal weight-loss preparations. Aristolochic acid is taken up by proximal tubular epithelium, forms persistent aristolactam-DNA adducts, and drives tubular cell death and progressive interstitial fibrosis, so the disease presents as slowly progressive kidney failure rather than acute injury. The same adducts produce a characteristic A:T to T:A transversion mutational signature and a high incidence of upper urinary tract urothelial carcinoma, which distinguishes this nephropathy from other chronic tubulointerstitial diseases.",
+    "pathophysiology": [
+      "Dietary Aristolochic Acid Exposure and Proximal Tubular Uptake",
+      "Aristolactam-DNA Adduct Formation",
+      "Proximal Tubular Epithelial Cell Death",
+      "A:T to T:A Transversion Mutational Signature",
+      "Upper Urinary Tract Urothelial Carcinoma",
+      "Tubulointerstitial Fibrosis and Progressive Renal Failure"
+    ],
+    "cell_types": [
+      "kidney proximal tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "DNA damage response"
+    ],
+    "phenotypes": [
+      "Chronic kidney disease",
+      "Proteinuria",
+      "Anemia",
+      "Renal transitional cell carcinoma",
+      "Stage 5 chronic kidney disease"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0012622",
+      "HP:0003126",
+      "HP:0001903",
+      "HP:0030409",
+      "HP:0003774"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Renal replacement therapy",
+      "Prophylactic bilateral nephroureterectomy before transplantation",
+      "mTOR inhibitor immunosuppression after transplantation",
+      "Total nephroureterectomy for established UTUC"
+    ],
+    "environmental": [
+      "Dietary aristolochic acid from Aristolochia clematitis-contaminated grain"
+    ],
+    "biochemical": [
+      "Alpha-1-microglobulin (tubular proteinuria)",
+      "Aristolactam-DNA adducts and TP53 fingerprint mutation"
+    ],
+    "source_file": "Balkan_Endemic_Nephropathy.yaml",
+    "page_url": "../pages/disorders/Balkan_Endemic_Nephropathy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Bannayan-Riley-Ruvalcaba Syndrome",
@@ -57552,6 +57766,7 @@ window.searchData = [
     "description": "Chemotherapy-induced neutropenia is a treatment-related hematologic toxicity of cytotoxic antineoplastic therapy. Myelosuppressive chemotherapy damages proliferating hematopoietic progenitors in the bone marrow, suppressing granulopoiesis and producing a fall in the circulating neutrophil count. It is the single-lineage-predominant expression of the conserved myelosuppression mechanism, and its principal danger is febrile neutropenia and infection, which drives dose delays and reductions that can compromise antitumor treatment.",
     "pathophysiology": [
       "Cytotoxic chemotherapy exposure and hematopoietic progenitor injury",
+      "Cell-cycle-dependent vulnerability of proliferating progenitors",
       "Bone marrow granulopoietic suppression",
       "Peripheral neutropenia",
       "Febrile neutropenia and infection susceptibility"
@@ -57568,6 +57783,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "apoptotic process",
+      "cell cycle",
       "hemopoiesis",
       "myeloid cell homeostasis",
       "leukocyte mediated immunity"
@@ -57590,6 +57806,7 @@ window.searchData = [
       "UGT1A1 pharmacogenomic susceptibility"
     ],
     "treatments": [
+      "Trilaciclib",
       "Granulocyte colony-stimulating factor (G-CSF)"
     ],
     "environmental": [],
@@ -57597,11 +57814,11 @@ window.searchData = [
     "source_file": "Chemotherapy_Induced_Neutropenia.yaml",
     "page_url": "../pages/disorders/Chemotherapy-Induced_Neutropenia.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cherubism",
@@ -90695,6 +90912,86 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Ethylene Glycol Poisoning",
+    "disease_id": "MONDO:0017861",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-09-01T20:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ethylene glycol poisoning follows ingestion of antifreeze, de-icing fluid or other ethylene-glycol-containing products, taken deliberately, accidentally, or as a substitute intoxicant. The parent alcohol is only mildly intoxicating. The damage is done by its metabolites: alcohol dehydrogenase oxidises ethylene glycol to glycolaldehyde and then to glycolic acid, which drives a severe anion gap metabolic acidosis, and finally to oxalic acid, which precipitates with calcium as insoluble calcium oxalate crystals in the renal tubules and produces acute kidney injury. Because the toxicity is metabolic rather than direct, the antidote is an enzyme inhibitor rather than a chelator or a receptor blocker, and giving it early enough prevents the renal injury outright.",
+    "pathophysiology": [
+      "Ethylene Glycol Ingestion and Alcohol Dehydrogenase Bioactivation",
+      "Glycolic Acid Accumulation and High Anion Gap Metabolic Acidosis",
+      "Oxalic Acid Production and Calcium Oxalate Crystal Deposition",
+      "Proximal Tubular Epithelial Cell Death",
+      "Acute Kidney Injury"
+    ],
+    "cell_types": [
+      "kidney proximal tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "cell death",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Metabolic acidosis",
+      "Acute kidney injury",
+      "Nephrocalcinosis",
+      "Confusion",
+      "Coma",
+      "Seizure",
+      "Hypocalcemia",
+      "Hyperoxaluria",
+      "Crystalluria"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001942",
+      "HP:0001919",
+      "HP:0000121",
+      "HP:0001289",
+      "HP:0001259",
+      "HP:0001250",
+      "HP:0002901",
+      "HP:0003159",
+      "HP:0020074"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Fomepizole",
+      "Ethanol",
+      "Hemodialysis"
+    ],
+    "environmental": [
+      "Ingestion of ethylene glycol"
+    ],
+    "biochemical": [
+      "Plasma oxalate",
+      "Serum anion gap",
+      "Serum osmolal gap"
+    ],
+    "source_file": "Ethylene_Glycol_Poisoning.yaml",
+    "page_url": "../pages/disorders/Ethylene_Glycol_Poisoning.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Ethylmalonic Encephalopathy",
     "disease_id": "MONDO:0011229",
     "category": "Mendelian",
@@ -123026,6 +123323,94 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hypertrophic Cardiomyopathy 14",
+    "disease_id": "MONDO:0013197",
+    "category": "Genetic",
+    "parents": [
+      "Hypertrophic Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 14 (CMH14) is the MYH6-attributed node of the hypertrophic cardiomyopathy gene series. MYH6 encodes the alpha-cardiac myosin heavy chain (alpha-MHC), the fast-ATPase sarcomeric motor that sits immediately beside MYH7 in a tandem gene pair on chromosome 14q11.2 and differs from its neighbour mainly in small pockets of an otherwise highly conserved molecule.\nThe entity must be read with an explicit validity caveat, and that caveat is the single most important thing about it. ClinGen's Hereditary Cardiovascular Disease Gene Curation Expert Panel classifies the MYH6-hypertrophic cardiomyopathy gene-disease relationship as **Disputed**, downgraded from Limited in July 2023. The association rests on three probands across two publications, four unique heterozygous missense variants with limited pathogenicity evidence, and no known disease mechanism; further reported variants were excluded from scoring either because the proband also carried a variant in an established HCM gene or because the variant is common in the population. Dismech therefore curates CMH14 as a real MONDO entity whose pathophysiology is a *hypothesis under dispute*, not an established mechanism, and every mechanism node below is scoped accordingly. The downgrade has a direct clinical consequence, published as a 2025 JACC reappraisal by the same expert panel: a variant in a disputed gene should not be reported clinically, so a MYH6 variant returned by a legacy broad HCM panel is not a molecular diagnosis of this entity and does not support cascade testing.\nThe mechanistic reason the association is hard to establish is an expression argument. Alpha-MHC is the major myosin of the human atrium and only a minor component of the human ventricle, where beta-MHC (MYH7) predominates. A heterozygous missense allele in the minor ventricular isoform is therefore a weak candidate for a disease defined by ventricular hypertrophy, which is the reverse of the situation for MYH7. What phenotypic signal exists is consistent across two independent cohorts and is a *late-onset* one: MYH6 variants were found in an elderly-onset HCM series in which none of the classic MYH7, TNNT2 or TPM1 alleles appeared, and in a second cohort MYH6 variants were confined to the late-onset arm while TNNT2 variants were confined to the early-onset arm.\nNamed-entity caution, in two directions. First, MYH6 is Definitively associated with congenital heart defects and Limited for dilated cardiomyopathy; dismech already curates MYH6 as a causative gene in Atrial_Septal_Defect and Dilated_Cardiomyopathy_1EE, and as a susceptibility gene in Familial_Sick_Sinus_Syndrome and Hypoplastic_Left_Heart_Syndrome. None of those is this entry. Second, and more subtly, the classic and highly successful mouse models of familial HCM carry an R403Q allele knocked into mouse *Myh6* \u2014 but the human R403Q is an *MYH7* allele, and the mouse ventricle expresses alpha-MHC where the human ventricle expresses beta-MHC. Those mice model human MYH7 disease in the mouse's orthologous ventricular isoform; ClinGen explicitly declined to score them as MYH6 evidence. Model-organism literature retrieved by a text search for \"Myh6\" and \"hypertrophic cardiomyopathy\" is therefore mostly *not* about this entity.",
+    "pathophysiology": [
+      "MYH6 Missense Variant in Alpha-Myosin Heavy Chain",
+      "Alpha-MHC Is the Minor Myosin Isoform of the Human Ventricle",
+      "Altered Sarcomere Motor Function",
+      "Maladaptive Ventricular Remodeling",
+      "Progressive Contractile Dysfunction and Progression to Dilation"
+    ],
+    "cell_types": [
+      "ventricular cardiomyocyte",
+      "atrial cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002131",
+      "CL:0002129",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "cardiac muscle contraction",
+      "cardiac muscle hypertrophy in response to stress",
+      "sarcomere organization",
+      "heart contraction",
+      "relaxation of cardiac muscle"
+    ],
+    "phenotypes": [
+      "Left Ventricular Hypertrophy",
+      "Hypertrophic Cardiomyopathy",
+      "Late-Onset Presentation",
+      "Left Ventricular Outflow Tract Obstruction",
+      "Congestive Heart Failure",
+      "Sudden Cardiac Death",
+      "Left Ventricular Diastolic Dysfunction",
+      "Progression to Ventricular Dilation"
+    ],
+    "phenotype_categories": [
+      "Cardiac"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001712",
+      "HP:0001639",
+      "HP:0032092",
+      "HP:0001635",
+      "HP:0001645",
+      "HP:0025168",
+      "HP:0001644"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MYH6"
+    ],
+    "treatments": [
+      "Negative Inotropic Pharmacotherapy",
+      "Cardiac Myosin Inhibition",
+      "Septal Reduction Therapy",
+      "Implantable Cardioverter-Defibrillator",
+      "Heart Transplantation",
+      "Genetic Counseling and Family Screening"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_14.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_14.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hypertrophic Cardiomyopathy 2",
     "disease_id": "MONDO:0007266",
     "category": "Genetic",
@@ -154503,6 +154888,83 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Mal De Debarquement",
+    "disease_id": "MONDO:0016217",
+    "category": "Neurological Disorder",
+    "parents": [],
+    "creation_date": "2026-08-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mal de d\u00e9barquement syndrome (MdDS) is a chronic central vestibular disorder in which a persistent illusion of self-motion - described as rocking, bobbing or swaying - outlasts the passive motion that provoked it, classically a sea voyage but also air, road or rail travel. It is a disorder of the perception of motion rather than of the vestibular end organ: inner-ear function, audiometry and structural brain imaging are characteristically normal, and the diagnosis is made on the clinical pattern rather than on any test.\nThe defining and diagnostically decisive feature is paradoxical: symptoms temporarily *remit* on re-exposure to passive motion, so patients feel better while driving and worse when the car stops. That single observation separates MdDS from persistent postural-perceptual dizziness, in which motion and visual complexity make things worse, and it is also the clue to the mechanism - the brain state is not a deficit but a maladaptive adaptation that the triggering stimulus transiently satisfies.\nThe leading mechanistic account, developed from roll-while-rotating conditioning in monkeys and reproduced in humans in NASA rotating-room experiments, is that prolonged passive oscillatory motion maladapts the vestibulo-ocular reflex through velocity storage, the central integrator that extends the vestibular response beyond the cupula's own time constant. Formalized as a three-dimensional dynamical system, the lesion is cross-axis coupling - off-diagonal terms misaligning the yaw eigenvector from the head-vertical and gravity axes - which is experienced as a continuous pull or rocking. Downstream, functional imaging finds a limbic focus of entorhinal and amygdala hypermetabolism with increased coupling to posterior visual-vestibular areas and reduced frontal connectivity, and resting EEG frames the disorder as entrainment to oscillating motion rather than a focal lesion. The therapy that follows from this account - rolling the head while viewing a full-field rotating stimulus, to readapt the reflex in the opposite direction - is unusual in that it is simultaneously the treatment and the clearest test of the mechanism.\nMdDS falls disproportionately on women in the fourth to sixth decades, often around the perimenopausal transition, and carries high migraine comorbidity. Population prevalence is not known.",
+    "pathophysiology": [
+      "Prolonged Passive Oscillatory Motion Exposure",
+      "Velocity Storage Cross-Axis Maladaptation",
+      "Persistent Oscillatory Self-Motion Perception",
+      "Limbic-Vestibular Network Reorganization",
+      "Functional Impairment and Secondary Affective Burden"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Persistent Oscillatory Vertigo",
+      "Gait Imbalance",
+      "Head-Roll Induced Nystagmus",
+      "Chronic Fatigue",
+      "Visual Motion Intolerance",
+      "Spatial Disorientation",
+      "Impaired Cognition",
+      "Depression",
+      "Anxiety",
+      "Headache Exacerbation"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Constitutional",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:4000033",
+      "HP:0002141",
+      "HP:0000639",
+      "HP:0012378",
+      "HP:0001751",
+      "HP:0100543",
+      "HP:0000716",
+      "HP:0000739",
+      "HP:0002315"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Vestibulo-Ocular Reflex Readaptation (Optokinetic Roll Protocol)",
+      "Repetitive Transcranial Magnetic Stimulation over Left DLPFC",
+      "Intermittent Theta Burst Stimulation as an Adjunct to VOR Rehabilitation",
+      "Transcranial Direct Current Stimulation over DLPFC",
+      "Vestibular Migraine Prophylaxis"
+    ],
+    "environmental": [
+      "Prolonged exposure to passive oscillatory motion (sea, air, road or rail travel)"
+    ],
+    "biochemical": [],
+    "source_file": "Mal_De_Debarquement.yaml",
+    "page_url": "../pages/disorders/Mal_De_Debarquement.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Malan Syndrome",
     "disease_id": "MONDO:0013885",
     "category": "Mendelian",
@@ -155701,44 +156163,62 @@ window.searchData = [
     "subtypes": [],
     "description": "Manganism is an acquired, environmentally caused extrapyramidal movement disorder produced by chronic excessive exposure to manganese (Mn), classically occupational (welding, mining, ferroalloy and battery manufacture, and contaminated water or total parenteral nutrition). Inhaled or ingested manganese accumulates preferentially in the basal ganglia \u2014 initially the globus pallidus \u2014 producing a parkinsonism-like syndrome with bradykinesia, rigidity, dystonia (the characteristic \"cock-walk\"), gait disturbance, and neuropsychiatric features. Manganism is clinically and pathophysiologically distinct from idiopathic Parkinson disease: the lesion is predominantly pallidal rather than nigrostriatal, and it characteristically responds poorly to levodopa. It is a paradigm environmental-neurotoxicity cause of secondary parkinsonism and converges on basal-ganglia motor-circuit dysfunction.",
     "pathophysiology": [
+      "Manganese Overexposure and Failure of Hepatobiliary Clearance",
+      "Transporter-Mediated Manganese Uptake into the Central Nervous System",
       "Chronic Manganese Accumulation in the Basal Ganglia",
+      "Mitochondrial Complex II-Dependent Reactive Oxygen Species Production",
       "Basal Ganglia Circuit Dysfunction and Extrapyramidal Parkinsonism"
     ],
     "cell_types": [
+      "microglial cell",
       "GABAergic neuron"
     ],
     "cell_type_ids": [
+      "CL:0000129",
       "CL:0000617"
     ],
     "biological_processes": [
       "response to oxidative stress",
+      "reactive oxygen species biosynthetic process",
       "GABAergic synaptic transmission"
     ],
     "phenotypes": [
-      "Extrapyramidal Parkinsonism"
+      "Extrapyramidal Parkinsonism",
+      "Dystonia",
+      "Limb rigidity",
+      "Gait disturbance",
+      "Cognitive and psychiatric disturbance"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0001300"
+      "HP:0001300",
+      "HP:0001332",
+      "HP:0002063",
+      "HP:0001288",
+      "HP:0100543"
     ],
     "frequencies": [],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Removal from Manganese Exposure",
+      "Levodopa"
+    ],
     "environmental": [
       "Occupational and Environmental Manganese Exposure"
     ],
     "biochemical": [],
     "source_file": "Manganism.yaml",
     "page_url": "../pages/disorders/Manganism.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Mantle Cell Lymphoma",
@@ -223407,10 +223887,13 @@ window.searchData = [
     "creation_date": "2026-02-02T00:16:36Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Secondary hypertension is elevated systemic arterial blood pressure attributable to an identifiable underlying cause, in contrast to essential hypertension. Causes include renal parenchymal and renovascular disease, endocrine disorders (primary aldosteronism, pheochromocytoma, Cushing syndrome, thyroid disease), obstructive sleep apnea, aortic coarctation, and certain drugs. The shared final pathway is sympathetic and hormonal coactivation with sodium retention; treating the underlying cause can reverse the hypertension.",
+    "description": "Secondary hypertension is elevated systemic arterial blood pressure attributable to an identifiable underlying cause, in contrast to essential hypertension. Causes include renal parenchymal and renovascular disease, endocrine disorders (primary aldosteronism, pheochromocytoma, Cushing syndrome, thyroid disease), obstructive sleep apnea, aortic coarctation, and certain drugs. These causes share an endpoint rather than a mechanism: sympathetic and hormonal coactivation with sodium retention is a common theme across several of them, but primary aldosteronism raises pressure through renin-independent mineralocorticoid signalling and volume retention, coarctation is substantially mechanical, and VEGF-inhibitor toxicity acts through endothelial vasoconstriction. Treating the underlying cause can reverse the hypertension.",
     "pathophysiology": [
       "Sympathetic and hormonal coactivation",
       "VEGF Pathway Inhibitor Exposure",
+      "Endothelial Nitric Oxide Deficiency and Oxidative Stress",
+      "Endothelin-1 System Activation",
+      "Microvascular Rarefaction",
       "Drug-Induced Vasoconstriction and Increased Peripheral Vascular Resistance"
     ],
     "cell_types": [
@@ -223422,7 +223905,12 @@ window.searchData = [
       "CL:0000359"
     ],
     "biological_processes": [
+      "regulation of systemic arterial blood pressure",
       "vascular endothelial growth factor receptor signaling pathway",
+      "nitric oxide biosynthetic process",
+      "response to oxidative stress",
+      "endothelin receptor signaling pathway",
+      "angiogenesis",
       "vasoconstriction"
     ],
     "phenotypes": [
@@ -223437,17 +223925,20 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Renin-Angiotensin System Inhibition (ACE Inhibitor or ARB)",
+      "Calcium Channel Blocker"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Secondary_Hypertension.yaml",
     "page_url": "../pages/disorders/Secondary_Hypertension.html",
     "num_phenotypes": 1,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Segmental arterial mediolysis",
@@ -258111,17 +258602,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2502,
+  "total_disorder_pages": 2508,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6061,
-  "total_unique_evidence_sources": 35930,
-  "total_unique_publications": 33802,
+  "total_disorders_and_subtypes": 6067,
+  "total_unique_evidence_sources": 35990,
+  "total_unique_publications": 33860,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2497,
-  "total_unique_pathological_events": 14542,
+  "total_pathographs": 2503,
+  "total_unique_pathological_events": 14576,
   "total_modules": 167,
-  "total_research_reports": 2619,
+  "total_research_reports": 2630,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
