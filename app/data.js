@@ -42057,6 +42057,97 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Bronchiectasis and Nasal Polyposis",
+    "disease_id": "MONDO:0975835",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-09-01T17:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive chronic destructive airway disease caused by biallelic loss-of-function variants in WFDC2, which encodes the secreted WAP four-disulfide core domain protein 2 (also called HE4). Affected individuals have bronchiectasis, severe chronic rhinosinusitis with nasal polyposis, and chronic airway infection, frequently with Pseudomonas aeruginosa. The presentation closely mimics cystic fibrosis and primary ciliary dyskinesia, and was first defined as a distinct Mendelian entity in 2024.\nWhat makes the entry mechanistically interesting is a negative result. WFDC2 is made by airway secretory cells and is absent from the airway surface liquid, saliva and serum of affected individuals, so the obvious hypothesis is failed mucociliary clearance. That hypothesis was tested and did not hold: ciliary beat frequency, ciliary length, epithelial composition and mucus viscosity are all normal, and patient cultures generate directed mucociliary transport. The step connecting loss of a secreted airway protein to airway destruction is therefore not yet established, and this entry models that gap explicitly rather than asserting a clearance defect the source data refute.",
+    "pathophysiology": [
+      "Biallelic Loss of Function in WFDC2",
+      "Failure of WFDC2 Secretion",
+      "Depletion of WFDC2 from Airway Surface Liquid and Secretions",
+      "Altered Airway Antiprotease Milieu",
+      "Chronic Airway Infection and Rhinosinusitis",
+      "Airway Wall Destruction and Nasal Polyp Formation",
+      "Preserved Mucociliary Clearance"
+    ],
+    "cell_types": [
+      "Airway secretory cell"
+    ],
+    "cell_type_ids": [
+      "CL:4052031"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "mucociliary clearance"
+    ],
+    "phenotypes": [
+      "Bronchiectasis",
+      "Nasal Polyposis",
+      "Chronic Rhinosinusitis",
+      "Chronic Pseudomonas aeruginosa Airway Infection",
+      "Nasal Pyramid Broadening",
+      "Otitis Media",
+      "Female Infertility",
+      "Neonatal Respiratory Distress",
+      "Reduced FEV1",
+      "Very Low Nasal Nitric Oxide"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Otolaryngologic",
+      "Reproductive",
+      "Diagnostic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002110",
+      "HP:0100582",
+      "HP:0011109",
+      "HP:5210057",
+      "HP:0000445",
+      "HP:0000388",
+      "HP:0008222",
+      "HP:0002643",
+      "HP:0032342",
+      "HP:0033036"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "WFDC2"
+    ],
+    "treatments": [
+      "Airway Clearance and Long-Term Macrolide Therapy",
+      "Lung Transplantation",
+      "WFDC2 Protein Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bronchiectasis_And_Nasal_Polyposis.yaml",
+    "page_url": "../pages/disorders/Bronchiectasis_and_Nasal_Polyposis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Brown-Vialetto-Van Laere Syndrome",
     "disease_id": "MONDO:0008891",
     "category": "Mendelian",
@@ -259073,17 +259164,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2512,
+  "total_disorder_pages": 2513,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6071,
-  "total_unique_evidence_sources": 36021,
-  "total_unique_publications": 33891,
+  "total_disorders_and_subtypes": 6072,
+  "total_unique_evidence_sources": 36027,
+  "total_unique_publications": 33897,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2507,
-  "total_unique_pathological_events": 14605,
+  "total_pathographs": 2508,
+  "total_unique_pathological_events": 14612,
   "total_modules": 167,
-  "total_research_reports": 2634,
+  "total_research_reports": 2635,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
