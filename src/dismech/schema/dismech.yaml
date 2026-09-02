@@ -2473,10 +2473,107 @@ enums:
         description: A Disease entry in kb/disorders/.
       SUBTYPE:
         description: A named subtype within a Disease entry.
-      MODULE:
-        description: A mechanism module in kb/modules/.
       GROUPING:
         description: Another Grouping (nested grouping).
+
+  ModuleCollectionTypeEnum:
+    description: >-
+      The organizing principle for a curated collection of mechanism modules.
+      Collections are navigation and framework records, not mechanism modules
+      themselves and not disease groupings.
+    permissible_values:
+      PUBLISHED_FRAMEWORK:
+        title: Published framework
+        description: >-
+          A named framework or model defined in the scientific literature, such
+          as the Hallmarks of Aging.
+      MECHANISTIC_FAMILY:
+        title: Mechanistic family
+        description: Modules sharing a broad mechanistic pattern or process family.
+      BIOLOGICAL_SYSTEM:
+        title: Biological system
+        description: Modules organized by the biological system or compartment involved.
+      PATHOLOGICAL_OUTCOME:
+        title: Pathological outcome
+        description: Modules organized by a shared class of pathological outcome.
+      THERAPEUTIC_STRATEGY:
+        title: Therapeutic strategy
+        description: Modules organized by a shared intervention or therapeutic strategy.
+      OTHER:
+        title: Other
+        description: A module-collection basis not covered by the other values.
+
+  ModuleCategoryEnum:
+    description: >-
+      Areas of study a mechanism module is relevant to. A category asserts
+      "this module is relevant to this area of study" — it is a discovery and
+      browsing aid, not a mechanistic claim and not a classification of the
+      diseases that conform to the module. Multivalued and deliberately
+      non-exclusive: a drug-toxicity module is both TOXICOLOGY and
+      PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY
+      and INFECTIOUS_DISEASE. Applied through the `module_categories` slot,
+      which is intended for entries under `kb/modules/`.
+    permissible_values:
+      TOXICOLOGY:
+        title: Toxicology
+        description: >-
+          Injury caused by exposure to a xenobiotic — environmental toxicants,
+          poisons, occupational and dietary exposures, and adverse drug
+          reactions modelled as mechanism rather than as an outcome. Includes
+          drug-toxicity modules and any module whose trigger arm carries a
+          toxicant or drug exposure.
+      PHARMACOLOGY:
+        title: Pharmacology
+        description: >-
+          Drug mechanism of action and therapeutic targeting: modules built
+          around a molecular drug target, a therapeutic modality, or an
+          acquired-resistance pathway that gates drug choice. Typically carries
+          the target_mechanisms drug pattern.
+      ONCOLOGY:
+        title: Oncology
+        description: >-
+          Tumor biology and cancer therapeutics — the hallmark-of-cancer
+          capability modules, tumor-microenvironment mechanisms, and
+          cancer-specific therapeutic vulnerabilities and resistance patterns.
+      INFECTIOUS_DISEASE:
+        title: Infectious disease
+        description: >-
+          Host-pathogen mechanism and antimicrobial therapy: pathogen entry,
+          replication, persistence and immune evasion, together with the
+          antibacterial, antifungal, and antiviral drug-target modules.
+      IMMUNOLOGY:
+        title: Immunology
+        description: >-
+          Immune-mediated mechanism — innate and adaptive immune activation,
+          autoimmunity, hypersensitivity, chronic inflammation, and the immune
+          contribution to tissue injury and repair.
+      NEUROSCIENCE:
+        title: Neuroscience
+        description: >-
+          Nervous-system mechanism across the central, peripheral, and sensory
+          systems: neurodegeneration, synaptic and circuit dysfunction,
+          excitability, neurodevelopmental patterning of the brain, and
+          neural waste clearance.
+      DEVELOPMENTAL_BIOLOGY:
+        title: Developmental biology
+        description: >-
+          Morphogenesis and embryonic patterning — signalling gradients,
+          segmentation, cell-fate specification, and migration defects whose
+          lesion acts during development rather than in mature tissue.
+      METABOLISM:
+        title: Metabolism
+        description: >-
+          Intermediary metabolism, bioenergetics, and cellular quality control
+          of metabolic substrate: inborn errors of metabolism, mitochondrial
+          and lysosomal function, nutrient sensing, and storage or
+          intoxication phenotypes.
+      AGING:
+        title: Aging
+        description: >-
+          Geroscience mechanism — the hallmarks of aging and the age-associated
+          processes (senescence, telomere attrition, stem-cell exhaustion,
+          proteostasis and genome-maintenance decline) that drive late-onset
+          disease.
 
   ReferenceTagEnum:
     description: >-
@@ -3502,6 +3599,19 @@ slots:
   categories:
     multivalued: true
     range: string
+  module_categories:
+    description: >-
+      Areas of study this mechanism module is relevant to, drawn from
+      ModuleCategoryEnum. Each value asserts "this module is relevant to this
+      area of study" and is rendered as a labelled pill on the module index and
+      module detail pages, so the categories are a browsing and discovery aid
+      rather than a mechanistic assertion. Intended for entries under
+      `kb/modules/`, which validate against the Disease class; disorder entries
+      use the free-text `categories` slot for nosological grouping instead.
+    multivalued: true
+    range: ModuleCategoryEnum
+    examples:
+      - value: TOXICOLOGY
   infectious_agent:
     range: InfectiousAgent
     multivalued: true
@@ -4774,8 +4884,7 @@ slots:
   member:
     description: >-
       Foreign key to the grouped entity. For member_type DISEASE this is the
-      Disease entry's `name`; for MODULE it is the module filename stem; for
-      GROUPING it is another grouping's `name`.
+      Disease entry's `name`; for GROUPING it is another grouping's `name`.
     range: string
     required: true
   member_type:
@@ -4788,6 +4897,28 @@ slots:
     multivalued: true
     range: DifferentiatingMechanism
     inlined_as_list: true
+  collection_type:
+    description: The organizing principle represented by a ModuleCollection.
+    range: ModuleCollectionTypeEnum
+  module_members:
+    description: >-
+      The mechanism modules explicitly included in this collection. Module
+      filename stems are used as foreign keys.
+    multivalued: true
+    range: ModuleCollectionMember
+    inlined_as_list: true
+  framework_terms:
+    description: >-
+      One or more labels used by the source framework for the concept represented
+      by this module. Multivalued because one module may intentionally combine
+      closely coupled framework concepts.
+    multivalued: true
+    range: string
+  child_collections:
+    description: >-
+      Names of more specific ModuleCollection records nested under this collection.
+    multivalued: true
+    range: string
 
 classes:
   Any:
@@ -6510,6 +6641,7 @@ classes:
       - environmental
       - treatments
       - categories
+      - module_categories
       - infectious_agent
       - agent_life_cycle
       - transmission
@@ -7482,4 +7614,52 @@ classes:
     slot_usage:
       description:
         description: Human-readable statement of the differentiating mechanism.
+        required: true
+
+  # --- Module collections ---
+  ModuleCollection:
+    description: >-
+      A curated navigation or framework record that organizes mechanism modules.
+      A ModuleCollection is not itself a mechanism and does not assert disease
+      membership. It points down to module filename stems, may nest more specific
+      collections, and may cite the publication that defines the framework.
+    slots:
+      - name
+      - display_name
+      - creation_date
+      - description
+      - collection_type
+      - module_members
+      - child_collections
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        description: Preferred collection name (unique; serves as an FK target).
+        required: true
+      creation_date:
+        description: >-
+          Timestamp for initial creation of this module collection. Keep this
+          stable after first set.
+        recommended: true
+      collection_type:
+        required: true
+      module_members:
+        required: true
+
+  ModuleCollectionMember:
+    description: >-
+      A mechanism module included in a ModuleCollection, with optional labels
+      and explanation specific to the source framework.
+    slots:
+      - module
+      - framework_terms
+      - description
+      - evidence
+      - notes
+    slot_usage:
+      module:
+        description: >-
+          Foreign key to a mechanism module filename stem in kb/modules/. Node
+          anchors are not used for collection membership.
         required: true

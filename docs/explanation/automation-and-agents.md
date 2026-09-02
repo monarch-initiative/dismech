@@ -332,6 +332,72 @@ profile this limits automated freshness tending to six runs per day. Increasing
 safe drain rate is a merge-queue project—including `merge_group` CI—not a reason
 to weaken ancestry checks or batch more branch updates.
 
+The `merge_group` CI half of that project is in place (#10168): `main.yaml`
+declares the trigger, and merge-group runs execute the **full suite** — every
+path-filter gate that scopes an ordinary PR run is forced on for queue builds,
+except the two changed-file KB validations discussed below, because path
+filtering is the specific reason the #9538 cross-file enum incompatibility
+stayed invisible until the branch was updated, and that class of break is
+exactly what a queue build exists to catch. The dorny/paths-filter step itself
+still runs on merge-group refs (supported since its v4.0.1, with `base`/`ref`
+defaulting to the event's commit hashes): its changed-file lists drive the
+changed-disorder and changed-comorbidity validations — the two steps that stay
+filter-gated rather than forced, since forcing them would run them with empty
+file lists — so those validate the KB files actually entering `main`, in the
+merged context where a co-queued PR may have changed `cache/**` or
+`references_cache/**`. `tests/test_merge_group_ci.py` pins the trigger, the
+filter's event coverage and its v4.0.1 version floor, the no-suppression rule,
+and the never-forced rule for the two file-scoped steps. Enabling an actual
+queue on `main` (branch ruleset, shepherd enqueue behavior) is the remaining,
+separately gated half.
+
+**Merge-integrity verification.** Passing tests are not evidence of correct
+history: in the April 2026 GitHub merge-queue incident (#2034), squash merges
+of multi-PR merge groups silently reverted other PRs' changes and CI stayed
+green — GitHub learned of the bug from customer reports, because it corrupted
+content, not availability. The `verify-merge-integrity` workflow is the local
+monitoring that closes that gap: on every push to `main` it recomputes, for
+each squash commit, the tree that merging the PR's head into the previous tip
+should have produced (`git merge-tree --write-tree`), compares it to the tree
+actually pushed, and on mismatch fails red and opens (or comments on) a
+`merge-integrity`-labelled issue. Merge commits, rebase merges, and direct
+pushes are reported as skipped, not judged — see
+`scripts/verify_merge_integrity.py` for the exact contract, including the two
+known false-positive sources (a PR branch reused after merge, and rename-
+detection divergence between local merge-ort and GitHub's merge machinery):
+a `MISMATCH` alarm warrants comparing the trees by hand before declaring an
+incident, especially in the workflow's first weeks. This must be live
+**before** a merge queue with build concurrency above 1 is enabled on `main`,
+because speculative merge groups contain multiple PRs — the structural shape
+of the incident — and it is cheap insurance against non-queue merge anomalies
+in the meantime.
+
+**Merge-queue break-glass.** A required merge queue removes the ordinary
+escape hatch — the merge button becomes "add to queue", and a red or wedged
+required check on `main` (the #5074 shape) blocks every entry. The queue is
+managed as a repository ruleset, and pausing it is one admin API call each
+way:
+
+```bash
+# find the ruleset carrying the merge_queue rule (don't rely on its name)
+gh api repos/monarch-initiative/dismech/rulesets --jq '.[] | "\(.id) \(.name)"'
+gh api repos/monarch-initiative/dismech/rulesets/<id> \
+  --jq '[.rules[].type]'   # confirm it includes "merge_queue"
+# pause (PRs merge normally again; queue state is abandoned)
+gh api -X PUT repos/monarch-initiative/dismech/rulesets/<id> -f enforcement=disabled
+# resume
+gh api -X PUT repos/monarch-initiative/dismech/rulesets/<id> -f enforcement=active
+```
+
+Pause when `main`'s required check is red for a reason no queued PR can fix,
+when the queue itself is misbehaving, or when `verify-merge-integrity` has
+flagged a mismatch and history needs auditing before more merges land. While
+paused, branch protection's other rules (required check, review) still apply;
+what is lost is only current-`main` integration testing, so treat a pause as
+an incident state to exit, not a convenience. Note that the queue rule also
+blocks direct pushes to `main` while active — a deliberate side effect that
+also covers resetting a branch the rule targets.
+
 GitHub auto-merge is a separate server-side path and does not execute these
 controller guards. Ordinary agents must not arm it, and weekly-compliance PRs use
 the common controller rather than a separate merge path. The separately managed
