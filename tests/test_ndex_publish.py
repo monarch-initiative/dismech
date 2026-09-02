@@ -88,7 +88,7 @@ def test_build_release_writes_versioned_cx2_and_manifest(tmp_path: Path) -> None
 
 @pytest.mark.parametrize(
     ("initial_status", "expect_update"),
-    [("EXPORTED", True), ("UPLOADED_PRIVATE", False)],
+    [("EXPORTED", True), ("UPLOADED", False)],
 )
 def test_publish_release_uses_manifest_uuid_resumes_and_verifies_before_public(
     tmp_path: Path, monkeypatch, initial_status: str, expect_update: bool
@@ -307,6 +307,24 @@ def test_build_release_reports_retired_networks(tmp_path: Path) -> None:
             "previous_status": "ACTIVE",
         }
     ]
+
+
+def test_build_release_rejects_missing_previous_registry(tmp_path: Path) -> None:
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+    _write_disorder(kb_dir / "Example_Disease.yaml")
+
+    with pytest.raises(FileNotFoundError, match="intentionally minting"):
+        ndex_publish.build_release(
+            kb_dir=kb_dir,
+            output_dir=tmp_path / "cx2",
+            manifest_path=tmp_path / "manifest.json",
+            previous_manifest_path=tmp_path / "missing-registry.json",
+            release_metadata=_metadata(),
+            source_revision="abc123",
+            fail_on_export_defects=True,
+            require_disease_metadata=True,
+        )
 
 
 def test_publish_release_rechecks_defects_and_content_hash(tmp_path: Path) -> None:

@@ -74,8 +74,13 @@ def _source_revision(explicit: str | None) -> str:
 
 
 def _load_previous_networks(path: Path | None) -> dict[str, dict[str, Any]]:
-    if path is None or not path.exists():
+    if path is None:
         return {}
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Previous manifest {path} does not exist; omit --previous-manifest "
+            "only when intentionally minting a first release"
+        )
     payload = json.loads(path.read_text())
     return {
         str(record["slug"]): record
@@ -382,7 +387,6 @@ def publish_release(
         in {
             "EXPORTED",
             "UPLOADED",
-            "UPLOADED_PRIVATE",
             "VERIFIED_PRIVATE",
             "VERIFIED_PUBLIC",
         }
@@ -424,8 +428,11 @@ def publish_release(
                 f"Cannot resume {record['slug']} from {record['status']} without an NDEx UUID"
             )
 
-        staging_visibility = record.get("staging_visibility") or (
+        recorded_staging_visibility = record.get("staging_visibility") or (
             "PUBLIC" if record["status"] == "VERIFIED_PUBLIC" else "PRIVATE"
+        )
+        staging_visibility = (
+            "PRIVATE" if visibility == "PRIVATE" else recorded_staging_visibility
         )
         client.set_network_system_properties(
             network_id,
@@ -444,8 +451,9 @@ def publish_release(
             if staging_visibility == "PUBLIC":
                 client.make_network_private(network_id)
                 record["staging_visibility"] = "PRIVATE"
-                record["status"] = "UPLOADED"
-                _write_json_atomic(manifest_path, manifest)
+            record["status"] = "UPLOADED"
+            record.pop("verification", None)
+            _write_json_atomic(manifest_path, manifest)
             raise
         record["status"] = f"VERIFIED_{staging_visibility}"
         record["viewer_url"] = f"{host}/viewer/networks/{network_id}"

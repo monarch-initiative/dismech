@@ -207,12 +207,13 @@ Configure these repository variables before running the workflow:
 - `NDEX_RIGHTS_HOLDER`
 
 Configure `NDEX_USERNAME` and `NDEX_PASSWORD` as secrets on the protected
-`ndex-production` environment. The workflow never passes the password on a
-command line.
+`ndex-production` environment, and configure that environment with required
+reviewers. Environment-scoped secrets alone do not create an approval gate.
+The workflow never passes the password on a command line.
 
 Production updates use the `ndex_uuid` values in a previous UUID registry.
 They do not search for or delete networks by name. After the first successful
-private release, review `uuid-registry.json` from the verified artifact and
+release, review `uuid-registry.json` from the verified artifact and
 commit it as `conf/ndex-production-manifest.json` before using update mode in a
 later release. This compact registry contains only slugs, UUIDs, and active or
 retired status; the full per-run manifest remains an Actions artifact.
@@ -222,6 +223,11 @@ the manifest reports it under `retired_networks`. Retirement is never automatic:
 an operator must decide whether to retain, privatize, or delete that NDEx
 network.
 
+For the first production release, select the workflow's `first_release` input.
+That is the only workflow path that intentionally runs without a previous UUID
+registry. Later releases require the configured registry path to exist; a
+missing or misspelled path fails rather than minting duplicate networks.
+
 The workflow currently refuses to publish a corpus containing orphan/unknown
 nodes or missing disease metadata. Its failed export still uploads the manifest
 artifact, so the reported defects serve as the release worklist.
@@ -229,3 +235,31 @@ artifact, so the reported defects serve as the release worklist.
 `META` indexing covers network attributes such as disease and tissue. Select
 `ALL` only when node/gene search is intended and its resource cost has been
 agreed with NDEx operators.
+
+### Recovering an interrupted release
+
+The verified-artifact step runs even when publication fails, so an interrupted
+run retains `manifest.json` with every UUID minted before the failure. Download
+that artifact and derive a temporary recovery registry:
+
+```bash
+jq '{
+  schema_version: "1.0",
+  networks: ((
+    [.networks[] | select(.ndex_uuid != null) |
+      {slug, ndex_uuid, status: "ACTIVE"}] +
+    [.retired_networks[] | select(.ndex_uuid != null) |
+      {slug, ndex_uuid, status: "RETIRED"}]
+  ) | sort_by(.slug))
+}' manifest.json > conf/ndex-production-manifest.json
+```
+
+Review the recovered slug-to-UUID mapping, commit it on the ref that will be
+released, and rerun with `first_release` disabled. The next export carries those
+UUIDs forward and updates rather than duplicates the networks. After the run
+succeeds, replace the recovery registry with the verified
+`uuid-registry.json` artifact.
+
+NDEx warnings remain fatal for production releases. This is deliberate: an
+operator should inspect and explicitly resolve a server warning rather than
+allowing the workflow to publish it silently.

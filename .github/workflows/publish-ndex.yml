@@ -33,9 +33,14 @@ on:  # yamllint disable-line rule:truthy
           - NONE
         default: META
       previous_manifest:
-        description: Optional committed path to the prior UUID-bearing manifest
+        description: Committed path to the prior UUID registry
         required: false
         default: conf/ndex-production-manifest.json
+      first_release:
+        description: Explicitly mint new UUIDs without a previous registry
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -69,6 +74,7 @@ jobs:
           NDEX_AUTHOR: ${{ vars.NDEX_AUTHOR }}
           NDEX_RIGHTS: ${{ vars.NDEX_RIGHTS }}
           NDEX_RIGHTS_HOLDER: ${{ vars.NDEX_RIGHTS_HOLDER }}
+          FIRST_RELEASE: ${{ inputs.first_release }}
           PREVIOUS_MANIFEST: ${{ inputs.previous_manifest }}
           RELEASE_VERSION: ${{ inputs.release_version }}
           SOURCE_REVISION: ${{ steps.source.outputs.sha }}
@@ -76,8 +82,10 @@ jobs:
           : "${NDEX_AUTHOR:?Configure the NDEX_AUTHOR repository variable}"
           : "${NDEX_RIGHTS:?Configure the NDEX_RIGHTS repository variable}"
           : "${NDEX_RIGHTS_HOLDER:?Configure the NDEX_RIGHTS_HOLDER repository variable}"
-          previous_args=()
-          if [[ -f "$PREVIOUS_MANIFEST" ]]; then
+          if [[ "$FIRST_RELEASE" == "true" ]]; then
+            previous_args=()
+          else
+            : "${PREVIOUS_MANIFEST:?Set previous_manifest or select first_release}"
             previous_args=(--previous-manifest "$PREVIOUS_MANIFEST")
           fi
           uv run dismech-ndex-publish \
@@ -89,6 +97,15 @@ jobs:
             --author "$NDEX_AUTHOR" \
             --rights "$NDEX_RIGHTS" \
             --rights-holder "$NDEX_RIGHTS_HOLDER"
+
+      - name: Summarize UUID continuity
+        if: always()
+        run: |
+          if [[ -f output/ndex/manifest.json ]]; then
+            carried="$(jq '[.networks[] | select(.ndex_uuid != null)] | length' output/ndex/manifest.json)"
+            retired="$(jq '.summary.retired_network_count' output/ndex/manifest.json)"
+            echo "Carried forward ${carried} NDEx UUIDs; reported ${retired} retired networks." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload release artifact
         if: always()
