@@ -63,20 +63,20 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
         run: git fetch --no-tags --force --depth=1 origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
-      # Skipped on merge_group: dorny/paths-filter only knows how to pick its
-      # comparison point for push and pull_request events, and a silently empty
-      # filter result would let `test (3.13)` report green having run almost
-      # nothing -- the queue would look like current-main integration testing
-      # without being it. Instead, every gate below also fires when
-      # `github.event_name == 'merge_group'`, so a merge group runs the full
-      # suite. That is the point, not just a safety measure: path filtering is
-      # why the #9538 cross-file enum incompatibility was invisible until the
-      # branch was updated, and catching that class of break is what the queue
-      # is for. A merge group is a handful of runs per merge, so the wall-clock
-      # cost is bounded. Two steps are exempt -- see "Validate changed disorder
-      # KB files" below.
+      # Also runs on merge_group (merge-queue integration builds, #10168):
+      # paths-filter supports that event since v4.0.1 -- `base`/`ref` default
+      # to the event's commit hashes, so the outputs describe exactly what the
+      # queued PR(s) change, and the `*_files` lists feed the changed-file KB
+      # validations below. Most gates below are nevertheless FORCED on for
+      # merge_group, deliberately: a queue build must run the full suite
+      # regardless of paths, because path filtering is why the #9538
+      # cross-file enum incompatibility was invisible until the branch was
+      # updated, and catching that class of break is what the queue is for. A
+      # merge group is a handful of runs per merge, so the wall-clock cost is
+      # bounded. (Do not downgrade this action below v4.0.1: on the older
+      # versions a merge-group ref yields an empty filter result, which would
+      # silently skip the changed-file validations.)
       - name: Check for changes
-        if: github.event_name != 'merge_group'
         uses: dorny/paths-filter@v4
         id: changes
         with:
@@ -508,18 +508,14 @@ jobs:
       - name: Check the curation stub queue
         run: uv run dismech-stubs check
 
-      # This step and the comorbidity one below are the two deliberate
-      # exemptions from the merge-group full-suite rule: they consume the
-      # paths-filter's *file lists* (`kb_disorders_files`), which do not exist
-      # when the filter is skipped, so on merge_group they skip (the outputs
-      # are empty, never 'true'). That is sound because what they check is
-      # content-local -- schema/term/reference validation of exactly the files
-      # the PR carries, unchanged between the PR head and the merge group --
-      # and was already enforced by the PR's own required `test (3.13)` run.
-      # Everything that IS integration-sensitive (enum permissibility, entity
-      # refs, pathograph targets, the whole-KB conformance sweep) runs ungated
-      # or merge_group-forced in this job, which is exactly the cross-PR
-      # breakage class (#9538, #10061) the merge queue exists to catch.
+      # This step and the comorbidity one below stay filter-gated rather than
+      # merge_group-forced: they consume the paths-filter's *file lists*, so
+      # forcing the gate without a list would validate nothing. On merge_group
+      # the filter computes those lists from the queue's base..head diff (the
+      # queued PRs' changes), so these validations run against exactly the KB
+      # files entering `main` -- including term/reference re-validation in the
+      # merged context, where a co-queued PR may have changed cache/** or
+      # references_cache/**.
       - name: Validate changed disorder KB files
         if: steps.changes.outputs.kb_disorders == 'true'
         run: |

@@ -1,22 +1,19 @@
 """Wiring guards for merge-queue (`merge_group`) support in the CI workflow.
 
 A merge queue tests each PR on a temporary branch and waits for the required
-``test (3.13)`` check there (#10168). Two silent failure modes are guarded:
+``test (3.13)`` check there (#10168). The guarded invariants:
 
-1. The workflow not declaring the ``merge_group`` trigger at all — the check is
+1. ``main.yaml`` declares the ``merge_group`` trigger — without it the check is
    never reported and every queued PR times out.
-2. The dorny/paths-filter gates suppressing steps on a merge-group ref — the
-   filter cannot auto-detect its comparison point for that event, so an
-   ungated filter would return no matches and ``test (3.13)`` would report
-   green having run almost nothing. Merge-group runs must run the full suite;
+2. The dorny/paths-filter step runs on merge-group refs (supported since
+   v4.0.1, where ``base``/``ref`` default to the event's commit hashes), so
+   its ``*_files`` lists feed the changed-file KB validations in the merged
+   context.
+3. No ``steps.changes.outputs.*`` gate may suppress a step on ``merge_group``
+   unless the step is one of the pinned file-scoped validations that consume a
+   filter file list. Everything else runs the full suite in a queue build —
    path filtering is why the #9538 cross-file enum break was invisible until
    the branch was updated.
-
-Two steps are deliberately exempt from the full-suite rule because they consume
-the filter's changed-file *lists*, which do not exist when the filter is
-skipped. They are content-local (the PR's own files, already validated by the
-PR's required run), and the exemption is pinned here so it cannot silently
-grow.
 """
 
 from pathlib import Path
@@ -28,11 +25,12 @@ MAIN = ROOT / ".github" / "workflows" / "main.yaml"
 
 MERGE_GROUP_FIRES = "github.event_name == 'merge_group'"
 
-# Steps allowed to stay skipped on merge_group despite a paths-filter gate.
-# Every entry must consume a `*_files` output — that dependency is what makes
-# forcing the gate impossible (empty argument list) and the skip sound (the
-# check is content-local to files the PR itself carries).
-FILE_LIST_EXEMPT_STEPS = {
+# Steps allowed to stay purely filter-gated (no merge_group forcing): each
+# consumes a `*_files` output, so its gate is meaningful on merge_group only
+# because the filter itself runs there and populates the list. Every entry
+# must actually interpolate a file list — asserted below — so this set cannot
+# silently grow into a way of skipping suite steps on queue builds.
+FILE_SCOPED_STEPS = {
     "Validate changed disorder KB files",
     "Validate changed comorbidity KB files",
 }
@@ -42,8 +40,12 @@ def load_workflow() -> dict:
     return yaml.safe_load(MAIN.read_text(encoding="utf-8"))
 
 
-def test_steps() -> list[dict]:
+def workflow_steps() -> list[dict]:
     return load_workflow()["jobs"]["test"]["steps"]
+
+
+def paths_filter_step() -> dict:
+    return next(step for step in workflow_steps() if step.get("id") == "changes")
 
 
 def test_main_workflow_declares_merge_group_trigger():
@@ -52,42 +54,72 @@ def test_main_workflow_declares_merge_group_trigger():
     assert "merge_group" in triggers
 
 
-def test_paths_filter_is_skipped_on_merge_group():
-    filter_step = next(
-        step for step in test_steps() if step.get("id") == "changes"
+def test_paths_filter_runs_on_merge_group():
+    # The filter must not be event-gated: on merge_group it supplies the
+    # changed-file lists the KB validations consume. Merge-queue support
+    # requires dorny/paths-filter v4.0.1+, so pin the major version too.
+    step = paths_filter_step()
+    assert "if" not in step, (
+        "the paths-filter step must run on every event; merge-group refs are "
+        "supported since dorny/paths-filter v4.0.1"
     )
-    assert filter_step["if"] == "github.event_name != 'merge_group'"
+    action, _, version = str(step["uses"]).partition("@")
+    assert action == "dorny/paths-filter"
+    major = version.lstrip("v").split(".")[0]
+    assert major.isdigit() and int(major) >= 4, (
+        "dorny/paths-filter below v4.0.1 yields an empty filter result on "
+        "merge-group refs, silently skipping the changed-file validations"
+    )
 
 
 def test_no_paths_filter_gate_can_suppress_a_step_on_merge_group():
-    for step in test_steps():
+    for step in workflow_steps():
         condition = str(step.get("if", ""))
         if "steps.changes.outputs." not in condition:
             continue
         name = step.get("name", "<unnamed>")
-        if name in FILE_LIST_EXEMPT_STEPS:
+        if name in FILE_SCOPED_STEPS:
             run = str(step.get("run", ""))
             assert "_files }}" in run, (
-                f"{name!r} is exempt from the merge-group full-suite rule but "
-                "no longer consumes a paths-filter file list; wire it to "
-                f"fire on merge_group and drop it from FILE_LIST_EXEMPT_STEPS"
+                f"{name!r} is pinned as file-scoped but no longer consumes a "
+                "paths-filter file list; force it on merge_group and drop it "
+                "from FILE_SCOPED_STEPS"
             )
             continue
         assert MERGE_GROUP_FIRES in condition, (
-            f"step {name!r} is gated on paths-filter outputs but would skip "
-            "on a merge_group event, silently weakening the merge queue's "
-            f"required check; add `{MERGE_GROUP_FIRES} ||` to its condition"
+            f"step {name!r} is gated on paths-filter outputs without firing "
+            "on merge_group; a queue build must run the full suite, so add "
+            f"`{MERGE_GROUP_FIRES} ||` to its condition"
         )
+
+
+def test_file_list_consumers_are_gated_on_their_output():
+    # A step interpolating a `*_files` list without gating on the matching
+    # output would run with an empty argument list whenever the filter finds
+    # no changes — including validating nothing while reporting success.
+    for step in workflow_steps():
+        run = str(step.get("run", ""))
+        if "steps.changes.outputs." not in run:
+            continue
+        name = step.get("name", "<unnamed>")
+        condition = str(step.get("if", ""))
+        outputs = {
+            fragment.split("_files")[0]
+            for fragment in run.split("steps.changes.outputs.")[1:]
+            if "_files" in fragment.split("}}")[0]
+        }
+        for output in outputs:
+            assert f"steps.changes.outputs.{output} == 'true'" in condition, (
+                f"step {name!r} consumes steps.changes.outputs.{output}_files "
+                f"but is not gated on steps.changes.outputs.{output}"
+            )
 
 
 def test_pr_only_steps_stay_guarded_by_event_name():
     # Steps that read github.event.pull_request.number would fail (or worse,
     # act on nothing) on merge_group/push events; they must pin the event.
-    for step in test_steps():
-        uses_pr_number = "github.event.pull_request.number" in str(
-            step.get("run", "")
-        )
-        if not uses_pr_number:
+    for step in workflow_steps():
+        if "github.event.pull_request.number" not in str(step.get("run", "")):
             continue
         assert step.get("if") == "github.event_name == 'pull_request'", (
             f"step {step.get('name', '<unnamed>')!r} reads the PR number but "
