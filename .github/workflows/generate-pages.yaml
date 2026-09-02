@@ -56,7 +56,7 @@ jobs:
   generate-pages:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
 
     env:
@@ -75,6 +75,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # "Stale" has to mean ABANDONED, not merely OLD.
       #
@@ -109,11 +110,14 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --head "auto/generate-pages" \
               --state open \
-              --author "app/github-actions" \
-              --json number,updatedAt,headRefOid \
+              --json number,updatedAt,headRefOid,author \
               --limit 100 \
             | jq -r --arg tip "$BRANCH_TIP" '
                 .[]
+                | select(
+                    .author.login == "app/github-actions"
+                    or .author.login == "app/ai4c-agent"
+                  )
                 | select(.headRefOid != $tip)
                 | select((now - (.updatedAt | fromdateiso8601)) >= 3600)
                 | .number
@@ -348,12 +352,25 @@ jobs:
             git diff --stat HEAD -- $BUILT_PATHS
           fi
 
+      - name: Generate ai4c-agent auto-lane token
+        id: auto-merge-token
+        if: steps.check-changes.outputs.has_changes == 'true'
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Create or update Pull Request
         if: steps.check-changes.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.auto-merge-token.outputs.token }}
         shell: bash
         run: |
+          # With checkout credentials deliberately absent, this makes the App
+          # the actor for branch pushes as well as PR creation and auto-merge.
+          gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
@@ -397,6 +414,18 @@ jobs:
           enable_auto_merge() {
             local pr_number="$1"
 
+            # Replace a request armed by an older workflow run so enabledBy is
+            # the App rather than github-actions[bot]. A no-request state is
+            # normal for a newly created PR.
+            if [ "$(gh pr view "$pr_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json autoMergeRequest \
+              --jq '.autoMergeRequest != null')" = "true" ]; then
+              gh pr merge "$pr_number" \
+                --repo "$GITHUB_REPOSITORY" \
+                --disable-auto
+            fi
+
             gh pr merge "$pr_number" \
               --repo "$GITHUB_REPOSITORY" \
               --squash \
@@ -407,9 +436,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH_NAME" \
             --state open \
-            --json number \
-            --limit 1 \
-            --jq '.[0].number // empty')"
+            --json number,author \
+            --limit 100 \
+            --jq '[.[] | select(.author.login == "app/github-actions" or .author.login == "app/ai4c-agent")][0].number // empty')"
 
           if [ -n "$EXISTING_BRANCH_PR_NUMBER" ]; then
             echo "Updated existing regen PR #$EXISTING_BRANCH_PR_NUMBER; enabling auto-merge."
@@ -421,10 +450,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --head "auto/generate-pages" \
             --state open \
-            --author "app/github-actions" \
-            --json number,createdAt,headRefName \
+            --json number,createdAt,headRefName,author \
             --limit 100 \
-            --jq '[.[] | select(.headRefName != "'"$BRANCH_NAME"'" and (now - (.createdAt | fromdateiso8601)) < 3600)][0].number // empty')"
+            --jq '[.[] | select((.author.login == "app/github-actions" or .author.login == "app/ai4c-agent") and .headRefName != "'"$BRANCH_NAME"'" and (now - (.createdAt | fromdateiso8601)) < 3600)][0].number // empty')"
 
           if [ -n "$RECENT_REGEN_PR_NUMBER" ]; then
             echo "Recent regen PR #$RECENT_REGEN_PR_NUMBER already exists; skipping PR creation for $BRANCH_NAME."
@@ -477,9 +505,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH_NAME" \
             --state open \
-            --json number \
-            --limit 1 \
-            --jq '.[0].number // empty')"
+            --json number,author \
+            --limit 100 \
+            --jq '[.[] | select(.author.login == "app/github-actions" or .author.login == "app/ai4c-agent")][0].number // empty')"
 
           if [ -z "$CREATED_PR_NUMBER" ]; then
             echo "Failed to resolve created regen PR number for $BRANCH_NAME."

@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRIDA Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>IRIDA Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>IRIDA Syndrome</h1>
+                
+                <p class="report-subtitle">IRIDA Syndrome (Iron-Refractory Iron Deficiency Anemia): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008788" target="_blank" rel="noopener noreferrer">MONDO:0008788</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">16 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>IRIDA Syndrome (Iron-Refractory Iron Deficiency Anemia): Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> IRIDA Syndrome | <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0008788" target="_blank" rel="noopener noreferrer">MONDO:0008788</a> | <strong>OMIM:</strong> 206200 | <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:209981" target="_blank" rel="noopener noreferrer">ORPHA:209981</a> | <strong>Category:</strong> Genetic (Autosomal Recessive)</p>
+<hr />
+<h2>Summary</h2>
+<p>Iron-Refractory Iron Deficiency Anemia (IRIDA) is a rare Mendelian disorder of systemic iron homeostasis caused by biallelic (homozygous or compound heterozygous) loss-of-function mutations in <strong>TMPRSS6</strong>, the gene encoding the hepatic type II transmembrane serine protease <strong>matriptase-2 (MT2)</strong>. Under normal physiology, matriptase-2 acts as a negative regulator of the iron-regulatory hormone hepcidin: it dampens BMP/SMAD signaling in hepatocytes, in part by cleaving the co-receptor hemojuvelin (HJV). When matriptase-2 function is lost, hepcidin production becomes inappropriately high relative to the body's iron-depleted state. Elevated hepcidin degrades the iron exporter ferroportin (SLC40A1) on duodenal enterocytes and reticuloendothelial macrophages, simultaneously blocking dietary iron absorption and the recycling of iron from senescent red cells. The result is a lifelong, iron-restricted erythropoiesis producing hypochromic microcytic anemia with a distinctive biochemical signature.</p>
+<p>The clinical hallmark that unifies diagnosis and mechanism is the paradoxical combination of profound iron deficiency (very low transferrin saturation, typically &lt;5–10%) with <strong>inappropriately normal-to-high serum hepcidin</strong> — the opposite of acquired iron deficiency, in which hepcidin is low or undetectable. This single feature explains the disease name: because hepcidin remains high, oral iron is poorly absorbed and the anemia is "refractory" to oral supplementation, responding only slowly and partially to intravenous iron. The disorder is generally benign with normal life expectancy; anemia is moderate (Hb ~6–9 g/dL) and often attenuates with age, though microcytosis and low transferrin saturation persist throughout life.</p>
+<p>This report synthesizes 14 confirmed findings across 21 reviewed primary papers into a complete disease-knowledge entry spanning etiology, phenotype, molecular mechanism, protein architecture, epidemiology, diagnostics, prognosis, treatment, prevention, comparative biology, and model organisms. A recurring theme with translational significance is that TMPRSS6 sits at a therapeutic fulcrum: because loss of matriptase-2 <em>raises</em> hepcidin, pharmacologic inhibition of TMPRSS6 (antisense oligonucleotides, siRNA, and anti-matriptase-2 monoclonal antibodies such as RLYB331 and DISC-3405) is being actively developed to <em>raise</em> hepcidin in the opposite clinical setting of iron-overload disorders like β-thalassemia and hemochromatosis.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> IRIDA is a hereditary, autosomal-recessive form of iron deficiency anemia that is intrinsically resistant to oral iron therapy. It is a disease of dysregulated iron <em>distribution</em> rather than absolute dietary iron insufficiency: iron is present but cannot be mobilized because hepcidin is inappropriately elevated. As summarized by De Falco et al., "Iron refractory iron deficiency anemia is a hereditary recessive anemia due to a defect in the TMPRSS6 gene encoding Matriptase-2" (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0008788" target="_blank" rel="noopener noreferrer">MONDO:0008788</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>206200 (IRIDA)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:209981" target="_blank" rel="noopener noreferrer">ORPHA:209981</a></td>
+</tr>
+<tr>
+<td>Gene (HGNC)</td>
+<td>TMPRSS6, <a href="https://bioregistry.io/HGNC:16517" target="_blank" rel="noopener noreferrer">HGNC:16517</a></td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td>Q8IU80 (matriptase-2)</td>
+</tr>
+<tr>
+<td>Chromosomal locus</td>
+<td>22q12.3</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Iron-refractory iron deficiency anemia; IRIDA; iron-refractory IDA; TMPRSS6-related iron deficiency anemia; matriptase-2 deficiency; familial iron deficiency anemia refractory to oral iron.</p>
+<p><strong>Nature of information.</strong> The knowledge base is derived predominantly from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet) and <strong>individual patient/family case reports and small cohort studies</strong> in the primary literature, supplemented by functional in-vitro studies and mouse models. There is no large EHR-derived dataset; the disease's rarity means most evidence comes from published kindreds.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (genetic).</strong> IRIDA is a monogenic disorder caused by <strong>germline biallelic loss-of-function mutations in TMPRSS6</strong>. Finberg et al. first established this in 2008, demonstrating that "iron deficiency anemia refractory to oral iron therapy can be caused by germline mutations in TMPRSS6, which encodes a type II transmembrane serine protease produced by the liver that regulates the expression of the systemic iron regulatory hormone hepcidin" (<a href="https://pubmed.ncbi.nlm.nih.gov/18408718/">PMID: 18408718</a>). There is no environmental or infectious cause; the disorder is entirely determined by genotype.</p>
+<p><strong>Genetic risk factors.</strong>
+- <strong>Causal variants:</strong> biallelic pathogenic TMPRSS6 variants (&gt;40 distinct mutations reported, spanning all functional domains of the ectodomain — missense, nonsense, frameshift, and splice-site) (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>).
+- <strong>Modifier / susceptibility loci:</strong> common TMPRSS6 polymorphisms — most notably <strong>rs855791 (p.V736A / A736V)</strong> — modulate iron status and erythrocyte indices in the general population and can act as modifiers of anemia severity in IRIDA families (see Section 4).
+- <strong>Consanguinity</strong> substantially increases the risk of homozygous disease; recurrent alleles (e.g., p.V736A in Saudi families, p.W590R in Southern Italy) reflect founder/population effects (<a href="https://pubmed.ncbi.nlm.nih.gov/36261087/">PMID: 36261087</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25156943/">PMID: 25156943</a>).</p>
+<p><strong>Environmental risk factors.</strong> None are causal. However, physiologic states of high iron demand (infancy/rapid growth, menstruation, pregnancy) unmask or worsen the phenotype, making females and young children more symptomatic.</p>
+<p><strong>Protective factors.</strong> No genetic or environmental protective factors are established for IRIDA itself. In the general (non-IRIDA) population, TMPRSS6 iron-lowering alleles are associated with lower iron status; conversely, higher-hepcidin genotypes track with lower iron availability. No dietary or lifestyle factor prevents the monogenic disease.</p>
+<p><strong>Gene–environment interactions.</strong> The principal interaction is between the fixed genetic lesion and physiological iron demand: the same genotype produces more overt anemia during growth spurts, menstruation, and pregnancy. Common modifier alleles (rs855791) interact with the rare causal alleles to shift severity.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The core phenotype is a <strong>congenital/early-childhood hypochromic microcytic anemia</strong> with a characteristic iron-study profile. Onset is typically in the post-natal period, "although in some cases it is only diagnosed in adulthood" (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Characteristics</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hypochromic microcytic anemia</td>
+<td>Lab / clinical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004840" target="_blank" rel="noopener noreferrer">HP:0004840</a></td>
+<td>Congenital/early childhood onset; moderate (Hb ~6–9 g/dL); lifelong, often attenuates with age</td>
+<td>Near-universal (defining)</td>
+</tr>
+<tr>
+<td>Microcytic anemia</td>
+<td>Lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001935" target="_blank" rel="noopener noreferrer">HP:0001935</a></td>
+<td>Low MCV</td>
+<td>Near-universal</td>
+</tr>
+<tr>
+<td>Decreased MCV</td>
+<td>Lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025066" target="_blank" rel="noopener noreferrer">HP:0025066</a></td>
+<td>Reduced red cell size; persists lifelong</td>
+<td>Near-universal</td>
+</tr>
+<tr>
+<td>Decreased serum iron</td>
+<td>Lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040303" target="_blank" rel="noopener noreferrer">HP:0040303</a></td>
+<td>Hypoferremia</td>
+<td>Very frequent</td>
+</tr>
+<tr>
+<td>Very low transferrin saturation</td>
+<td>Lab</td>
+<td>(iron studies)</td>
+<td>TSAT often &lt;5–10%</td>
+<td>Very frequent (hallmark)</td>
+</tr>
+<tr>
+<td>Inappropriately normal/high hepcidin</td>
+<td>Lab</td>
+<td>—</td>
+<td>Discriminating biochemical feature</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>Normal or elevated ferritin</td>
+<td>Lab</td>
+<td>—</td>
+<td>Iron trapped in macrophages; occasionally frank hyperferritinemia</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Fatigue / reduced exercise tolerance</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a></td>
+<td>Chronic iron-deficiency symptom</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Pallor</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" rel="noopener noreferrer">HP:0000980</a></td>
+<td>Reflects anemia</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Growth/developmental impact</td>
+<td>Clinical</td>
+<td>—</td>
+<td>During critical growth windows in childhood</td>
+<td>Variable</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity and progression.</strong> Anemia is generally moderate, chronic, and stable-to-improving. Genotype modulates severity: "patients carrying two nonsense mutations present a more severe anemia and microcytosis and higher hepcidin levels than the other patients" (<a href="https://pubmed.ncbi.nlm.nih.gov/25156943/">PMID: 25156943</a>).</p>
+<p><strong>Atypical presentations.</strong> The phenotypic spectrum is broader than classic microcytosis. Siblings have presented with "severe microcytic anemia, hypoferremia, and hyperferritinemia" (<a href="https://pubmed.ncbi.nlm.nih.gov/23319530/">PMID: 23319530</a>), and normocytic presentations have been described: "normocytic anemia accompanied by low Hb, normal MCV, low serum iron, low serum ferritin, and normal TIBC" (<a href="https://pubmed.ncbi.nlm.nih.gov/36261087/">PMID: 36261087</a>).</p>
+<p><strong>Quality-of-life impact.</strong> Chronic fatigue and reduced exercise tolerance are the main daily-functioning burdens. In infancy and childhood, iron deficiency during critical developmental windows is the principal concern; one report emphasized that "the proband was symptomatic for IRIDA during a critical phase of growth and development" (<a href="https://pubmed.ncbi.nlm.nih.gov/28447549/">PMID: 28447549</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong>TMPRSS6</strong> (transmembrane protease, serine 6), chromosome <strong>22q12.3</strong>, <a href="https://bioregistry.io/HGNC:16517" target="_blank" rel="noopener noreferrer">HGNC:16517</a>, encoding <strong>matriptase-2 (MT2)</strong>, UniProt <strong>Q8IU80</strong>. OMIM disease entry 206200.</p>
+<p><strong>Protein architecture.</strong> Matriptase-2 is an <strong>811-amino-acid type II transmembrane serine protease</strong> with a modular ectodomain:
+- N-terminal cytoplasmic tail
+- single transmembrane domain
+- SEA domain
+- two CUB domains
+- three LDL-receptor class A (LDLRA) repeats
+- C-terminal trypsin-like serine protease (catalytic) domain with the His-Asp-Ser catalytic triad</p>
+<p>It is synthesized as a zymogen requiring <strong>autocatalytic activation</strong> and undergoes autocleavage/shedding. "TMPRSS6...encodes a type II transmembrane serine protease produced by the liver" (<a href="https://pubmed.ncbi.nlm.nih.gov/18408718/">PMID: 18408718</a>).</p>
+<p><strong>Pathogenic variants.</strong> More than 40 distinct mutations span all functional domains. Representative variants:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>p.W590R</td>
+<td>Missense</td>
+<td>Most frequent mutation in Southern Italy (<a href="https://pubmed.ncbi.nlm.nih.gov/25156943/">PMID: 25156943</a>)</td>
+</tr>
+<tr>
+<td>p.V736A (rs855791)</td>
+<td>Missense</td>
+<td>Recurrent in Saudi families; also a common population modifier (<a href="https://pubmed.ncbi.nlm.nih.gov/36261087/">PMID: 36261087</a>)</td>
+</tr>
+<tr>
+<td>p.G442R, p.E522K/E523K</td>
+<td>Missense</td>
+<td>Compound-heterozygous atypical hyperferritinemia case</td>
+</tr>
+<tr>
+<td>p.T287N</td>
+<td>Missense</td>
+<td>Functional exception — retains activity in assays</td>
+</tr>
+<tr>
+<td>p.I286F (murine analog)</td>
+<td>Missense</td>
+<td>Activated but functionally compromised in mouse studies</td>
+</tr>
+<tr>
+<td>Nonsense / frameshift / splice-site</td>
+<td>LoF</td>
+<td>Associated with more severe phenotype when biallelic</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Variant classification (ACMG/AMP).</strong> Established recurrent LoF variants are classified pathogenic/likely pathogenic; monoallelic and novel missense variants may be VUS pending functional data.</p>
+<p><strong>Allele frequency.</strong> Rare causal alleles are private or population-recurrent. In contrast, the common modifier <strong>rs855791</strong> is frequent worldwide and was linked by GWAS to "serum iron (rs855791, combined P = 1.5 x 10(-20)), transferrin saturation (combined P = 2.2 x 10(-23)) and erythrocyte mean cell volume (MCV, combined P = 1.1 x 10(-10))" (<a href="https://pubmed.ncbi.nlm.nih.gov/19820699/">PMID: 19820699</a>).</p>
+<p><strong>Somatic vs germline.</strong> All disease-causing variants are <strong>germline</strong>.</p>
+<p><strong>Functional consequences.</strong> Mutations are overwhelmingly <strong>loss-of-function</strong>. Functional assays show that "all but the p.T287N variant impair matriptase-2 autoproteolytic activation, decrease the ability to cleave membrane HJV and inhibit the HJV-dependent hepcidin activation" (<a href="https://pubmed.ncbi.nlm.nih.gov/25156943/">PMID: 25156943</a>). Domain-mapping in mice shows "the stem region of MT2 determines the specificity and efficacy for substrate cleavage" (<a href="https://pubmed.ncbi.nlm.nih.gov/30559294/">PMID: 30559294</a>), and that "the catalytic domain, but not its proteolytic activity, was required for Mt2 to suppress hepcidin expression" (<a href="https://pubmed.ncbi.nlm.nih.gov/32384154/">PMID: 32384154</a>).</p>
+<p><strong>Modifier genes.</strong> Common TMPRSS6 variants (rs855791 and others) and possibly TF (transferrin) variants modulate iron indices. In IRIDA families, common modifier alleles fine-tune severity alongside the rare causal alleles.</p>
+<p><strong>Epigenetic / chromosomal abnormalities.</strong> No epigenetic mechanism or large-scale chromosomal abnormality is implicated; IRIDA is a point-mutation/small-variant disorder.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> None causal. No toxin, radiation, or occupational exposure is implicated.</li>
+<li><strong>Lifestyle factors:</strong> Dietary iron intake does not cause the disease and cannot cure it (oral iron is poorly absorbed). High-iron-demand states (growth, menstruation, pregnancy) modulate symptom expression.</li>
+<li><strong>Infectious agents:</strong> Not applicable. IRIDA is non-infectious. (Note: inflammation/infection independently raises hepcidin and can confound differential diagnosis — see Section 10.)</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain</h3>
+<pre><code>Biallelic LoF mutation in TMPRSS6
+│
+▼
+Loss / dysfunction of matriptase-2 (MT2) in hepatocytes
+│  (fails to autoactivate; cannot cleave membrane hemojuvelin;
+│   cannot suppress HJV/NEO1-dependent BMP/SMAD signaling)
+▼
+Un-dampened BMP/SMAD signaling  →  INAPPROPRIATELY HIGH HEPCIDIN
+│
+▼
+Hepcidin binds &amp; degrades ferroportin (SLC40A1)
+│
+├─► Duodenal enterocytes: blocked dietary iron ABSORPTION
+└─► Splenic/hepatic macrophages: blocked iron RECYCLING
+│
+▼
+Low serum iron, very low transferrin saturation
+│
+▼
+Iron-restricted erythropoiesis in bone marrow
+│
+▼
+Hypochromic microcytic anemia (refractory to oral iron)
+</code></pre>
+<p><strong>Molecular pathway (upstream).</strong> Matriptase-2 is a negative regulator of the <strong>BMP/SMAD</strong> hepcidin-induction pathway. "Transmembrane serine protease 6 (TMPRSS6) suppresses hepcidin via the bone morphogenetic protein/small mothers against decapentaplegic (BMP/SMAD) pathway by cleaving the co-receptor hemojuvelin" (<a href="https://pubmed.ncbi.nlm.nih.gov/42053460/">PMID: 42053460</a>). "In vitro experiments on transfected cells suggest that Matriptase-2 cleaves Hemojuvelin, a major regulator of hepcidin expression and that this function is altered in this genetic form of anemia" (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>). MT2 also interacts with additional pathway components including Alk3, ActRIIA, HFE, and <strong>neogenin (NEO1)</strong>; in-vivo mouse work indicates "Mt2 suppression of hepcidin relies on the presence of Neo1" and that MT2 acts "by inhibiting the Neo1/Hjv-induced Bmp-signaling pathway" (<a href="https://pubmed.ncbi.nlm.nih.gov/41534828/">PMID: 41534828</a>).</p>
+<p><strong>Effector axis (downstream).</strong> Hepcidin is "a circulating hormone produced by the liver that inhibits dietary iron absorption and macrophage iron release" (<a href="https://pubmed.ncbi.nlm.nih.gov/21355094/">PMID: 21355094</a>). Its excess degrades ferroportin, the sole cellular iron exporter, at the two key gateways: the enterocyte (absorption) and the macrophage (recycling).</p>
+<p><strong>Cellular processes / cell types.</strong> Iron-restricted erythropoiesis (bone marrow erythroblasts), impaired transepithelial iron transport (duodenal enterocytes), impaired iron recycling (reticuloendothelial macrophages).</p>
+<p><strong>Suggested GO / CL terms.</strong> <a href="http://purl.obolibrary.org/obo/GO_0006879" target="_blank" rel="noopener noreferrer">GO:0006879</a> (intracellular iron ion homeostasis), <a href="http://purl.obolibrary.org/obo/GO_0060586" target="_blank" rel="noopener noreferrer">GO:0060586</a> (multicellular organismal iron ion homeostasis), <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" rel="noopener noreferrer">GO:0030509</a> (BMP signaling pathway), <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" rel="noopener noreferrer">GO:0006508</a> (proteolysis). Cell types: <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> (hepatocyte), <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a> (enterocyte), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" rel="noopener noreferrer">CL:0000765</a> (erythroblast).</p>
+<p><strong>Metabolic / biochemical abnormality.</strong> The core defect is a <strong>protease loss-of-function</strong> producing hormonal (hepcidin) dysregulation of systemic iron trafficking — not an enzyme-deficiency metabolic block in a biosynthetic pathway.</p>
+<p><strong>Immune involvement.</strong> None primary. IRIDA is not autoimmune or immunodeficient; however, hepcidin is the shared node with anemia of inflammation, which is IL-6/inflammation-driven.</p>
+<p><strong>Molecular profiling.</strong> In-vitro functional studies (transfected cell cleavage assays) and mouse transcriptional readouts of hepatic hepcidin (Hamp) are the principal profiling data. No large human transcriptomic/proteomic/metabolomic dataset is established for IRIDA specifically.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Site of the primary defect.</strong> The <strong>liver (hepatocytes)</strong> — matriptase-2 is "produced by the liver" (<a href="https://pubmed.ncbi.nlm.nih.gov/18408718/">PMID: 18408718</a>). <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> (liver); <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> (hepatocyte).</p>
+<p><strong>Effector sites (secondary).</strong>
+- <strong>Duodenum / small intestine</strong> — enterocyte iron absorption blocked. <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" rel="noopener noreferrer">UBERON:0002114</a> (duodenum); <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" rel="noopener noreferrer">CL:0000584</a> (enterocyte).
+- <strong>Spleen / reticuloendothelial system</strong> — macrophage iron recycling blocked. <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a> (spleen); <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage).
+- <strong>Bone marrow</strong> — iron-restricted erythropoiesis. <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a> (bone marrow); <a href="http://purl.obolibrary.org/obo/CL_0000765" target="_blank" rel="noopener noreferrer">CL:0000765</a> (erythroblast).</p>
+<p><strong>Body systems.</strong> Hematopoietic/hematologic (primary clinical manifestation) and hepatobiliary/digestive (site of defect and iron absorption).</p>
+<p><strong>Subcellular level.</strong> Matriptase-2 is a plasma-membrane-anchored protein (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>, plasma membrane); its cytoplasmic tail faces the cytosol and the catalytic ectodomain the extracellular space. Ferroportin resides at the basolateral/plasma membrane of effector cells.</p>
+<p><strong>Localization / lateralization.</strong> The disease is systemic and bilateral/non-lateralized; there is no anatomical asymmetry.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital/early post-natal, though sometimes first recognized in adulthood — "The anemia appears in the post-natal period, although in some cases it is only diagnosed in adulthood" (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>). Onset pattern is chronic/insidious.</li>
+<li><strong>Progression:</strong> Slow, chronic, and generally <strong>stable-to-improving</strong>. Hemoglobin frequently improves with age even as microcytosis and low transferrin saturation persist. Not staged like a neoplastic disease.</li>
+<li><strong>Disease course:</strong> Lifelong (chronic) but non-progressive in a degenerative sense; severity is set largely by genotype (biallelic nonsense = more severe).</li>
+<li><strong>Critical periods:</strong> Infancy/childhood growth phases and other high-iron-demand windows (menstruation, pregnancy) are periods of greatest vulnerability and the key windows for intervention (<a href="https://pubmed.ncbi.nlm.nih.gov/28447549/">PMID: 28447549</a>).</li>
+<li><strong>Remission:</strong> No true remission; partial correction is achievable with parenteral iron, and spontaneous improvement of hemoglobin with age is common.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance.</strong> Autosomal recessive; affected individuals are homozygous or compound heterozygous for TMPRSS6 pathogenic variants (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>). Sibling recurrence risk is 25%.</p>
+<p><strong>Epidemiology.</strong> Rare; fewer than a few hundred families reported worldwide. Exact prevalence is undetermined and likely underestimated due to under-recognition among common microcytic anemias. Orphanet <a href="https://bioregistry.io/ORPHA:209981" target="_blank" rel="noopener noreferrer">ORPHA:209981</a>.</p>
+<p><strong>Penetrance / expressivity.</strong> Biallelic pathogenic genotypes are essentially fully penetrant for the biochemical phenotype (microcytosis, low TSAT), with <strong>variable expressivity</strong> of anemia severity governed by genotype and modifier alleles. Monoallelic (single heterozygous) variants may contribute to milder/atypical iron deficiency with incomplete penetrance still under study.</p>
+<p><strong>Founder effects / population recurrence.</strong> Population-recurrent alleles include <strong>p.W590R</strong> ("the most frequent mutation in Southern Italy," <a href="https://pubmed.ncbi.nlm.nih.gov/25156943/">PMID: 25156943</a>) and <strong>p.V736A</strong>, which "was found in all examined Saudi families with IRIDA" (<a href="https://pubmed.ncbi.nlm.nih.gov/36261087/">PMID: 36261087</a>). Consanguinity raises homozygous-case frequency.</p>
+<p><strong>Demographics.</strong> Reported across European, Middle Eastern, Asian, and North African populations. Both sexes affected; no strong sex predilection, though females tend to be more symptomatic due to higher iron demands. No genetic anticipation (not a repeat-expansion disorder).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Laboratory workup.</strong>
+1. <strong>CBC with indices:</strong> low Hb, low MCV, low MCH (hypochromic microcytic pattern).
+2. <strong>Iron studies:</strong> low serum iron, <strong>very low transferrin saturation (often &lt;5–10%)</strong>, normal-to-high ferritin.
+3. <strong>Serum hepcidin:</strong> inappropriately normal/high — the discriminating biomarker.
+4. <strong>Molecular confirmation:</strong> TMPRSS6 sequencing.</p>
+<p><strong>Key discriminating biomarker.</strong> "In contrast to the low/undetectable hepcidin levels observed in acquired iron deficiency, in patients with Matriptase-2 deficiency, serum hepcidin is inappropriately high for the low iron status and accounts for the absent/delayed response to oral iron treatment" (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>). The <strong>transferrin saturation/hepcidin ratio</strong> operationalizes this discrimination: van der Staaij et al. showed the "Transferrin Saturation/Hepcidin Ratio Discriminates" pathogenic TMPRSS6-related iron deficiency from other causes (<a href="https://pubmed.ncbi.nlm.nih.gov/35163840/">PMID: 35163840</a>).</p>
+<p><strong>Genetic testing.</strong> Single-gene TMPRSS6 sequencing, targeted iron/anemia gene panels, or <strong>whole-exome sequencing</strong> for atypical cases. WES has resolved unusual presentations: "whole exome sequencing can be used as a diagnostic tool and greatly facilitate the elucidation of the genetic basis of unusual clinical presentations" (<a href="https://pubmed.ncbi.nlm.nih.gov/23319530/">PMID: 23319530</a>).</p>
+<p><strong>Differential diagnosis.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Distinguishing feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nutritional/blood-loss iron deficiency</td>
+<td>Hepcidin <strong>low</strong>; responds to oral iron</td>
+</tr>
+<tr>
+<td>β-/α-thalassemia trait</td>
+<td>Normal/high iron; elevated HbA2 (β) or globin imbalance; high-normal RBC count</td>
+</tr>
+<tr>
+<td>Anemia of chronic disease/inflammation</td>
+<td>Hepcidin high but IL-6/CRP elevated; inflammatory context</td>
+</tr>
+<tr>
+<td>DMT1 (SLC11A2) defect, atransferrinemia, aceruloplasminemia, sideroblastic anemias</td>
+<td>Distinct iron-study patterns / systemic features</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>"A challenge for the clinicians and pediatricians is the recognition of the disorder among iron deficiency and other microcytic anemias commonly found in pediatric patients" (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>).</p>
+<p><strong>Screening.</strong> No population/newborn screening exists. Cascade genetic testing of relatives is appropriate once a proband's variants are known.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> Benign; normal life expectancy. No disease-specific mortality is reported.</li>
+<li><strong>Disease course:</strong> Lifelong, moderate, chronic anemia that "shows a slow response to intravenous iron injections and partial correction of the anemia" (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>); hemoglobin often improves with age.</li>
+<li><strong>Morbidity:</strong> Chronic fatigue, reduced exercise tolerance, and — in infancy/childhood — potential growth and neurodevelopmental impact during critical windows (<a href="https://pubmed.ncbi.nlm.nih.gov/28447549/">PMID: 28447549</a>).</li>
+<li><strong>Prognostic factors:</strong> Genotype is prognostic — biallelic nonsense mutations predict more severe, less-responsive anemia with higher hepcidin (<a href="https://pubmed.ncbi.nlm.nih.gov/25156943/">PMID: 25156943</a>). Treatment response is itself a prognostic indicator.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>First principle:</strong> By definition IRIDA is refractory to oral iron because absorption is hepcidin-blocked.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Evidence</th>
+<th>NCIT concept</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Intravenous (parenteral) iron</strong></td>
+<td>Standard of care; slow, partial correction (<a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">PMID: 23729726</a>)</td>
+<td>Iron supplement therapy (parenteral)</td>
+</tr>
+<tr>
+<td><strong>Oral iron + vitamin C</strong></td>
+<td>In a pediatric IRIDA-phenotype cohort, "complete response in majority (6/7 = 86%) with &gt;2 g/dL rise in Hb along with significant improvement of other iron related indices" (<a href="https://pubmed.ncbi.nlm.nih.gov/30594846/">PMID: 30594846</a>)</td>
+<td>Ferrous salt + ascorbic acid</td>
+</tr>
+<tr>
+<td><strong>Supportive care</strong></td>
+<td>Monitor growth/development in children; manage fatigue</td>
+<td>Supportive care</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pharmacogenomics.</strong> Response is genotype-dependent (nonsense/nonsense = poorest response). No conventional drug-metabolism pharmacogenomic markers apply.</p>
+<p><strong>Emerging / experimental.</strong> There is no approved IRIDA-specific targeted therapy. Conceptually, a hepcidin-lowering agent (e.g., anti-hepcidin or BMP-pathway antagonist) would be mechanistically rational, but the active TMPRSS6 drug pipeline is aimed at the <em>opposite</em> problem (raising hepcidin in iron overload — see Section 13).</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable — the disorder is monogenic with no environmental/infectious trigger.</li>
+<li><strong>Secondary/tertiary prevention:</strong> Early molecular diagnosis and timely iron repletion (parenteral, or oral iron + vitamin C) to prevent developmental sequelae, especially during childhood growth windows.</li>
+<li><strong>Genetic counseling (central):</strong> Autosomal-recessive 25% sibling recurrence risk; carrier/cascade testing of relatives; reproductive options (prenatal and preimplantation genetic testing) where the family's TMPRSS6 variants are defined.</li>
+<li><strong>Screening:</strong> No population or newborn screening. Cascade testing within affected families is the practical preventive tool.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> TMPRSS6 is evolutionarily conserved. Mouse ortholog <strong>Tmprss6</strong> (NCBI Gene 71753; <em>Mus musculus</em>, NCBI:txid10090).</li>
+<li><strong>Natural disease:</strong> No well-documented naturally occurring companion-animal or wildlife IRIDA in OMIA; IRIDA is essentially a human-defined disorder recapitulated in engineered rodents.</li>
+<li><strong>Comparative biology:</strong> The hepcidin–ferroportin axis and matriptase-2's suppressive role are conserved between human and mouse; Tmprss6 disruption in mice reproduces the human iron-deficiency phenotype (see Section 15).</li>
+<li><strong>Zoonotic potential:</strong> None (non-infectious genetic disease).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse is the principal model.</strong> Two complementary genetic models recapitulate IRIDA:
+- <strong>Tmprss6 knockout</strong> and the ENU-derived <strong>"mask" mouse</strong> (Mt2^mask, lacking the catalytic domain), which develop elevated hepcidin, systemic iron deficiency, and microcytic anemia.
+- <strong>Modifier/therapeutic-target validation:</strong> Finberg et al. showed "heterozygous loss of Tmprss6 in Hfe(-/-) mice reduced systemic iron overload, whereas homozygous loss caused systemic iron deficiency and elevated hepatic expression of hepcidin" (<a href="https://pubmed.ncbi.nlm.nih.gov/21355094/">PMID: 21355094</a>) — establishing Tmprss6 as a genetic modifier and therapeutic target.</p>
+<p><strong>Domain-function dissection in mice.</strong>
+- "The catalytic domain, but not its proteolytic activity, was required for Mt2 to suppress hepcidin expression" (<a href="https://pubmed.ncbi.nlm.nih.gov/32384154/">PMID: 32384154</a>).
+- "The stem region of MT2 determines the specificity and efficacy for substrate cleavage" (<a href="https://pubmed.ncbi.nlm.nih.gov/30559294/">PMID: 30559294</a>).
+- Hepatocyte neogenin is required: "Mt2 suppression of hepcidin relies on the presence of Neo1" (<a href="https://pubmed.ncbi.nlm.nih.gov/41534828/">PMID: 41534828</a>).</p>
+<p><strong>Phenotype recapitulation:</strong> Excellent for the core biochemical and hematologic phenotype (high hepcidin, low iron, microcytic anemia). <strong>Limitations:</strong> models are engineered rather than spontaneous; species differences in iron demand and lifespan; human genotype–phenotype heterogeneity (e.g., specific missense alleles) not fully captured by null models.</p>
+<p><strong>Translational fulcrum — the "mirror-image" drug pipeline.</strong> Because loss of matriptase-2 <em>raises</em> hepcidin, TMPRSS6 inhibition is being developed to <em>raise</em> hepcidin in iron-overload disease:
+- Antisense oligonucleotides: "antisense oligonucleotide-mediated inhibition of TMPRSS6, an upstream regulator of hepcidin" (<a href="https://pubmed.ncbi.nlm.nih.gov/24589273/">PMID: 24589273</a>).
+- Anti-matriptase-2 antibody RLYB331: "we tested a fully human anti-matriptase-2 antibody, RLYB331, which blocks the protease activity of matriptase-2" (<a href="https://pubmed.ncbi.nlm.nih.gov/38241484/">PMID: 38241484</a>).
+- Clinical-stage antibody DISC-3405: "a novel humanized monoclonal antibody that enhances hepcidin expression by inhibiting TMPRSS6"; in Phase 1 it "increased hepcidin-25 and reduced serum iron and transferrin saturation across dose levels" (<a href="https://pubmed.ncbi.nlm.nih.gov/42053460/">PMID: 42053460</a>).</p>
+<p>These programs validate TMPRSS6/matriptase-2 biology pharmacologically and, by inference, confirm the IRIDA mechanism in reverse.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>IRIDA is best understood as a <strong>hormonal iron-trafficking disease driven by a single upstream protease loss</strong>. The elegance of the model is that one molecular event (loss of matriptase-2) propagates deterministically to the clinical picture:</p>
+<pre><code>GENE            PROTEIN            SIGNALING           HORMONE        EFFECTOR            PHENOTYPE
+TMPRSS6  ──►  matriptase-2  ──►  BMP/SMAD (via     ──► hepcidin  ──► ferroportin    ──►  hypochromic
+(LoF, AR)     (loss of           HJV/NEO1              (HIGH,         degradation on       microcytic
+      function)          cleavage/            inappropriate)  enterocytes +        anemia,
+                 inhibition lost)                     macrophages          low TSAT,
+                                                                           oral-iron
+                                                                           refractory
+</code></pre>
+<p>Everything downstream of hepcidin is shared with normal iron physiology; the disease-specific lesion is the failure to <em>restrain</em> hepcidin when iron is low. This explains three otherwise puzzling clinical features simultaneously: (1) why oral iron fails (absorption is blocked at the enterocyte), (2) why ferritin can be normal/high despite anemia (iron is trapped in macrophages), and (3) why the disease is diagnostically distinguishable from every other microcytic anemia by hepcidin measurement.</p>
+<p>The <strong>upstream vs downstream</strong> hierarchy also clarifies therapeutic logic: the ideal IRIDA therapy would act upstream (restore matriptase-2 function or lower hepcidin), whereas current management acts far downstream by force-feeding iron parenterally past the enterocyte block. Conversely, the same axis run in reverse (inhibit TMPRSS6 → raise hepcidin) is a validated strategy for iron-overload diseases — a striking example of one gene being both the cause of one disease and the drug target for its mirror image.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18408718/">18408718</a></td>
+<td><em>Mutations in TMPRSS6 cause IRIDA</em></td>
+<td>Foundational — establishes causal gene and matriptase-2's hepcidin-regulating role</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23729726/">23729726</a></td>
+<td><em>Iron refractory iron deficiency anemia</em> (review)</td>
+<td>Core clinical/mechanistic reference: inheritance, hallmarks, hepcidin discriminator, treatment, DDx</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25156943/">25156943</a></td>
+<td><em>Functional and clinical impact of novel TMPRSS6 variants</em></td>
+<td>Functional LoF evidence; genotype–phenotype (nonsense = severe); p.W590R</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42053460/">42053460</a></td>
+<td><em>Phase 1 DISC-3405 anti-TMPRSS6</em></td>
+<td>BMP/SMAD-HJV mechanism statement; target validation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19820699/">19820699</a></td>
+<td><em>Common TMPRSS6 variants &amp; iron status</em> (GWAS)</td>
+<td>Modifier variant rs855791 effects on iron/MCV</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36261087/">36261087</a></td>
+<td><em>TMPRSS6 mutations in Saudi families</em></td>
+<td>Founder allele p.V736A; atypical normocytic presentation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21355094/">21355094</a></td>
+<td><em>Tmprss6 modifier of Hfe in mice</em></td>
+<td>Mouse model; effector definition (enterocyte + macrophage)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23319530/">23319530</a></td>
+<td><em>IRIDA with hyperferritinemia; WES</em></td>
+<td>Atypical hyperferritinemia; WES diagnostic utility</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30594846/">30594846</a></td>
+<td><em>Oral iron + vitamin C in IRIDA phenotype</em></td>
+<td>86% response — emerging oral therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35163840/">35163840</a></td>
+<td><em>TSAT/Hepcidin ratio discriminates</em></td>
+<td>Diagnostic biomarker ratio</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32384154/">32384154</a></td>
+<td><em>Ectodomain nonproteolytic role</em></td>
+<td>Catalytic-domain requirement (mouse)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30559294/">30559294</a></td>
+<td><em>Catalytic/stem/TM portions required</em></td>
+<td>Domain structure-function</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41534828/">41534828</a></td>
+<td><em>MT2 requires hepatocyte neogenin</em></td>
+<td>NEO1 dependency in vivo</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24589273/">24589273</a></td>
+<td><em>Modulation of hepcidin — ASO</em></td>
+<td>Mirror-image therapy (ASO)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38241484/">38241484</a></td>
+<td><em>Anti-matriptase-2 antibody RLYB331</em></td>
+<td>Mirror-image therapy (antibody) in β-thalassemic mice</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28447549/">28447549</a></td>
+<td><em>Child with complex TMPRSS6 genotype</em></td>
+<td>Critical growth-period vulnerability</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Concordance:</strong> All reviewed papers point to a consistent single-gene, single-mechanism model. No paper challenges the central TMPRSS6→hepcidin causal chain; heterogeneity is confined to phenotypic spectrum (occasional hyperferritinemia or normocytosis) and treatment response (genotype-dependent).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Prevalence is undetermined.</strong> No population-level incidence/prevalence figures exist; the disease is likely under-diagnosed among common microcytic anemias.</li>
+<li><strong>No human -omics datasets.</strong> There are no established large-scale transcriptomic/proteomic/metabolomic profiles specific to IRIDA patients; mechanism rests on in-vitro assays and mouse models.</li>
+<li><strong>Monoallelic variant significance is unresolved.</strong> The pathogenic contribution and penetrance of single heterozygous TMPRSS6 variants to milder/atypical iron deficiency remain under study.</li>
+<li><strong>No IRIDA-specific approved therapy.</strong> Current care is symptomatic (parenteral iron); the mechanistically ideal hepcidin-lowering therapeutic has not been developed for IRIDA (all TMPRSS6 drugs target the opposite direction).</li>
+<li><strong>Genotype–phenotype rules are incomplete.</strong> Beyond the nonsense/nonsense = severe correlation, predictive rules for individual missense alleles and modifier interactions are not fully defined.</li>
+<li><strong>Long-term neurodevelopmental outcomes</strong> of childhood iron deficiency in IRIDA are not rigorously quantified.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Establish a natural-history registry</strong> to quantify prevalence, sex ratio, age-dependent hemoglobin trajectory, and neurodevelopmental outcomes.</li>
+<li><strong>Prospective trial of oral iron + vitamin C vs IV iron</strong> in molecularly confirmed IRIDA, powered on hemoglobin response and quality of life, to validate the 86% pediatric response signal (<a href="https://pubmed.ncbi.nlm.nih.gov/30594846/">PMID: 30594846</a>).</li>
+<li><strong>Standardize the TSAT/hepcidin ratio</strong> as a first-line discriminating test with defined cutoffs across laboratories (<a href="https://pubmed.ncbi.nlm.nih.gov/35163840/">PMID: 35163840</a>).</li>
+<li><strong>Functional classification pipeline</strong> (cell-based autoactivation + HJV-cleavage + hepcidin-suppression assays, per <a href="https://pubmed.ncbi.nlm.nih.gov/25156943/">PMID: 25156943</a>) to resolve VUS and monoallelic variants toward ACMG reclassification.</li>
+<li><strong>Explore hepcidin-lowering therapeutics for IRIDA</strong> (anti-hepcidin antibodies, BMP-pathway antagonists, or ferroportin stabilizers) — the mechanistically rational but unexploited direction.</li>
+<li><strong>Cascade genetic counseling and carrier screening</strong> in consanguineous populations harboring founder alleles (p.V736A, p.W590R).</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/IRIDA_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/IRIDA_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>16</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:25156943</code> <em>(abstract only)</em>: "all but the p.T287N variant impair matriptase-2 autoproteolytic activation, decrease the ability to cleave membrane HJV and inhibit the HJV-dependent hepcidin activation"</li>
+<li>closest text in source: "All but the p.T287N variant impair matriptase-2 autoproteotylic activation, decrease the ability to cleave membrane HJV and inhibit the HJV-dependent hepcidin activation"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0008788</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>IRIDA syndrome</strong></li>
+<li><code>HP:0004840</code> (1 mention) - the report calls it "Lab / clinical"; HP calls it <strong>Hypochromic microcytic anemia</strong></li>
+<li><code>HP:0001935</code> (1 mention) - the report calls it "Lab"; HP calls it <strong>Microcytic anemia</strong></li>
+<li><code>HP:0025066</code> (1 mention) - the report calls it "Lab"; HP calls it <strong>Decreased mean corpuscular volume</strong></li>
+<li><code>HP:0040303</code> (1 mention) - the report calls it "Lab"; HP calls it <strong>Decreased circulating iron concentration</strong></li>
+<li><code>HP:0012378</code> (1 mention) - the report calls it "Symptom"; HP calls it <strong>Fatigue</strong></li>
+<li><code>HP:0000980</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Pallor</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0060586</code> (1 mention) - the report calls it "multicellular organismal iron ion homeostasis"; GO calls it <strong>multicellular organismal-level iron ion homeostasis</strong>, and lists "multicellular organismal iron ion homeostasis" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="IREB2-Related_Neurodegeneration-claude_code.html">← IREB2-Related Neurodegeneration (Claude Code)</a>
+                
+                
+                <a href="Iron_Poisoning-claude_code.html">Iron Poisoning (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/IRIDA_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/IRIDA_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

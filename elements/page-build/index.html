@@ -804,6 +804,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../deep-research-template-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep-Research Template Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../hypothesis-report-assessments/" class="md-nav__link">
         
   
@@ -811,7 +839,7 @@
   <span class="md-ellipsis">
     
   
-    Hypothesis Report Assessments
+    Hypothesis Report Assessments & Reconciliation
   
 
     
@@ -2252,6 +2280,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reports/biomarkers-of-aging-gap-analysis-2026-08-31/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Biomarkers of aging in dismech: what we have, what to add
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -24082,10 +24138,10 @@ PRs reach the review workflow by two different routes:</p>
 <li>The <code>claude-code-review</code> workflow's <code>pull_request</code> trigger skips its review
   job for any PR whose head branch starts with <code>auto/generate-</code> (covering
   <code>auto/generate-pages</code>, <code>auto/generate-grouping-pages</code>, and
-  <code>auto/generate-project-pages</code>) <em>and</em> whose author is <code>github-actions[bot]</code>.
-  In practice these <code>pull_request</code> runs were mostly gated at <code>action_required</code>
-  with no jobs executed anyway — GITHUB_TOKEN pushes don't get auto-run —
-  which is why the second route existed.</li>
+  <code>auto/generate-project-pages</code>) <em>and</em> whose author is either <code>ai4c-agent</code> or
+  the legacy <code>github-actions[bot]</code>. New regen PRs are App-authored so their
+  required <code>Build and test</code> run executes normally; only the expensive LLM
+  review job is skipped.</li>
 <li>The reviews that <em>actually</em> ran historically came from <code>pr-shepherd</code>
   dispatching the review workflow for PRs stuck in <code>REVIEW_REQUIRED</code>. The
   shepherd is now instructed to leave regen PRs alone, and as a deterministic
@@ -24096,26 +24152,24 @@ PRs reach the review workflow by two different routes:</p>
 auto-merge can fire, <strong>each regen workflow approves its own PR</strong> as its final
 step (via the shared <code>.github/actions/approve-regen-pr</code> composite action, which
 carries the full rationale in its <code>description</code>), using the ai4c-reviewer app
-token (GITHUB_TOKEN is the PR author and cannot approve its own PR). The
-approval names the exact commit the run just pushed and is skipped if the branch
-tip has moved since, so nothing is vouched for sight-unseen; it re-arms after
-every force-push, since pushes dismiss stale approvals. Placing it in the regen
-workflows — which always execute — rather than a <code>pull_request</code>-triggered job is
-deliberate, per the gating above.</p>
+token. That identity is separate from the ai4c-agent author (and from the
+github-actions author of legacy open PRs), because GitHub forbids approving your
+own PR. The approval names the exact commit the run just pushed and is skipped
+if the branch tip has moved since, so nothing is vouched for sight-unseen; it
+re-arms after every force-push, since pushes dismiss stale approvals. Placing it
+in the regen workflow ties the approval to the build that produced the output.</p>
 <p>Human-authored PRs are unaffected — every skip requires the bot author — and a
 full agentic review of a regen PR can still be forced by commenting <code>/review</code>
 on it (the one escape hatch left open: it requires a collaborator author, so it
 is always an explicit human request).</p>
-<blockquote>
-<p><strong>Root cause worth chasing separately.</strong> The reason <code>pull_request</code> runs on
-these branches conclude <code>action_required</code> with no jobs is a repository/org
-Actions setting that requires approval for workflow runs on <code>github-actions[bot]</code>
-pushes — not anything in these workflow files. The design above routes around
-it (and stays correct even if it is lifted, since the <code>pull_request</code> skip
-clause then takes over), but fixing that setting would let regen PRs run their
-checks on the <code>pull_request</code> trigger normally and would likely simplify other
-bot-push workflows too. Tracked as a maintainer follow-up.</p>
-</blockquote>
+<p>The credential is part of the lifecycle, not incidental plumbing. Checkout does
+not persist <code>GITHUB_TOKEN</code>; after generation finishes, the workflow mints a
+short-lived <code>ai4c-agent</code> token and uses it for the branch push, PR creation, and
+auto-merge request. App-authenticated push/create events run the required PR
+checks instead of leaving them at <code>action_required</code>, while an App-attributed
+merge fires <code>Build and test</code> on the resulting <code>main</code> commit. Existing requests
+are disabled and re-enabled so a request originally armed by
+<code>github-actions[bot]</code> cannot retain that actor through the transition.</p>
 <p>See issue <a href="https://github.com/monarch-initiative/dismech/issues/5507">#5507</a> for
 the design rationale and <a href="https://github.com/monarch-initiative/dismech/issues/5198">#5198</a>
 for the broader build-speed work.</p>

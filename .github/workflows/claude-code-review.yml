@@ -19,18 +19,16 @@ concurrency:
 jobs:
   # Automated page-build regen PRs (auto/generate-pages,
   # auto/generate-grouping-pages, auto/generate-project-pages — opened by
-  # github-actions[bot]) are pure derived-asset rebuilds: an agentic review of
-  # thousands of regenerated HTML files is expense without signal, so this
-  # workflow declines to review them. The approving review that branch
-  # protection (and their armed auto-merge) requires is instead supplied
-  # deterministically by the regen workflows themselves, right after each
-  # force-push — NOT by a job here, because pull_request runs on those
-  # bot-pushed branches sit gated at conclusion=action_required with zero jobs
-  # executed, so nothing in this workflow is guaranteed to run for them.
+  # ai4c-agent, with legacy open PRs authored by github-actions[bot]) are pure
+  # derived-asset rebuilds: an agentic review of thousands of regenerated HTML
+  # files is expense without signal, so this workflow declines to review them.
+  # The approving review that branch protection (and their armed auto-merge)
+  # requires is instead supplied deterministically by the regen workflows
+  # themselves, right after each force-push.
   #
-  # That same gating is why the pull_request skip in claude-review's `if:`
-  # below is not enough on its own: historically these PRs got their reviews
-  # via pr-shepherd auto-dispatching this workflow for PRs stuck in
+  # The pull_request skip in claude-review's `if:` is not enough on its own:
+  # historically these PRs also reached review via pr-shepherd dispatching this
+  # workflow for PRs stuck in
   # REVIEW_REQUIRED — the workflow_dispatch path, which the job-level `if:`
   # cannot inspect (the dispatch payload has only a PR number). This guard job
   # resolves the dispatched PR's head branch and author so claude-review can
@@ -67,11 +65,10 @@ jobs:
           author="${info##*$'\t'}"
           echo "Dispatched PR #${PR_NUMBER}: head_ref='${head_ref}' author='${author}'"
 
-          # gh renders bot authors as "app/github-actions" in current versions
-          # (see generate-pages.yaml's --author filter); accept the raw login
-          # forms too in case that rendering changes.
+          # gh renders App authors with an app/ prefix; accept raw login forms
+          # too, and retain github-actions for already-open legacy regen PRs.
           case "$author" in
-            app/github-actions|github-actions|github-actions\[bot\]) is_bot=true ;;
+            app/github-actions|github-actions|github-actions\[bot\]|app/ai4c-agent|ai4c-agent|ai4c-agent\[bot\]) is_bot=true ;;
             *) is_bot=false ;;
           esac
 
@@ -105,7 +102,10 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository &&
           !(
             startsWith(github.event.pull_request.head.ref, 'auto/generate-') &&
-            github.event.pull_request.user.login == 'github-actions[bot]'
+            contains(
+              fromJSON('["github-actions[bot]","ai4c-agent[bot]"]'),
+              github.event.pull_request.user.login
+            )
           )
         ) ||
         github.event_name == 'workflow_dispatch' ||
@@ -282,7 +282,7 @@ jobs:
           "$HOME/.local/bin/claude" --version
 
       # The review agent's allowedTools grant `Bash(just:*)` and `Bash(uv run:*)`
-      # so it can run the deterministic validators (just qc / validate-references /
+      # so it can run the deterministic validators (just qc / validate-kb-references /
       # validate-terms). Those binaries are not on standard runners, so set
       # them up here — mirrors the setup in main.yaml.
       - name: Install uv
