@@ -1249,11 +1249,55 @@ def test_merge_pins_the_verified_head_commit(monkeypatch):
     monkeypatch.setattr(
         auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
     )
+    monkeypatch.setattr(auto_merge, "base_requires_merge_queue", lambda *a: False)
     auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token")
     merge_cmd, token = calls[0]
     assert "--squash" in merge_cmd
     assert merge_cmd[merge_cmd.index("--match-head-commit") + 1] == "deadbeef"
     assert token == "writer-token"
+
+
+def test_merge_omits_the_strategy_flag_on_a_queue_required_branch(monkeypatch):
+    """gh rejects a strategy flag when the base branch requires a merge queue.
+
+    The head pin must survive: it becomes the enqueue mutation's
+    expectedHeadOid, so the same "merge exactly the commit we verified"
+    guarantee holds for an enqueue.
+    """
+    calls = []
+    monkeypatch.setattr(
+        auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
+    )
+    monkeypatch.setattr(auto_merge, "base_requires_merge_queue", lambda *a: True)
+    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token")
+    merge_cmd, _token = calls[0]
+    assert "--squash" not in merge_cmd
+    assert merge_cmd[merge_cmd.index("--match-head-commit") + 1] == "deadbeef"
+    body = " ".join(calls[1][0])
+    assert "merge queue" in body
+    assert "Squash-merged" not in body
+
+
+def test_queue_detection_failure_keeps_the_pre_queue_behavior(monkeypatch):
+    """An unreadable queue lookup must not silently drop the strategy flag."""
+    def boom(args, token=None):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
+
+    monkeypatch.setattr(auto_merge, "_gh", boom)
+    assert auto_merge.base_requires_merge_queue("o/r", "main") is False
+
+
+def test_queue_detection_reads_the_graphql_payload(monkeypatch):
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda args, token=None: '{"data":{"repository":{"mergeQueue":{"id":"MQ_x"}}}}',
+    )
+    assert auto_merge.base_requires_merge_queue("o/r", "main") is True
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda args, token=None: '{"data":{"repository":{"mergeQueue":null}}}',
+    )
+    assert auto_merge.base_requires_merge_queue("o/r", "main") is False
 
 
 def test_merge_fails_closed_when_the_sha_is_unavailable(monkeypatch):

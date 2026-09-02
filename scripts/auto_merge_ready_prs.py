@@ -147,6 +147,13 @@ MERGE_COMMENT = (
     "{days} days. No further action needed."
 )
 
+ENQUEUE_COMMENT = (
+    "🐑 **PR Shepherd** (deterministic sweep) — Added to the merge queue: "
+    "approved, unassigned, no conflicts, all checks green, and open longer "
+    "than {days} days. GitHub will test this PR against current `main` and "
+    "merge it if that passes. No further action needed."
+)
+
 DEFAULT_BASE_HEALTH_CHECK = "test (3.13)"
 DEFAULT_BASE_HEALTH_APP_ID = 15368  # GitHub Actions, matching branch protection
 AUTOMATED_HEAD_PREFIX = "auto/"
@@ -572,18 +579,55 @@ def view_pr(
     return pr
 
 
+def base_requires_merge_queue(repo: str, branch: str) -> bool:
+    """Whether ``branch`` has an active merge queue.
+
+    ``gh pr merge`` rejects a merge-strategy flag on a queue-required branch
+    ("the merge strategy for <branch> is set by the merge queue"), so the
+    strategy must be omitted there and supplied everywhere else -- passing
+    neither is equally fatal off a queue. Detection failures answer False,
+    which keeps the pre-queue behavior rather than silently dropping the
+    strategy the merge depends on.
+    """
+    owner, _, name = repo.partition("/")
+    query = (
+        "query($owner:String!,$name:String!,$branch:String!){"
+        "repository(owner:$owner,name:$name){"
+        "mergeQueue(branch:$branch){id}}}"
+    )
+    try:
+        payload = _gh([
+            "api", "graphql",
+            "-f", f"owner={owner}", "-f", f"name={name}",
+            "-f", f"branch={branch}", "-f", f"query={query}",
+        ])
+        data = json.loads(payload)
+    except (subprocess.CalledProcessError, ValueError, json.JSONDecodeError):
+        return False
+    repository = (data.get("data") or {}).get("repository") or {}
+    return bool(repository.get("mergeQueue"))
+
+
 def merge_pr(
     repo: str,
     number: int,
     min_age_days: int,
     head_sha: str | None,
     write_token: str,
+    base_branch: str = "main",
 ) -> None:
-    """Squash-merge one PR, then announce it.
+    """Squash-merge one PR -- or add it to the merge queue -- then announce it.
 
-    ``--match-head-commit`` makes GitHub reject the merge if a push landed
-    after the verification read, so the commit merged is provably the commit
-    whose checks and review state were evaluated.
+    ``--match-head-commit`` makes GitHub reject the operation if a push landed
+    after the verification read, so the commit acted on is provably the commit
+    whose checks and review state were evaluated. It pins the enqueued head
+    the same way it pins a direct merge (GraphQL ``expectedHeadOid``).
+
+    On a queue-required branch this **enqueues** rather than merges: the PR is
+    tested against current ``main`` on a temporary branch and merged only if
+    that passes. So a successful call here no longer means "merged", and the
+    announcement says so. A PR whose own required checks have not yet passed
+    is armed for auto-merge and enters the queue when they do.
     """
     verified_head = str(head_sha or "").strip()
     if not verified_head:
@@ -591,16 +635,18 @@ def merge_pr(
     writer = write_token.strip()
     if not writer:
         raise ValueError("refusing to merge without a dedicated write token")
+    queued = base_requires_merge_queue(repo, base_branch)
     merge_cmd = [
         "pr",
         "merge",
         str(number),
         "--repo",
         repo,
-        "--squash",
         "--match-head-commit",
         verified_head,
     ]
+    if not queued:
+        merge_cmd.insert(5, "--squash")
     _gh(merge_cmd, token=writer)
 
     # The merge is the operation that matters and it has already succeeded;
@@ -615,7 +661,9 @@ def merge_pr(
                 "--repo",
                 repo,
                 "--body",
-                MERGE_COMMENT.format(days=min_age_days),
+                (ENQUEUE_COMMENT if queued else MERGE_COMMENT).format(
+                    days=min_age_days
+                ),
             ],
             token=writer,
         )
@@ -1021,6 +1069,7 @@ def main(argv: list[str] | None = None) -> int:
                     args.min_age_days,
                     fresh.get("headRefOid"),
                     write_token,
+                    str(fresh.get("baseRefName") or "main"),
                 )
                 merge_completed = True
             except (subprocess.CalledProcessError, ValueError) as exc:
