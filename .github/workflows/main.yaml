@@ -119,6 +119,10 @@ jobs:
               - '!kb/disorders/**/*.history.yaml'
             kb_comorbidities:
               - 'kb/comorbidities/**/*.yaml'
+            kb_hypotheses:
+              # Report edits can invalidate verbatim assessment/reconciliation
+              # anchors even when no YAML changes.
+              - 'kb/hypotheses/**'
             history:
               - 'history/**/*.yaml'
               - 'src/dismech/schema/history.yaml'
@@ -355,6 +359,23 @@ jobs:
       - name: Check for duplicate YAML keys
         run: uv run python scripts/check_duplicate_yaml_keys.py
 
+      # Ungated and whole-KB on purpose, and for the same merge-shaped reason as
+      # the duplicate-key step above -- this is its schema-narrowing twin.
+      # #10003 narrowed EvidenceItemSupportEnum from five values to three while
+      # ~15 curation PRs carrying the retired `PARTIAL` were already open. Every
+      # one was green: the narrowing PR did not contain their files, and they did
+      # not contain the narrowed enum. Only the merge result holds both, and 100
+      # invalid values reached main within a day (issue #10061).
+      #
+      # The existing whole-KB sweep (`just test-kb`) is gated on schema changes,
+      # reasoning that only a schema edit can flip a KB file's validity. That
+      # misses the half of the window where the schema edit has already landed
+      # and the offending file has not: those PRs touch no schema, so no filter
+      # fires. ~21s over 2,860 files, offline, no codegen -- one constraint
+      # rather than conformance, which is what makes it affordable here.
+      - name: Check enum values are permissible
+        run: uv run python scripts/check_enum_values.py
+
       # Ungated and whole-KB on purpose, and for a sharper reason than the
       # checks around it: the entity-ref rules ARE covered by pytest
       # (`test_entity_ref_foreign_keys`), but that test is selected by the
@@ -370,6 +391,41 @@ jobs:
       # lane, not a replacement.
       - name: Check entity references resolve
         run: uv run python scripts/check_entity_refs.py
+
+      # The bare-name counterpart of the step above, and a genuinely separate
+      # invariant. `downstream[].target`, `sequelae[].target`,
+      # `reports_on[].target` and `target_mechanisms[].target` do NOT use the
+      # `<kind>#<name>` grammar -- `dismech.graph` matches them verbatim against
+      # another item's `name`. So a break here is invisible to the entity-ref
+      # sweep AND to everything else: the entry validates, terms and snippets
+      # verify, and the page renders. The edge is still appended, so edge counts
+      # never move; the unresolved target becomes an orphan the renderer draws as
+      # a phantom duplicate node, orphaning the real node out of the graph.
+      # #10112 found 175 such targets across 32 entries, one left at 0 of 7.
+      #
+      # Ungated and whole-KB for the same reason as its neighbours: renaming a
+      # node severs the edges pointing at it, which may live in a part of the
+      # file -- or an entry -- the PR never opened. The pre-existing dangling
+      # backlog is grandfathered in tests/causal_target_baseline.txt, so this
+      # gates new breakage only.
+      - name: Check pathograph targets resolve
+        run: uv run python scripts/check_causal_targets.py
+
+      # Terms nested under `qualifiers` are a blind spot in the anti-hallucination
+      # stack. `linkml-term-validator` validates slots whose range is bound to an
+      # ontology-backed dynamic enum; `Qualifier.predicate`/`value` are plain
+      # Descriptors with no such binding, so their `term:` blocks are never looked
+      # at. Confirmed by putting "Totally Bogus Fabricated Label" on one and
+      # watching `just validate-terms` report "Validation passed" (#10197).
+      #
+      # It had already admitted a real defect: NCIT:C288 was curated as
+      # "vancomycin" when that code is Azacitidine, an antineoplastic.
+      #
+      # Offline and cache-first, so this adds no network dependency: it compares
+      # each label against the committed cache/<prefix>/terms.csv. Terms absent
+      # from the caches are reported, not gated -- see the script docstring.
+      - name: Check qualifier ontology terms
+        run: uv run python scripts/check_qualifier_terms.py
 
       # Ungated for the same reason as the entity-ref step above, and the
       # argument is if anything sharper. The contract IS covered by pytest
@@ -445,6 +501,12 @@ jobs:
           echo "Validating changed comorbidity KB files..."
           just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
 
+      - name: Validate hypothesis review artifacts
+        if: steps.changes.outputs.kb_hypotheses == 'true'
+        run: |
+          just validate-hypothesis-assessment-all
+          just validate-hypothesis-reconciliation-all
+
       - name: Validate history records
         if: steps.changes.outputs.history == 'true'
         run: just validate-history-all
@@ -499,8 +561,13 @@ jobs:
         run: just test-search
 
       # The whole-KB conformance sweep runs only when the schema itself (or the
-      # conformance-test logic) changes — the only edits that can flip a KB
-      # file's validity. Parallelized with xdist inside `just test-kb`.
+      # conformance-test logic) changes. That covers the case where a schema
+      # edit flips an existing KB file's validity, but NOT the case where it
+      # flips the validity of a file still in flight on another branch: those
+      # PRs touch no schema, so this filter never fires for them (issue #10061).
+      # The ungated `check_enum_values.py` step above covers that half of the
+      # window for enum values specifically. Parallelized with xdist inside
+      # `just test-kb`.
       - name: Run whole-KB schema-conformance sweep
         if: steps.changes.outputs.schema == 'true'
         run: just test-kb

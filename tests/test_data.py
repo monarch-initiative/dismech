@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 from linkml.validator import Validator
+from linkml.validator.plugins import JsonschemaValidationPlugin
 
 # scripts/ is not a package; make its modules importable for tests that reuse
 # validation logic shared with the CLI tools.
@@ -35,6 +36,9 @@ SYNTHESIS_SCHEMA_PATH = (
 )
 HYPOTHESIS_ASSESSMENT_SCHEMA_PATH = (
     ROOT_DIR / "src" / "dismech" / "schema" / "hypothesis_assessment.yaml"
+)
+HYPOTHESIS_RECONCILIATION_SCHEMA_PATH = (
+    ROOT_DIR / "src" / "dismech" / "schema" / "hypothesis_reconciliation.yaml"
 )
 RESEARCH_DIR = ROOT_DIR / "research"
 HYPOTHESES_DIR = ROOT_DIR / "kb" / "hypotheses"
@@ -63,6 +67,9 @@ MODEL_SECTIONS = ("experimental_models", "animal_models", "computational_models"
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
 HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
     str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
+)
+HYPOTHESIS_RECONCILIATION_FILES = glob.glob(
+    str(HYPOTHESES_DIR / "*" / "*" / "reconciliation.yaml")
 )
 
 # Reference prefixes an evidence `reference:` may carry: literature/registry
@@ -1587,7 +1594,10 @@ def test_valid_grouping_files(filepath, validator):
 @pytest.fixture(scope="module")
 def synthesis_validator():
     """Validator bound to the standalone research-synthesis schema."""
-    return Validator(SYNTHESIS_SCHEMA_PATH)
+    return Validator(
+        SYNTHESIS_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
 
 
 @pytest.mark.kb_data
@@ -1651,7 +1661,10 @@ def test_synthesis_derive_consensus():
 @pytest.fixture(scope="module")
 def hypothesis_assessment_validator():
     """Validator bound to the standalone hypothesis-assessment schema."""
-    return Validator(HYPOTHESIS_ASSESSMENT_SCHEMA_PATH)
+    return Validator(
+        HYPOTHESIS_ASSESSMENT_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
 
 
 @pytest.mark.kb_data
@@ -1677,6 +1690,42 @@ def test_hypothesis_assessment_links_and_quotes(filepath):
 
     problems = list(iter_assessment_problems(filepath))
     assert not problems, f"Assessment validation problems in {filepath}: {problems}"
+
+
+@pytest.fixture(scope="module")
+def hypothesis_reconciliation_validator():
+    """Validator bound to the standalone hypothesis-reconciliation schema."""
+    return Validator(
+        HYPOTHESIS_RECONCILIATION_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", HYPOTHESIS_RECONCILIATION_FILES)
+def test_valid_hypothesis_reconciliation_files(
+    filepath, hypothesis_reconciliation_validator
+):
+    """All reconciliations validate against HypothesisReconciliation."""
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    report = hypothesis_reconciliation_validator.validate(
+        data, target_class="HypothesisReconciliation"
+    )
+    errors = [result for result in report.results if result.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", HYPOTHESIS_RECONCILIATION_FILES)
+def test_hypothesis_reconciliation_links_lineage_and_quotes(filepath):
+    """Reconciliations resolve assessments, claims, reports, and lineage."""
+    from dismech.hypothesis_reconciliation import iter_reconciliation_problems
+
+    problems = list(iter_reconciliation_problems(filepath))
+    assert not problems, f"Reconciliation validation problems in {filepath}: {problems}"
 
 
 @pytest.mark.kb_data
@@ -2038,8 +2087,11 @@ def test_dataset_accession_prefix_and_shape(filepath):
         elif not shape.match(local_id):
             actual = [p for p, pat in SHAPE.items() if pat.match(local_id)]
             hint = f" (looks like a '{actual[0]}' accession)" if actual else ""
-            errors.append(f"{accession}: '{local_id}' does not match the {prefix} pattern{hint}")
+            errors.append(
+                f"{accession}: '{local_id}' does not match the {prefix} pattern{hint}"
+            )
 
-    assert not errors, f"{Path(filepath).name} has malformed dataset accessions:\n" + "\n".join(
-        f"  - {e}" for e in errors
+    assert not errors, (
+        f"{Path(filepath).name} has malformed dataset accessions:\n"
+        + "\n".join(f"  - {e}" for e in errors)
     )
