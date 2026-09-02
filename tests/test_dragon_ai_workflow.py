@@ -193,39 +193,66 @@ def _handles() -> tuple[str, list[str]]:
     return canonical, legacy
 
 
+def _retired_handle_uses(legacy: list[str]) -> list[str]:
+    """Every place a retired handle is used to summon the agent."""
+    searched = [
+        path
+        for directory, pattern in (
+            ("workflows", "*.y*ml"),
+            ("actions", "*.y*ml"),
+            ("scripts", "*.js"),
+        )
+        for path in (ROOT / ".github" / directory).rglob(pattern)
+    ]
+
+    offenders = []
+    for path in searched:
+        rel = path.relative_to(ROOT).as_posix()
+        if rel in LEGACY_HANDLE_ALLOWED:
+            continue
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            # Prose telling an agent *not* to use a phrase is the opposite of
+            # the defect, and must keep naming the alias it forbids.
+            if any(w in line.lower() for w in ("do not", "don't", "never")):
+                continue
+            for handle in legacy:
+                if f"@{handle} please" in line:
+                    offenders.append(f"{rel}:{number}")
+    return offenders
+
+
 def test_no_workflow_emits_a_retired_handle():
     """A summon phrase written into a prompt must name the current handle.
 
     The prompt in claude-issue-summarize-action is the only place in the repo
     that *generates* a summon rather than documenting one, and it still named
     the retired handle. It could not be caught by a dragon-ai.yml-scoped check,
-    so this one is repo-wide. Spelling the canonical handle out in a prompt is
-    unavoidable and allowed; spelling out a retired one is the bug.
+    so this one is repo-wide, and covers scripts as well as YAML. Spelling the
+    canonical handle out in a prompt is unavoidable and allowed; spelling out a
+    retired one is the bug.
     """
     canonical, legacy = _handles()
     assert legacy, "expected at least one retired handle to guard against"
 
-    offenders = []
-    for directory in ("workflows", "actions"):
-        for path in (ROOT / ".github" / directory).rglob("*.y*ml"):
-            rel = path.relative_to(ROOT).as_posix()
-            if rel in LEGACY_HANDLE_ALLOWED:
-                continue
-            for number, line in enumerate(
-                path.read_text(encoding="utf-8").splitlines(), start=1
-            ):
-                # Prose telling an agent *not* to use a phrase is the opposite
-                # of the defect, and must keep naming the alias it forbids.
-                if any(w in line.lower() for w in ("do not", "don't", "never")):
-                    continue
-                for handle in legacy:
-                    if f"@{handle} please" in line:
-                        offenders.append(f"{rel}:{number}")
-
+    offenders = _retired_handle_uses(legacy)
     assert not offenders, (
         f"retired handle used to summon the agent; use @{canonical}: "
         + ", ".join(offenders)
     )
+
+
+def test_the_retired_handle_guard_actually_bites(tmp_path):
+    """The guard is only worth having if it fails on the thing it looks for."""
+    planted = ROOT / ".github" / "scripts" / "_guard_probe.js"
+    planted.write_text('// "@dragon-ai-agent please do X"\n', encoding="utf-8")
+    try:
+        offenders = _retired_handle_uses(_handles()[1])
+    finally:
+        planted.unlink()
+
+    assert any("_guard_probe.js" in item for item in offenders)
 
 
 def test_check_script_warns_when_an_authorized_mention_did_not_parse(tmp_path):
