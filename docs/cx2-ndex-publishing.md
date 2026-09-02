@@ -196,9 +196,10 @@ The workflow has two jobs:
    `ndex-production` GitHub environment. It uploads to
    `https://www.ndexbio.org`, verifies the NDEx network summaries, and changes
    newly created or previously private networks to public only after the
-   complete staged upload has succeeded. Existing public networks remain public
-   during a successful update; if one fails verification, that network is made
-   private before the workflow stops.
+   complete staged upload has succeeded. For a `PUBLIC` release, existing public
+   networks remain public during a successful update; if one fails verification,
+   that network is made private before the workflow stops. A `PRIVATE` release
+   intentionally makes every network it touches private.
 
 Configure these repository variables before running the workflow:
 
