@@ -101,10 +101,13 @@ uv run python scripts/new_history.py --kind disorder --slug Asthma \
 ```
 
 `apply` splices records in as text and then re-parses to confirm nothing but
-`datasets:` changed, so step 6 should show a pure addition. Note that
-`just new-history` cannot take multi-word argument values (`just`'s `*ARGS`
-interpolation re-splits on whitespace) — scripted callers must invoke
-`scripts/new_history.py` directly, as above.
+`datasets:` changed, so step 6 should show a pure addition.
+
+(`just new-history` used to be unable to take multi-word argument values, because
+the recipe pasted `{{ARGS}}` in as text and the shell re-split it — which is why
+the snippet above calls `scripts/new_history.py` directly. The recipe now forwards
+real positional arguments, so `just new-history` accepts quoted prose too; either
+form works.)
 
 For repositories GEO search cannot reach (PRIDE, MetaboLights, EGA, dbGaP,
 cellxgene), use the deep-research path:

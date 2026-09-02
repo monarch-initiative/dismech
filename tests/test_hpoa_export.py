@@ -1,6 +1,7 @@
 """Tests for HPOA-extended exporter."""
 from pathlib import Path
 
+import pytest
 import yaml
 
 from dismech.export.hpoa_export import (
@@ -211,8 +212,13 @@ def test_unbound_upstream_risk_phenotype_emits_no_row(tmp_path):
     assert hpo_ids == {"HP:0000853"}
 
 
-def test_partial_support_kept_as_positive(tmp_path):
-    """PARTIAL support is a positive row with no qualifier (not dropped, not NOT)."""
+def test_indirect_evidence_kept_as_positive(tmp_path):
+    """Directness does not change the row: an indirect association is still one.
+
+    HPOA has no slot for how directly the evidence bears on the claim, and an
+    indirectly-evidenced phenotype association is still an association, so the
+    row is positive with no qualifier.
+    """
     yaml_path = _write(
         tmp_path / "X.yaml",
         {
@@ -223,7 +229,12 @@ def test_partial_support_kept_as_positive(tmp_path):
                     "name": "A",
                     "phenotype_term": {"term": {"id": "HP:0000001", "label": "A"}},
                     "evidence": [
-                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "PARTIAL"},
+                        {
+                            "reference": "PMID:1",
+                            "evidence_source": "HUMAN_CLINICAL",
+                            "supports": "SUPPORT",
+                            "directness": "INDIRECT",
+                        },
                     ],
                 },
             ],
@@ -504,3 +515,100 @@ def test_export_writes_files(tmp_path):
     content = (out / "phenotype.dismech.hpoa").read_text()
     assert content.startswith("#description:")
     assert "MONDO:0000001\ttest\t" in content
+
+
+def test_frequency_disagreement_must_not_be_curated_as_refute(tmp_path):
+    """A band disagreement is not a phenotype exclusion, and `supports` cannot say it.
+
+    `Phenotype` has one flat `evidence:` list and no frequency-scoped evidence
+    slot, so `supports` is scoped to the phenotype-disease assertion -- "does
+    this phenotype occur in this disease" -- and never to the `frequency:` band.
+    `REFUTE` therefore means *absent*, and maps here to the HPOA `NOT` qualifier.
+
+    Curating a source that reports a *higher* frequency as `REFUTE`, to record
+    that its band was not adopted, exports a row asserting the phenotype is
+    excluded -- sourced to a reference saying it is nearly universal, and
+    contradicting the positive row the same reference also produces. That
+    regression was introduced and reverted while migrating Marfan syndrome's
+    ORPHA:558 pneumothorax row (PR #10003); the band disagreement belongs in
+    `explanation` and the phenotype's `notes:` instead.
+
+    See docs/frequency-evidence-guidelines.md, option 2.
+    """
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0000001", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "phenotypes": [
+                {
+                    "name": "Spontaneous Pneumothorax",
+                    "phenotype_term": {
+                        "term": {"id": "HP:0002108", "label": "Spontaneous pneumothorax"}
+                    },
+                    "frequency": "OCCASIONAL",
+                    "notes": "Orphanet says Very frequent (99-80%); the 5-11% estimate is kept.",
+                    "evidence": [
+                        {
+                            "reference": "PMID:1",
+                            "evidence_source": "HUMAN_CLINICAL",
+                            "supports": "SUPPORT",
+                        },
+                        {
+                            "reference": "ORPHA:558",
+                            "evidence_source": "OTHER",
+                            "supports": "SUPPORT",
+                        },
+                    ],
+                },
+            ],
+        },
+    )
+    rows, _ = hpoa_rows_for_disorder(yaml_path)
+    hp_rows = [r for r in rows if r["hpo_id"] == "HP:0002108"]
+
+    assert hp_rows, "the phenotype should still be exported"
+    assert not [r for r in hp_rows if r["qualifier"] == "NOT"], (
+        "a frequency-band disagreement must not export as an HPOA NOT row"
+    )
+
+    # And the contradiction shape itself: one reference must never yield both a
+    # positive and a NOT row for the same HP term.
+    by_reference = {}
+    for row in hp_rows:
+        by_reference.setdefault(row["reference"], set()).add(row["qualifier"])
+    for reference, qualifiers in by_reference.items():
+        assert qualifiers != {"", "NOT"}, (
+            f"{reference} emits both a positive and a NOT row for HP:0002108"
+        )
+
+
+def test_marfan_pneumothorax_exports_no_exclusion():
+    """The real entry, not a fixture, must not export a NOT row for HP:0002108.
+
+    The synthetic test above pins that the *correct* shape exports cleanly, but
+    it builds both evidence items as SUPPORT, so it cannot fail if a REFUTE is
+    re-added to the real file. This one reads
+    ``kb/disorders/Marfan_Syndrome.yaml`` directly, so re-introducing the
+    regression fixed in PR #10003 fails here.
+
+    Scoped to the one entry deliberately. The invariant "one reference must not
+    yield both a positive and a NOT row for the same HP term" cannot yet be a
+    whole-KB gate: 11 (reference, HP term) pairs already violate it across
+    kb/disorders/, all pre-existing. Promoting it needs a baseline in the style
+    of check-snippet-grading, which is its own piece of work.
+    """
+    path = Path(__file__).resolve().parent.parent / "kb" / "disorders" / "Marfan_Syndrome.yaml"
+    if not path.exists():  # entry renamed or removed; nothing to assert
+        pytest.skip(f"{path.name} is not present")
+
+    rows, _ = hpoa_rows_for_disorder(path)
+    hp_rows = [r for r in rows if r["hpo_id"] == "HP:0002108"]
+
+    assert hp_rows, "spontaneous pneumothorax should still be exported for Marfan syndrome"
+    excluded = [r for r in hp_rows if r["qualifier"] == "NOT"]
+    assert not excluded, (
+        "Marfan syndrome must not export spontaneous pneumothorax as excluded; "
+        f"got NOT row(s) from {[r['reference'] for r in excluded]}. A frequency-band "
+        "disagreement is not an absence claim -- see docs/frequency-evidence-guidelines.md."
+    )
