@@ -769,6 +769,15 @@ qc-deep-research-strict:
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
 
+# Census of KNOWLEDGE_GAP discussion completeness: unanchored gaps, missing
+# status, proposed experiments with no way to tell a supporting result from a
+# refuting one, and bare-name experiment targets that no other check sees.
+# Report-only by default (most states are pre-existing backlog); --strict exits
+# non-zero on the two states that are breakage rather than backlog.
+[group('QC')]
+knowledge-gap-audit *args="":
+    uv run python scripts/knowledge_gap_discussion_audit.py {{args}}
+
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
