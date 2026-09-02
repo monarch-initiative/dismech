@@ -129640,6 +129640,141 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Immunodeficiency 88",
+    "disease_id": "MONDO:0030483",
+    "category": "Mendelian",
+    "parents": [
+      "Primary immunodeficiency",
+      "Mendelian susceptibility to mycobacterial disease"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immunodeficiency 88 is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in TBX21, the gene encoding the T-box transcription factor T-bet. It presents as Mendelian susceptibility to mycobacterial disease (MSMD): a selective predisposition to clinical disease caused by weakly virulent mycobacteria, in particular the Bacille Calmette-Guerin (BCG) vaccine strain and environmental non-tuberculous mycobacteria, in individuals with no overt abnormality on routine haematological and immunological testing.\nAlmost every genetic etiology of MSMD converges on interferon gamma (IFN-gamma): each either impairs the production of the cytokine or the cellular response to it. TBX21 deficiency, reported by Yang and colleagues in 2020, belongs to the production arm, but it is mechanistically distinctive within that arm. T-bet is not a component of the IL-12/IFN-gamma signalling circuit; it is the master transcription factor of type 1 immunity, required for the *development* of the lymphocyte lineages that supply IFN-gamma rapidly at the site of mycobacterial challenge. Human T-bet deficiency therefore removes the cells rather than the signalling step.\nThe consequence is a lineage-selective lesion. Circulating Mycobacterium-reactive natural killer (NK), invariant NKT (iNKT), mucosal-associated invariant T (MAIT) and Vdelta2+ gamma-delta T lymphocytes are present at extremely low counts, as are Mycobacterium-non-reactive classic TH1 lymphocytes, and the cells that do remain produce abnormally small amounts of IFN-gamma. Critically, the compartment that is spared cannot substitute: CD8+ alpha-beta T and non-classic CD4+ alpha-beta TH1* lymphocytes produce IFN-gamma normally in response to mycobacterial antigens and still fail to compensate. That dissociation is the central finding of the disease and is what makes it informative about protective anti-mycobacterial immunity in humans generally \u2014 it shows that purely adaptive IFN-gamma is not sufficient, and that the innate and innate-like compartments are non-redundant.\nThe disease has a second, opposite-signed arm. T-bet both drives the type 1 program and represses the type 2 one, and the patient's mutant protein does neither. The spared CD4+ alpha-beta T compartment therefore overproduces Th2 cytokines on chronic stimulation regardless of antigen specificity \u2014 a phenotype reversed by restoring wild-type T-bet \u2014 giving markedly high plasma IL-5 and IL-13, blood eosinophilia and persistent upper airway inflammation. One transcription-factor lesion thus yields an infectious phenotype from too little type 1 immunity and an allergic one from too much type 2, in different lymphocyte compartments. The same purely adaptive CD4+ alpha-beta population carries both the failure to compensate and the excess.\n",
+    "pathophysiology": [
+      "TBX21 Loss of Function",
+      "Failed Development of Innate and Innate-like Lymphocyte Lineages",
+      "Failure of Purely Adaptive IFN-gamma Compensation",
+      "Deficient Mycobacterium-Reactive IFN-gamma Production",
+      "Failed IFN-gamma-Dependent Macrophage Activation",
+      "Uncontrolled Replication of Weakly Virulent Mycobacteria",
+      "Loss of T-bet Repression of the Th2 Program",
+      "Excessive Th2 Cytokine Production by Adaptive CD4+ Alpha-Beta T Cells",
+      "Loss of T-bet-Dependent Chromatin Accessibility at Lineage-Defining Loci",
+      "Loss of T-bet-Dependent B Cell Subset Development and Class-Switch Skewing"
+    ],
+    "cell_types": [
+      "Mycobacterium-reactive natural killer cell",
+      "invariant NKT cell",
+      "mucosal-associated invariant T cell",
+      "Vdelta2+ gamma-delta T cell",
+      "classic TH1 lymphocyte",
+      "mycobacterium-specific CD8+ alpha-beta T cell",
+      "non-classic CD4+ alpha-beta TH1-star cell",
+      "macrophage",
+      "T-helper 2 cell",
+      "CD4-positive, alpha-beta T cell",
+      "B cell",
+      "CD11c-high CD21-low B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000623",
+      "CL:0000921",
+      "CL:0000940",
+      "CL:0000798",
+      "CL:0000545",
+      "CL:0000625",
+      "CL:0000624",
+      "CL:0000235",
+      "CL:0000546",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "natural killer cell development",
+      "TH1 lineage commitment",
+      "IFN-gamma production by mycobacterium-reactive lymphocytes",
+      "IFN-gamma-dependent macrophage activation",
+      "macrophage-mediated killing of intracellular mycobacteria",
+      "T-bet repression of Th2 lineage commitment",
+      "Th2 cytokine production",
+      "T-bet-dependent chromatin opening at lineage-defining loci"
+    ],
+    "phenotypes": [
+      "Disseminated BCG disease",
+      "Non-tuberculous mycobacterial infection",
+      "Tuberculosis infection",
+      "Non-typhoidal salmonellosis",
+      "Reduced natural killer cell count",
+      "Decreased mucosal-associated invariant T cell proportion",
+      "Decreased gamma-delta T cell proportion",
+      "Decreased Th1 T cell proportion",
+      "Lymphadenopathy",
+      "Increased total eosinophil count",
+      "Chronic upper airway inflammation",
+      "Increased circulating IgE concentration",
+      "Decreased circulating IgG2 concentration",
+      "Fever",
+      "Hepatosplenomegaly",
+      "Asthma"
+    ],
+    "phenotype_categories": [
+      "Infectious",
+      "Immunologic",
+      "Hematologic",
+      "Respiratory",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0020087",
+      "HP:5210115",
+      "HP:5210111",
+      "HP:5210093",
+      "HP:0040218",
+      "HP:4000039",
+      "HP:0500271",
+      "HP:0025829",
+      "HP:0002716",
+      "HP:0001880",
+      "HP:0003212",
+      "HP:0008348",
+      "HP:0001945",
+      "HP:0001433",
+      "HP:0002099"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TBX21"
+    ],
+    "treatments": [
+      "Recombinant Interferon Gamma",
+      "Antimycobacterial Therapy",
+      "Avoidance of BCG Vaccination"
+    ],
+    "environmental": [
+      "Bacille Calmette-Guerin (BCG) vaccination"
+    ],
+    "biochemical": [
+      "Plasma IL-5 and IL-13"
+    ],
+    "source_file": "Immunodeficiency_88.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_88.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Immunodeficiency 91 and Hyperinflammation",
     "disease_id": "MONDO:0030491",
     "category": "Mendelian",
@@ -258602,17 +258737,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2508,
+  "total_disorder_pages": 2509,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6067,
-  "total_unique_evidence_sources": 35990,
-  "total_unique_publications": 33860,
+  "total_disorders_and_subtypes": 6068,
+  "total_unique_evidence_sources": 36004,
+  "total_unique_publications": 33874,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2503,
-  "total_unique_pathological_events": 14576,
+  "total_pathographs": 2504,
+  "total_unique_pathological_events": 14586,
   "total_modules": 167,
-  "total_research_reports": 2630,
+  "total_research_reports": 2631,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
