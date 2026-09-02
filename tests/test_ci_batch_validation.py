@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
-
 from dismech.yaml_io import safe_load
+
+ROOT = Path(__file__).parent.parent
 
 
 def _recipe_body(justfile: str, recipe: str) -> str:
@@ -52,6 +50,18 @@ def test_ci_changed_comorbidity_validation_uses_batched_recipe() -> None:
     assert "just validate-comorbidity-batch" in changed_step
     assert "for f in" not in changed_step
     assert 'just validate-comorbidity "$f"' not in changed_step
+
+
+def test_ci_validates_hypothesis_review_artifacts_on_report_or_yaml_changes() -> None:
+    """Raw-report edits can break quote anchors, so the whole subtree triggers QC."""
+    workflow_text = (ROOT / ".github" / "workflows" / "main.yaml").read_text()
+    assert "kb_hypotheses:\n" in workflow_text
+    assert "- 'kb/hypotheses/**'" in workflow_text
+
+    step = _step_named("main.yaml", "Validate hypothesis review artifacts")
+    assert step["if"] == "steps.changes.outputs.kb_hypotheses == 'true'"
+    assert "just validate-hypothesis-assessment-all" in step["run"]
+    assert "just validate-hypothesis-reconciliation-all" in step["run"]
 
 
 def _workflow_steps(filename: str) -> list[dict]:
