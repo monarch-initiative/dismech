@@ -65,10 +65,22 @@ def test_paths_filter_runs_on_merge_group():
     )
     action, _, version = str(step["uses"]).partition("@")
     assert action == "dorny/paths-filter"
-    major = version.lstrip("v").split(".")[0]
-    assert major.isdigit() and int(major) >= 4, (
-        "dorny/paths-filter below v4.0.1 yields an empty filter result on "
-        "merge-group refs, silently skipping the changed-file validations"
+    # Merge-group support landed in v4.0.1 exactly; v4.0.0 predates it, so a
+    # bare major check is not a floor. Accept the moving major tags (v4, v5,
+    # ...) or a full version >= 4.0.1; anything else (v4.0.0, a SHA pin, a
+    # pre-v4 tag) must be re-vetted by hand.
+    parts = version.lstrip("v").split(".")
+    assert all(p.isdigit() for p in parts), (
+        f"unrecognized paths-filter pin {version!r}; if pinning a SHA, "
+        "confirm it postdates v4.0.1 (merge-group support) and update this "
+        "guard"
+    )
+    numeric = tuple(int(p) for p in parts)
+    is_moving_major_tag = len(numeric) == 1 and numeric[0] >= 4
+    assert is_moving_major_tag or numeric >= (4, 0, 1), (
+        "dorny/paths-filter below v4.0.1 has no merge_group case and diffs "
+        "against the default branch instead, an over-broad result that can "
+        "blame other PRs' changes on the queued PR"
     )
 
 
@@ -84,6 +96,14 @@ def test_no_paths_filter_gate_can_suppress_a_step_on_merge_group():
                 f"{name!r} is pinned as file-scoped but no longer consumes a "
                 "paths-filter file list; force it on merge_group and drop it "
                 "from FILE_SCOPED_STEPS"
+            )
+            # The inverse guard: forcing a file-scoped step on merge_group
+            # would run it with an empty argument list whenever the queue
+            # build has no matching changes -- validating nothing while
+            # reporting success.
+            assert MERGE_GROUP_FIRES not in condition, (
+                f"{name!r} consumes a paths-filter file list and must stay "
+                "purely filter-gated, never forced on merge_group"
             )
             continue
         assert MERGE_GROUP_FIRES in condition, (

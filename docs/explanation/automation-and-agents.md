@@ -333,20 +333,23 @@ safe drain rate is a merge-queue project—including `merge_group` CI—not a re
 to weaken ancestry checks or batch more branch updates.
 
 The `merge_group` CI half of that project is in place (#10168): `main.yaml`
-declares the trigger, and merge-group runs execute the **full suite** — the
-path-filter gates that scope an ordinary PR run are forced on for queue
-builds, because path filtering is the specific reason the #9538 cross-file
-enum incompatibility stayed invisible until the branch was updated, and that
-class of break is exactly what a queue build exists to catch. The
-dorny/paths-filter step itself still runs on merge-group refs (supported since
-its v4.0.1, with `base`/`ref` defaulting to the event's commit hashes): its
-changed-file lists drive the changed-disorder and changed-comorbidity
-validations, so those run against the KB files actually entering `main`, in
-the merged context where a co-queued PR may have changed `cache/**` or
+declares the trigger, and merge-group runs execute the **full suite** — every
+path-filter gate that scopes an ordinary PR run is forced on for queue builds,
+except the two changed-file KB validations discussed below, because path
+filtering is the specific reason the #9538 cross-file enum incompatibility
+stayed invisible until the branch was updated, and that class of break is
+exactly what a queue build exists to catch. The dorny/paths-filter step itself
+still runs on merge-group refs (supported since its v4.0.1, with `base`/`ref`
+defaulting to the event's commit hashes): its changed-file lists drive the
+changed-disorder and changed-comorbidity validations — the two steps that stay
+filter-gated rather than forced, since forcing them would run them with empty
+file lists — so those validate the KB files actually entering `main`, in the
+merged context where a co-queued PR may have changed `cache/**` or
 `references_cache/**`. `tests/test_merge_group_ci.py` pins the trigger, the
-filter's event coverage and version floor, and the no-suppression rule.
-Enabling an actual queue on `main` (branch ruleset, shepherd enqueue behavior)
-is the remaining, separately gated half.
+filter's event coverage and its v4.0.1 version floor, the no-suppression rule,
+and the never-forced rule for the two file-scoped steps. Enabling an actual
+queue on `main` (branch ruleset, shepherd enqueue behavior) is the remaining,
+separately gated half.
 
 GitHub auto-merge is a separate server-side path and does not execute these
 controller guards. Ordinary agents must not arm it, and weekly-compliance PRs use
