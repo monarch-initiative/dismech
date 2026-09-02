@@ -571,7 +571,8 @@ def test_real_errors_are_not_benign(message):
 
 
 def _run_main(
-    monkeypatch, tmp_path, *, view, listed=None, comparison=None, extra_args=()
+    monkeypatch, tmp_path, *, view, listed=None, comparison=None, extra_args=(),
+    queue_payload=None,
 ):
     """Drive main() against a stubbed gh, returning (exit code, gh calls)."""
     if listed is None:
@@ -595,6 +596,11 @@ def _run_main(
             return json.dumps({"check_runs": [make_health_check()]})
         if args[0] == "api" and "/compare/" in args[1]:
             return json.dumps(comparison or make_comparison())
+        if args[:2] == ["api", "graphql"]:
+            # No queue by default, so existing tests keep the direct-merge path.
+            return queue_payload or json.dumps(
+                {"data": {"repository": {"mergeQueue": None}}}
+            )
         return ""
 
     monkeypatch.setattr(auto_merge, "_gh", fake_gh)
@@ -1249,87 +1255,72 @@ def test_merge_pins_the_verified_head_commit(monkeypatch):
     monkeypatch.setattr(
         auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
     )
-    monkeypatch.setattr(auto_merge, "base_requires_merge_queue", lambda *a: False)
-    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token")
+    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token", False)
     merge_cmd, token = calls[0]
     assert "--squash" in merge_cmd
     assert merge_cmd[merge_cmd.index("--match-head-commit") + 1] == "deadbeef"
     assert token == "writer-token"
 
 
-def test_merge_omits_the_strategy_flag_on_a_queue_required_branch(monkeypatch):
-    """gh rejects a strategy flag when the base branch requires a merge queue.
-
-    The head pin must survive: it becomes the enqueue mutation's
-    expectedHeadOid, so the same "merge exactly the commit we verified"
-    guarantee holds for an enqueue.
-    """
+def test_merge_drops_the_strategy_flag_when_a_queue_is_in_force(monkeypatch):
+    """gh only warns on a strategy flag here, but that warning would become
+    the reported cause of every real failure, so drop it. The head pin must
+    survive: it becomes the enqueue mutation's expectedHeadOid."""
     calls = []
     monkeypatch.setattr(
         auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
     )
-    monkeypatch.setattr(auto_merge, "base_requires_merge_queue", lambda *a: True)
-    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token")
+    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token", True)
     merge_cmd, _token = calls[0]
     assert "--squash" not in merge_cmd
     assert merge_cmd[merge_cmd.index("--match-head-commit") + 1] == "deadbeef"
     body = " ".join(calls[1][0])
     assert "merge queue" in body
     assert "Squash-merged" not in body
+    assert "No further action needed" not in body
 
 
-def test_queue_detection_failure_keeps_the_pre_queue_behavior(monkeypatch):
-    """An unreadable queue lookup must not silently drop the strategy flag."""
+def test_queue_state_reports_active_queue_and_its_members(monkeypatch):
+    payload = (
+        '{"data":{"repository":{"mergeQueue":{"id":"MQ_x","entries":'
+        '{"nodes":[{"pullRequest":{"number":11}},{"pullRequest":{"number":22}}]}}}}}'
+    )
+    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: payload)
+    state = auto_merge.read_queue_state("o/r", "main")
+    assert state.active is True
+    assert state.queued_pr_numbers == frozenset({11, 22})
+
+
+def test_queue_state_is_inactive_when_the_queue_is_paused(monkeypatch):
+    """Disabling the ruleset nulls the node; that is the break-glass signal."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda args, token=None: '{"data":{"repository":{"mergeQueue":null}}}',
+    )
+    state = auto_merge.read_queue_state("o/r", "main")
+    assert state.active is False
+    assert state.queued_pr_numbers == frozenset()
+
+
+def test_queue_state_failure_keeps_pre_queue_behavior(monkeypatch):
     def boom(args, token=None):
         raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
 
     monkeypatch.setattr(auto_merge, "_gh", boom)
-    monkeypatch.setattr(auto_merge.time, "sleep", lambda *_: None)
-    assert auto_merge.base_requires_merge_queue("o/r", "main") is False
+    assert auto_merge.read_queue_state("o/r", "main").active is False
 
 
-def test_queue_detection_reads_the_effective_rules(monkeypatch):
-    """Effective rules, not the ruleset: a paused queue must read as absent."""
-    monkeypatch.setattr(
-        auto_merge, "_gh", lambda args, token=None: '["merge_queue"]'
+def test_gh_error_skips_the_queue_warning_line():
+    """gh prints its queue warning first; it is not the cause of the failure."""
+    exc = subprocess.CalledProcessError(
+        1, ["gh"],
+        stderr=(
+            "! The merge strategy for main is set by the merge queue\n"
+            "X Pull request #7 is not mergeable: the base branch was modified\n"
+        ),
     )
-    assert auto_merge.base_requires_merge_queue("o/r", "main") is True
-    # Verified live against a scratch branch: disabling the ruleset flips this
-    # endpoint from ["merge_queue"] to [].
-    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: "[]")
-    assert auto_merge.base_requires_merge_queue("o/r", "main") is False
-
-
-def test_queue_detection_retries_once_before_failing_closed(monkeypatch):
-    """A single transient blip must not turn off the strategy flag for a run."""
-    attempts = []
-
-    def flaky(args, token=None):
-        attempts.append(args)
-        if len(attempts) == 1:
-            raise subprocess.CalledProcessError(1, ["gh"], stderr="502")
-        return '["merge_queue"]'
-
-    monkeypatch.setattr(auto_merge, "_gh", flaky)
-    monkeypatch.setattr(auto_merge.time, "sleep", lambda *_: None)
-    assert auto_merge.base_requires_merge_queue("o/r", "main") is True
-    assert len(attempts) == 2
-
-
-def test_queue_detection_rejects_a_non_list_payload(monkeypatch):
-    """A payload shape we do not understand fails closed, not open."""
-    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: '{"oops": 1}')
-    assert auto_merge.base_requires_merge_queue("o/r", "main") is False
-
-
-def test_already_queued_rejection_is_benign(monkeypatch):
-    """A reselected PR that is already queued is a race, not a failure.
-
-    An enqueued PR stays open, so the next sweep can pick it again; treating
-    the resulting rejection as a controller fault would turn the run red
-    every hour until the queue drained.
-    """
-    assert auto_merge.is_benign_merge_failure("Pull request is already queued")
+    assert "base branch was modified" in auto_merge._gh_error(exc)
+    assert "merge strategy" not in auto_merge._gh_error(exc)
 
 
 def test_summary_does_not_claim_a_queued_pr_was_merged():
@@ -1390,4 +1381,47 @@ def test_gh_error_condenses_stderr():
     assert auto_merge._gh_error(exc) == "line one"
     assert auto_merge._gh_error(subprocess.CalledProcessError(1, "gh", stderr="")) == (
         "gh exited 1"
+    )
+
+
+def test_gh_error_still_reports_a_warning_when_it_is_all_there_is():
+    exc = subprocess.CalledProcessError(1, "gh", stderr="! something happened\n")
+    assert auto_merge._gh_error(exc) == "something happened"
+
+
+def test_a_queued_pr_is_skipped_and_the_sweep_reaches_the_next_one(
+    monkeypatch, tmp_path
+):
+    """A PR in the queue stays open, approved and green, so it keeps passing
+    the predicate — and re-enqueueing it SUCCEEDS (gh exits 0 on an
+    already-queued PR). Without this skip the sweep would spend its one-action
+    budget re-announcing the head of the queue every run and never reach the
+    PRs behind it."""
+    queued, next_up = 11, 22
+    listed = [
+        make_pr(number=queued, mergeable="MERGEABLE"),
+        make_pr(number=next_up, mergeable="MERGEABLE"),
+    ]
+    acted_on = []
+    monkeypatch.setattr(
+        auto_merge, "merge_pr",
+        lambda repo, number, days, head, token, q=False: acted_on.append(number)
+        or bool(q),
+    )
+    queue_payload = json.dumps(
+        {"data": {"repository": {"mergeQueue": {
+            "id": "MQ_x",
+            "entries": {"nodes": [{"pullRequest": {"number": queued}}]},
+        }}}}
+    )
+    code, _calls = _run_main(
+        monkeypatch, tmp_path,
+        view=[make_pr(number=queued, mergeable="MERGEABLE"),
+              make_pr(number=next_up, mergeable="MERGEABLE")],
+        listed=listed,
+        queue_payload=queue_payload,
+    )
+    assert code == 0
+    assert acted_on == [next_up], (
+        "the queued PR must be skipped and the next candidate acted on"
     )
