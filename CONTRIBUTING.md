@@ -491,8 +491,10 @@ just count-verified-snippets kb/disorders/YourFile.yaml
 # Before opening the PR: the batched schema + terms + references sweep CI runs
 just validate-disorders kb/disorders/YourFile.yaml
 
-# Reference validation for one file (slow; permits full-text matches)
-just validate-references kb/disorders/YourFile.yaml
+# Reference validation for a single KB entry (also slow; permits full-text matches).
+# "kb" distinguishes it from `just validate-research-reference <report.md>`, which
+# checks a deep-research report's citations instead (#8841)
+just validate-kb-references kb/disorders/YourFile.yaml
 ```
 
 

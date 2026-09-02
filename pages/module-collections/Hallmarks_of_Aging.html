@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hallmarks of Aging - dismech</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+        body { font-family: var(--font); color: var(--gray-800); line-height: 1.65; background: var(--gray-50); }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        nav { padding: .75rem 1.5rem; background: #fff; border-bottom: 1px solid var(--gray-200); }
+        .nav-inner { max-width: 1040px; margin: auto; display: flex; justify-content: space-between; gap: 1rem; }
+        .nav-logo { font-weight: 700; }
+        .nav-links { display: flex; flex-wrap: wrap; gap: 1rem; font-size: .86rem; }
+        .hero { padding: 3.5rem 1.5rem 2.5rem; background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero-inner, main { max-width: 1040px; margin: auto; }
+        h1 { color: var(--teal); font-size: 2.2rem; line-height: 1.15; }
+        .description { max-width: 780px; margin-top: .8rem; color: var(--gray-700); }
+        .meta { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1rem; }
+        .pill { display: inline-flex; padding: .22rem .62rem; border-radius: 999px; background: #fff; border: 1px solid var(--teal-light); color: var(--teal); font-size: .74rem; font-weight: 700; }
+        main { padding: 1.8rem 1.5rem 4rem; }
+        .breadcrumb { margin-bottom: 1.2rem; color: var(--gray-500); font-size: .86rem; }
+        .panel { margin-bottom: 1.5rem; padding: 1.25rem; border: 1px solid var(--gray-200); border-radius: 10px; background: #fff; }
+        h2 { margin-bottom: .7rem; font-size: 1.18rem; }
+        .member-list { overflow: hidden; border: 1px solid var(--gray-200); border-radius: 8px; }
+        .member { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(220px, 1fr) minmax(140px, .55fr); gap: 1rem; padding: .9rem 1rem; border-bottom: 1px solid var(--gray-200); }
+        .member:last-child { border-bottom: 0; }
+        .member:hover { background: var(--gray-50); }
+        .member-name { color: var(--gray-900); font-weight: 700; }
+        .module-id { display: block; color: var(--gray-500); font-family: var(--mono); font-size: .72rem; }
+        .framework-terms { display: flex; flex-wrap: wrap; gap: .35rem; }
+        .framework-term { padding: .18rem .5rem; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: .72rem; font-weight: 700; }
+        .member-note, .evidence-explanation { margin-top: .45rem; color: var(--gray-600); font-size: .84rem; }
+        .counts { color: var(--gray-600); font-size: .8rem; text-align: right; }
+        blockquote { margin-top: .65rem; padding-left: 1rem; border-left: 3px solid var(--teal-light); color: var(--gray-700); }
+        .reference { font-family: var(--mono); font-size: .8rem; }
+        @media (max-width: 700px) { .member { grid-template-columns: 1fr; } .counts { text-align: left; } }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav><div class="nav-inner"><a class="nav-logo" href="../../">dismech</a><div class="nav-links"><a href="../modules/">Modules</a><a href="index.html">Collections</a><a href="../groupings/">Disease groupings</a><a href="https://github.com/monarch-initiative/dismech/blob/main/kb/module_collections/Hallmarks_of_Aging.yaml">Source</a></div></div></nav>
+    <header class="hero"><div class="hero-inner">
+        <h1>Hallmarks of Aging</h1>
+        <p class="description">The twelve interconnected hallmarks of aging proposed by López-Otín and colleagues in the 2023 expansion of the framework, represented by eleven DisMech mechanism modules. The inflammaging module intentionally covers both altered intercellular communication and chronic inflammation because it models their shared systemic inflammatory convergence.</p>
+        <div class="meta">
+            <span class="pill">Published Framework</span>
+            <span class="pill">11 modules</span>
+            <span class="pill">12 framework terms</span>
+        </div>
+    </div></header>
+    <main>
+        <div class="breadcrumb"><a href="../../">Home</a> / <a href="../modules/">Modules</a> / <a href="index.html">Collections</a> / Hallmarks of Aging</div>
+        <section class="panel">
+            <h2>Modules in this collection</h2>
+            <div class="member-list">
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/genomic_instability_aging.html">Genomic Instability (Aging) Module</a><span class="module-id">genomic_instability_aging</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Genomic instability</span></div></div>
+                    <div class="counts">4 nodes<br>4 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/telomere_attrition.html">Telomere Attrition Module</a><span class="module-id">telomere_attrition</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Telomere attrition</span></div></div>
+                    <div class="counts">3 nodes<br>4 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/epigenetic_alterations.html">Epigenetic Alterations Module</a><span class="module-id">epigenetic_alterations</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Epigenetic alterations</span></div></div>
+                    <div class="counts">3 nodes<br>3 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/loss_of_proteostasis.html">Loss of Proteostasis Module</a><span class="module-id">loss_of_proteostasis</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Loss of proteostasis</span></div></div>
+                    <div class="counts">4 nodes<br>7 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/disabled_macroautophagy.html">Disabled Macroautophagy Module</a><span class="module-id">disabled_macroautophagy</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Disabled macroautophagy</span></div></div>
+                    <div class="counts">3 nodes<br>8 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/deregulated_nutrient_sensing.html">Deregulated Nutrient Sensing Module</a><span class="module-id">deregulated_nutrient_sensing</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Deregulated nutrient-sensing</span></div></div>
+                    <div class="counts">7 nodes<br>2 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/mitochondrial_dysfunction.html">Mitochondrial Dysfunction Module</a><span class="module-id">mitochondrial_dysfunction</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Mitochondrial dysfunction</span></div></div>
+                    <div class="counts">5 nodes<br>12 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/cellular_senescence.html">Conserved Cellular Senescence Module</a><span class="module-id">cellular_senescence</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Cellular senescence</span></div></div>
+                    <div class="counts">5 nodes<br>8 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/stem_cell_exhaustion.html">Stem Cell Exhaustion Module</a><span class="module-id">stem_cell_exhaustion</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Stem cell exhaustion</span></div></div>
+                    <div class="counts">3 nodes<br>4 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/inflammaging.html">Inflammaging Module</a><span class="module-id">inflammaging</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Altered intercellular communication</span><span class="framework-term">Chronic inflammation</span></div><p class="member-note">The framework separates these as two hallmarks; the DisMech module combines them at the chronic sterile inflammation and systemic cytokine-signaling convergence point commonly termed inflammaging.</p></div>
+                    <div class="counts">4 nodes<br>3 conforming disorders</div>
+                </article>
+                
+                <article class="member">
+                    <div><a class="member-name" href="../modules/gut_dysbiosis.html">Gut Dysbiosis Module</a><span class="module-id">gut_dysbiosis</span></div>
+                    <div><div class="framework-terms"><span class="framework-term">Dysbiosis</span></div></div>
+                    <div class="counts">4 nodes<br>2 conforming disorders</div>
+                </article>
+                
+            </div>
+        </section>
+        
+        <section class="panel">
+            <h2>Framework evidence</h2>
+            
+            <article>
+                <a class="reference" href="http://www.ncbi.nlm.nih.gov/pubmed/36599349">PMID:36599349</a> · Hallmarks of aging: An expanding universe.
+                <blockquote>We propose the following twelve hallmarks of aging: genomic instability, telomere attrition, epigenetic alterations, loss of proteostasis, disabled macroautophagy, deregulated nutrient-sensing, mitochondrial dysfunction, cellular senescence, stem cell exhaustion, altered intercellular communication, chronic inflammation, and dysbiosis.</blockquote>
+                <p class="evidence-explanation">Defines the published framework and supplies the labels represented by this module collection.</p>
+            </article>
+            
+        </section>
+        
+        <section class="panel"><h2>Scope note</h2><p>This is a navigation and framework record, not a mechanism module or disease grouping. Membership records which DisMech module represents each published hallmark; it does not imply that the modules form one linear causal chain.</p></section>
+    </main>
+</body>
+</html>
