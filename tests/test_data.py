@@ -1247,8 +1247,8 @@ def test_failure_to_recapitulate_links_are_substantiated(filepath):
         if link.get("relationship") != "FAILS_TO_RECAPITULATE":
             continue
         where = f"{section}[{i}].modeled_mechanisms[{j}]"
-        if not (link.get("limitations") or "").strip():
-            errors.append(f"{where} missing limitations")
+        if not (link.get("limitations") or "").strip() and not link.get("divergences"):
+            errors.append(f"{where} missing limitations (or a typed divergence)")
         if not link.get("evidence"):
             errors.append(f"{where} missing evidence")
 
@@ -1316,15 +1316,108 @@ def test_upward_extrapolating_links_are_caveated(filepath):
         if model_scale not in BIOLOGICAL_SCALES or target_scale not in BIOLOGICAL_SCALES:
             continue
         gap = BIOLOGICAL_SCALES.index(target_scale) - BIOLOGICAL_SCALES.index(model_scale)
-        if gap > 0 and not (link.get("limitations") or "").strip():
+        if gap > 0 and not (link.get("limitations") or "").strip() and not link.get("divergences"):
             errors.append(
                 f"{section}[{i}].modeled_mechanisms[{j}] "
                 f"({model_scale} model -> {target_scale} target, gap +{gap}) "
-                f"missing limitations"
+                f"missing limitations (or a typed divergence)"
             )
 
     assert not errors, (
         f"Uncaveated upward extrapolation in {Path(filepath).name}: {errors}"
+    )
+
+
+DIVERGENCE_TYPES = [
+    "BOUNDARY_OMISSION",
+    "PROXY_QUANTITY",
+    "CALIBRATION_PROVENANCE",
+    "CAUSE_UNREPRESENTED",
+    "STRUCTURAL_IDEALIZATION",
+    "TEMPORAL_SCOPE",
+    "CONTESTED_ASSUMPTION",
+    "SCALE_EXTRAPOLATION",
+    "SPECIES_MISMATCH",
+    "POPULATION_MISMATCH",
+    "OTHER",
+]
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_model_divergences_are_typed_and_explained(filepath):
+    """A divergence needs both a taxonomy value and a real explanation.
+
+    The type alone is never the argument -- BOUNDARY_OMISSION says a component is
+    missing, not which one or why it matters for this link -- so `description` is
+    required by the schema and checked here for substance rather than a
+    restatement of the enum value.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = []
+    for section, i, j, _model, link in _iter_mechanism_links(data):
+        for k, div in enumerate(link.get("divergences") or []):
+            where = f"{section}[{i}].modeled_mechanisms[{j}].divergences[{k}]"
+            if not isinstance(div, dict):
+                errors.append(f"{where} is not a mapping")
+                continue
+            dtype = div.get("divergence_type")
+            if dtype not in DIVERGENCE_TYPES:
+                errors.append(f"{where}.divergence_type={dtype!r} not in taxonomy")
+            desc = (div.get("description") or "").strip()
+            if len(desc.split()) < 8:
+                errors.append(f"{where}.description too thin to be an explanation")
+            if dtype and desc.upper().replace(" ", "_").startswith(str(dtype)):
+                errors.append(f"{where}.description merely restates the type")
+
+    assert not errors, f"Malformed model divergences in {Path(filepath).name}: {errors}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_scale_extrapolation_divergence_agrees_with_scales(filepath):
+    """A SCALE_EXTRAPOLATION claim must not contradict the scale slots.
+
+    `model_scale` and the target's `biological_scale` already decide whether the
+    model sits below its target. Asserting the divergence while those two slots
+    say otherwise is a curation error in one place or the other, and it is
+    exactly the kind of drift a derived-not-stored design exists to catch.
+    Silent when either scale is absent.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    scales = {
+        n.get("name"): n.get("biological_scale")
+        for n in (data.get("pathophysiology") or [])
+        if isinstance(n, dict)
+    }
+
+    errors = []
+    for section, i, j, _model, link in _iter_mechanism_links(data):
+        kinds = [
+            d.get("divergence_type")
+            for d in (link.get("divergences") or [])
+            if isinstance(d, dict)
+        ]
+        if "SCALE_EXTRAPOLATION" not in kinds:
+            continue
+        model_scale = link.get("model_scale")
+        target_scale = scales.get(link.get("target"))
+        if model_scale not in BIOLOGICAL_SCALES or target_scale not in BIOLOGICAL_SCALES:
+            continue
+        gap = BIOLOGICAL_SCALES.index(target_scale) - BIOLOGICAL_SCALES.index(model_scale)
+        if gap <= 0:
+            errors.append(
+                f"{section}[{i}].modeled_mechanisms[{j}] claims SCALE_EXTRAPOLATION "
+                f"but {model_scale} model vs {target_scale} target is not an "
+                f"upward gap"
+            )
+
+    assert not errors, (
+        f"Contradicted SCALE_EXTRAPOLATION in {Path(filepath).name}: {errors}"
     )
 
 

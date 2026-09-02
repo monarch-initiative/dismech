@@ -173,6 +173,65 @@ curator intuition.
 whether models themselves (rather than their links) should declare a scale span for
 multiscale frameworks such as PhysiBoSS.
 
+### 3b. Model divergence is typed and explained, not compressed into a fidelity tier (2026-09-02)
+
+**Status: PROPOSED — implemented on a branch alongside §3a, maintainer sign-off outstanding.**
+
+**Decision.** `ModelMechanismLink` carries `divergences`: a multivalued list of
+`ModelDivergence`, each naming a kind from a closed `ModelDivergenceTypeEnum`, a required
+curator `description` of why that kind applies to this link, and an optional
+`materiality` recording whether it bears on this link's claim.
+
+**Problem.** 831 of 1,131 model→mechanism links (73%) already carry a `limitations`
+string, so curators reliably *write* the caveat. What is missing is structure. `fidelity`
+compresses every translational concern into one coarse tier, so `LOW` does not say which
+problem it is; and prose cannot answer "which models are limited by calibration
+provenance rather than by species" — a question with a very different answer for
+computational models than for animal ones.
+
+**The taxonomy is evidenced, not invented.** All 50 computational-model `limitations`
+strings were read and clustered, with the animal and NAM sets keyword-probed to establish
+which kinds are shared. The modality profiles differ sharply: the animal set is dominated
+by species divergence (276 hits) and allele mismatch (123), the computational set by
+calibration provenance, absent dynamics, and proxy quantities, with species divergence
+nearly absent. Full survey:
+[model-divergence taxonomy](../superpowers/specs/2026-09-02-model-divergence-taxonomy.md).
+
+**Relation to §3a.** `model_scale` gives one machine-derivable divergence
+(`SCALE_EXTRAPOLATION`); the taxonomy gives the ones that cannot be derived. The two
+cross-check: a `SCALE_EXTRAPOLATION` divergence contradicted by the scale slots fails both
+`test_scale_extrapolation_divergence_agrees_with_scales` and
+`just model-scale-audit --strict`. The most important thing the taxonomy adds is
+`PROXY_QUANTITY` — a model reporting a *different quantity* at the *same* scale, which no
+scale comparison can see. The Fanconi anemia FA/BRCA link is the worked case: aligned on
+scale, `PARTIALLY_RECAPITULATES` because pathway activation state stands in for
+recombination fidelity.
+
+**Why per-divergence `materiality` rather than only per-link `fidelity`.** A link can
+carry several divergences of different weight, and `IMMATERIAL` is worth recording
+precisely because it stops a reader inferring that a known limitation of the model
+undermines this particular use of it. Consistent with §3a's derive-don't-store principle,
+recording materiality per divergence is what could eventually let `fidelity` be derived
+rather than authored — though that is not proposed here.
+
+**Coexistence with `limitations`, not replacement.** The prose slot holds 831 existing
+caveats and remains the summary form; a typed divergence now satisfies the caveat
+requirement wherever `limitations` did. Migrating the existing prose is a separate
+decision and is not proposed.
+
+**Scope.** Populated on computational models only (10 links, 26 divergences). The value
+set was chosen to extend to NAM and animal models unchanged; extending it would add
+`SUPRAPHYSIOLOGICAL_EXPRESSION` and `INCOMPLETE_PHENOTYPE`, each already visible in the
+animal set at 20-53 keyword hits and so evidenceable the same way.
+
+**Prior art.** [ASME V&V 40](https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices)
+and the FDA's [computational model credibility guidance](https://www.fda.gov/media/154985/download)
+anchor credibility in a stated *context of use* and require an *applicability analysis* —
+the relevance of validation evidence to that context. A `ModelMechanismLink` is a
+context-of-use statement; a typed divergence list is its applicability analysis.
+`PROXY_QUANTITY` maps to a quantity-of-interest mismatch, and `materiality` is the
+per-divergence analogue of that framework's risk grading.
+
 
 ### 3a. Cancer granularity ladder (2026-08-28)
 

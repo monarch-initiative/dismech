@@ -927,6 +927,61 @@ Worked examples: the RA-FLS Boolean model (`CELLULAR`) linked to
 interferon Boolean model (`MOLECULAR`) linked to
 `Enhanced Viral Replication and Tissue Pathology` (`TISSUE`) is a 2-step one.
 
+**`divergences` types the caveat that `limitations` writes as prose.** `fidelity`
+compresses every translational concern into one tier, so `LOW` never says *which*
+problem it is, and a prose `limitations` string cannot answer "which models are limited
+by calibration provenance rather than by species". Each entry in `divergences` names a
+kind from `ModelDivergenceTypeEnum`, explains in the curator's own words why that kind of
+gap applies **here**, and optionally records `materiality` — whether it bears on this
+link's claim.
+
+```yaml
+  - target: Striatal Dopamine Deficiency
+    relationship: PARTIALLY_RECAPITULATES
+    fidelity: LOW
+    model_scale: MOLECULAR
+    divergences:
+    - divergence_type: PROXY_QUANTITY
+      materiality: INVALIDATING
+      description: >-
+        The model's quantity is transcriptional regulation of dopamine-synthesis
+        genes. The node's quantity is dopamine concentration in the striatum.
+    - divergence_type: BOUNDARY_OMISSION
+      materiality: QUALIFYING
+      description: >-
+        Nigrostriatal terminal loss and the presynaptic deficit are not in the model.
+```
+
+The taxonomy was fixed by reading all 50 computational-model `limitations` strings in the
+KB and clustering them — see
+[`docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md`](docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md).
+Rules for using it:
+
+- **Multivalued on purpose.** A real caveat is usually several kinds at once; do not pick
+  the single "best" one.
+- **The type is never the argument.** `description` is required and must say *which*
+  component is outside the boundary, *which* quantity stands in for *which*. A description
+  that restates the enum value fails `test_model_divergences_are_typed_and_explained`.
+- **`PROXY_QUANTITY` vs `BOUNDARY_OMISSION`** is the distinction to get right. In a
+  boundary omission the thing is not in the model; in a proxy divergence it *is*, but as a
+  stand-in of a different quantity. Both can occur at the same scale, so neither follows
+  from `model_scale`.
+- **`materiality` is per-divergence**, where `fidelity` is per-link. `IMMATERIAL` is worth
+  recording — it stops a reader inferring that a known limitation of the model undermines
+  *this* use of it.
+- **A `SCALE_EXTRAPOLATION` divergence must agree with the scale slots**
+  (`test_scale_extrapolation_divergence_agrees_with_scales`, and
+  `just model-scale-audit --strict`).
+- `divergences` and `limitations` coexist: the prose slot is the summary and holds the 831
+  existing links' caveats. A typed divergence now satisfies the caveat requirement on a
+  `FAILS_TO_RECAPITULATE` or upward-extrapolating link wherever `limitations` did.
+
+Currently populated on computational models only. The taxonomy was chosen to extend to
+NAM and animal models unchanged — `BOUNDARY_OMISSION`, `PROXY_QUANTITY`,
+`CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH` all apply — and
+extending it would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and `INCOMPLETE_PHENOTYPE`,
+both already evidenced in the animal set.
+
 ```yaml
 animal_models:
 - name: Canine degenerative myelopathy (SOD1 E40K homozygous dog)

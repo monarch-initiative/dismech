@@ -481,6 +481,28 @@ it needs an issue and maintainer sign-off before it is enacted. 80.5% of the KB'
 model→mechanism links already have a scale-tagged target, so the comparison becomes
 computable across the KB as `model_scale` is populated.
 
+### Follow-on: typed `divergences` (2026-09-02)
+
+`model_scale` answered one question — is the model observing below its target's scale —
+and immediately exposed the limit of answering it by derivation alone. The Parkinson's
+link is a scale gap *and* a different-quantity gap; the Fanconi anemia link is
+`PARTIALLY_RECAPITULATES` with **no** scale gap at all. Neither is recoverable from an
+enum comparison.
+
+So `ModelMechanismLink` also carries `divergences`: a multivalued list, each entry naming
+a kind from `ModelDivergenceTypeEnum`, explaining in curator prose why that kind applies
+here, and optionally recording `materiality` — whether it bears on this link's claim.
+
+The taxonomy is evidenced rather than invented: all 50 computational-model `limitations`
+strings in the KB were read and clustered, with the animal and NAM sets probed to see
+which kinds are shared. Full survey and the ASME V&V 40 / FDA prior art in
+[the taxonomy spec](../specs/2026-09-02-model-divergence-taxonomy.md); the decision is
+recorded as proposed in [3b](../../explanation/design-decisions.md).
+
+The single most useful value is `PROXY_QUANTITY` — a model reporting a *different
+quantity* at the *same* scale. It is what the scale comparison structurally cannot see,
+and it is the reason both of this tranche's `INVALIDATING` divergences exist.
+
 Stages 1–3 are Track A and can proceed immediately and independently. Stage 4 is worth
 doing on its own merits. Stages 5–7 are where the research value is, and are gated on 4.
 

@@ -99,6 +99,11 @@ def collect(paths):
                             "fidelity": link.get("fidelity"),
                             "relationship": link.get("relationship"),
                             "has_limitations": bool(link.get("limitations")),
+                            "divergences": [
+                                d.get("divergence_type")
+                                for d in (link.get("divergences") or [])
+                                if isinstance(d, dict)
+                            ],
                         }
                     )
     return rows
@@ -148,15 +153,69 @@ def main():
         if below:
             steps = collections.Counter(r["gap"] for r in below)
             print(f"\n  upward extrapolation by step size: {dict(sorted(steps.items()))}")
-            unexplained = [r for r in below if not r["has_limitations"]]
-            print(f"  ...of which carry no `limitations`: {len(unexplained)}")
+            unexplained = [r for r in below if not r["has_limitations"] and not r["divergences"]]
+            print(f"  ...of which carry neither `limitations` nor `divergences`: {len(unexplained)}")
             for r in unexplained[:20]:
                 print(f"      {os.path.basename(r['file'])}: {r['model']} -> {r['target']}")
+            undeclared = [r for r in below if r["divergences"] and "SCALE_EXTRAPOLATION" not in r["divergences"]]
+            if undeclared:
+                print(
+                    f"  ...typed, but without a SCALE_EXTRAPOLATION divergence: {len(undeclared)}"
+                )
+                for r in undeclared[:20]:
+                    print(f"      {os.path.basename(r['file'])}: {r['model']} -> {r['target']}")
+
+        typed = [r for r in rows if r["divergences"]]
+        if typed:
+            kinds = collections.Counter(k for r in typed for k in r["divergences"])
+            print(f"\n  links carrying typed divergences: {len(typed)}")
+            for k, n in kinds.most_common():
+                print(f"    {k:26s} {n:4d}")
+            # A SCALE_EXTRAPOLATION divergence asserts a gap the scale slots can check.
+            contradicted = [
+                r
+                for r in rows
+                if "SCALE_EXTRAPOLATION" in r["divergences"]
+                and r["verdict"] in ("ALIGNED", "MODEL_ABOVE_TARGET")
+            ]
+            if contradicted:
+                print(
+                    f"\n  WARNING: {len(contradicted)} SCALE_EXTRAPOLATION divergence(s) "
+                    f"contradicted by the scale comparison:"
+                )
+                for r in contradicted:
+                    print(
+                        f"      {os.path.basename(r['file'])}: {r['model']} -> {r['target']} "
+                        f"({r['model_scale']} vs {r['target_scale']} = {r['verdict']})"
+                    )
 
     if args.strict:
-        bad = [r for r in rows if r["verdict"] == "MODEL_BELOW_TARGET" and not r["has_limitations"]]
+        bad = [
+            r
+            for r in rows
+            if r["verdict"] == "MODEL_BELOW_TARGET"
+            and not r["has_limitations"]
+            and not r["divergences"]
+        ]
+        contradicted = [
+            r
+            for r in rows
+            if "SCALE_EXTRAPOLATION" in r["divergences"]
+            and r["verdict"] in ("ALIGNED", "MODEL_ABOVE_TARGET")
+        ]
         if bad:
-            print(f"\nFAIL: {len(bad)} upward-extrapolating link(s) with no `limitations`.", file=sys.stderr)
+            print(
+                f"\nFAIL: {len(bad)} upward-extrapolating link(s) with neither "
+                f"`limitations` nor `divergences`.",
+                file=sys.stderr,
+            )
+        if contradicted:
+            print(
+                f"\nFAIL: {len(contradicted)} SCALE_EXTRAPOLATION divergence(s) "
+                f"contradicted by model_scale vs biological_scale.",
+                file=sys.stderr,
+            )
+        if bad or contradicted:
             return 1
     return 0
 
