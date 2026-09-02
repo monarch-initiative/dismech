@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/Choroid_Plexus_Carcinoma.yaml`](../
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0018875` ≡ `DOID:0111503`
+- `MONDO:0018875` ≡ `DOID:3012`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

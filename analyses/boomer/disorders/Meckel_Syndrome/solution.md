@@ -3,7 +3,7 @@
  * 697 combinations
  * 684 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.000122070312 confidence
+ * 0.000122070313 confidence
  * 0.015046935272 prior probability
  * 2.189e-09 posterior probability
 Grounding:

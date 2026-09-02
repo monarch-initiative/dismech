@@ -1,6 +1,6 @@
 
  ## dismech-Double_Outlet_Right_Ventricle
- * 806 combinations
+ * 807 combinations
  * 794 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.03125 confidence
@@ -16,10 +16,10 @@ Grounding:
  * True MONDO:0018089 (double outlet right ventricle) ≡ NCIT:C98916 :: prior: 0.95 posterior: 0.95
  * True MONDO:0018089 (double outlet right ventricle) ≡ ORDO:3426 :: prior: 0.95 posterior: 0.95
  * True MONDO:0018089 (double outlet right ventricle) ≡ icd11f:141717788 :: prior: 0.95 posterior: 0.95
- * True dismech:Double_Outlet_Right_Ventricle#Subaortic VSD (Double Outlet Right Ventricle / Subaortic VSD (dismech subtype)) ≡ MONDO:0018498 (double outlet right ventricle with subaortic or doubly committed ventricular septal defect) :: prior: 0.9 posterior: 0.484424374231
+ * False dismech:Double_Outlet_Right_Ventricle#Subaortic VSD (Double Outlet Right Ventricle / Subaortic VSD (dismech subtype)) ≡ MONDO:0018498 (double outlet right ventricle with subaortic or doubly committed ventricular septal defect) :: prior: 0.9 posterior: 0.484424374231
  * False dismech:Double_Outlet_Right_Ventricle#Subaortic VSD (Double Outlet Right Ventricle / Subaortic VSD (dismech subtype)) ⊆ MONDO:0018498 (double outlet right ventricle with subaortic or doubly committed ventricular septal defect) :: prior: 0.07 posterior: 0.040575024002
  * False MONDO:0018498 (double outlet right ventricle with subaortic or doubly committed ventricular septal defect) ⊆ dismech:Double_Outlet_Right_Ventricle#Subaortic VSD (Double Outlet Right Ventricle / Subaortic VSD (dismech subtype)) :: prior: 0.03 posterior: 0.01667221163
- * False dismech:Double_Outlet_Right_Ventricle#Doubly committed VSD (Double Outlet Right Ventricle / Doubly committed VSD (dismech subtype)) ≡ MONDO:0018498 (double outlet right ventricle with subaortic or doubly committed ventricular septal defect) :: prior: 0.9 posterior: 0.484424374231
+ * True dismech:Double_Outlet_Right_Ventricle#Doubly committed VSD (Double Outlet Right Ventricle / Doubly committed VSD (dismech subtype)) ≡ MONDO:0018498 (double outlet right ventricle with subaortic or doubly committed ventricular septal defect) :: prior: 0.9 posterior: 0.484424374231
  * False dismech:Double_Outlet_Right_Ventricle#Doubly committed VSD (Double Outlet Right Ventricle / Doubly committed VSD (dismech subtype)) ⊆ MONDO:0018498 (double outlet right ventricle with subaortic or doubly committed ventricular septal defect) :: prior: 0.07 posterior: 0.040575024002
  * False MONDO:0018498 (double outlet right ventricle with subaortic or doubly committed ventricular septal defect) ⊆ dismech:Double_Outlet_Right_Ventricle#Doubly committed VSD (Double Outlet Right Ventricle / Doubly committed VSD (dismech subtype)) :: prior: 0.03 posterior: 0.01667221163
  * True MONDO:0018498 (double outlet right ventricle with subaortic or doubly committed ventricular septal defect) ≡ ORDO:423693 :: prior: 0.95 posterior: 0.998167876488

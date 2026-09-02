@@ -30,8 +30,8 @@ Grounding:
  * True MONDO:0005446 (cutaneous leishmaniasis) ≡ DOID:9111 :: prior: 0.95 posterior: 0.95
  * True MONDO:0005446 (cutaneous leishmaniasis) ≡ ICD10CM:B55.1 :: prior: 0.95 posterior: 0.95
  * True MONDO:0005446 (cutaneous leishmaniasis) ≡ MESH:D016773 :: prior: 0.95 posterior: 0.95
- * True MONDO:0005446 (cutaneous leishmaniasis) ≡ NCIT:C34768 :: prior: 0.95 posterior: 0.487179487179
- * False MONDO:0005446 (cutaneous leishmaniasis) ≡ NCIT:C34770 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0005446 (cutaneous leishmaniasis) ≡ NCIT:C34768 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0005446 (cutaneous leishmaniasis) ≡ NCIT:C34770 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0005446 (cutaneous leishmaniasis) ≡ icd11f:124737785 :: prior: 0.95 posterior: 0.95
  * True dismech:Leishmaniasis#Mucocutaneous leishmaniasis (Leishmaniasis / Mucocutaneous leishmaniasis (dismech subtype)) ≡ MONDO:0005859 (mucocutaneous leishmaniasis) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Leishmaniasis#Mucocutaneous leishmaniasis (Leishmaniasis / Mucocutaneous leishmaniasis (dismech subtype)) ⊆ MONDO:0005859 (mucocutaneous leishmaniasis) :: prior: 0.07 posterior: 0.004045362876

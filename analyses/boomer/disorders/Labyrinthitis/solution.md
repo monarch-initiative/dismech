@@ -10,8 +10,8 @@ Grounding:
  * True dismech:Labyrinthitis (Labyrinthitis (dismech entry)) ≡ MONDO:0002008 (labyrinthitis) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Labyrinthitis (Labyrinthitis (dismech entry)) ⊆ MONDO:0002008 (labyrinthitis) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0002008 (labyrinthitis) ⊆ dismech:Labyrinthitis (Labyrinthitis (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
- * False MONDO:0002008 (labyrinthitis) ≡ DOID:1468 :: prior: 0.95 posterior: 0.487179487179
- * True MONDO:0002008 (labyrinthitis) ≡ DOID:3930 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0002008 (labyrinthitis) ≡ DOID:1468 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0002008 (labyrinthitis) ≡ DOID:3930 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0002008 (labyrinthitis) ≡ ICD10CM:H83.0 :: prior: 0.95 posterior: 0.95
  * True MONDO:0002008 (labyrinthitis) ≡ MESH:D007762 :: prior: 0.95 posterior: 0.95
  * True MONDO:0002008 (labyrinthitis) ≡ NCIT:C128369 :: prior: 0.95 posterior: 0.95

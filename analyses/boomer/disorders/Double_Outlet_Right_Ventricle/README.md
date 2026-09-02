@@ -21,7 +21,7 @@ Boomer grounding analysis for [`kb/disorders/Double_Outlet_Right_Ventricle.yaml`
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Double_Outlet_Right_Ventricle#Doubly committed VSD` ≡ `MONDO:0018498`
+- `dismech:Double_Outlet_Right_Ventricle#Subaortic VSD` ≡ `MONDO:0018498`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

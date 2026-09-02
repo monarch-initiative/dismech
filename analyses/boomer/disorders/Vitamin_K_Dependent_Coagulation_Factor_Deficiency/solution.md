@@ -11,8 +11,8 @@ Grounding:
  * False dismech:Vitamin_K_Dependent_Coagulation_Factor_Deficiency (Vitamin K-Dependent Coagulation Factor Deficiency (dismech entry)) ⊆ MONDO:0015722 (congenital vitamin K-dependent coagulation factors deficiency) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0015722 (congenital vitamin K-dependent coagulation factors deficiency) ⊆ dismech:Vitamin_K_Dependent_Coagulation_Factor_Deficiency (Vitamin K-Dependent Coagulation Factor Deficiency (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
  * True MONDO:0015722 (congenital vitamin K-dependent coagulation factors deficiency) ≡ DOID:0112172 :: prior: 0.95 posterior: 0.95
- * True MONDO:0015722 (congenital vitamin K-dependent coagulation factors deficiency) ≡ ORDO:169826 :: prior: 0.95 posterior: 0.487179487179
- * False MONDO:0015722 (congenital vitamin K-dependent coagulation factors deficiency) ≡ ORDO:98434 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0015722 (congenital vitamin K-dependent coagulation factors deficiency) ≡ ORDO:169826 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0015722 (congenital vitamin K-dependent coagulation factors deficiency) ≡ ORDO:98434 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0015722 (congenital vitamin K-dependent coagulation factors deficiency) ≡ icd11f:54644599 :: prior: 0.95 posterior: 0.95
  * True dismech:Vitamin_K_Dependent_Coagulation_Factor_Deficiency#VKCFD1 (Vitamin K-Dependent Coagulation Factor Deficiency / VKCFD1 (dismech subtype)) ≡ MONDO:0010187 (vitamin K-dependent clotting factors, combined deficiency of, type 1) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Vitamin_K_Dependent_Coagulation_Factor_Deficiency#VKCFD1 (Vitamin K-Dependent Coagulation Factor Deficiency / VKCFD1 (dismech subtype)) ⊆ MONDO:0010187 (vitamin K-dependent clotting factors, combined deficiency of, type 1) :: prior: 0.07 posterior: 0.004045362876

@@ -58,13 +58,13 @@ has an opinion or it doesn't, and when it doesn't there is nothing to appeal to.
 Each additional vocabulary MONDO confirms an equivalency into is an independent
 opinion on the same subsumption, and that is what BOOMER is actually built for.
 
-Concretely, of the 118 pairs where **MONDO is silent**:
+Concretely, of the 161 pairs where **MONDO is silent**:
 
 | | n |
 |---|---|
-| **another ontology corroborates dismech** | **29** |
-| shared vocabulary, but silent there too | 53 |
-| no shared vocabulary to appeal to | 36 |
+| **another ontology corroborates dismech** | **38** |
+| shared vocabulary, but silent there too | 68 |
+| no shared vocabulary to appeal to | 55 |
 | another ontology contradicts dismech | **0** |
 
 So a quarter of the apparent "MONDO gaps" are not open questions at all — they
@@ -79,23 +79,24 @@ result.
 
 ## Current results
 
-286 disorders, 1,152 grounded parent/subtype pairs. Full roll-up in
+371 disorders, 1,471 grounded parent/subtype pairs. Full roll-up in
 [`index.tsv`](index.tsv).
 
 | Per pair | n | | Per disorder | n |
 |---|---|---|---|---|
-| `AGREES` | 1,022 | | `ALL_MAPPINGS_CONSISTENT` | 246 |
-| `SILENT` | 118 | | `RETRACTED` | 40 |
-| `SAME_TERM` | 11 | | timed out | 0 |
+| `AGREES` | 1,296 | | `ALL_MAPPINGS_CONSISTENT` | 318 |
+| `SILENT` | 161 | | `RETRACTED` | 53 |
+| `SAME_TERM` | 13 | | timed out | 0 |
 | `REVERSED` | 1 | | | |
 
-**88.7% of pairs agree.** Where a curator asserted a subtype relation and both
+**88.1% of pairs agree.** Where a curator asserted a subtype relation and both
 sides are grounded, MONDO independently corroborates it nearly nine times in ten.
 
-Adding the external sources took retractions from **14 to 40**. The pair-level
-verdicts are unchanged — those only involve dismech and MONDO — but three times
-as many disorders now carry a constraint set that cannot be satisfied, because
-there are more independent opinions to disagree.
+Adding the external sources roughly tripled the retraction count when measured
+on the same KB snapshot. The pair-level verdicts are unaffected — those only
+involve dismech and MONDO — but many more disorders carry a constraint set that
+cannot be satisfied, because there are more independent opinions available to
+disagree.
 
 ### Four distinct things force a retraction
 
@@ -130,7 +131,7 @@ isolation.
    retraction when it was asserted at prior ≥ 0.5 — rejecting a deliberately
    low-prior alternative is the expected outcome, not a conflict.
 
-2. **A subtype grounded to its parent's term** (11 pairs). If both are identity
+2. **A subtype grounded to its parent's term** (13 pairs). If both are identity
    claims, the subtype and the entry are the same thing — which contradicts the
    `has_subtypes` edge between them.
 
@@ -152,8 +153,8 @@ isolation.
 
 4. **A MONDO "proxy merge"** — one MONDO term claiming identity with several
    terms in the same external vocabulary. This class only appears once external
-   sources are loaded, and is now the largest: 35 of the 50 retracted
-   equivalences (35 of 48) are MONDO↔external rather than dismech↔MONDO.
+   sources are loaded, and is now the largest: 47 of the 66 retracted
+   equivalences are MONDO↔external rather than dismech↔MONDO.
 
    It arises from merging. When MONDO merges two of its classes, the
    merged-away class's xrefs move to the survivor — so if the source ontology
@@ -346,21 +347,21 @@ Two further checks live here because they came from the same investigation, and
 neither needs a solver:
 
 - [`groupings/`](groupings/) — members of `exactMatch`-mapped `kb/groupings/`
-  entries against the grouping's own MONDO term. 93/104 agree (89.4%), 2
-  `SAME_TERM`, 8 violations, **zero contradictions**. The 8 are MONDO gaps again:
+  entries against the grouping's own MONDO term. 187/204 agree (91.7%), 2
+  `SAME_TERM`, 15 violations, **zero contradictions**. The 8 are MONDO gaps again:
   nephronophthisis is not under `MONDO:0005308` *ciliopathy*; *lissencephaly due
   to TUBA1A mutation* is not under `MONDO:0100153` *tubulinopathy*. Only
   `exactMatch` groupings are checked — a `broadMatch` grouping is explicitly
   narrower than its term and a `narrowMatch` one wider, so neither licenses the
   descendant expectation; 52 of 65 are skipped on that basis.
 - [`cross-source/`](cross-source/) — dismech's direct ICD/NCIT mappings against
-  MONDO's own xrefs. **A negative result**: 7 disagreements, 6 of them
+  MONDO's own xrefs. **A negative result**: 8 disagreements, 6 of them
   granularity the `mapping_predicate` already records honestly
   (`ICD10CM:Q93.5` vs `ICD10:Q93.51` as `narrowMatch`). Nothing for a reasoner to
   resolve. Recorded so the check is not repeated expecting signal.
 
-That the subtype (88.7%) and grouping (89.4%) checks land on the same agreement
-rate with the same failure mode, across two structurally independent parts of the
+That the subtype (88.1%) and grouping (91.7%) checks land on comparable
+agreement rates with the same failure mode, across two structurally independent parts of the
 schema, is itself worth noting.
 
 ## Methodological notes

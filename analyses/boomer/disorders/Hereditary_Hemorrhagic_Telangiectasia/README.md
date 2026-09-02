@@ -3,8 +3,8 @@
 Boomer grounding analysis for [`kb/disorders/Hereditary_Hemorrhagic_Telangiectasia.yaml`](../../../../kb/disorders/Hereditary_Hemorrhagic_Telangiectasia.yaml).
 
 - **Entry term:** [`MONDO:0019180`](http://purl.obolibrary.org/obo/MONDO_0019180) hereditary hemorrhagic telangiectasia
-- **Grounded subtypes:** 4
-- **Verdicts:** AGREES 3, SILENT 1
+- **Grounded subtypes:** 5
+- **Verdicts:** AGREES 4, SILENT 1
 
 ## Subtypes
 
@@ -12,6 +12,7 @@ Boomer grounding analysis for [`kb/disorders/Hereditary_Hemorrhagic_Telangiectas
 |---|---|---|---|---|
 | HHT1 | `MONDO:0008535` | telangiectasia, hereditary hemorrhagic, type 1 | `AGREES` | — no shared vocabulary |
 | HHT2 | `MONDO:0010880` | telangiectasia, hereditary hemorrhagic, type 2 | `AGREES` | — no shared vocabulary |
+| HHT4 | `MONDO:0012532` | hereditary hemorrhagic telangiectasia type 4 | `AGREES` | silent (MESH) |
 | SMAD4-associated juvenile polyposis/HHT overlap | `MONDO:0008278` | juvenile polyposis/hereditary hemorrhagic telangiectasia syndrome | `SILENT` | silent (DOID, MESH) |
 | GDF2-related HHT-like disease | `MONDO:0014217` | telangiectasia, hereditary hemorrhagic, type 5 | `AGREES` | — no shared vocabulary |
 

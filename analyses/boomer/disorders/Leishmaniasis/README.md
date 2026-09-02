@@ -19,7 +19,7 @@ Boomer grounding analysis for [`kb/disorders/Leishmaniasis.yaml`](../../../../kb
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0005446` ≡ `NCIT:C34770`
+- `MONDO:0005446` ≡ `NCIT:C34768`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

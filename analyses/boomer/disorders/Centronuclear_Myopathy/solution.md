@@ -25,8 +25,8 @@ Grounding:
  * True dismech:Centronuclear_Myopathy#AD-CNM (Centronuclear Myopathy / AD-CNM (dismech subtype)) ≡ MONDO:0008048 (autosomal dominant centronuclear myopathy) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Centronuclear_Myopathy#AD-CNM (Centronuclear Myopathy / AD-CNM (dismech subtype)) ⊆ MONDO:0008048 (autosomal dominant centronuclear myopathy) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0008048 (autosomal dominant centronuclear myopathy) ⊆ dismech:Centronuclear_Myopathy#AD-CNM (Centronuclear Myopathy / AD-CNM (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
- * True MONDO:0008048 (autosomal dominant centronuclear myopathy) ≡ DOID:0111217 :: prior: 0.95 posterior: 0.487179487179
- * False MONDO:0008048 (autosomal dominant centronuclear myopathy) ≡ DOID:0111223 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0008048 (autosomal dominant centronuclear myopathy) ≡ DOID:0111217 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0008048 (autosomal dominant centronuclear myopathy) ≡ DOID:0111223 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0008048 (autosomal dominant centronuclear myopathy) ≡ NCIT:C126689 :: prior: 0.95 posterior: 0.95
  * True MONDO:0008048 (autosomal dominant centronuclear myopathy) ≡ OMIM:160150 :: prior: 0.95 posterior: 0.95
  * True MONDO:0008048 (autosomal dominant centronuclear myopathy) ≡ ORDO:169189 :: prior: 0.95 posterior: 0.95

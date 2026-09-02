@@ -1,11 +1,11 @@
 
  ## dismech-Hereditary_Hemorrhagic_Telangiectasia
- * 707 combinations
- * 702 satisfiable combinations
+ * 744 combinations
+ * 738 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.03125 confidence
- * 0.190620333382 prior probability
- * 0.000447154698 posterior probability
+ * 0.015625 confidence
+ * 0.139673375079 prior probability
+ * 9.7602269e-05 posterior probability
 Grounding:
  * True dismech:Hereditary_Hemorrhagic_Telangiectasia (Hereditary Hemorrhagic Telangiectasia (dismech entry)) ≡ MONDO:0019180 (hereditary hemorrhagic telangiectasia) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Hereditary_Hemorrhagic_Telangiectasia (Hereditary Hemorrhagic Telangiectasia (dismech entry)) ⊆ MONDO:0019180 (hereditary hemorrhagic telangiectasia) :: prior: 0.07 posterior: 0.004045362876
@@ -24,6 +24,11 @@ Grounding:
  * False dismech:Hereditary_Hemorrhagic_Telangiectasia#HHT2 (Hereditary Hemorrhagic Telangiectasia / HHT2 (dismech subtype)) ⊆ MONDO:0010880 (telangiectasia, hereditary hemorrhagic, type 2) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0010880 (telangiectasia, hereditary hemorrhagic, type 2) ⊆ dismech:Hereditary_Hemorrhagic_Telangiectasia#HHT2 (Hereditary Hemorrhagic Telangiectasia / HHT2 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
  * True MONDO:0010880 (telangiectasia, hereditary hemorrhagic, type 2) ≡ OMIM:600376 :: prior: 0.95 posterior: 0.95
+ * True dismech:Hereditary_Hemorrhagic_Telangiectasia#HHT4 (Hereditary Hemorrhagic Telangiectasia / HHT4 (dismech subtype)) ≡ MONDO:0012532 (hereditary hemorrhagic telangiectasia type 4) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Hereditary_Hemorrhagic_Telangiectasia#HHT4 (Hereditary Hemorrhagic Telangiectasia / HHT4 (dismech subtype)) ⊆ MONDO:0012532 (hereditary hemorrhagic telangiectasia type 4) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0012532 (hereditary hemorrhagic telangiectasia type 4) ⊆ dismech:Hereditary_Hemorrhagic_Telangiectasia#HHT4 (Hereditary Hemorrhagic Telangiectasia / HHT4 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0012532 (hereditary hemorrhagic telangiectasia type 4) ≡ MESH:C565691 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0012532 (hereditary hemorrhagic telangiectasia type 4) ≡ OMIM:610655 :: prior: 0.95 posterior: 0.95
  * True dismech:Hereditary_Hemorrhagic_Telangiectasia#SMAD4-associated juvenile polyposis/HHT overlap (Hereditary Hemorrhagic Telangiectasia / SMAD4-associated juvenile polyposis/HHT overlap (dismech subtype)) ≡ MONDO:0008278 (juvenile polyposis/hereditary hemorrhagic telangiectasia syndrome) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Hereditary_Hemorrhagic_Telangiectasia#SMAD4-associated juvenile polyposis/HHT overlap (Hereditary Hemorrhagic Telangiectasia / SMAD4-associated juvenile polyposis/HHT overlap (dismech subtype)) ⊆ MONDO:0008278 (juvenile polyposis/hereditary hemorrhagic telangiectasia syndrome) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0008278 (juvenile polyposis/hereditary hemorrhagic telangiectasia syndrome) ⊆ dismech:Hereditary_Hemorrhagic_Telangiectasia#SMAD4-associated juvenile polyposis/HHT overlap (Hereditary Hemorrhagic Telangiectasia / SMAD4-associated juvenile polyposis/HHT overlap (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052

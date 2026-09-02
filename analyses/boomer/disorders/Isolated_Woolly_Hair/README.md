@@ -19,7 +19,7 @@ Boomer grounding analysis for [`kb/disorders/Isolated_Woolly_Hair.yaml`](../../.
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Isolated_Woolly_Hair` ≡ `MONDO:0008686`
+- `dismech:Isolated_Woolly_Hair#ARWH2` ≡ `MONDO:0008686`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

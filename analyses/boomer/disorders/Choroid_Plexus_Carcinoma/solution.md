@@ -23,8 +23,8 @@ Grounding:
  * True dismech:Choroid_Plexus_Carcinoma#Li-Fraumeni-Associated (Choroid Plexus Carcinoma / Li-Fraumeni-Associated (dismech subtype)) ≡ MONDO:0018875 (Li-Fraumeni syndrome) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Choroid_Plexus_Carcinoma#Li-Fraumeni-Associated (Choroid Plexus Carcinoma / Li-Fraumeni-Associated (dismech subtype)) ⊆ MONDO:0018875 (Li-Fraumeni syndrome) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0018875 (Li-Fraumeni syndrome) ⊆ dismech:Choroid_Plexus_Carcinoma#Li-Fraumeni-Associated (Choroid Plexus Carcinoma / Li-Fraumeni-Associated (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
- * False MONDO:0018875 (Li-Fraumeni syndrome) ≡ DOID:0111503 :: prior: 0.95 posterior: 0.487179487179
- * True MONDO:0018875 (Li-Fraumeni syndrome) ≡ DOID:3012 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0018875 (Li-Fraumeni syndrome) ≡ DOID:0111503 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0018875 (Li-Fraumeni syndrome) ≡ DOID:3012 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0018875 (Li-Fraumeni syndrome) ≡ MESH:D016864 :: prior: 0.95 posterior: 0.95
  * True MONDO:0018875 (Li-Fraumeni syndrome) ≡ NCIT:C3476 :: prior: 0.95 posterior: 0.95
  * True MONDO:0018875 (Li-Fraumeni syndrome) ≡ OMIM:151623 :: prior: 0.95 posterior: 0.95

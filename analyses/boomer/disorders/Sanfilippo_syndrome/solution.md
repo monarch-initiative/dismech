@@ -1,11 +1,11 @@
 
  ## dismech-Sanfilippo_syndrome
- * 1301 combinations
- * 1296 satisfiable combinations
- * 1.0 proportion of combinations explored
+ * 1093 combinations
+ * 1088 satisfiable combinations
+ * 0.4375 proportion of combinations explored
  * 0.03125 confidence
  * 0.108726043393 prior probability
- * 0.00024584011 posterior probability
+ * 0.00029457175 posterior probability
 Grounding:
  * True dismech:Sanfilippo_syndrome (Sanfilippo syndrome (dismech entry)) ≡ MONDO:0018937 (mucopolysaccharidosis type 3) :: prior: 0.95 posterior: 0.984297944247
  * False dismech:Sanfilippo_syndrome (Sanfilippo syndrome (dismech entry)) ⊆ MONDO:0018937 (mucopolysaccharidosis type 3) :: prior: 0.07 posterior: 0.001949656369
@@ -38,11 +38,11 @@ Grounding:
  * True MONDO:0009657 (mucopolysaccharidosis type 3C) ≡ OMIM:252930 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009657 (mucopolysaccharidosis type 3C) ≡ ORDO:79271 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009657 (mucopolysaccharidosis type 3C) ≡ icd11f:1755913480 :: prior: 0.95 posterior: 0.95
- * True dismech:Sanfilippo_syndrome#MPS IIID (Sanfilippo syndrome / MPS IIID (dismech subtype)) ≡ MONDO:0009658 (mucopolysaccharidosis type 3D) :: prior: 0.9 posterior: 0.967419636394
- * False dismech:Sanfilippo_syndrome#MPS IIID (Sanfilippo syndrome / MPS IIID (dismech subtype)) ⊆ MONDO:0009658 (mucopolysaccharidosis type 3D) :: prior: 0.07 posterior: 0.004045362876
- * False MONDO:0009658 (mucopolysaccharidosis type 3D) ⊆ dismech:Sanfilippo_syndrome#MPS IIID (Sanfilippo syndrome / MPS IIID (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
- * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ DOID:0111402 :: prior: 0.95 posterior: 0.95
- * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ NCIT:C84900 :: prior: 0.95 posterior: 0.95
- * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ OMIM:252940 :: prior: 0.95 posterior: 0.95
- * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ ORDO:79272 :: prior: 0.95 posterior: 0.95
- * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ icd11f:1780990193 :: prior: 0.95 posterior: 0.95
+ * True dismech:Sanfilippo_syndrome#MPS IIID (Sanfilippo syndrome / MPS IIID (dismech subtype)) ≡ MONDO:0009658 (mucopolysaccharidosis type 3D) :: prior: 0.9 posterior: 0.961785865623
+ * False dismech:Sanfilippo_syndrome#MPS IIID (Sanfilippo syndrome / MPS IIID (dismech subtype)) ⊆ MONDO:0009658 (mucopolysaccharidosis type 3D) :: prior: 0.07 posterior: 0.004249423065
+ * False MONDO:0009658 (mucopolysaccharidosis type 3D) ⊆ dismech:Sanfilippo_syndrome#MPS IIID (Sanfilippo syndrome / MPS IIID (dismech subtype)) :: prior: 0.03 posterior: 0.001765292214
+ * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ DOID:0111402 :: prior: 0.95 posterior: 0.984413419676
+ * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ NCIT:C84900 :: prior: 0.95 posterior: 0.983819756596
+ * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ OMIM:252940 :: prior: 0.95 posterior: 0.983786872734
+ * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ ORDO:79272 :: prior: 0.95 posterior: 0.98382495149
+ * True MONDO:0009658 (mucopolysaccharidosis type 3D) ≡ icd11f:1780990193 :: prior: 0.95 posterior: 0.98447880503

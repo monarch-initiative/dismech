@@ -1,6 +1,6 @@
 
  ## dismech-Frontotemporal_Dementia
- * 926 combinations
+ * 925 combinations
  * 918 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.03125 confidence

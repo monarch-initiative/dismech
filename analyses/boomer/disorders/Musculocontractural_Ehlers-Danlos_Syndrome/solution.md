@@ -21,6 +21,6 @@ Grounding:
  * True dismech:Musculocontractural_Ehlers-Danlos_Syndrome#mcEDS-DSE (Musculocontractural Ehlers-Danlos Syndrome / mcEDS-DSE (dismech subtype)) ≡ MONDO:0014236 (Ehlers-Danlos syndrome, musculocontractural type 2) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Musculocontractural_Ehlers-Danlos_Syndrome#mcEDS-DSE (Musculocontractural Ehlers-Danlos Syndrome / mcEDS-DSE (dismech subtype)) ⊆ MONDO:0014236 (Ehlers-Danlos syndrome, musculocontractural type 2) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0014236 (Ehlers-Danlos syndrome, musculocontractural type 2) ⊆ dismech:Musculocontractural_Ehlers-Danlos_Syndrome#mcEDS-DSE (Musculocontractural Ehlers-Danlos Syndrome / mcEDS-DSE (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
- * False MONDO:0014236 (Ehlers-Danlos syndrome, musculocontractural type 2) ≡ DOID:0080735 :: prior: 0.95 posterior: 0.487179487179
- * True MONDO:0014236 (Ehlers-Danlos syndrome, musculocontractural type 2) ≡ DOID:0080737 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0014236 (Ehlers-Danlos syndrome, musculocontractural type 2) ≡ DOID:0080735 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0014236 (Ehlers-Danlos syndrome, musculocontractural type 2) ≡ DOID:0080737 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0014236 (Ehlers-Danlos syndrome, musculocontractural type 2) ≡ OMIM:615539 :: prior: 0.95 posterior: 0.95

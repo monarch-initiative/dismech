@@ -10,8 +10,8 @@ Grounding:
  * True dismech:Inherited_Retinal_Dystrophy (Inherited Retinal Dystrophy (dismech entry)) ≡ MONDO:0019118 (inherited retinal dystrophy) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Inherited_Retinal_Dystrophy (Inherited Retinal Dystrophy (dismech entry)) ⊆ MONDO:0019118 (inherited retinal dystrophy) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0019118 (inherited retinal dystrophy) ⊆ dismech:Inherited_Retinal_Dystrophy (Inherited Retinal Dystrophy (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
- * False MONDO:0019118 (inherited retinal dystrophy) ≡ DOID:8500 :: prior: 0.95 posterior: 0.487179487179
- * True MONDO:0019118 (inherited retinal dystrophy) ≡ DOID:8501 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0019118 (inherited retinal dystrophy) ≡ DOID:8500 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0019118 (inherited retinal dystrophy) ≡ DOID:8501 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0019118 (inherited retinal dystrophy) ≡ ICD10CM:H35.5 :: prior: 0.95 posterior: 0.95
  * True MONDO:0019118 (inherited retinal dystrophy) ≡ MESH:D058499 :: prior: 0.95 posterior: 0.95
  * True MONDO:0019118 (inherited retinal dystrophy) ≡ NCIT:C35194 :: prior: 0.95 posterior: 0.487179487179

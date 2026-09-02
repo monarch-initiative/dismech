@@ -20,7 +20,7 @@ Boomer grounding analysis for [`kb/disorders/Juvenile_Idiopathic_Arthritis.yaml`
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-negative` ≡ `MONDO:0018456`
+- `dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-positive` ≡ `MONDO:0018456`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

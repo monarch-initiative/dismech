@@ -23,10 +23,10 @@ Grounding:
  * True MONDO:0019433 (oligoarticular juvenile idiopathic arthritis) ≡ NCIT:C119032 :: prior: 0.95 posterior: 0.95
  * True MONDO:0019433 (oligoarticular juvenile idiopathic arthritis) ≡ ORDO:85410 :: prior: 0.95 posterior: 0.95
  * True MONDO:0019433 (oligoarticular juvenile idiopathic arthritis) ≡ icd11f:1990556904 :: prior: 0.95 posterior: 0.95
- * False dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-negative (Juvenile Idiopathic Arthritis / Polyarticular RF-negative (dismech subtype)) ≡ MONDO:0018456 (polyarticular juvenile idiopathic arthritis) :: prior: 0.9 posterior: 0.484424374231
+ * True dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-negative (Juvenile Idiopathic Arthritis / Polyarticular RF-negative (dismech subtype)) ≡ MONDO:0018456 (polyarticular juvenile idiopathic arthritis) :: prior: 0.9 posterior: 0.484424374231
  * False dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-negative (Juvenile Idiopathic Arthritis / Polyarticular RF-negative (dismech subtype)) ⊆ MONDO:0018456 (polyarticular juvenile idiopathic arthritis) :: prior: 0.07 posterior: 0.040575024002
  * False MONDO:0018456 (polyarticular juvenile idiopathic arthritis) ⊆ dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-negative (Juvenile Idiopathic Arthritis / Polyarticular RF-negative (dismech subtype)) :: prior: 0.03 posterior: 0.01667221163
- * True dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-positive (Juvenile Idiopathic Arthritis / Polyarticular RF-positive (dismech subtype)) ≡ MONDO:0018456 (polyarticular juvenile idiopathic arthritis) :: prior: 0.9 posterior: 0.484424374231
+ * False dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-positive (Juvenile Idiopathic Arthritis / Polyarticular RF-positive (dismech subtype)) ≡ MONDO:0018456 (polyarticular juvenile idiopathic arthritis) :: prior: 0.9 posterior: 0.484424374231
  * False dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-positive (Juvenile Idiopathic Arthritis / Polyarticular RF-positive (dismech subtype)) ⊆ MONDO:0018456 (polyarticular juvenile idiopathic arthritis) :: prior: 0.07 posterior: 0.040575024002
  * False MONDO:0018456 (polyarticular juvenile idiopathic arthritis) ⊆ dismech:Juvenile_Idiopathic_Arthritis#Polyarticular RF-positive (Juvenile Idiopathic Arthritis / Polyarticular RF-positive (dismech subtype)) :: prior: 0.03 posterior: 0.01667221163
  * True MONDO:0018456 (polyarticular juvenile idiopathic arthritis) ≡ ORDO:404580 :: prior: 0.95 posterior: 0.998167876488

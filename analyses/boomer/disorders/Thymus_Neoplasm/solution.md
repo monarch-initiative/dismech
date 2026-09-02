@@ -1,6 +1,6 @@
 
  ## dismech-Thymus_Neoplasm
- * 695 combinations
+ * 696 combinations
  * 684 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0625 confidence
@@ -23,8 +23,8 @@ Grounding:
  * True dismech:Thymus_Neoplasm#Thymic carcinoma (Thymus Neoplasm / Thymic carcinoma (dismech subtype)) ≡ MONDO:0006451 (thymic carcinoma) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Thymus_Neoplasm#Thymic carcinoma (Thymus Neoplasm / Thymic carcinoma (dismech subtype)) ⊆ MONDO:0006451 (thymic carcinoma) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0006451 (thymic carcinoma) ⊆ dismech:Thymus_Neoplasm#Thymic carcinoma (Thymus Neoplasm / Thymic carcinoma (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
- * False MONDO:0006451 (thymic carcinoma) ≡ DOID:3284 :: prior: 0.95 posterior: 0.487179487179
- * True MONDO:0006451 (thymic carcinoma) ≡ DOID:4554 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0006451 (thymic carcinoma) ≡ DOID:3284 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0006451 (thymic carcinoma) ≡ DOID:4554 :: prior: 0.95 posterior: 0.487179487179
  * False MONDO:0006451 (thymic carcinoma) ≡ NCIT:C7569 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0006451 (thymic carcinoma) ≡ NCIT:C7612 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0006451 (thymic carcinoma) ≡ ORDO:99868 :: prior: 0.95 posterior: 0.95

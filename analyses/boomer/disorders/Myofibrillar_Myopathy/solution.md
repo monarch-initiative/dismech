@@ -32,8 +32,8 @@ Grounding:
  * False dismech:Myofibrillar_Myopathy#MFM3 (Myofibrillar Myopathy / MFM3 (dismech subtype)) ⊆ MONDO:0012215 (myofibrillar myopathy 3) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0012215 (myofibrillar myopathy 3) ⊆ dismech:Myofibrillar_Myopathy#MFM3 (Myofibrillar Myopathy / MFM3 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052
  * True MONDO:0012215 (myofibrillar myopathy 3) ≡ DOID:0080094 :: prior: 0.95 posterior: 0.95
- * False MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C000598645 :: prior: 0.95 posterior: 0.327586206897
- * True MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C535906 :: prior: 0.95 posterior: 0.327586206897
+ * True MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C000598645 :: prior: 0.95 posterior: 0.327586206897
+ * False MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C535906 :: prior: 0.95 posterior: 0.327586206897
  * False MONDO:0012215 (myofibrillar myopathy 3) ≡ MESH:C563775 :: prior: 0.95 posterior: 0.327586206897
  * True MONDO:0012215 (myofibrillar myopathy 3) ≡ OMIM:609200 :: prior: 0.95 posterior: 0.95
  * True MONDO:0012215 (myofibrillar myopathy 3) ≡ ORDO:268129 :: prior: 0.95 posterior: 0.487179487179

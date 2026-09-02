@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/Musculocontractural_Ehlers-Danlos_S
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0014236` ≡ `DOID:0080735`
+- `MONDO:0014236` ≡ `DOID:0080737`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

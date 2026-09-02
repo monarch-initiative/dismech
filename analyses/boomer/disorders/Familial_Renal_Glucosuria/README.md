@@ -22,7 +22,7 @@ identity claim(s) to restore consistency:
 - `MONDO:0009297` ≡ `DOID:0070613`
 - `MONDO:0009297` ≡ `DOID:0070613`
 - `dismech:Familial_Renal_Glucosuria` ≡ `MONDO:0009297`
-- `dismech:Familial_Renal_Glucosuria#SLC5A2-Related` ≡ `MONDO:0009297`
+- `dismech:Familial_Renal_Glucosuria#PDZK1IP1-Related` ≡ `MONDO:0009297`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

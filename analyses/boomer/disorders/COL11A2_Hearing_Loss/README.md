@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/COL11A2_Hearing_Loss.yaml`](../../.
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:COL11A2_Hearing_Loss` ≡ `MONDO:0011159`
+- `dismech:COL11A2_Hearing_Loss#DFNA13` ≡ `MONDO:0011159`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

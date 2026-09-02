@@ -1,6 +1,6 @@
 
  ## dismech-Autoimmune_Polyendocrinopathy
- * 945 combinations
+ * 944 combinations
  * 936 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.03125 confidence
@@ -12,8 +12,8 @@ Grounding:
  * False MONDO:0017278 (autoimmune polyendocrinopathy) ⊆ dismech:Autoimmune_Polyendocrinopathy (Autoimmune Polyendocrinopathy (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
  * True MONDO:0017278 (autoimmune polyendocrinopathy) ≡ DOID:14040 :: prior: 0.95 posterior: 0.95
  * True MONDO:0017278 (autoimmune polyendocrinopathy) ≡ ICD10CM:E31.0 :: prior: 0.95 posterior: 0.95
- * True MONDO:0017278 (autoimmune polyendocrinopathy) ≡ NCIT:C129726 :: prior: 0.95 posterior: 0.487179487179
- * False MONDO:0017278 (autoimmune polyendocrinopathy) ≡ NCIT:C84576 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0017278 (autoimmune polyendocrinopathy) ≡ NCIT:C129726 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0017278 (autoimmune polyendocrinopathy) ≡ NCIT:C84576 :: prior: 0.95 posterior: 0.487179487179
  * True MONDO:0017278 (autoimmune polyendocrinopathy) ≡ ORDO:282196 :: prior: 0.95 posterior: 0.95
  * True MONDO:0017278 (autoimmune polyendocrinopathy) ≡ icd11f:548357900 :: prior: 0.95 posterior: 0.95
  * True dismech:Autoimmune_Polyendocrinopathy#Type 1 (Autoimmune Polyendocrinopathy / Type 1 (dismech subtype)) ≡ MONDO:0009411 (autoimmune polyendocrine syndrome type 1) :: prior: 0.9 posterior: 0.967419636394

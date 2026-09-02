@@ -30,8 +30,8 @@ Grounding:
  * True MONDO:0011997 (Hermansky-Pudlak syndrome 2) ≡ MESH:C537709 :: prior: 0.95 posterior: 0.95
  * True MONDO:0011997 (Hermansky-Pudlak syndrome 2) ≡ NCIT:C150368 :: prior: 0.95 posterior: 0.95
  * True MONDO:0011997 (Hermansky-Pudlak syndrome 2) ≡ OMIM:608233 :: prior: 0.95 posterior: 0.95
- * False MONDO:0011997 (Hermansky-Pudlak syndrome 2) ≡ ORDO:183678 :: prior: 0.95 posterior: 0.487179487179
- * True MONDO:0011997 (Hermansky-Pudlak syndrome 2) ≡ ORDO:664500 :: prior: 0.95 posterior: 0.487179487179
+ * True MONDO:0011997 (Hermansky-Pudlak syndrome 2) ≡ ORDO:183678 :: prior: 0.95 posterior: 0.487179487179
+ * False MONDO:0011997 (Hermansky-Pudlak syndrome 2) ≡ ORDO:664500 :: prior: 0.95 posterior: 0.487179487179
  * True dismech:Hermansky_Pudlak_Syndrome#HPS-3 (Hermansky-Pudlak Syndrome / HPS-3 (dismech subtype)) ≡ MONDO:0013555 (Hermansky-Pudlak syndrome 3) :: prior: 0.9 posterior: 0.967419636394
  * False dismech:Hermansky_Pudlak_Syndrome#HPS-3 (Hermansky-Pudlak Syndrome / HPS-3 (dismech subtype)) ⊆ MONDO:0013555 (Hermansky-Pudlak syndrome 3) :: prior: 0.07 posterior: 0.004045362876
  * False MONDO:0013555 (Hermansky-Pudlak syndrome 3) ⊆ dismech:Hermansky_Pudlak_Syndrome#HPS-3 (Hermansky-Pudlak Syndrome / HPS-3 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052

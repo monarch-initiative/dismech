@@ -20,7 +20,7 @@ Boomer grounding analysis for [`kb/disorders/Autoimmune_Polyendocrinopathy.yaml`
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0017278` ≡ `NCIT:C84576`
+- `MONDO:0017278` ≡ `NCIT:C129726`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a
