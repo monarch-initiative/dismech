@@ -92,11 +92,29 @@ jobs:
               return { qualifiedMention: false };
             }
 
-            // Check if user is allowed and a summon exists. The accepted handles and
-            // the parser (which ignores code spans and fenced blocks, so documenting
-            // the keyword does not dispatch the agent) are shared with the comment
-            // trust gate and live in one place; see that module's header.
-            const { AGENT_MENTION, parseAgentMention } = require('./.github/scripts/agent-mention.js');
+            // The accepted handles and the parser (which ignores code spans and
+            // fenced blocks, so documenting the keyword does not dispatch the agent)
+            // are shared with the comment trust gate and live in one place; see that
+            // module's header.
+            //
+            // It is loaded from the trusted default-branch checkout above, for the
+            // same reason the allowlist is: on a pull_request event a proposer's
+            // branch could otherwise rewrite the parser to report a qualifying
+            // mention, turning an authorized reviewer's ordinary comment into an
+            // attacker-chosen prompt. So decline rather than crash when the default
+            // branch predates the parser -- otherwise adding or renaming it turns
+            // every comment in the repository into a red check.
+            const MENTION_MODULE = './.github/scripts/agent-mention.js';
+            if (!fs.existsSync(MENTION_MODULE)) {
+              core.warning(
+                `${MENTION_MODULE} is missing from the default branch, so no mention ` +
+                'can be parsed. Expected only while that module is still in review.'
+              );
+              return { qualifiedMention: false };
+            }
+
+            // Check if user is allowed and a summon exists.
+            const { AGENT_MENTION, parseAgentMention } = require(MENTION_MODULE);
             const isAllowed = allowedUsers.includes(userLogin);
             const mention = parseAgentMention(content);
             const qualifiedMention = isAllowed && mention.matched;

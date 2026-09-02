@@ -8,6 +8,8 @@ the ai4c-agent App but left the trigger regex on the retired handle, so
 ``@ai4c-agent please ...`` was silently ignored.
 """
 
+import json
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -52,3 +54,89 @@ def test_respond_job_does_not_hardcode_the_agent_handle():
 
     assert "You are @dragon-ai-agent" not in prompt["run"]
     assert "You are @ai4c-agent" not in prompt["run"]
+
+
+NODE_DRIVER = """
+const fs = require('fs');
+const path = require('path');
+const body = fs.readFileSync(process.argv[2], 'utf8');
+const missing = process.argv[3] === 'missing';
+
+// Stand in for github-script's `require`: relative ids resolve against the
+// workspace. Simulate the parser being absent from the trusted checkout the
+// way Node does, with MODULE_NOT_FOUND.
+const fakeRequire = (id) => {
+  if (id.includes('agent-mention')) {
+    if (missing) {
+      const err = new Error(`Cannot find module '${id}'`);
+      err.code = 'MODULE_NOT_FOUND';
+      throw err;
+    }
+    return require(path.join(process.cwd(), '.github/scripts/agent-mention.js'));
+  }
+  if (id === 'fs') {
+    return missing
+      ? {...fs, existsSync: (p) => (String(p).includes('agent-mention') ? false : fs.existsSync(p))}
+      : fs;
+  }
+  return require(id);
+};
+
+const context = {
+  eventName: 'issue_comment',
+  payload: {
+    comment: {body: "@ai4c-agent please fix it", user: {login: 'cmungall'}},
+    issue: {number: 10556},
+  },
+};
+const core = {warning: (m) => process.stderr.write('WARNING: ' + m + '\\n')};
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+const run = new AsyncFunction('require', 'context', 'core', 'console', body);
+
+run(fakeRequire, context, core, {log: () => {}}).then(
+  (result) => process.stdout.write(JSON.stringify(result)),
+  (err) => {
+    process.stdout.write(JSON.stringify({threw: String(err && err.message)}));
+  },
+);
+"""
+
+
+def _run_check_script(tmp_path, mode: str) -> dict:
+    """Execute the workflow's inline mention-check script under node."""
+    check = _step(_workflow()["jobs"]["check-mention"], "Check for qualifying mention")
+    script = tmp_path / "check.js"
+    script.write_text(check["with"]["script"], encoding="utf-8")
+    driver = tmp_path / "driver.js"
+    driver.write_text(NODE_DRIVER, encoding="utf-8")
+
+    proc = subprocess.run(
+        ["node", str(driver), str(script), mode],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=True,
+    )
+    return json.loads(proc.stdout)
+
+
+def test_check_script_dispatches_on_the_canonical_handle(tmp_path):
+    result = _run_check_script(tmp_path, "present")
+
+    assert result["qualifiedMention"] is True
+    assert result["prompt"] == "fix it"
+    assert result["handle"] == "ai4c-agent"
+
+
+def test_check_script_declines_when_trusted_ref_predates_the_parser(tmp_path):
+    """The allowlist, and so the parser beside it, is read from the default
+    branch on purpose: reading either from the PR ref would let a proposer's
+    branch rewrite who counts as authorized, or rewrite an authorized user's
+    comment into an attacker-chosen prompt. The cost is that a default branch
+    predating the parser has no parser to load. Decline that event loudly
+    instead of crashing the job on every comment in the repository.
+    """
+    result = _run_check_script(tmp_path, "missing")
+
+    assert "threw" not in result, f"check script crashed: {result.get('threw')}"
+    assert result["qualifiedMention"] is False
