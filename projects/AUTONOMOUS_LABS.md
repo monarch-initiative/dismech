@@ -55,6 +55,16 @@ loop:
 The corresponding curation target in `kb/disorders/Ewing_Sarcoma.yaml` is
 `gap_ewing_chromatin_reversal_screen`.
 
+## Data Model
+
+The schema counterpart to this project is
+[`docs/explanation/experiment-model.md`](../docs/explanation/experiment-model.md):
+subclassing `Experiment` by design family, an `executability` ladder, and a typed
+`protocol_binding` handle to an external protocol document. Its central boundary
+is that execution detail (reagents, plate maps, volumes) is protocol engineering
+rather than disease knowledge and stays out of `kb/`; what dismech contributes to
+the loop is the pre-registered decision rule bound to a named causal edge.
+
 ## Protocol And Execution Layer
 
 Candidate execution standards and systems:
