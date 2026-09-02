@@ -7,6 +7,7 @@ const {
   AGENT_MENTION,
   LEGACY_AGENT_MENTIONS,
   parseAgentMention,
+  mentionsHandle,
 } = require("../../.github/scripts/agent-mention.js");
 
 describe("agent mention parsing", () => {
@@ -69,6 +70,33 @@ describe("agent mention parsing", () => {
 
     assert.equal(result.matched, true);
     assert.equal(result.prompt, "run `just qc` and report");
+  });
+
+  it("ignores a mention inside a tilde fenced code block", () => {
+    const result = parseAgentMention(
+      "Docs:\n~~~\n@ai4c-agent please do X\n~~~\nThat is how you call it.",
+    );
+
+    assert.equal(result.matched, false);
+  });
+
+  it("treats an indented line as prose, not as a code block", () => {
+    // CommonMark only makes an indented block code outside a list context, and
+    // continuation lines inside a list are routinely indented. Masking those
+    // would silently drop a real request, which is the failure this module
+    // exists to prevent, so indentation is deliberately not treated as code.
+    const result = parseAgentMention("- note\n    @ai4c-agent please do X");
+
+    assert.equal(result.matched, true);
+    assert.equal(result.prompt, "do X");
+  });
+
+  it("reports a handle that did not parse as a summon", () => {
+    // The silent no-op this module exists to fix. `mentionsHandle` lets the
+    // caller tell "no handle at all" from "handle present, did not qualify".
+    assert.equal(mentionsHandle("cc @ai4c-agent for visibility"), true);
+    assert.equal(mentionsHandle("Use ` as a delimiter. @ai4c-agent please fix `x`"), true);
+    assert.equal(mentionsHandle("nothing to see here"), false);
   });
 
   it("ignores a mention inside a fenced code block", () => {

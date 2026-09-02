@@ -48,7 +48,21 @@ function maskCodeSpans(text) {
   const blank = (segment) => segment.replace(/[^\n]/g, " ");
   return String(text || "")
     .replace(/```[\s\S]*?```/g, blank)
+    .replace(/~~~[\s\S]*?~~~/g, blank)
     .replace(/`[^`]*`/g, blank);
+}
+
+/**
+ * Does this text name one of the handles at all, whatever it does with it?
+ *
+ * Lets a caller tell "nobody addressed the agent" apart from "somebody
+ * addressed the agent and it did not qualify" -- a mention with no `please`, or
+ * one masked by a stray unmatched backtick pairing with a later one. Both are
+ * correct refusals, but silently doing nothing is precisely the failure this
+ * module exists to fix, so the caller should say so in the log.
+ */
+function mentionsHandle(content) {
+  return new RegExp(`@(?:${handleAlternation()})`, "i").test(String(content || ""));
 }
 
 /**
@@ -97,5 +111,6 @@ module.exports = {
   handleAlternation,
   maskCodeSpans,
   mentionRegExp,
+  mentionsHandle,
   parseAgentMention,
 };

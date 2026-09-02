@@ -86,7 +86,7 @@ const fakeRequire = (id) => {
 const context = {
   eventName: 'issue_comment',
   payload: {
-    comment: {body: "@ai4c-agent please fix it", user: {login: 'cmungall'}},
+    comment: {body: process.argv[4], user: {login: 'cmungall'}},
     issue: {number: 10556},
   },
 };
@@ -103,7 +103,9 @@ run(fakeRequire, context, core, {log: () => {}}).then(
 """
 
 
-def _run_check_script(tmp_path, mode: str) -> dict:
+def _run_check_script(
+    tmp_path, mode: str, body: str = "@ai4c-agent please fix it"
+) -> dict:
     """Execute the workflow's inline mention-check script under node."""
     check = _step(_workflow()["jobs"]["check-mention"], "Check for qualifying mention")
     script = tmp_path / "check.js"
@@ -112,13 +114,15 @@ def _run_check_script(tmp_path, mode: str) -> dict:
     driver.write_text(NODE_DRIVER, encoding="utf-8")
 
     proc = subprocess.run(
-        ["node", str(driver), str(script), mode],
+        ["node", str(driver), str(script), mode, body],
         capture_output=True,
         text=True,
         cwd=ROOT,
         check=True,
     )
-    return json.loads(proc.stdout)
+    result = json.loads(proc.stdout)
+    result["_warnings"] = proc.stderr
+    return result
 
 
 def test_check_script_dispatches_on_the_canonical_handle(tmp_path):
@@ -222,3 +226,23 @@ def test_no_workflow_emits_a_retired_handle():
         f"retired handle used to summon the agent; use @{canonical}: "
         + ", ".join(offenders)
     )
+
+
+def test_check_script_warns_when_an_authorized_mention_did_not_parse(tmp_path):
+    """Naming the agent and getting nothing is the failure this PR fixes.
+
+    A mention with no `please`, or one masked by a stray backtick, is a correct
+    refusal. Doing it silently is not: that is how the retired handle survived
+    for weeks. The job should leave a visible annotation.
+    """
+    result = _run_check_script(tmp_path, "present", "cc @ai4c-agent for visibility")
+
+    assert result["qualifiedMention"] is False
+    assert "no request was parsed" in result["_warnings"]
+
+
+def test_check_script_stays_quiet_when_nobody_named_the_agent(tmp_path):
+    result = _run_check_script(tmp_path, "present", "just an ordinary comment")
+
+    assert result["qualifiedMention"] is False
+    assert result["_warnings"].strip() == ""

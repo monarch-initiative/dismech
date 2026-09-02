@@ -114,7 +114,7 @@ jobs:
             }
 
             // Check if user is allowed and a summon exists.
-            const { AGENT_MENTION, parseAgentMention } = require(MENTION_MODULE);
+            const { AGENT_MENTION, parseAgentMention, mentionsHandle } = require(MENTION_MODULE);
             const isAllowed = allowedUsers.includes(userLogin);
             const mention = parseAgentMention(content);
             const qualifiedMention = isAllowed && mention.matched;
@@ -122,6 +122,18 @@ jobs:
             console.log(
               `User: ${userLogin}, Allowed: ${isAllowed}, Has mention: ${mention.matched}, Handle: ${mention.handle}`
             );
+
+            // An authorized person named the agent and got nothing: no `please`,
+            // or the mention sat in code. Both are correct refusals, but doing
+            // nothing quietly is exactly how the retired-handle bug survived for
+            // weeks, so leave a visible annotation rather than only a log line.
+            if (isAllowed && !mention.matched && mentionsHandle(content)) {
+              core.warning(
+                `@${AGENT_MENTION} was named by ${userLogin} but no request was parsed. ` +
+                `Write it as prose: "@${AGENT_MENTION} please <request>". A mention ` +
+                'inside a code span or fenced block is ignored on purpose.'
+              );
+            }
 
             return {
               qualifiedMention,
