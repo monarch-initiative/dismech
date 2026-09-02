@@ -62,7 +62,9 @@ Disorders with no pathograph edges are skipped rather than treated as errors.
 
 ## NDEx Visibility
 
-The current default upload visibility is `PUBLIC`.
+The current default upload visibility is `PRIVATE`. Publication should be a
+separate, explicit operation after the uploaded network has passed NDEx's
+server-side validation.
 
 That default applies to:
 
@@ -73,7 +75,7 @@ That default applies to:
 To override for a one-off upload:
 
 ```bash
-just upload-cx2-test kb/disorders/Stargardt_Disease.yaml --visibility PRIVATE
+just upload-cx2-test kb/disorders/Stargardt_Disease.yaml --visibility PUBLIC
 ```
 
 ## Test Server Host
@@ -177,3 +179,45 @@ Uploads create new networks. Re-running the same bulk upload will create duplica
 The `just upload-cx2-test` and `just upload-cx2-test-all` wrappers now default to replacement mode, so this duplicate-creation behavior mainly applies when you invoke `dismech-cx2 --ndex-upload` directly without `--ndex-replace-existing`.
 
 The uploader makes a best-effort attempt to set NDEx `index_level=META` after upload. If that post-upload call fails on the test server, the network upload itself is still treated as successful.
+
+## Production releases
+
+Production publication uses the manually triggered `Publish NDEx release`
+GitHub Actions workflow. It is intentionally separate from pull-request and
+`main`-branch builds: merging a curation change must not mutate the public NDEx
+account.
+
+The workflow has two jobs:
+
+1. `export` checks out the requested ref, generates a versioned CX2 corpus, and
+   records hashes, counts, skipped disorders, export defects, and any UUIDs
+   carried forward from a previous manifest.
+2. `publish`, when explicitly enabled, runs behind the protected
+   `ndex-production` GitHub environment. It uploads to
+   `https://www.ndexbio.org` as private, verifies the NDEx network summaries,
+   and changes visibility to public only after the complete private upload has
+   succeeded.
+
+Configure these repository variables before running the workflow:
+
+- `NDEX_AUTHOR`
+- `NDEX_RIGHTS`
+- `NDEX_RIGHTS_HOLDER`
+
+Configure `NDEX_USERNAME` and `NDEX_PASSWORD` as secrets on the protected
+`ndex-production` environment. The workflow never passes the password on a
+command line.
+
+Production updates use the `ndex_uuid` values in a previous release manifest.
+They do not search for or delete networks by name. After the first successful
+private release, review the verified manifest and commit the approved UUID
+registry as `conf/ndex-production-manifest.json` before using update mode in a
+later release.
+
+The workflow currently refuses to publish a corpus containing orphan/unknown
+nodes or missing disease metadata. Its failed export still uploads the manifest
+artifact, so the reported defects serve as the release worklist.
+
+`META` indexing covers network attributes such as disease and tissue. Select
+`ALL` only when node/gene search is intended and its resource cost has been
+agreed with NDEx operators.

@@ -40,7 +40,8 @@ from dismech.yaml_io import safe_load, safe_load_path
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_NDEX_VISIBILITY = "PUBLIC"
+DEFAULT_NDEX_VISIBILITY = "PRIVATE"
+DEFAULT_NDEX_INDEX_LEVEL = "META"
 DEFAULT_SOURCE_REPO_URL = "https://github.com/monarch-initiative/dismech/blob/main"
 _SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schema" / "dismech.yaml"
 IQUERY_GENE_SYMBOL_PATTERN = re.compile(
@@ -888,14 +889,21 @@ def _node_width(style: NodeStyle, label: str) -> int:
     return estimated
 
 
-def _guess_source_url(yaml_path: Path | None) -> str | None:
+def _guess_source_url(
+    yaml_path: Path | None,
+    *,
+    source_revision: str | None = None,
+) -> str | None:
     if yaml_path is None:
         return None
     resolved = yaml_path.resolve()
     for parent in (resolved.parent, *resolved.parents):
         if (parent / ".git").exists():
             rel_path = resolved.relative_to(parent)
-            return f"{DEFAULT_SOURCE_REPO_URL}/{rel_path.as_posix()}"
+            source_base = DEFAULT_SOURCE_REPO_URL
+            if source_revision:
+                source_base = source_base.rsplit("/", 1)[0] + f"/{source_revision}"
+            return f"{source_base}/{rel_path.as_posix()}"
     return None
 
 
@@ -1684,6 +1692,8 @@ def disorder_to_cx2(
     *,
     source_path: Path | None = None,
     apply_dot_layout: bool = False,
+    release_metadata: dict[str, str] | None = None,
+    source_revision: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Convert a dismech disorder record into a CX2 network.
@@ -1697,7 +1707,7 @@ def disorder_to_cx2(
 
     disease_term_entry = _extract_disorder_term_entry(disorder)
     disease_term_id = _extract_disorder_term_id(disorder)
-    source_url = _guess_source_url(source_path)
+    source_url = _guess_source_url(source_path, source_revision=source_revision)
     reference_html = _format_reference_entries(_collect_reference_entries(disorder))
     tissue_html = _format_network_term_links(_collect_network_tissue_entries(disorder))
 
@@ -1713,6 +1723,16 @@ def disorder_to_cx2(
             source_url=source_url,
         ),
     }
+    if release_metadata:
+        network_attributes.update(
+            {
+                key: value
+                for key, value in release_metadata.items()
+                if value is not None and str(value).strip()
+            }
+        )
+    if source_revision:
+        network_attributes["source_revision"] = source_revision
     if source_path:
         network_attributes["source_file"] = str(source_path)
     if disease_term_entry:
@@ -1799,6 +1819,8 @@ def dump_cx2(
     *,
     output_path: Path | None = None,
     apply_dot_layout: bool = False,
+    release_metadata: dict[str, str] | None = None,
+    source_revision: str | None = None,
 ) -> list[dict[str, Any]]:
     """Convert a disorder YAML file to CX2 and optionally write it to disk."""
     disorder = load_disorder(disorder_path)
@@ -1806,6 +1828,8 @@ def dump_cx2(
         disorder,
         source_path=disorder_path,
         apply_dot_layout=apply_dot_layout,
+        release_metadata=release_metadata,
+        source_revision=source_revision,
     )
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1822,6 +1846,9 @@ def upload_cx2_to_ndex(
     password: str | None = None,
     visibility: str = DEFAULT_NDEX_VISIBILITY,
     replace_existing: bool = False,
+    network_id: str | None = None,
+    index_level: str = DEFAULT_NDEX_INDEX_LEVEL,
+    strict_indexing: bool = False,
 ) -> str:
     """Upload a CX2 network to NDEx and return the network URL."""
     resolved_host = _normalize_ndex_host(host or os.getenv("NDEX_HOST"))
@@ -1832,8 +1859,15 @@ def upload_cx2_to_ndex(
         password=password or os.getenv("NDEX_PASSWORD"),
     )
 
-    network_id: str | None = None
-    if replace_existing and resolved_username and network_name:
+    if network_id:
+        cx2_stream = io.BytesIO(json.dumps(cx2).encode("utf-8"))
+        client.update_cx2_network(cx2_stream, network_id)
+        _set_network_visibility(
+            client,
+            network_id=network_id,
+            visibility=visibility,
+        )
+    elif replace_existing and resolved_username and network_name:
         matches = _find_matching_network_summaries(
             client,
             username=resolved_username,
@@ -1860,14 +1894,19 @@ def upload_cx2_to_ndex(
         network_id = url.rsplit("/", 1)[-1]
 
     try:
-        client.set_network_system_properties(network_id, {"index_level": "META"})
+        client.set_network_system_properties(
+            network_id, {"index_level": str(index_level).upper()}
+        )
     except Exception as error:
+        if strict_indexing:
+            raise
         logger.warning(
-            "Uploaded network %s but failed to set NDEx index_level=META: %s",
+            "Uploaded network %s but failed to set NDEx index_level=%s: %s",
             network_id,
+            index_level,
             error,
         )
-    return _viewer_url_for_network(resolved_host, network_id, None)
+    return _viewer_url_for_network(resolved_host, network_id, "")
 
 
 def _cx2_network_name(cx2: list[dict[str, Any]]) -> str | None:
@@ -1921,18 +1960,43 @@ def main() -> None:
         default=DEFAULT_NDEX_VISIBILITY,
         help=f"NDEx visibility for uploads (default: {DEFAULT_NDEX_VISIBILITY})",
     )
+    parser.add_argument(
+        "--index-level",
+        choices=("NONE", "META", "ALL"),
+        default=DEFAULT_NDEX_INDEX_LEVEL,
+        help=f"NDEx indexing level (default: {DEFAULT_NDEX_INDEX_LEVEL}).",
+    )
     parser.add_argument("--ndex-host", help="Override NDEX_HOST for uploads.")
     parser.add_argument("--ndex-username", help="Override NDEX_USERNAME for uploads.")
     parser.add_argument("--ndex-password", help="Override NDEX_PASSWORD for uploads.")
+    parser.add_argument("--release-version", help="Version attached to the network.")
+    parser.add_argument("--source-revision", help="Immutable source git revision.")
+    parser.add_argument("--author", help="Network author metadata.")
+    parser.add_argument("--rights", help="Network rights or license metadata.")
+    parser.add_argument("--rights-holder", help="Network rights-holder metadata.")
+    parser.add_argument("--methods", help="Network generation methods metadata.")
+    parser.add_argument("--network-type", help="Network type metadata.")
+    parser.add_argument("--organism", help="Network organism metadata.")
     args = parser.parse_args()
 
     disorder_path = Path(args.path)
     output_path = Path(args.output) if args.output else None
+    release_metadata = {
+        "version": args.release_version,
+        "author": args.author,
+        "rights": args.rights,
+        "rightsHolder": args.rights_holder,
+        "methods": args.methods,
+        "networkType": args.network_type,
+        "organism": args.organism,
+    }
     try:
         cx2 = dump_cx2(
             disorder_path,
             output_path=output_path,
             apply_dot_layout=args.dot_layout,
+            release_metadata=release_metadata,
+            source_revision=args.source_revision,
         )
     except ValueError as error:
         if (
@@ -1952,6 +2016,7 @@ def main() -> None:
             password=args.ndex_password,
             visibility=args.visibility,
             replace_existing=args.ndex_replace_existing,
+            index_level=args.index_level,
         )
         print(url)
         return
