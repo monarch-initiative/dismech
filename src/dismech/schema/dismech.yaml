@@ -24,6 +24,7 @@ imports:
 
 prefixes:
   linkml: https://w3id.org/linkml/
+  dcterms: http://purl.org/dc/terms/
   dismech: https://w3id.org/monarch-initiative/dismech/
   HP: http://purl.obolibrary.org/obo/HP_
   GO: http://purl.obolibrary.org/obo/GO_
@@ -44,6 +45,11 @@ prefixes:
   XCO: http://purl.obolibrary.org/obo/XCO_
   FOODON: http://purl.obolibrary.org/obo/FOODON_
   skos: http://www.w3.org/2004/02/skos/core#
+  # Draft SEPIO LinkML model (sepio-framework/sepio-linkml). Its own
+  # default_prefix is still the placeholder https://example.org/sepio-model/,
+  # so we bind to the schema id namespace instead. Used only for
+  # exact_mappings; dismech slot identity stays dismech-native.
+  sepio: https://w3id.org/sepio-model/
   xsd: http://www.w3.org/2001/XMLSchema#
   PMID: http://www.ncbi.nlm.nih.gov/pubmed/
   # Dataset repositories - omics
@@ -108,28 +114,73 @@ types:
 
 enums:
   EvidenceItemSupportEnum:
-    description: The level of support for an evidence item
+    description: >-
+      Which way the cited evidence cuts relative to the claim. This is direction
+      only. How *directly* the quote bears on the claim is a separate axis --
+      see DirectnessEnum and the `directness` slot -- and how strong the evidence
+      is has no slot at all (see design decisions section 12).
+    comments:
+      - >-
+        SUPPORT and REFUTE map onto the SEPIO `directionOfEvidenceProvided`
+        values `supports` and `disputes`. NO_EVIDENCE is a dismech extension:
+        SEPIO's third value, `neutral`, means the evidence bears on the claim
+        without favouring either side, whereas NO_EVIDENCE means it does not
+        bear on the claim at all. The exporter must not silently equate them.
+      - >-
+        PARTIAL and WRONG_STATEMENT were removed in the issue #7439 narrowing.
+        PARTIAL conflated four distinct things -- indirect support, an inverted
+        model system, an item that supported one claim while contradicting
+        another, and simple irrelevance -- and became SUPPORT (with `directness`
+        left unset), a split pair of items, or NO_EVIDENCE. WRONG_STATEMENT had
+        a single use recording that an earlier entry text was inaccurate, which
+        is provenance for a history/ record rather than evidence direction.
     permissible_values:
-      WRONG_STATEMENT:
-        title: Wrong statement
-        description: >-
-          The annotated claim contains a demonstrable factual error (e.g., an incorrect
-          statistic or assertion); the cited evidence documents the correct information.
-          Use this when the claim is outright wrong, not merely contested.
-          If the cited reference simply does not mention the claim, use NO_EVIDENCE instead.
-          If the reference contradicts the claim but does not prove it factually wrong, use REFUTE.
       SUPPORT:
         title: Supports
-        description: The cited evidence directly supports the claim
+        description: The cited evidence supports the claim
+        exact_mappings:
+          - sepio:supports
       REFUTE:
         title: Refutes
-        description: The cited evidence directly contradicts the claim
+        description: The cited evidence contradicts the claim
+        exact_mappings:
+          - sepio:disputes
       NO_EVIDENCE:
         title: No evidence
         description: The cited reference does not contain evidence relevant to the claim
-      PARTIAL:
-        title: Partially supports
-        description: The cited evidence partially or indirectly supports the claim
+
+  DirectnessEnum:
+    description: >-
+      How directly the quoted evidence bears on the claim it is attached to.
+      The evidential counterpart of CausalLinkTypeEnum, which records the same
+      notion of directness for a causal edge.
+    comments:
+      - >-
+        This is not a strength or quality grade. An indirect quote may come from
+        a large, well-controlled study, and a direct one from a single case
+        report. Directness is judgeable from the snippet and the claim alone,
+        which is why it is a curated slot where strength is not.
+      - >-
+        Deliberately has no PARTIAL value. "Supports part of the claim and
+        contradicts another part" is not a point on a directness scale -- it is
+        one evidence item making two claims, and the fix is to split it into a
+        SUPPORT item and a REFUTE item, each quoting the sentence that carries
+        it. That is the same remedy CLAUDE.md already prescribes for a paper
+        that mixes evidence_source values.
+    permissible_values:
+      DIRECT:
+        title: Direct
+        description: The quoted text asserts the claim itself
+      INDIRECT:
+        title: Indirect
+        description: >-
+          The quoted text asserts something from which the claim follows by an
+          inference step -- for example a therapeutic response cited as
+          validation of the mechanism it targets, or a result from an inverted
+          or non-human model system.
+      UNKNOWN:
+        title: Unknown
+        description: Directness has not yet been assessed
   EvidenceSourceEnum:
     description: The provenance/source of the evidence item
     permissible_values:
@@ -2422,10 +2473,107 @@ enums:
         description: A Disease entry in kb/disorders/.
       SUBTYPE:
         description: A named subtype within a Disease entry.
-      MODULE:
-        description: A mechanism module in kb/modules/.
       GROUPING:
         description: Another Grouping (nested grouping).
+
+  ModuleCollectionTypeEnum:
+    description: >-
+      The organizing principle for a curated collection of mechanism modules.
+      Collections are navigation and framework records, not mechanism modules
+      themselves and not disease groupings.
+    permissible_values:
+      PUBLISHED_FRAMEWORK:
+        title: Published framework
+        description: >-
+          A named framework or model defined in the scientific literature, such
+          as the Hallmarks of Aging.
+      MECHANISTIC_FAMILY:
+        title: Mechanistic family
+        description: Modules sharing a broad mechanistic pattern or process family.
+      BIOLOGICAL_SYSTEM:
+        title: Biological system
+        description: Modules organized by the biological system or compartment involved.
+      PATHOLOGICAL_OUTCOME:
+        title: Pathological outcome
+        description: Modules organized by a shared class of pathological outcome.
+      THERAPEUTIC_STRATEGY:
+        title: Therapeutic strategy
+        description: Modules organized by a shared intervention or therapeutic strategy.
+      OTHER:
+        title: Other
+        description: A module-collection basis not covered by the other values.
+
+  ModuleCategoryEnum:
+    description: >-
+      Areas of study a mechanism module is relevant to. A category asserts
+      "this module is relevant to this area of study" — it is a discovery and
+      browsing aid, not a mechanistic claim and not a classification of the
+      diseases that conform to the module. Multivalued and deliberately
+      non-exclusive: a drug-toxicity module is both TOXICOLOGY and
+      PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY
+      and INFECTIOUS_DISEASE. Applied through the `module_categories` slot,
+      which is intended for entries under `kb/modules/`.
+    permissible_values:
+      TOXICOLOGY:
+        title: Toxicology
+        description: >-
+          Injury caused by exposure to a xenobiotic — environmental toxicants,
+          poisons, occupational and dietary exposures, and adverse drug
+          reactions modelled as mechanism rather than as an outcome. Includes
+          drug-toxicity modules and any module whose trigger arm carries a
+          toxicant or drug exposure.
+      PHARMACOLOGY:
+        title: Pharmacology
+        description: >-
+          Drug mechanism of action and therapeutic targeting: modules built
+          around a molecular drug target, a therapeutic modality, or an
+          acquired-resistance pathway that gates drug choice. Typically carries
+          the target_mechanisms drug pattern.
+      ONCOLOGY:
+        title: Oncology
+        description: >-
+          Tumor biology and cancer therapeutics — the hallmark-of-cancer
+          capability modules, tumor-microenvironment mechanisms, and
+          cancer-specific therapeutic vulnerabilities and resistance patterns.
+      INFECTIOUS_DISEASE:
+        title: Infectious disease
+        description: >-
+          Host-pathogen mechanism and antimicrobial therapy: pathogen entry,
+          replication, persistence and immune evasion, together with the
+          antibacterial, antifungal, and antiviral drug-target modules.
+      IMMUNOLOGY:
+        title: Immunology
+        description: >-
+          Immune-mediated mechanism — innate and adaptive immune activation,
+          autoimmunity, hypersensitivity, chronic inflammation, and the immune
+          contribution to tissue injury and repair.
+      NEUROSCIENCE:
+        title: Neuroscience
+        description: >-
+          Nervous-system mechanism across the central, peripheral, and sensory
+          systems: neurodegeneration, synaptic and circuit dysfunction,
+          excitability, neurodevelopmental patterning of the brain, and
+          neural waste clearance.
+      DEVELOPMENTAL_BIOLOGY:
+        title: Developmental biology
+        description: >-
+          Morphogenesis and embryonic patterning — signalling gradients,
+          segmentation, cell-fate specification, and migration defects whose
+          lesion acts during development rather than in mature tissue.
+      METABOLISM:
+        title: Metabolism
+        description: >-
+          Intermediary metabolism, bioenergetics, and cellular quality control
+          of metabolic substrate: inborn errors of metabolism, mitochondrial
+          and lysosomal function, nutrient sensing, and storage or
+          intoxication phenotypes.
+      AGING:
+        title: Aging
+        description: >-
+          Geroscience mechanism — the hallmarks of aging and the age-associated
+          processes (senescence, telomere attrition, stem-cell exhaustion,
+          proteostasis and genome-maintenance decline) that drive late-onset
+          disease.
 
   ReferenceTagEnum:
     description: >-
@@ -2611,9 +2759,26 @@ slots:
     implements:
       - linkml:authoritative_reference
   supports:
+    description: >-
+      Which way the cited evidence cuts relative to the claim. Direction only --
+      use `directness` for how directly the quote bears on it.
     examples:
       - value: SUPPORT
     range: EvidenceItemSupportEnum
+    exact_mappings:
+      - sepio:directionOfEvidenceProvided
+    comments:
+      - >-
+        Maps to EvidenceLine.directionOfEvidenceProvided in the draft SEPIO
+        LinkML model. The NO_EVIDENCE value has no SEPIO counterpart; see
+        EvidenceItemSupportEnum.
+  directness:
+    description: >-
+      How directly the quoted text bears on the claim. Optional: absent means no
+      one has assessed it, which is the state of most of the knowledge base.
+    examples:
+      - value: DIRECT
+    range: DirectnessEnum
   evidence_source:
     description: Origin of the evidence item (human clinical, model organism, in vitro, or computational)
     range: EvidenceSourceEnum
@@ -2631,33 +2796,28 @@ slots:
     description: The title of the referenced publication
     range: string
     recommended: true
+    implements:
+      - dcterms:title
     comments:
       - >-
-        NOT machine-checked today, and deliberately so for now.
-        linkml-reference-validator already compares a declared title against the
-        fetched publication and errors on a mismatch, and it WOULD cover this
-        slot with `implements: - dcterms:title` (plus a `dcterms` prefix) — no
-        upstream change is required. `linkml:title` does NOT work: lrv's
-        TitleURIs matches only "dcterms:title" / "dc/terms/title", so the
-        annotation carried by the shared `title` slot is inert, and
+        `dcterms:title` is what makes this slot machine-checked:
+        linkml-reference-validator compares a declared title against the fetched
+        publication and errors on a mismatch, and its TitleURIs matches only
+        "dcterms:title" / "dc/terms/title". `linkml:title` does NOT work — that
+        is why the annotation on the shared `title` slot is inert, and why
         PublicationReference.title is detected only via lrv's exact-name
-        fallback FallbackSlotNames.TITLE = ("title",). Note that "checked" means
-        checked for the prefixes lrv actually fetches: prefixes in
-        `skip_prefixes` (conf/reference_validator_config.yaml), notably `DOI:`,
-        are never fetched and so are exempt. That is why ~34 disease-level
-        titles can differ from their cache on a green main without contradicting
-        this — all of them are DOI.
+        fallback FallbackSlotNames.TITLE = ("title",).
       - >-
-        Turning it on is blocked on data, not on tooling: 6,211 of 141,830
-        existing titles (4.4%) currently differ from their cached publication
-        under lrv's own normalize_text, so enabling the check today would fail
-        reference validation across a large share of the KB. The differences are
-        cosmetic in the cases sampled — leftover Crossref markup
-        (`<scp><i>ECHS1</i></scp>`), the curator suffix `(Orphanet
-        structured-database record)`, and unicode (`Guillain-Barre` vs
-        `Guillain-Barre` with en-dash and accent). Normalize those first, then
-        add the annotation. Until then the reviewer checklist in the
-        dismech-pr-review skill is the control.
+        "Checked" means checked for the prefixes lrv actually fetches. Prefixes
+        in `skip_prefixes` (conf/reference_validator_config.yaml), notably
+        `DOI:`, are never fetched and so are exempt — a DOI title that drifts
+        from its source is still not caught by this.
+      - >-
+        Enabling this required a data fix first, not a tooling change: 6,125
+        titles across 408 files disagreed with their cached publication and were
+        re-synced from cache by scripts/normalize_reference_titles.py. Run that
+        script if this check starts failing in bulk; a single failure is far
+        more likely to be a genuinely wrong citation, which is the point.
   explanation:
     examples:
       - value: There is no curative treatment for nephronophthisis, indicating that supportive care, including symptomatic treatment and monitoring, is currently applied to manage associated complications.
@@ -2707,9 +2867,14 @@ slots:
         because it is a reasonable semantic mapping, and noted here for the same
         reason the EvidenceItem `reference_title` comment exists: an annotation
         that looks like it enables a check, but does not, misleads readers.
-        Retargeting it to `dcterms:title` is deliberately left to the title
-        normalization work, since that would also newly expose Dataset.title and
-        TrackedIssue.title to detection.
+        The title-normalization work that this deferral pointed at has now
+        happened (EvidenceItem.reference_title carries `dcterms:title` and is
+        checked), but this slot is still NOT retargeted: it is shared by
+        PublicationReference, Dataset and TrackedIssue, so swapping the URI would
+        newly expose Dataset.title and TrackedIssue.title to lrv detection.
+        PublicationReference.title loses nothing by waiting — it is already
+        checked via the exact-name fallback. Retarget only alongside a check of
+        what the other two classes would then be asserting.
   found_in:
     description: Deep-research output files where this reference was cited
     multivalued: true
@@ -3434,6 +3599,19 @@ slots:
   categories:
     multivalued: true
     range: string
+  module_categories:
+    description: >-
+      Areas of study this mechanism module is relevant to, drawn from
+      ModuleCategoryEnum. Each value asserts "this module is relevant to this
+      area of study" and is rendered as a labelled pill on the module index and
+      module detail pages, so the categories are a browsing and discovery aid
+      rather than a mechanistic assertion. Intended for entries under
+      `kb/modules/`, which validate against the Disease class; disorder entries
+      use the free-text `categories` slot for nosological grouping instead.
+    multivalued: true
+    range: ModuleCategoryEnum
+    examples:
+      - value: TOXICOLOGY
   infectious_agent:
     range: InfectiousAgent
     multivalued: true
@@ -4706,8 +4884,7 @@ slots:
   member:
     description: >-
       Foreign key to the grouped entity. For member_type DISEASE this is the
-      Disease entry's `name`; for MODULE it is the module filename stem; for
-      GROUPING it is another grouping's `name`.
+      Disease entry's `name`; for GROUPING it is another grouping's `name`.
     range: string
     required: true
   member_type:
@@ -4720,6 +4897,28 @@ slots:
     multivalued: true
     range: DifferentiatingMechanism
     inlined_as_list: true
+  collection_type:
+    description: The organizing principle represented by a ModuleCollection.
+    range: ModuleCollectionTypeEnum
+  module_members:
+    description: >-
+      The mechanism modules explicitly included in this collection. Module
+      filename stems are used as foreign keys.
+    multivalued: true
+    range: ModuleCollectionMember
+    inlined_as_list: true
+  framework_terms:
+    description: >-
+      One or more labels used by the source framework for the concept represented
+      by this module. Multivalued because one module may intentionally combine
+      closely coupled framework concepts.
+    multivalued: true
+    range: string
+  child_collections:
+    description: >-
+      Names of more specific ModuleCollection records nested under this collection.
+    multivalued: true
+    range: string
 
 classes:
   Any:
@@ -5629,6 +5828,7 @@ classes:
       - reference
       - reference_title
       - supports
+      - directness
       - evidence_source
       - snippet
       - explanation
@@ -6441,6 +6641,7 @@ classes:
       - environmental
       - treatments
       - categories
+      - module_categories
       - infectious_agent
       - agent_life_cycle
       - transmission
@@ -7413,4 +7614,52 @@ classes:
     slot_usage:
       description:
         description: Human-readable statement of the differentiating mechanism.
+        required: true
+
+  # --- Module collections ---
+  ModuleCollection:
+    description: >-
+      A curated navigation or framework record that organizes mechanism modules.
+      A ModuleCollection is not itself a mechanism and does not assert disease
+      membership. It points down to module filename stems, may nest more specific
+      collections, and may cite the publication that defines the framework.
+    slots:
+      - name
+      - display_name
+      - creation_date
+      - description
+      - collection_type
+      - module_members
+      - child_collections
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        description: Preferred collection name (unique; serves as an FK target).
+        required: true
+      creation_date:
+        description: >-
+          Timestamp for initial creation of this module collection. Keep this
+          stable after first set.
+        recommended: true
+      collection_type:
+        required: true
+      module_members:
+        required: true
+
+  ModuleCollectionMember:
+    description: >-
+      A mechanism module included in a ModuleCollection, with optional labels
+      and explanation specific to the source framework.
+    slots:
+      - module
+      - framework_terms
+      - description
+      - evidence
+      - notes
+    slot_usage:
+      module:
+        description: >-
+          Foreign key to a mechanism module filename stem in kb/modules/. Node
+          anchors are not used for collection membership.
         required: true

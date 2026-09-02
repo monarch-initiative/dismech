@@ -240,25 +240,49 @@ record is scoped to), you may not adopt the band unchanged. Choose one of:
    `tests/test_data.py`; a `notes:` string is not. Note `subtype:` is
    single-valued, so a restriction naming several subtypes ("primarily in RDEB",
    covering three of four) cannot be expressed this way — keep it in `notes:`.
-2. **Keep the band, demote the evidence** — when a *narrower*, quantitative
-   source disagrees with the broad band, keep the narrow band and cite the broad
-   row as `supports: PARTIAL` with an `explanation` naming the conflict
-   outright.
+2. **Keep the band, record the disagreement in prose** — when a *narrower*,
+   quantitative source disagrees with the broad band, keep the narrow band, cite
+   the broad row as `supports: SUPPORT` for the association, and name the
+   conflict outright in that item's `explanation` and in the phenotype's
+   `notes:`.
+
+    !!! warning "Do not reach for `supports: REFUTE` here"
+
+        This is the one place the evidence model cannot say what you mean.
+        `Phenotype` has a single flat `evidence:` list and no frequency-scoped
+        evidence slot, so `supports` is scoped to the **phenotype-disease
+        assertion** — "does this phenotype occur in this disease" — and not to
+        the band. A `REFUTE` therefore reads as "this phenotype is absent", and
+        `hpoa_export.py` maps it straight to an HPOA `NOT` qualifier. Citing a
+        "Very frequent (99-80%)" row as `REFUTE` would export a row asserting
+        the phenotype is *excluded* — from a source saying it is nearly
+        universal.
+
+        This slot said `supports: PARTIAL` until issue #7439 retired that value.
+        `REFUTE` was tried as the replacement and reverted for the reason above;
+        prose is the correct home until a frequency-scoped affordance exists.
 3. **Drop the band** — when the only source for it is the broader entity, omit
    `frequency:` and record the reason where a reader will meet it: the cited
    row's `explanation` (best — it sits next to the band you declined to adopt)
    or the phenotype's `notes:`. This is the default; per Pattern D, a missing
    frequency is honest.
 
-Do **not** keep the band and merely note the mismatch in prose. That leaves a
-machine-readable quantitative claim the KB cannot defend, annotated by a string
-nothing reads.
+Do **not** keep a band whose *only* source is the broader entity and merely note
+the mismatch in prose. That leaves a machine-readable quantitative claim the KB
+cannot defend, annotated by a string nothing reads.
+
+This is the line between options 2 and 3, and it is about what the band rests
+on, not about where the mismatch is written down. Option 2 keeps a band that has
+its **own narrower quantitative source** and records the broad source's
+disagreement in prose, because the band is defensible without it. Option 3
+applies when no such source exists: there the band would rest entirely on the
+broad row, and prose cannot rescue it.
 
 **Worked precedents already in the KB:**
 
 | Entry / phenotype | Choice | Why |
 |---|---|---|
-| `Marfan_Syndrome` → `Spontaneous Pneumothorax` | 2 — keep narrow band | `ORPHA:558` says "Very frequent (99-80%)"; PMID:25765122 measures 5–11%. Band stays `OCCASIONAL`, ORPHA row cited `PARTIAL` with the conflict stated. |
+| `Marfan_Syndrome` → `Spontaneous Pneumothorax` | 2 — keep narrow band | `ORPHA:558` says "Very frequent (99-80%)"; PMID:25765122 measures 5–11%. Band stays `OCCASIONAL`. The ORPHA row is cited once as `SUPPORT` for the association, and the band disagreement is stated in that item's `explanation` and in the phenotype's `notes:`. Not `REFUTE` — see the warning under option 2. |
 | `Dystrophic_Epidermolysis_Bullosa` → `Cutaneous Squamous Cell Carcinoma` | 1 — scope it | `VERY_FREQUENT` comes from National EB Registry cumulative risk in severe generalized RDEB (90.1% by 55), not DEB as a whole, so the record carries `subtype: RDEB-sev gen`. |
 | `Dystrophic_Epidermolysis_Bullosa` → `Osteoporosis` | 3 — drop it | The only source is a GeneReviews management sentence that states no rate. Band omitted; `notes:` records the reason. |
 | `Osteogenesis_Imperfecta_Type_I` → `Hyperhidrosis` | 3 — drop it | `ORPHA:666`'s "Frequent (79-30%)" row is cited for the association only; the evidence `explanation` states that no type-I band is asserted because the band reflects the whole OI spectrum. |
