@@ -52,7 +52,9 @@ def _read_verified_cx2(record: dict[str, Any]) -> list[dict[str, Any]]:
 def _write_json_atomic(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+    temporary.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     temporary.replace(path)
 
 
@@ -183,6 +185,7 @@ def _wait_for_valid_summary(
 ) -> dict[str, Any]:
     errors: list[str] = []
     summary: dict[str, Any] = {}
+    previous_permanent_errors: tuple[str, ...] | None = None
     for attempt in range(attempts):
         summary = client.get_network_summary(network_id)
         errors = _summary_errors(
@@ -204,10 +207,15 @@ def _wait_for_valid_summary(
             "network has no layout",
             "property ",
         )
-        if summary.get("completed") is True and any(
-            error.startswith(permanent_prefixes) for error in errors
-        ):
-            break
+        permanent_errors = tuple(
+            error for error in errors if error.startswith(permanent_prefixes)
+        )
+        if summary.get("completed") is True and permanent_errors:
+            if permanent_errors == previous_permanent_errors:
+                break
+            previous_permanent_errors = permanent_errors
+        else:
+            previous_permanent_errors = None
         if attempt == attempts - 1:
             break
         time.sleep(interval_seconds)
@@ -278,7 +286,7 @@ def build_release(
 
         output_path = output_dir / f"{slug}.cx2.json"
         serialized = json.dumps(cx2, indent=2) + "\n"
-        output_path.write_text(serialized)
+        output_path.write_text(serialized, encoding="utf-8")
         prior = previous.get(slug, {})
         records.append(
             {

@@ -72,6 +72,9 @@ def test_build_release_writes_versioned_cx2_and_manifest(tmp_path: Path) -> None
     assert attributes["author"] == "DisMech contributors"
     assert attributes["rightsHolder"] == "Example rights holder"
     assert attributes["source_revision"] == "abc123"
+    assert attributes["networkType"] == "directed causal mechanism network"
+    declarations = aspects["attributeDeclarations"][0]["networkAttributes"]
+    assert declarations["networkType"] == {"d": "string"}
     assert record["status"] == "EXPORTED"
     assert manifest["summary"] == {
         "disorder_count": 1,
@@ -194,6 +197,49 @@ def test_publish_release_rejects_non_https_host(tmp_path: Path) -> None:
             visibility="PRIVATE",
             index_level="META",
         )
+
+
+def test_verification_tolerates_one_completed_stale_summary() -> None:
+    calls = 0
+
+    class FakeClient:
+        def get_network_summary(self, network_id):
+            nonlocal calls
+            calls += 1
+            return {
+                "name": "Example Disease",
+                "version": "2026-09-test",
+                "nodeCount": 1 if calls == 1 else 2,
+                "edgeCount": 1,
+                "visibility": "PRIVATE",
+                "indexLevel": "META",
+                "completed": True,
+                "isValid": True,
+                "warnings": [],
+                "hasLayout": True,
+                "properties": [
+                    {"predicateString": key, "value": value}
+                    for key, value in {
+                        "author": "DisMech contributors",
+                        "rights": "BSD-3-Clause",
+                        "rightsHolder": "Example rights holder",
+                        "source_revision": "abc123",
+                    }.items()
+                ],
+            }
+
+    summary = ndex_publish._wait_for_valid_summary(
+        FakeClient(),
+        "stable-uuid",
+        record={"name": "Example Disease", "node_count": 2, "edge_count": 1},
+        metadata=_metadata() | {"source_revision": "abc123"},
+        expected_visibility="PRIVATE",
+        expected_index_level="META",
+        interval_seconds=0,
+    )
+
+    assert calls == 2
+    assert summary["nodeCount"] == 2
 
 
 def test_build_release_records_defects_before_refusing(tmp_path: Path) -> None:
