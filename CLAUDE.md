@@ -77,8 +77,10 @@ just count-verified-snippets kb/disorders/Asthma.yaml
 # batched pass (slow — run once at the end, not per edit). This is what CI runs.
 just validate-disorders kb/disorders/Asthma.yaml kb/disorders/Cholera.yaml
 
-# Reference validation for a single file (also slow; permits full-text matches)
-just validate-references kb/disorders/Asthma.yaml
+# Reference validation for a single KB entry (also slow; permits full-text matches).
+# "kb" distinguishes it from `just validate-research-reference <report.md>`, which
+# checks a deep-research report's citations instead (#8841)
+just validate-kb-references kb/disorders/Asthma.yaml
 
 # List all available commands
 just --list
@@ -545,6 +547,13 @@ complementarity with sibling modules, worked conformers, and key conformance
 target. Read it before conforming to it, and keep it current when you change the
 module — that description is now the *only* place that information lives.
 
+**Module collections:** records in `kb/module_collections/` organize modules
+into a published framework or another explicit navigational family. They
+validate against `ModuleCollection`, not `Disease`, and use module filename
+stems (without node anchors) as members. A collection is not a mechanism,
+does not replace the module directory as the complete registry, and does not
+assert disease membership. One module may belong to several collections.
+
 Thematic families to be aware of when picking a conformance target (find their
 members with `just list-modules`, do not assume this list is exhaustive):
 
@@ -778,8 +787,9 @@ creating any new cancer/neoplasm entry. The short version:
 - **Stage is never an entry.** Metastatic/advanced disease is `stages:` on the
   parent plus `conforms_to` on the `invasion_and_metastasis` module — do not
   create `Metastatic_X` entries.
-- **Pathways/hallmarks are never entries** — they live in `kb/modules/` and
-  mechanism groupings.
+- **Pathways/hallmarks are never disease entries** — mechanisms live in
+  `kb/modules/`; named multi-module frameworks live in
+  `kb/module_collections/`.
 - **Germline predisposition syndromes** (Li-Fraumeni, Lynch) follow the plain
   Mendelian lump/split rules; keep them separate from the somatic cancer
   entries they predispose to.
@@ -787,8 +797,11 @@ creating any new cancer/neoplasm entry. The short version:
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
-modules, or groupings. They validate against `Grouping`, not `Disease`, and list
-members explicitly rather than recreating an ontology hierarchy.
+named disease subtypes, or nested disease groupings. They validate against
+`Grouping`, not `Disease`, and list members explicitly rather than recreating an
+ontology hierarchy. Modules may occur in grouping criteria and differentiating
+mechanisms, but are never grouping members; organize modules with a
+`ModuleCollection` instead.
 
 Use the `curate-grouping` skill when creating, editing, reviewing, or auditing a
 grouping. It covers membership logic, criteria semantics, ontology closure,
@@ -2615,7 +2628,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 
 | Path | Commit? | Reason |
 |------|---------|--------|
-| `kb/disorders/*.yaml`, `kb/modules/*.yaml` | YES | Core content |
+| `kb/disorders/*.yaml`, `kb/modules/*.yaml`, `kb/module_collections/*.yaml` | YES | Core content |
 | `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |

@@ -34,6 +34,11 @@ from dismech.graph import (
     graph_to_json,
     iter_variant_items,
 )
+from dismech.module_collections import (
+    build_module_collection_tree,
+    load_module_collections,
+    module_collection_reference_errors,
+)
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
 from dismech.term_labels import label_restates_title
@@ -637,7 +642,11 @@ def _annotate_ref_target_anchors(disorder: dict) -> None:
             if not isinstance(item, dict):
                 continue
             value = next(
-                (item.get(k) for k in key_slots if isinstance(item.get(k), str) and item.get(k)),
+                (
+                    item.get(k)
+                    for k in key_slots
+                    if isinstance(item.get(k), str) and item.get(k)
+                ),
                 None,
             )
             if not value:
@@ -1310,12 +1319,9 @@ def _module_category_display() -> dict[str, dict]:
     in ``schema/dismech.yaml``, so the vocabulary has exactly one home and a
     category cannot be renamed on a page without being renamed in the schema.
     """
-    permissible_values = (
-        (_load_schema().get("enums") or {})
-        .get("ModuleCategoryEnum", {})
-        .get("permissible_values")
-        or {}
-    )
+    permissible_values = (_load_schema().get("enums") or {}).get(
+        "ModuleCategoryEnum", {}
+    ).get("permissible_values") or {}
     display: dict[str, dict] = {}
     for index, (key, meta) in enumerate(permissible_values.items()):
         meta = meta if isinstance(meta, dict) else {}
@@ -1616,7 +1622,7 @@ def _load_module_context(
 
 
 def _build_module_summary(module: dict) -> dict:
-    """Build a compact card payload for the module index page."""
+    """Build a compact row payload for the module index page."""
     module_id = str(module.get("_module_id") or "")
     used_by_disorders = module.get("_used_by_disorders") or []
     return {
@@ -1630,7 +1636,83 @@ def _build_module_summary(module: dict) -> dict:
         "biological_process_count": len(module.get("_biological_processes") or []),
         "disorder_count": len(used_by_disorders),
         "used_by_disorders": used_by_disorders,
+        "collections": module.get("_module_collections") or [],
     }
+
+
+def _build_module_collection_context(
+    collections_dir: Path,
+    module_summaries_by_id: dict[str, dict],
+) -> tuple[list[dict], dict[str, list[dict]]]:
+    """Resolve collection members and build module-to-collection backlinks."""
+    collections: list[dict] = []
+    reverse: dict[str, list[dict]] = defaultdict(list)
+
+    for yaml_path, data in load_module_collections(collections_dir):
+        name = str(data.get("name") or yaml_path.stem)
+        page_name = f"{slugify(name)}.html"
+        members: list[dict] = []
+        for member in data.get("module_members") or []:
+            if not isinstance(member, dict):
+                continue
+            module_id = str(member.get("module") or "").strip()
+            module_summary = module_summaries_by_id.get(module_id, {})
+            resolved = {
+                "id": module_id,
+                "name": module_summary.get("name") or module_id,
+                "href": f"../modules/{module_id}.html",
+                "description": member.get("description"),
+                "framework_terms": member.get("framework_terms") or [],
+                "pathophysiology_count": module_summary.get("pathophysiology_count", 0),
+                "disorder_count": module_summary.get("disorder_count", 0),
+            }
+            members.append(resolved)
+            reverse[module_id].append(
+                {
+                    "name": name,
+                    "display_name": data.get("display_name"),
+                    "collection_type": data.get("collection_type"),
+                    "href": f"../module-collections/{page_name}",
+                    "framework_terms": resolved["framework_terms"],
+                }
+            )
+
+        collections.append(
+            {
+                "name": name,
+                "display_name": data.get("display_name"),
+                "description": data.get("description"),
+                "collection_type": data.get("collection_type"),
+                "creation_date": data.get("creation_date"),
+                "evidence": data.get("evidence") or [],
+                "notes": data.get("notes"),
+                "members": members,
+                "module_count": len(members),
+                "framework_term_count": sum(
+                    len(member["framework_terms"]) for member in members
+                ),
+                "child_collection_names": data.get("child_collections") or [],
+                "href": f"../module-collections/{page_name}",
+                "page_name": page_name,
+                "source_file": (
+                    "https://github.com/monarch-initiative/dismech/blob/main/"
+                    f"kb/module_collections/{yaml_path.name}"
+                ),
+            }
+        )
+
+    for memberships in reverse.values():
+        memberships.sort(
+            key=lambda item: str(
+                item.get("display_name") or item.get("name") or ""
+            ).casefold()
+        )
+    collections.sort(
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold()
+    )
+    return collections, dict(reverse)
 
 
 def _build_comorbidity_summary(
@@ -2376,8 +2458,8 @@ def render_disorder(
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
     env.filters["curie_to_url"] = curie_to_url
-    env.filters["semantic_ref_href"] = (
-        lambda ref: semantic_ref_index.get(str(ref), "") if ref is not None else ""
+    env.filters["semantic_ref_href"] = lambda ref: (
+        semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
     env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
@@ -2613,6 +2695,7 @@ def render_module(
     *,
     disorders_dir: Path = Path("kb/disorders"),
     usage_index: dict[str, list[dict]] | None = None,
+    collections: list[dict] | None = None,
 ) -> Path:
     """Render a single shared module YAML file to HTML."""
     module, disorder_usage = _load_module_context(
@@ -2620,6 +2703,13 @@ def render_module(
         disorders_dir=disorders_dir,
         usage_index=usage_index,
     )
+    if collections is None:
+        _, reverse = _build_module_collection_context(
+            yaml_path.parent.parent / "module_collections",
+            {yaml_path.stem: _build_module_summary(module)},
+        )
+        collections = reverse.get(yaml_path.stem, [])
+    module["_module_collections"] = collections
     # Module hypothesis boxes show the same support/refute balance as disorder
     # pages. Only the tally is computed here: modules do not render hypothesis
     # chips on pathophysiology nodes, so the rest of
@@ -2674,24 +2764,36 @@ def render_module(
 def render_module_index(
     modules: list[dict],
     output_path: Path = Path("pages/modules/index.html"),
+    *,
+    collections: list[dict] | None = None,
 ) -> Path:
     """Render the shared-module index page."""
     template_dir = Path(__file__).parent / "templates"
     env = _get_shared_env(str(template_dir))
     template = env.get_template("module_index.html.j2")
 
-    # Legend lists only the categories actually in use, so a value defined in
-    # the schema but not yet applied to any module does not advertise itself as
-    # something a reader can browse by.
+    sorted_modules = sorted(
+        modules,
+        key=lambda module: str(module.get("name") or "").casefold(),
+    )
+    sorted_collections = sorted(
+        collections or [],
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold(),
+    )
+    # The legend lists only categories actually used by the rendered modules.
     categories_in_use = {
         category["key"]: category
-        for module in modules
+        for module in sorted_modules
         for category in module.get("categories") or []
     }
     html = template.render(
-        modules=sorted(
-            modules,
-            key=lambda module: str(module.get("name") or "").casefold(),
+        modules=sorted_modules,
+        collections=sorted_collections,
+        collection_tree=build_module_collection_tree(sorted_collections),
+        collected_module_count=sum(
+            1 for module in sorted_modules if module.get("collections")
         ),
         category_legend=[
             categories_in_use[key]
@@ -2700,6 +2802,48 @@ def render_module_index(
         ],
     )
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_module_collection(
+    collection: dict,
+    output_path: Path,
+    template_path: Path | None = None,
+) -> Path:
+    """Render one curated module-collection page."""
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "module_collection.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+    env = _get_shared_env(str(template_dir))
+    env.filters["curie_to_url"] = curie_to_url
+    html = env.get_template(template_name).render(collection=collection)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_module_collection_index(
+    collections: list[dict],
+    output_path: Path = Path("pages/module-collections/index.html"),
+) -> Path:
+    """Render the standalone module-collection index."""
+    template_dir = Path(__file__).parent / "templates"
+    env = _get_shared_env(str(template_dir))
+    sorted_collections = sorted(
+        collections,
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold(),
+    )
+    html = env.get_template("module_collection_index.html.j2").render(
+        collections=sorted_collections,
+        collection_tree=build_module_collection_tree(sorted_collections),
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
     return output_path
@@ -3041,7 +3185,9 @@ def _reference_is_preprint(reference: str | None) -> bool:
     prefix, local = prefix.strip(), local.strip()
     if prefix.upper() == "DOI" and _PREPRINT_DOI_RE.match(local):
         return True
-    cache_path = _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+    cache_path = (
+        _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+    )
     try:
         with cache_path.open(encoding="utf-8") as handle:
             if handle.readline().strip() != "---":
@@ -3496,16 +3642,22 @@ def render_all_modules(
     template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
+    collections_dir: Path | None = None,
+    collections_output_dir: Path | None = None,
 ) -> list[Path]:
-    """Render all shared mechanism modules plus their index page."""
+    """Render mechanism modules, their collections, and both index pages."""
     if not input_dir.exists():
         return []
 
     output_dir.mkdir(parents=True, exist_ok=True)
     usage_index = _collect_module_usage(disorders_dir)
+    if collections_dir is None:
+        collections_dir = input_dir.parent / "module_collections"
+    if collections_output_dir is None:
+        collections_output_dir = output_dir.parent / "module-collections"
 
     output_files: list[Path] = []
-    module_summaries: list[dict] = []
+    module_contexts: dict[str, dict] = {}
 
     for yaml_path in sorted(input_dir.glob("*.yaml")):
         module, _ = _load_module_context(
@@ -3513,6 +3665,28 @@ def render_all_modules(
             disorders_dir=disorders_dir,
             usage_index=usage_index,
         )
+        module_contexts[yaml_path.stem] = module
+
+    initial_summaries = {
+        module_id: _build_module_summary(module)
+        for module_id, module in module_contexts.items()
+    }
+    collection_records = load_module_collections(collections_dir)
+    collection_errors = module_collection_reference_errors(
+        collection_records,
+        set(module_contexts),
+    )
+    if collection_errors:
+        raise ValueError("Invalid module collections:\n" + "\n".join(collection_errors))
+    collections, collections_by_module = _build_module_collection_context(
+        collections_dir,
+        initial_summaries,
+    )
+
+    module_summaries: list[dict] = []
+    for yaml_path in sorted(input_dir.glob("*.yaml")):
+        module = module_contexts[yaml_path.stem]
+        module["_module_collections"] = collections_by_module.get(yaml_path.stem, [])
         output_path = output_dir / f"{yaml_path.stem}.html"
         render_module(
             yaml_path,
@@ -3520,15 +3694,39 @@ def render_all_modules(
             template_path,
             disorders_dir=disorders_dir,
             usage_index=usage_index,
+            collections=module["_module_collections"],
         )
         output_files.append(output_path)
         module_summaries.append(_build_module_summary(module))
         print(f"Rendered module: {yaml_path.stem} -> {output_path}")
 
-    index_path = render_module_index(module_summaries, output_dir / "index.html")
+    index_path = render_module_index(
+        module_summaries,
+        output_dir / "index.html",
+        collections=collections,
+    )
     output_files.append(index_path)
     print(f"Rendered module index -> {index_path}")
     _prune_orphan_pages(output_dir, output_files, label="module")
+
+    collection_output_files: list[Path] = []
+    for collection in collections:
+        output_path = collections_output_dir / collection["page_name"]
+        render_module_collection(collection, output_path)
+        collection_output_files.append(output_path)
+        print(f"Rendered module collection: {collection['name']} -> {output_path}")
+    collection_index_path = render_module_collection_index(
+        collections,
+        collections_output_dir / "index.html",
+    )
+    collection_output_files.append(collection_index_path)
+    print(f"Rendered module collection index -> {collection_index_path}")
+    _prune_orphan_pages(
+        collections_output_dir,
+        collection_output_files,
+        label="module collection",
+    )
+    output_files.extend(collection_output_files)
     return output_files
 
 
@@ -3653,8 +3851,6 @@ def _resolve_member_href(member: dict, by_name: dict[str, str]) -> str | None:
     if mtype in ("DISEASE", "SUBTYPE"):
         page = by_name.get(_normalize_disorder_lookup(ref))
         return f"../disorders/{page}" if page else None
-    if mtype == "MODULE":
-        return f"../modules/{ref.split('#', 1)[0].strip()}.html"
     if mtype == "GROUPING":
         return f"{slugify(ref)}.html"
     return None
