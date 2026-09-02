@@ -193,8 +193,12 @@ def _handles() -> tuple[str, list[str]]:
     return canonical, legacy
 
 
-def _retired_handle_uses(legacy: list[str]) -> list[str]:
-    """Every place a retired handle is used to summon the agent."""
+def _retired_handle_uses(legacy: list[str], base: Path = ROOT) -> list[str]:
+    """Every place under *base* a retired handle summons the agent.
+
+    `base` exists so the meta-test below can scan a throwaway tree instead of
+    planting a probe in the working copy.
+    """
     searched = [
         path
         for directory, pattern in (
@@ -202,12 +206,12 @@ def _retired_handle_uses(legacy: list[str]) -> list[str]:
             ("actions", "*.y*ml"),
             ("scripts", "*.js"),
         )
-        for path in (ROOT / ".github" / directory).rglob(pattern)
+        for path in (base / ".github" / directory).rglob(pattern)
     ]
 
     offenders = []
     for path in searched:
-        rel = path.relative_to(ROOT).as_posix()
+        rel = path.relative_to(base).as_posix()
         if rel in LEGACY_HANDLE_ALLOWED:
             continue
         for number, line in enumerate(
@@ -244,15 +248,25 @@ def test_no_workflow_emits_a_retired_handle():
 
 
 def test_the_retired_handle_guard_actually_bites(tmp_path):
-    """The guard is only worth having if it fails on the thing it looks for."""
-    planted = ROOT / ".github" / "scripts" / "_guard_probe.js"
-    planted.write_text('// "@dragon-ai-agent please do X"\n', encoding="utf-8")
-    try:
-        offenders = _retired_handle_uses(_handles()[1])
-    finally:
-        planted.unlink()
+    """The guard is only worth having if it fails on the thing it looks for.
 
-    assert any("_guard_probe.js" in item for item in offenders)
+    The probe goes in a throwaway tree, not the working copy: a probe that
+    outlived its cleanup would fail the real guard repo-wide, pointing at a file
+    nobody wrote. It is planted as .js so the scan's script root is exercised
+    too -- a .yml probe would pass whether or not that root is reached.
+
+    The handle comes from the module rather than being typed here, so this file
+    keeps holding no handle literal of its own, and dropping a name from
+    LEGACY_AGENT_MENTIONS cannot leave the probe silently naming nothing.
+    """
+    legacy = _handles()[1]
+    probe = tmp_path / ".github" / "scripts" / "_guard_probe.js"
+    probe.parent.mkdir(parents=True)
+    probe.write_text(f'// "@{legacy[0]} please do X"\n', encoding="utf-8")
+
+    assert _retired_handle_uses(legacy, base=tmp_path) == [
+        ".github/scripts/_guard_probe.js:1"
+    ]
 
 
 def test_check_script_warns_when_an_authorized_mention_did_not_parse(tmp_path):
