@@ -359,7 +359,7 @@ than describe process.
 
 This is a **discovery** artifact. Any citation ultimately used as dismech
 evidence must still pass the standard snippet-verification workflow
-(`just fetch-reference PMID:…`, then `just validate-references`). Guideline
+(`just fetch-reference PMID:…`, then `just validate-kb-references`). Guideline
 provenance alone does **not** satisfy the dismech PMID + verified-snippet policy
 — the same discipline applied when the FA `.hpoa` (evidence code `TAS`) terms
 were each independently re-sourced.

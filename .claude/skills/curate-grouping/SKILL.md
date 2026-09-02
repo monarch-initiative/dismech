@@ -68,8 +68,14 @@ intended conceptual level rather than compensating for a missing annotation.
 
 ## Add members and differentiators
 
-- `members[].member` must resolve to a real `Disease.name`, module stem, or
-  grouping name according to `member_type`.
+Grouping members are diseases, named disease subtypes, or nested disease
+groupings. Do not add a mechanism module as a member. Use a `module` reference
+inside membership criteria or a differentiating mechanism when the module helps
+define or distinguish diseases; use a `ModuleCollection` in
+`kb/module_collections/` when the task is to organize modules themselves.
+
+- `members[].member` must resolve to a real `Disease.name` or grouping name
+  according to `member_type`; `SUBTYPE` members name their parent disease.
 - Every referenced module and optional `#Node Name` must exist.
 - Use `differentiating_mechanisms` for what distinguishes a member from its
   siblings; bind genes, phenotypes, processes, or modules when appropriate.

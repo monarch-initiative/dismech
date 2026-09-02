@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-08-29T02:33:06
+# Generation date: 2026-08-31T23:26:40
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -95,6 +95,7 @@ CELLXGENE = CurieNamespace('cellxgene', 'https://cellxgene.cziscience.com/collec
 CLINICALTRIALS = CurieNamespace('clinicaltrials', 'https://clinicaltrials.gov/study/')
 CLINVAR = CurieNamespace('clinvar', 'https://www.ncbi.nlm.nih.gov/clinvar/variation/')
 DBGAP = CurieNamespace('dbgap', 'https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=')
+DCTERMS = CurieNamespace('dcterms', 'http://purl.org/dc/terms/')
 DISMECH = CurieNamespace('dismech', 'https://w3id.org/monarch-initiative/dismech/')
 EGA = CurieNamespace('ega', 'https://ega-archive.org/studies/')
 ENCODE = CurieNamespace('encode', 'https://www.encodeproject.org/experiments/')
@@ -308,6 +309,10 @@ class FDASurrogateEndpointCollectionName(SurrogateEndpointCollectionName):
 
 
 class GroupingName(extended_str):
+    pass
+
+
+class ModuleCollectionName(extended_str):
     pass
 
 
@@ -3845,6 +3850,7 @@ class Disease(YAMLRoot):
     environmental: Optional[Union[dict[Union[str, EnvironmentalName], Union[dict, Environmental]], list[Union[dict, Environmental]]]] = empty_dict()
     treatments: Optional[Union[dict[Union[str, TreatmentName], Union[dict, "Treatment"]], list[Union[dict, "Treatment"]]]] = empty_dict()
     categories: Optional[Union[str, list[str]]] = empty_list()
+    module_categories: Optional[Union[Union[str, "ModuleCategoryEnum"], list[Union[str, "ModuleCategoryEnum"]]]] = empty_list()
     infectious_agent: Optional[Union[dict[Union[str, InfectiousAgentName], Union[dict, "InfectiousAgent"]], list[Union[dict, "InfectiousAgent"]]]] = empty_dict()
     agent_life_cycle: Optional[Union[dict, "AgentLifeCycle"]] = None
     transmission: Optional[Union[dict[Union[str, TransmissionName], Union[dict, "Transmission"]], list[Union[dict, "Transmission"]]]] = empty_dict()
@@ -3936,6 +3942,10 @@ class Disease(YAMLRoot):
         if not isinstance(self.categories, list):
             self.categories = [self.categories] if self.categories is not None else []
         self.categories = [v if isinstance(v, str) else str(v) for v in self.categories]
+
+        if not isinstance(self.module_categories, list):
+            self.module_categories = [self.module_categories] if self.module_categories is not None else []
+        self.module_categories = [v if isinstance(v, ModuleCategoryEnum) else ModuleCategoryEnum(v) for v in self.module_categories]
 
         self._normalize_inlined_as_list(slot_name="infectious_agent", slot_type=InfectiousAgent, key_name="name", keyed=True)
 
@@ -6556,6 +6566,110 @@ class DifferentiatingMechanism(YAMLRoot):
 
         if self.modifier is not None and not isinstance(self.modifier, ModifierEnum):
             self.modifier = ModifierEnum(self.modifier)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ModuleCollection(YAMLRoot):
+    """
+    A curated navigation or framework record that organizes mechanism modules. A ModuleCollection is not itself a
+    mechanism and does not assert disease membership. It points down to module filename stems, may nest more specific
+    collections, and may cite the publication that defines the framework.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModuleCollection"]
+    class_class_curie: ClassVar[str] = "dismech:ModuleCollection"
+    class_name: ClassVar[str] = "ModuleCollection"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModuleCollection
+
+    name: Union[str, ModuleCollectionName] = None
+    collection_type: Union[str, "ModuleCollectionTypeEnum"] = None
+    module_members: Union[Union[dict, "ModuleCollectionMember"], list[Union[dict, "ModuleCollectionMember"]]] = None
+    display_name: Optional[str] = None
+    creation_date: Optional[str] = None
+    description: Optional[str] = None
+    child_collections: Optional[Union[str, list[str]]] = empty_list()
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ModuleCollectionName):
+            self.name = ModuleCollectionName(self.name)
+
+        if self._is_empty(self.collection_type):
+            self.MissingRequiredField("collection_type")
+        if not isinstance(self.collection_type, ModuleCollectionTypeEnum):
+            self.collection_type = ModuleCollectionTypeEnum(self.collection_type)
+
+        if self._is_empty(self.module_members):
+            self.MissingRequiredField("module_members")
+        self._normalize_inlined_as_list(slot_name="module_members", slot_type=ModuleCollectionMember, key_name="module", keyed=False)
+
+        if self.display_name is not None and not isinstance(self.display_name, str):
+            self.display_name = str(self.display_name)
+
+        if self.creation_date is not None and not isinstance(self.creation_date, str):
+            self.creation_date = str(self.creation_date)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.child_collections, list):
+            self.child_collections = [self.child_collections] if self.child_collections is not None else []
+        self.child_collections = [v if isinstance(v, str) else str(v) for v in self.child_collections]
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ModuleCollectionMember(YAMLRoot):
+    """
+    A mechanism module included in a ModuleCollection, with optional labels and explanation specific to the source
+    framework.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModuleCollectionMember"]
+    class_class_curie: ClassVar[str] = "dismech:ModuleCollectionMember"
+    class_name: ClassVar[str] = "ModuleCollectionMember"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModuleCollectionMember
+
+    module: str = None
+    framework_terms: Optional[Union[str, list[str]]] = empty_list()
+    description: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.module):
+            self.MissingRequiredField("module")
+        if not isinstance(self.module, str):
+            self.module = str(self.module)
+
+        if not isinstance(self.framework_terms, list):
+            self.framework_terms = [self.framework_terms] if self.framework_terms is not None else []
+        self.framework_terms = [v if isinstance(v, str) else str(v) for v in self.framework_terms]
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -9405,9 +9519,6 @@ class GroupingMemberTypeEnum(EnumDefinitionImpl):
     SUBTYPE = PermissibleValue(
         text="SUBTYPE",
         description="A named subtype within a Disease entry.")
-    MODULE = PermissibleValue(
-        text="MODULE",
-        description="A mechanism module in kb/modules/.")
     GROUPING = PermissibleValue(
         text="GROUPING",
         description="Another Grouping (nested grouping).")
@@ -9415,6 +9526,91 @@ class GroupingMemberTypeEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="GroupingMemberTypeEnum",
         description="The kind of entity referenced by a GroupingMember.",
+    )
+
+class ModuleCollectionTypeEnum(EnumDefinitionImpl):
+    """
+    The organizing principle for a curated collection of mechanism modules. Collections are navigation and framework
+    records, not mechanism modules themselves and not disease groupings.
+    """
+    PUBLISHED_FRAMEWORK = PermissibleValue(
+        text="PUBLISHED_FRAMEWORK",
+        title="Published framework",
+        description="""A named framework or model defined in the scientific literature, such as the Hallmarks of Aging.""")
+    MECHANISTIC_FAMILY = PermissibleValue(
+        text="MECHANISTIC_FAMILY",
+        title="Mechanistic family",
+        description="Modules sharing a broad mechanistic pattern or process family.")
+    BIOLOGICAL_SYSTEM = PermissibleValue(
+        text="BIOLOGICAL_SYSTEM",
+        title="Biological system",
+        description="Modules organized by the biological system or compartment involved.")
+    PATHOLOGICAL_OUTCOME = PermissibleValue(
+        text="PATHOLOGICAL_OUTCOME",
+        title="Pathological outcome",
+        description="Modules organized by a shared class of pathological outcome.")
+    THERAPEUTIC_STRATEGY = PermissibleValue(
+        text="THERAPEUTIC_STRATEGY",
+        title="Therapeutic strategy",
+        description="Modules organized by a shared intervention or therapeutic strategy.")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        title="Other",
+        description="A module-collection basis not covered by the other values.")
+
+    _defn = EnumDefinition(
+        name="ModuleCollectionTypeEnum",
+        description="""The organizing principle for a curated collection of mechanism modules. Collections are navigation and framework records, not mechanism modules themselves and not disease groupings.""",
+    )
+
+class ModuleCategoryEnum(EnumDefinitionImpl):
+    """
+    Areas of study a mechanism module is relevant to. A category asserts "this module is relevant to this area of
+    study" — it is a discovery and browsing aid, not a mechanistic claim and not a classification of the diseases that
+    conform to the module. Multivalued and deliberately non-exclusive: a drug-toxicity module is both TOXICOLOGY and
+    PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY and INFECTIOUS_DISEASE. Applied through the
+    `module_categories` slot, which is intended for entries under `kb/modules/`.
+    """
+    TOXICOLOGY = PermissibleValue(
+        text="TOXICOLOGY",
+        title="Toxicology",
+        description="""Injury caused by exposure to a xenobiotic — environmental toxicants, poisons, occupational and dietary exposures, and adverse drug reactions modelled as mechanism rather than as an outcome. Includes drug-toxicity modules and any module whose trigger arm carries a toxicant or drug exposure.""")
+    PHARMACOLOGY = PermissibleValue(
+        text="PHARMACOLOGY",
+        title="Pharmacology",
+        description="""Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern.""")
+    ONCOLOGY = PermissibleValue(
+        text="ONCOLOGY",
+        title="Oncology",
+        description="""Tumor biology and cancer therapeutics — the hallmark-of-cancer capability modules, tumor-microenvironment mechanisms, and cancer-specific therapeutic vulnerabilities and resistance patterns.""")
+    INFECTIOUS_DISEASE = PermissibleValue(
+        text="INFECTIOUS_DISEASE",
+        title="Infectious disease",
+        description="""Host-pathogen mechanism and antimicrobial therapy: pathogen entry, replication, persistence and immune evasion, together with the antibacterial, antifungal, and antiviral drug-target modules.""")
+    IMMUNOLOGY = PermissibleValue(
+        text="IMMUNOLOGY",
+        title="Immunology",
+        description="""Immune-mediated mechanism — innate and adaptive immune activation, autoimmunity, hypersensitivity, chronic inflammation, and the immune contribution to tissue injury and repair.""")
+    NEUROSCIENCE = PermissibleValue(
+        text="NEUROSCIENCE",
+        title="Neuroscience",
+        description="""Nervous-system mechanism across the central, peripheral, and sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability, neurodevelopmental patterning of the brain, and neural waste clearance.""")
+    DEVELOPMENTAL_BIOLOGY = PermissibleValue(
+        text="DEVELOPMENTAL_BIOLOGY",
+        title="Developmental biology",
+        description="""Morphogenesis and embryonic patterning — signalling gradients, segmentation, cell-fate specification, and migration defects whose lesion acts during development rather than in mature tissue.""")
+    METABOLISM = PermissibleValue(
+        text="METABOLISM",
+        title="Metabolism",
+        description="""Intermediary metabolism, bioenergetics, and cellular quality control of metabolic substrate: inborn errors of metabolism, mitochondrial and lysosomal function, nutrient sensing, and storage or intoxication phenotypes.""")
+    AGING = PermissibleValue(
+        text="AGING",
+        title="Aging",
+        description="""Geroscience mechanism — the hallmarks of aging and the age-associated processes (senescence, telomere attrition, stem-cell exhaustion, proteostasis and genome-maintenance decline) that drive late-onset disease.""")
+
+    _defn = EnumDefinition(
+        name="ModuleCategoryEnum",
+        description="""Areas of study a mechanism module is relevant to. A category asserts \"this module is relevant to this area of study\" — it is a discovery and browsing aid, not a mechanistic claim and not a classification of the diseases that conform to the module. Multivalued and deliberately non-exclusive: a drug-toxicity module is both TOXICOLOGY and PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY and INFECTIOUS_DISEASE. Applied through the `module_categories` slot, which is intended for entries under `kb/modules/`.""",
     )
 
 class ReferenceTagEnum(EnumDefinitionImpl):
@@ -10395,7 +10591,8 @@ class ISDSNosologyGroupEnum(EnumDefinitionImpl):
         description="""Group 11 (2023 revision): Metaphyseal dysplasias. Disorders with predominantly metaphyseal change — metaphyseal dysplasia Schmid type (COL10A1), cartilage-hair hypoplasia (RMRP), the CHH-like short-stature dysplasias (POP1, NEPRO), Shwachman-Diamond syndrome (SBDS, EFL1, DNAJC21, SRP54), metaphyseal dysplasia Spahr and metaphyseal anadysplasia (MMP13, MMP9), metaphyseal dysplasia with maxillary hypoplasia (RUNX2).""")
     spondylometaphyseal_dysplasias = PermissibleValue(
         text="spondylometaphyseal_dysplasias",
-        description="""Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD). Combined vertebral and metaphyseal involvement — spondyloenchondrodysplasia (ACP5), odontochondrodysplasia (TRIP11), SMD corner-fracture/Sutcliffe type (FN1), SMD with cone-rod dystrophy (PCYT1A).""")
+        description="""Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD). Combined vertebral and metaphyseal involvement. The group has exactly six members, NOS 12-0010 to 12-0060 — spondyloenchondrodysplasia with immune dysregulation (ACP5), odontochondrodysplasia (TRIP11), SMD Sutcliffe or 'corner fracture' type (FN1), SMD with cone-rod dystrophy (PCYT1A), SMD with corneal dystrophy (PLCB3), and chondrodysplasia-pseudohermaphroditism / Nivelon-Nivelon-Mabille syndrome (HHAT).
+Four disorders carrying an SMD name are deliberately placed elsewhere, and the group's own \"see also\" note lists all four: SMD Kozlowski (TRPV4, group 10), severe SMD Sedaghatian type (GPX4, group 14), and axial SMD in its CFAP410-related and NEK1-related forms (group 10, skeletal ciliopathies). TRIP11 additionally spans two groups by severity — odontochondrodysplasia here, achondrogenesis type 1A in group 14 — and MIM 184255 is gene-split between NOS 12-0030 (FN1) and NOS 02-0050 (COL2A1), with the row note \"Some cases are linked to COL2A1 but not the original family\". A radiographic SMD label is therefore a poor predictor of group-12 membership; check Table 1.""")
     spondylo_epi_metaphyseal_dysplasias = PermissibleValue(
         text="spondylo_epi_metaphyseal_dysplasias",
         description="""Group 13 (2023 revision): Spondyloepi(meta)physeal dysplasias (SE(M)D). A large, molecularly heterogeneous group with vertebral plus epiphyseal (with or without metaphyseal) involvement — Dyggve-Melchior-Clausen dysplasia, immuno-osseous dysplasia (Schimke), Wolcott-Rallison syndrome, the named SEMD types (matrilin/MATN3, biglycan, NANS, RSPRY1, TMEM165, EXTL3, DDRGK1, UFSP2, DDR2), X-linked SED tarda (TRAPPC2), spondylodysplastic Ehlers-Danlos syndrome (SLC39A13), SPONASTRIME dysplasia, Steel syndrome, CODAS, EVEN-PLUS and CAGSSS syndromes.""")
@@ -12449,6 +12646,9 @@ slots.treatments = Slot(uri=DISMECH.treatments, name="treatments", curie=DISMECH
 slots.categories = Slot(uri=DISMECH.categories, name="categories", curie=DISMECH.curie('categories'),
                    model_uri=DISMECH.categories, domain=None, range=Optional[Union[str, list[str]]])
 
+slots.module_categories = Slot(uri=DISMECH.module_categories, name="module_categories", curie=DISMECH.curie('module_categories'),
+                   model_uri=DISMECH.module_categories, domain=None, range=Optional[Union[Union[str, "ModuleCategoryEnum"], list[Union[str, "ModuleCategoryEnum"]]]])
+
 slots.infectious_agent = Slot(uri=DISMECH.infectious_agent, name="infectious_agent", curie=DISMECH.curie('infectious_agent'),
                    model_uri=DISMECH.infectious_agent, domain=None, range=Optional[Union[dict[Union[str, InfectiousAgentName], Union[dict, InfectiousAgent]], list[Union[dict, InfectiousAgent]]]])
 
@@ -13195,6 +13395,18 @@ slots.member_type = Slot(uri=DISMECH.member_type, name="member_type", curie=DISM
 slots.differentiating_mechanisms = Slot(uri=DISMECH.differentiating_mechanisms, name="differentiating_mechanisms", curie=DISMECH.curie('differentiating_mechanisms'),
                    model_uri=DISMECH.differentiating_mechanisms, domain=None, range=Optional[Union[Union[dict, DifferentiatingMechanism], list[Union[dict, DifferentiatingMechanism]]]])
 
+slots.collection_type = Slot(uri=DISMECH.collection_type, name="collection_type", curie=DISMECH.curie('collection_type'),
+                   model_uri=DISMECH.collection_type, domain=None, range=Optional[Union[str, "ModuleCollectionTypeEnum"]])
+
+slots.module_members = Slot(uri=DISMECH.module_members, name="module_members", curie=DISMECH.curie('module_members'),
+                   model_uri=DISMECH.module_members, domain=None, range=Optional[Union[Union[dict, ModuleCollectionMember], list[Union[dict, ModuleCollectionMember]]]])
+
+slots.framework_terms = Slot(uri=DISMECH.framework_terms, name="framework_terms", curie=DISMECH.curie('framework_terms'),
+                   model_uri=DISMECH.framework_terms, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.child_collections = Slot(uri=DISMECH.child_collections, name="child_collections", curie=DISMECH.curie('child_collections'),
+                   model_uri=DISMECH.child_collections, domain=None, range=Optional[Union[str, list[str]]])
+
 slots.geneSetAssociation__gene_set = Slot(uri=DISMECH.gene_set, name="geneSetAssociation__gene_set", curie=DISMECH.curie('gene_set'),
                    model_uri=DISMECH.geneSetAssociation__gene_set, domain=None, range=Union[str, URIorCURIE])
 
@@ -13811,3 +14023,19 @@ slots.GroupingMember_member_type = Slot(uri=DISMECH.member_type, name="GroupingM
 
 slots.DifferentiatingMechanism_description = Slot(uri=DISMECH.description, name="DifferentiatingMechanism_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.DifferentiatingMechanism_description, domain=DifferentiatingMechanism, range=str)
+
+slots.ModuleCollection_name = Slot(uri=DISMECH.name, name="ModuleCollection_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.ModuleCollection_name, domain=ModuleCollection, range=Union[str, ModuleCollectionName])
+
+slots.ModuleCollection_creation_date = Slot(uri=DISMECH.creation_date, name="ModuleCollection_creation_date", curie=DISMECH.curie('creation_date'),
+                   model_uri=DISMECH.ModuleCollection_creation_date, domain=ModuleCollection, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.ModuleCollection_collection_type = Slot(uri=DISMECH.collection_type, name="ModuleCollection_collection_type", curie=DISMECH.curie('collection_type'),
+                   model_uri=DISMECH.ModuleCollection_collection_type, domain=ModuleCollection, range=Union[str, "ModuleCollectionTypeEnum"])
+
+slots.ModuleCollection_module_members = Slot(uri=DISMECH.module_members, name="ModuleCollection_module_members", curie=DISMECH.curie('module_members'),
+                   model_uri=DISMECH.ModuleCollection_module_members, domain=ModuleCollection, range=Union[Union[dict, "ModuleCollectionMember"], list[Union[dict, "ModuleCollectionMember"]]])
+
+slots.ModuleCollectionMember_module = Slot(uri=DISMECH.module, name="ModuleCollectionMember_module", curie=DISMECH.curie('module'),
+                   model_uri=DISMECH.ModuleCollectionMember_module, domain=ModuleCollectionMember, range=str)
