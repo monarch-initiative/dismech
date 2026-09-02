@@ -76,12 +76,34 @@ Each match carries `roles: {ke_id: "upstream"|"downstream"}`.
 
 Then throw out the irrelevant ones. **A Key Event is stressor- and
 organ-agnostic by design**, so its KERs run into every organ that shares the
-molecular event. `KE1562` (decreased Na/K ATPase activity) returns six KERs: two
-cardiac, one renal proximal tubule, one sodium uptake in fish gills. All four are
-correct AOP-Wiki content and only the cardiac two belong in a cardiac module.
+molecular event.
 
-Judge relevance from the parent AOP, not the KER title — `aop_ids` on each
-`ker_info`, resolved against `all_aops_*.json`.
+`KE1562` (decreased Na/K ATPase activity) matches **six** KERs — four with
+KE1562 upstream, two with it downstream. Of the four it leads to, exactly **one**
+belongs to a cardiac chain:
+
+| KER | Downstream event | Parent AOP | Keep, for cardiac work? |
+|---|---|---|---|
+| KER3444 | Increased, intracellular sodium | 556 — Decreased Na/K ATPase activity leading to heart failure | **yes** |
+| KER2787 | Increase, cell membrane depolarization | 266 — Uncoupling of oxidative phosphorylation leading to growth inhibition | no |
+| KER1811 | Decreased proximal tubular vectorial transport | 276 — Complex I inhibition leading to Fanconi syndrome | no |
+| KER3287 | Decreased, sodium uptake in gills | 539 — Decreased Sodium/Potassium ATPase activity leads to Heart failure | no |
+
+All four are correct AOP-Wiki content, and the ratio is the lesson: one edge in
+six survived, because most of what a lookup returns is another organ's use of the
+same molecular event.
+
+**KER3287 is why no single title settles this.** Its parent AOP is titled "leads
+to Heart failure" while the KER itself ends at sodium uptake in fish gills.
+Filtering on the AOP title alone would have kept it. Resolve `aop_ids` against
+`all_aops_*.json` *and* read the downstream event — where the two disagree, the
+endpoint is what the edge actually asserts.
+
+**A KER can carry both roles at once.** When Step 2 batches the whole KE set, a
+KER whose two endpoints are both in that set records `upstream` and `downstream`
+together. That is not ambiguity — it means the edge is internal to the chain you
+are assembling, and it is a useful signal in Step 6 rather than something to
+resolve here.
 
 ## Step 5 — Triage the evidence, and let it set priority
 

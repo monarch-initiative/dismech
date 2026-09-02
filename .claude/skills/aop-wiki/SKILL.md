@@ -21,6 +21,11 @@ files. If a query needs something the CLI cannot do, add a command there.
 uvx --from git+https://github.com/gingin77/aop_wiki_cli aop-wiki-cli --help
 ```
 
+That form tracks the repository's default branch, so the tool can change under
+you between runs. Append `@<tag-or-commit>` to pin when a result has to be
+reproducible — and record the pin next to the snapshot date, since the two
+together are what make a lookup repeatable.
+
 Installed into an environment it is just `aop-wiki-cli <command>`; from a clone,
 `uv run aop-wiki-cli <command>`. All three reach the same console script, so
 every example below is written as the bare `aop-wiki-cli` form.
@@ -116,9 +121,11 @@ aop-wiki-cli find-kers-for-events --ke-terms "oxidative stress,cell death" --dat
 
 **A KE is stressor-agnostic, so its KERs cross domains.** Filter by relevance
 rather than taking the list whole. `KE1562` (Decreased Na/K ATPase activity)
-returns six KERs, of which the cardiac-relevant ones are membrane
-depolarization and intracellular sodium — the others run to proximal tubular
-transport and sodium uptake in fish gills.
+matches six KERs — four leading out of it, two into it — and of the four, only
+KER3444 (to increased intracellular sodium, AOP 556) belongs to a cardiac chain.
+The rest run to growth inhibition, renal proximal tubular transport, and sodium
+uptake in fish gills. Note that the gill KER sits inside an AOP titled "leads to
+Heart failure", so check the downstream event and not just the AOP title.
 
 ### Date handling — the main footgun
 
@@ -244,8 +251,10 @@ exclusion list), `methods_nams` (mode 1, NAM assay methods),
 `regulatory_relevance` (mode 1, regulatory bodies and guidelines).
 `harmonize_ker_evidence` holds constants, not a search config.
 
-**`configs/event_first_collections.py` is not usable by `search-with-config`** —
-it defines `DEPRESSION_CONFIG`/`PARKINSON_CONFIG` dicts, not `SEARCH_PARAMS`.
+**Two shipped configs are not usable by `search-with-config`.**
+`event_first_collections.py` defines `DEPRESSION_CONFIG`/`PARKINSON_CONFIG`
+dicts and `reference_search.py` defines neither required name, so neither
+exposes `SEARCH_PARAMS`. Both still appear in the shipped-config listing.
 `configs/Configs_README.md` documents a `collect-entities-for-events` command
 for them; that command **does not exist** in `cli.py`. Use `search_mode:
 event_to_aop`, or read those event ID lists directly.
