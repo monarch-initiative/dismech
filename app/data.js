@@ -8450,6 +8450,78 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Acute Ackee Fruit Intoxication",
+    "disease_id": "MONDO:0019140",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-09-02T15:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acute ackee fruit intoxication, long known as Jamaican vomiting sickness, follows eating the unripe fruit of Blighia sapida. The toxin is hypoglycin A, and it is harmless until the body activates it: metabolism converts it to methylenecyclopropylacetyl-CoA, which is a suicide substrate for acyl-CoA dehydrogenases. It binds the enzyme's flavin covalently and does not let go. Fatty acid beta-oxidation stops, so a fasting patient cannot make ketones or spare glucose, and the hypoglycaemia that follows is profound and unresponsive to the usual counter-regulation. The interest of this entry is that the resulting biochemistry is not merely similar to an inborn error - it is the same biochemistry. The urine of a poisoned patient carries the dicarboxylic acids of a fatty acid oxidation defect at up to a thousand times normal, and the acylcarnitine profile is read as multiple acyl-CoA dehydrogenase deficiency. One disease is inherited and one is eaten, and downstream of the enzyme there is nothing to tell them apart.",
+    "pathophysiology": [
+      "Hypoglycin A Ingestion",
+      "Metabolic Activation to MCPA-CoA",
+      "Acyl-CoA Dehydrogenase Suicide Inactivation",
+      "Impaired Fatty Acid Beta-Oxidation",
+      "Failure of Ketogenesis and Gluconeogenesis",
+      "Profound Hypoglycemia and Acute Metabolic Decompensation",
+      "Acute Encephalopathy and Death"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "fatty acid beta-oxidation",
+      "ketone body biosynthetic process",
+      "gluconeogenesis"
+    ],
+    "phenotypes": [
+      "Hypoglycemia",
+      "Vomiting",
+      "Encephalopathy",
+      "Seizure",
+      "Coma",
+      "Hypothermia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001943",
+      "HP:0002013",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0001259",
+      "HP:0002045"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Dextrose and supportive care"
+    ],
+    "environmental": [
+      "Ingestion of unripe ackee arillus"
+    ],
+    "biochemical": [
+      "Urinary dicarboxylic acids",
+      "Urinary short-chain fatty acids",
+      "Acylcarnitine profile",
+      "MCPA-carnitine"
+    ],
+    "source_file": "Acute_Ackee_Fruit_Intoxication.yaml",
+    "page_url": "../pages/disorders/Acute_Ackee_Fruit_Intoxication.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Acute Alcohol Sensitivity",
     "disease_id": "MONDO:0012454",
     "category": "Genetic",
@@ -259852,17 +259924,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2519,
+  "total_disorder_pages": 2520,
   "total_subtypes": 3565,
-  "total_disorders_and_subtypes": 6084,
-  "total_unique_evidence_sources": 36089,
-  "total_unique_publications": 33957,
+  "total_disorders_and_subtypes": 6085,
+  "total_unique_evidence_sources": 36098,
+  "total_unique_publications": 33966,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2514,
-  "total_unique_pathological_events": 14657,
+  "total_pathographs": 2515,
+  "total_unique_pathological_events": 14664,
   "total_modules": 167,
-  "total_research_reports": 2640,
+  "total_research_reports": 2641,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
