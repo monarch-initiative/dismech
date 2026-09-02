@@ -116,7 +116,8 @@ stalled bot-authored PRs and deterministically merges ready PRs, including weekl
 compliance PRs, through one common closing controller).
 
 **Interactive agents** — `claude.yml` and `dragon-ai.yml` respond to `@`-mentions
-on issues, PRs, and review comments. `claude-issue-triage` and
+on issues, PRs, and review comments (`dragon-ai.yml` is summoned as `@ai4c-agent`;
+the file keeps its old name). `claude-issue-triage` and
 `claude-issue-summarize` process new issues.
 
 **Derived artifacts** — `generate-pages`, `generate-grouping-pages`,
