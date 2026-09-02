@@ -175,3 +175,57 @@ def test_merge_tree_distinguishes_error_from_conflict(squash_repo):
     assert outcome == "clean"
     _tree2, outcome2 = vmi.merge_tree(m2, "0" * 40)
     assert outcome2.startswith("merge-tree failed")
+
+
+def _run_main(monkeypatch, tmp_path, before, after, stub):
+    """Drive main() with a stubbed verify_commit and a scratch GITHUB_OUTPUT."""
+    out = tmp_path / "github_output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    monkeypatch.setattr(vmi, "verify_commit", stub)
+    monkeypatch.setattr(
+        sys, "argv",
+        ["verify_merge_integrity.py", "--repo", "owner/name",
+         "--before", before, "--after", after],
+    )
+    code = vmi.main()
+    return code, out.read_text() if out.exists() else ""
+
+
+def test_main_null_sha_push_is_a_clean_no_op(monkeypatch, tmp_path):
+    def explode(repo, commit):  # pragma: no cover - must not be reached
+        raise AssertionError("verify_commit must not run for a null-SHA push")
+
+    code, output = _run_main(monkeypatch, tmp_path, "0" * 40, "f" * 40, explode)
+    assert code == 0
+    assert "mismatch=true" not in output
+
+
+def test_main_mismatch_exits_1_and_emits_the_output_gate(
+    squash_repo, monkeypatch, tmp_path
+):
+    repo, _head, m2, expected_tree = squash_repo
+    commit = _squash_commit(repo, expected_tree, m2, "Feature work (#7)")
+    base = _git(repo, "rev-parse", f"{m2}^")
+
+    def stub(repo_, c):
+        return vmi.Result(c, vmi.MISMATCH, detail="stubbed corruption")
+
+    code, output = _run_main(monkeypatch, tmp_path, base, commit, stub)
+    assert code == 1
+    assert "mismatch=true" in output
+
+
+def test_main_fails_closed_when_nothing_could_be_verified(
+    squash_repo, monkeypatch, tmp_path
+):
+    repo, _head, m2, expected_tree = squash_repo
+    commit = _squash_commit(repo, expected_tree, m2, "Feature work (#7)")
+    base = _git(repo, "rev-parse", f"{m2}^")
+
+    def stub(repo_, c):
+        return vmi.Result(c, vmi.SKIPPED_LOOKUP_ERROR, detail="rate limited",
+                          pr_number=7)
+
+    code, output = _run_main(monkeypatch, tmp_path, base, commit, stub)
+    assert code == 2
+    assert "mismatch=true" not in output

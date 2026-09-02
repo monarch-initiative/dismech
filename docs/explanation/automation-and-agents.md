@@ -379,9 +379,10 @@ managed as a repository ruleset, and pausing it is one admin API call each
 way:
 
 ```bash
-# find the ruleset id
-gh api repos/monarch-initiative/dismech/rulesets \
-  --jq '.[] | select(.name == "merge-queue-main") | .id'
+# find the ruleset carrying the merge_queue rule (don't rely on its name)
+gh api repos/monarch-initiative/dismech/rulesets --jq '.[] | "\(.id) \(.name)"'
+gh api repos/monarch-initiative/dismech/rulesets/<id> \
+  --jq '[.rules[].type]'   # confirm it includes "merge_queue"
 # pause (PRs merge normally again; queue state is abandoned)
 gh api -X PUT repos/monarch-initiative/dismech/rulesets/<id> -f enforcement=disabled
 # resume

@@ -30,6 +30,9 @@ What is deliberately NOT verified:
 - **Rebase merges and direct pushes**: a rebase merge maps one PR onto
   several commits none of which is the PR's ``merge_commit_sha`` recorded
   here, and a direct push has no PR at all. Both are reported as skipped.
+- **History rewrites**: the check walks ``before..after``, so a force-push
+  that *drops* commits contributes nothing to the range and passes. ``main``
+  forbids force pushes; if that ever changes, this needs an ancestry check.
 - **PRs whose recorded ``merge_commit_sha`` does not match the commit**:
   skipped with a note rather than guessed at -- a wrong guess either way
   (false alarm, or false clearance) is worse than an honest "could not
@@ -235,7 +238,6 @@ def main() -> int:
     parser.add_argument("--after", required=True,
                         help="main tip after the push (github.event.after)")
     args = parser.parse_args()
-    emit_output("mismatch", "false")
 
     if set(args.before) == {"0"}:
         # A branch-creation push reports the null SHA; nothing to compare.
@@ -284,6 +286,14 @@ def main() -> int:
     if broken:
         print(f"::warning::{broken} commit(s) could not be verified "
               "(lookup or reconstruction failure); see statuses above")
+    # A push where every squash-shaped commit was a mapping skip is a policy
+    # outcome commit-by-commit, but zero coverage overall -- if the
+    # merge_commit_sha mapping assumption ever breaks wholesale, this is the
+    # only line that says so.
+    if counts.get(SKIPPED_PR_MAPPING, 0) and not counts.get(VERIFIED, 0):
+        print("::warning::no commit was verified; every PR-numbered commit "
+              "was a merge_commit_sha mapping skip -- if this recurs, the "
+              "squash-mapping assumption may have broken")
     return 0
 
 
