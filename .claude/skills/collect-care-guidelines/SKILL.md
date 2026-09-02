@@ -132,7 +132,7 @@ python .claude/skills/collect-care-guidelines/scripts/collect_guidelines.py \
   IDH-Wildtype") may under- or over-match; spot-check the top hits.
 - This is a **discovery** step. Any citation ultimately used as dismech evidence
   must still pass the normal snippet-verification workflow
-  (`just fetch-reference`, `just validate-references`) — the `.hpoa`/guideline
+  (`just fetch-reference`, `just validate-kb-references`) — the `.hpoa`/guideline
   provenance alone does not satisfy the dismech PMID + verified-snippet policy.
 
 ## Relationship to the Fanconi anemia precedent

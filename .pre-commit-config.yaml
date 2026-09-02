@@ -7,18 +7,15 @@ repos:
       - id: check-toml
       - id: check-yaml
         exclude: ^mkdocs\.yml$
-      # Generated schema docs are excluded from the whitespace fixers. They are
-      # committed AND verified byte-for-byte against a fresh `just
-      # gen-schema-docs` by the deploy-docs workflow, so a hook that rewrites
-      # them on commit guarantees that check can never pass: LinkML's docgen
-      # emits trailing whitespace ("# Class: Foo "), the fixer strips it, and
-      # the committed copy then differs from anything the generator produces.
-      # Fix the generator, not its output.
+      # Generated schema docs and checksum-addressed hypothesis artifacts are
+      # excluded from whitespace fixers. Both are verified byte-for-byte, so a
+      # hook rewrite invalidates the generated output or its manifest. Fix the
+      # generator/provider output at its source, not the committed copy.
       - id: end-of-file-fixer
-        exclude: &generated_docs ^(docs/schema|elements)/
+        exclude: &generated_or_immutable ^(docs/schema|elements|kb/hypotheses/.+_artifacts)/
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-        exclude: *generated_docs
+        exclude: *generated_or_immutable
 
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.37.0
@@ -39,6 +36,7 @@ repos:
     hooks:
       - id: codespell
         args: [--ignore-words=.codespell-ignore-words.txt]
+        exclude: ^kb/hypotheses/.+_artifacts/
         additional_dependencies:
           - tomli
 
@@ -49,8 +47,10 @@ repos:
       # Run the linter.
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        exclude: &immutable_hypothesis_artifacts ^kb/hypotheses/.+_artifacts/
       # Run the formatter.
       - id: ruff-format
+        exclude: *immutable_hypothesis_artifacts
 
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
