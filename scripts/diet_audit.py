@@ -271,7 +271,7 @@ def _classify_causal(env: dict) -> _DietItem | None:
         matched_in = "description"
 
     curies = [c for c, _ in filter(None, (food, exposure))]
-    labels = [l for _, l in filter(None, (food, exposure))]
+    labels = [label for _, label in filter(None, (food, exposure))]
 
     if food or exposure:
         state = _STATE_BOUND
@@ -303,7 +303,12 @@ def _classify_intervention(tx: dict) -> _DietItem | None:
     """Classify one ``treatments[]`` entry, or None if it is not diet-related."""
     term = tx.get("treatment_term")
     term = term if isinstance(term, dict) else {}
-    tid = str(((term.get("term") or {}) if isinstance(term.get("term"), dict) else {}).get("id") or "")
+    tid = str(
+        ((term.get("term") or {}) if isinstance(term.get("term"), dict) else {}).get(
+            "id"
+        )
+        or ""
+    )
     name = str(tx.get("name") or "(unnamed)")
     mods = term.get("dietary_modifications")
     has_mods = bool(mods) and isinstance(mods, list)
@@ -313,7 +318,11 @@ def _classify_intervention(tx: dict) -> _DietItem | None:
     if not (tid in _DIET_TREATMENT_TERMS or has_mods or trigger):
         return None
 
-    matched_in = "dietary_modifications" if has_mods else ("name" if trigger else "treatment_term")
+    matched_in = (
+        "dietary_modifications"
+        if has_mods
+        else ("name" if trigger else "treatment_term")
+    )
 
     curies: list[str] = []
     labels: list[str] = []
@@ -389,7 +398,9 @@ def _print_track(items: list[_DietItem], track: str, link_slot: str, top: int) -
     files = len({i.path for i in rows})
     linked = [i for i in rows if i.linked]
     print(f"=== {track.upper()} track — {total} entries in {files} files ===")
-    print(f"  on the pathograph (via {link_slot}): {len(linked)} ({_pct(len(linked), total)})")
+    print(
+        f"  on the pathograph (via {link_slot}): {len(linked)} ({_pct(len(linked), total)})"
+    )
     print()
 
     print(f"  {'evidence':<12} | {'on graph':>8} | {'off graph':>9} | {'total':>6}")
@@ -411,10 +422,12 @@ def _print_track(items: list[_DietItem], track: str, link_slot: str, top: int) -
             f"false-positive tail; filter with --strong-only"
         )
     unev = [i for i in rows if i.unevidenced_link]
-    print(f"  INVERSE DEFECT (on the pathograph, uncited): {len(unev)} — already rendering")
+    print(
+        f"  INVERSE DEFECT (on the pathograph, uncited): {len(unev)} — already rendering"
+    )
     print()
 
-    print(f"  ontology binding (secondary; FREE_TEXT is a valid outcome):")
+    print("  ontology binding (secondary; FREE_TEXT is a valid outcome):")
     for state in (_STATE_BOUND, _STATE_PARTIAL, _STATE_FREE_TEXT):
         n = sum(1 for i in rows if i.state == state)
         print(f"    {state:<10} {n:>5}  ({_pct(n, total)})")
@@ -445,7 +458,9 @@ def _print_summary(items: list[_DietItem], top: int) -> None:
     scattered = {k: v for k, v in patterns.items() if len(v) > 1}
     if scattered:
         print("Dietary-pattern concepts bound to >1 CURIE — standardization targets:")
-        for key, counter in sorted(scattered.items(), key=lambda kv: -sum(kv[1].values())):
+        for key, counter in sorted(
+            scattered.items(), key=lambda kv: -sum(kv[1].values())
+        ):
             detail = ", ".join(f"{c} x{n}" for c, n in counter.most_common())
             print(f"  {key}: {detail}")
         print()
@@ -457,7 +472,7 @@ def _print_summary(items: list[_DietItem], top: int) -> None:
     )
     recurring = [(n, c) for n, c in unbound_concepts.most_common(top) if c > 1]
     if recurring:
-        print(f"Recurring unbound causal concepts (review; free text may be correct):")
+        print("Recurring unbound causal concepts (review; free text may be correct):")
         for name, n in recurring:
             print(f"  {n:>3}  {name}")
 
