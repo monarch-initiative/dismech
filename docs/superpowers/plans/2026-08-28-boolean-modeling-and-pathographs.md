@@ -454,6 +454,33 @@ IFN model's four output nodes (viral replication, antiviral response, inflammati
 secretion) and the RA-FLS model's five phenotype submodels are curated as `readouts` on the
 links, grounding phenotype-level Boolean outputs against dismech pathophysiology nodes.
 
+### Follow-on: `ModelMechanismLink.model_scale` (2026-09-02)
+
+The stage-3 curation surfaced a gap the schema could not express. Four of the ten links
+are `PARTIALLY_RECAPITULATES` because the Boolean model addresses a molecular pathway
+while the node it attaches to sits at tissue scale — but that caveat existed only as
+prose in `limitations`, and `fidelity` compresses it into a tier that also absorbs species
+divergence, expression level and everything else, so `LOW` never says *which* problem it is.
+
+`ModelMechanismLink` now carries an optional `model_scale`, ranged on the existing
+`BiologicalScaleEnum`, recording the scale the model **observes**. Compared against the
+target's own `biological_scale` the gap becomes derivable (`just model-scale-audit`) rather
+than stored — and directional, because a model *below* its target's scale is extrapolating
+upward and cannot observe the outcome it is cited for, whereas a model *above* it contains
+that scale and is unremarkable.
+
+On the ten pilot links the derived gap independently reproduced the hand-assigned fidelity
+tiers: every 2-step upward extrapolation had been graded `LOW`, every aligned link
+`MODERATE`. The Fanconi anemia links are the informative negative — both `ALIGNED`, one
+still `PARTIALLY_RECAPITULATES`, because its caveat is pathway-activation-versus-
+recombination-fidelity rather than scale. The slot is orthogonal to `relationship` and
+`fidelity`, not a restatement of them.
+
+Recorded as **proposed** in [design decision 3a](../../explanation/design-decisions.md);
+it needs an issue and maintainer sign-off before it is enacted. 80.5% of the KB's 1,131
+model→mechanism links already have a scale-tagged target, so the comparison becomes
+computable across the KB as `model_scale` is populated.
+
 Stages 1–3 are Track A and can proceed immediately and independently. Stage 4 is worth
 doing on its own merits. Stages 5–7 are where the research value is, and are gated on 4.
 

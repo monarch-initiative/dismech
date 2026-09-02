@@ -1258,6 +1258,76 @@ def test_failure_to_recapitulate_links_are_substantiated(filepath):
     )
 
 
+BIOLOGICAL_SCALES = ["MOLECULAR", "CELLULAR", "TISSUE", "ORGANISM"]
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_model_scale_values_are_valid(filepath):
+    """`model_scale` must be a BiologicalScaleEnum value.
+
+    linkml-validate enforces this too; the point of restating it here is that
+    the audit and the test below both index into the ordered scale list, and an
+    out-of-vocabulary value would silently classify as UNDETERMINED rather than
+    failing.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = [
+        f"{section}[{i}].modeled_mechanisms[{j}].model_scale={link['model_scale']!r}"
+        for section, i, j, _model, link in _iter_mechanism_links(data)
+        if link.get("model_scale") and link["model_scale"] not in BIOLOGICAL_SCALES
+    ]
+
+    assert not errors, f"Invalid model_scale in {Path(filepath).name}: {errors}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_upward_extrapolating_links_are_caveated(filepath):
+    """A model below its target's scale is extrapolating and must say so.
+
+    When `model_scale` sits below the target node's `biological_scale`, the
+    model cannot observe the outcome it is cited for -- a signalling network
+    linked to a tissue-level node infers that outcome rather than measuring it.
+    That is the same class of claim as FAILS_TO_RECAPITULATE above: it needs the
+    caveat spelled out in `limitations`, not left to the reader.
+
+    Only fires when both scales are present, so it never blocks incremental
+    curation -- both slots are optional and most links carry neither. The
+    reverse direction is deliberately not checked: a model *above* its target's
+    scale contains that scale (a whole animal can report a molecular readout)
+    and needs no caveat on that account.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    scales = {
+        n.get("name"): n.get("biological_scale")
+        for n in (data.get("pathophysiology") or [])
+        if isinstance(n, dict)
+    }
+
+    errors = []
+    for section, i, j, _model, link in _iter_mechanism_links(data):
+        model_scale = link.get("model_scale")
+        target_scale = scales.get(link.get("target"))
+        if model_scale not in BIOLOGICAL_SCALES or target_scale not in BIOLOGICAL_SCALES:
+            continue
+        gap = BIOLOGICAL_SCALES.index(target_scale) - BIOLOGICAL_SCALES.index(model_scale)
+        if gap > 0 and not (link.get("limitations") or "").strip():
+            errors.append(
+                f"{section}[{i}].modeled_mechanisms[{j}] "
+                f"({model_scale} model -> {target_scale} target, gap +{gap}) "
+                f"missing limitations"
+            )
+
+    assert not errors, (
+        f"Uncaveated upward extrapolation in {Path(filepath).name}: {errors}"
+    )
+
+
 def test_duplicate_linked_animal_model_labels_are_caught(tmp_path):
     """Two linked models sharing a derived label must be caught.
 

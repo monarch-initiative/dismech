@@ -120,6 +120,59 @@ edges with a `causal_link_type`, forming a directed graph from etiology to pheno
 This graph backs the rendered pathographs and the computational-model integration
 (see [computational models](computational-models.md)).
 
+### 3a. Model-to-target scale gap is recorded as a fact and derived, not asserted (2026-09-02)
+
+**Status: PROPOSED — schema change implemented on a branch, maintainer sign-off outstanding.**
+Per the amendment process at the top of this document, this needs an issue and
+`@cmungall`'s approval before it can be described as enacted.
+
+**Decision.** `ModelMechanismLink` carries an optional `model_scale`
+(`BiologicalScaleEnum`, the same enum as `Pathophysiology.biological_scale`) recording the
+biological scale the model **observes**. The gap between a model and the node it is cited
+for is then *derived* by comparing the two, never stored.
+
+**Problem it solves.** A model linked to a node is not necessarily operating at that
+node's scale. A Boolean signalling network whose output node is named "bone erosion"
+observes molecular or cellular state and *infers* the tissue-level outcome; a
+transcription-level model of dopamine synthesis is not a model of striatal dopamine
+concentration. Before this slot the caveat survived only as prose in `limitations` —
+unqueryable, inconsistently written, and easy to omit altogether. `fidelity` compresses
+it into a coarse tier that also absorbs species divergence, expression level, and every
+other translational concern, so a `LOW` tier does not say *which* problem it is.
+
+**Why derive rather than store.** A stored `scale_mismatch` flag would duplicate
+information already present in two slots and could drift out of sync with them. The
+comparison is cheap (`just model-scale-audit`).
+
+**Why the comparison is directional.** The two directions are different claims and must
+not be collapsed into a single "mismatch" boolean:
+
+- **Model below target** — upward extrapolation. The model cannot observe the outcome it
+  is cited for. This is the reviewable state, and `test_upward_extrapolating_links_are_caveated`
+  requires `limitations` on it, mirroring the existing
+  `FAILS_TO_RECAPITULATE`-must-be-substantiated rule.
+- **Model above target** — the model contains the target's scale and is normally
+  unremarkable: a whole animal can report a molecular readout.
+
+**Scope limits, deliberately.** `model_scale` is *orthogonal* to `fidelity` and
+`relationship`, not a replacement for either: a molecular model linked to a molecular node
+shows no scale gap even when it is a poor model for an unrelated reason (pathway
+activation standing in for recombination fidelity, say). An aligned result means "no
+*scale* gap", never "good model". Both slots are optional, so a link with neither is
+`UNDETERMINED` rather than defective — the state of most existing links.
+
+**Feasibility.** 80.5% of the KB's 1,131 model→mechanism links already have a target
+node carrying `biological_scale`, so the comparison is computable for the large majority
+as soon as `model_scale` is populated. The initial pilot covers the ten Boolean-model
+links; on those, the derived gap independently reproduced the hand-assigned `fidelity`
+tiers (every 2-step upward extrapolation was graded `LOW`, every aligned link `MODERATE`),
+which is the evidence that the slot captures something real rather than restating
+curator intuition.
+
+**Not decided here.** Whether `ExperimentalReadout` should carry its own scale, and
+whether models themselves (rather than their links) should declare a scale span for
+multiscale frameworks such as PhysiBoSS.
+
 
 ### 3a. Cancer granularity ladder (2026-08-28)
 

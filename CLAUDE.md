@@ -896,7 +896,36 @@ the pathograph; that workaround is no longer needed (#8199).
 | `relationship` | what the model *does* to the node — `RECAPITULATES`, `PARTIALLY_RECAPITULATES`, `FAILS_TO_RECAPITULATE`, `PERTURBS`, `MEASURES`, `RESCUES` |
 | `fidelity` | how faithfully it captures the human mechanism — `HIGH` / `MODERATE` / `LOW` / `UNKNOWN` |
 | `limitations` | the specific translational caveat (species divergence, supraphysiological expression, missing compartments) |
+| `model_scale` | the biological scale the model actually **observes** (`BiologicalScaleEnum`) |
 | `readouts` | the **outcome measures** that ground the claim |
+
+**`model_scale` is what the model observes, not what it is cited for.** A model
+linked to a node is not necessarily operating at that node's scale: a Boolean
+signalling network whose output node is named "bone erosion" still observes only
+molecular or cellular state, and the tissue-level outcome is inferred. Record the
+observed scale in `model_scale`, using the same `BiologicalScaleEnum` as
+`Pathophysiology.biological_scale` so the two are directly comparable.
+
+Do **not** record the comparison — derive it with `just model-scale-audit`. The
+comparison is directional, and the directions are different claims:
+
+| Relation | Meaning |
+|---|---|
+| model scale **below** target scale | **Upward extrapolation.** The model cannot observe the outcome it is cited for; the claim is inferential. Requires `limitations` (`test_upward_extrapolating_links_are_caveated`). |
+| model scale **above** target scale | The model contains the target scale. Normally unremarkable — a whole animal can report a molecular readout. |
+| equal | No scale gap. |
+
+Both slots are optional, so a link with neither is `UNDETERMINED` rather than
+defective — that is the state of most existing links. `model_scale` is
+**orthogonal to `fidelity` and `relationship`**, not a restatement of them: a
+molecular model linked to a molecular node reports no scale gap even when it is
+a poor model for some unrelated reason. Read an aligned result as "no *scale*
+gap", never as "good model".
+
+Worked examples: the RA-FLS Boolean model (`CELLULAR`) linked to
+`Synovial Hyperplasia` (`TISSUE`) is a 1-step upward extrapolation; the type 1
+interferon Boolean model (`MOLECULAR`) linked to
+`Enhanced Viral Replication and Tissue Pathology` (`TISSUE`) is a 2-step one.
 
 ```yaml
 animal_models:
