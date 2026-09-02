@@ -36,6 +36,19 @@ def _json_bytes(value: Any) -> bytes:
     return json.dumps(value, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
 
+def _read_verified_cx2(record: dict[str, Any]) -> list[dict[str, Any]]:
+    output_path = Path(record["output_path"])
+    payload = output_path.read_bytes()
+    actual_hash = hashlib.sha256(payload).hexdigest()
+    expected_hash = record.get("sha256")
+    if actual_hash != expected_hash:
+        raise RuntimeError(
+            f"Refusing to upload {record['slug']}: expected sha256 "
+            f"{expected_hash!r}, got {actual_hash!r}"
+        )
+    return json.loads(payload)
+
+
 def _write_json_atomic(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -69,6 +82,46 @@ def _load_previous_networks(path: Path | None) -> dict[str, dict[str, Any]]:
     }
 
 
+def write_uuid_registry(manifest: dict[str, Any], path: Path) -> dict[str, Any]:
+    """Write the stable, reviewable subset of a release manifest."""
+    unverified = [
+        record["slug"]
+        for record in manifest.get("networks", [])
+        if record.get("ndex_uuid")
+        and record.get("status") not in {"VERIFIED_PRIVATE", "VERIFIED_PUBLIC"}
+    ]
+    if unverified:
+        raise RuntimeError(
+            "Refusing to write an active UUID registry with unverified networks: "
+            + ", ".join(unverified)
+        )
+    active = [
+        {
+            "slug": record["slug"],
+            "ndex_uuid": record["ndex_uuid"],
+            "status": "ACTIVE",
+        }
+        for record in manifest.get("networks", [])
+        if record.get("ndex_uuid")
+        and record.get("status") in {"VERIFIED_PRIVATE", "VERIFIED_PUBLIC"}
+    ]
+    retired = [
+        {
+            "slug": record["slug"],
+            "ndex_uuid": record["ndex_uuid"],
+            "status": "RETIRED",
+        }
+        for record in manifest.get("retired_networks", [])
+        if record.get("ndex_uuid")
+    ]
+    registry = {
+        "schema_version": "1.0",
+        "networks": sorted(active + retired, key=lambda record: record["slug"]),
+    }
+    _write_json_atomic(path, registry)
+    return registry
+
+
 def _network_properties(summary: dict[str, Any]) -> dict[str, str]:
     return {
         str(item.get("predicateString")): str(item.get("value"))
@@ -81,7 +134,7 @@ def _summary_errors(
     summary: dict[str, Any],
     *,
     record: dict[str, Any],
-    metadata: dict[str, str],
+    metadata: dict[str, Any],
     expected_visibility: str,
     expected_index_level: str,
 ) -> list[str]:
@@ -122,7 +175,7 @@ def _wait_for_valid_summary(
     network_id: str,
     *,
     record: dict[str, Any],
-    metadata: dict[str, str],
+    metadata: dict[str, Any],
     expected_visibility: str,
     expected_index_level: str,
     attempts: int = 30,
@@ -141,6 +194,20 @@ def _wait_for_valid_summary(
         )
         if not errors:
             return summary
+        permanent_prefixes = (
+            "name:",
+            "version:",
+            "nodeCount:",
+            "edgeCount:",
+            "network is invalid:",
+            "network has warnings:",
+            "network has no layout",
+            "property ",
+        )
+        if summary.get("completed") is True and any(
+            error.startswith(permanent_prefixes) for error in errors
+        ):
+            break
         if attempt == attempts - 1:
             break
         time.sleep(interval_seconds)
@@ -155,7 +222,7 @@ def build_release(
     output_dir: Path,
     manifest_path: Path,
     previous_manifest_path: Path | None,
-    release_metadata: dict[str, str],
+    release_metadata: dict[str, Any],
     source_revision: str,
     fail_on_export_defects: bool,
     require_disease_metadata: bool,
@@ -230,6 +297,18 @@ def build_release(
             }
         )
 
+    exported_slugs = {
+        record["slug"] for record in records if record["status"] == "EXPORTED"
+    }
+    retired_networks = [
+        {
+            "slug": slug,
+            "ndex_uuid": record["ndex_uuid"],
+            "previous_status": record.get("status"),
+        }
+        for slug, record in sorted(previous.items())
+        if slug not in exported_slugs and record.get("ndex_uuid")
+    ]
     manifest = {
         "schema_version": "1.0",
         "generated_at": datetime.now(UTC).isoformat(),
@@ -240,8 +319,10 @@ def build_release(
             "exported_count": sum(r["status"] == "EXPORTED" for r in records),
             "skipped_count": sum(r["status"].startswith("SKIPPED") for r in records),
             "export_defect_count": len(defects),
+            "retired_network_count": len(retired_networks),
         },
         "export_defects": defects,
+        "retired_networks": retired_networks,
         "networks": records,
     }
     _write_json_atomic(manifest_path, manifest)
@@ -262,11 +343,25 @@ def publish_release(
     password: str,
     visibility: str,
     index_level: str,
+    allow_export_defects: bool = False,
 ) -> dict[str, Any]:
+    visibility = visibility.upper()
+    index_level = index_level.upper()
+    if visibility not in {"PRIVATE", "PUBLIC"}:
+        raise ValueError(f"Unsupported NDEx visibility: {visibility}")
+    if index_level not in {"NONE", "META", "ALL"}:
+        raise ValueError(f"Unsupported NDEx index level: {index_level}")
     if not host.startswith("https://"):
         raise ValueError("NDEx publication requires an explicit HTTPS host")
     if not username or not password:
         raise ValueError("NDEX_USERNAME and NDEX_PASSWORD are required")
+    if "export_defects" not in manifest:
+        raise ValueError("Release manifest is missing its export_defects audit")
+    if manifest["export_defects"] and not allow_export_defects:
+        raise RuntimeError(
+            f"Refusing publication because the manifest contains "
+            f"{len(manifest['export_defects'])} export defect(s)"
+        )
 
     client = Ndex2(host=host, username=username, password=password)
     metadata = manifest["release_metadata"] | {
@@ -276,42 +371,75 @@ def publish_release(
         record
         for record in manifest["networks"]
         if record["status"]
-        in {"EXPORTED", "UPLOADED_PRIVATE", "VERIFIED_PRIVATE", "VERIFIED_PUBLIC"}
+        in {
+            "EXPORTED",
+            "UPLOADED",
+            "UPLOADED_PRIVATE",
+            "VERIFIED_PRIVATE",
+            "VERIFIED_PUBLIC",
+        }
     ]
+    cx2_by_slug = {
+        record["slug"]: _read_verified_cx2(record)
+        for record in publishable
+        if record["status"] == "EXPORTED"
+    }
 
     for record in publishable:
         network_id = record.get("ndex_uuid")
         if record["status"] == "EXPORTED":
-            cx2 = json.loads(Path(record["output_path"]).read_text())
+            cx2 = cx2_by_slug[record["slug"]]
             if network_id:
-                client.make_network_private(network_id)
+                previous_summary = client.get_network_summary(network_id)
+                previous_visibility = str(
+                    previous_summary.get("visibility") or "PRIVATE"
+                ).upper()
+                record["previous_visibility"] = previous_visibility
+                staging_visibility = (
+                    "PUBLIC"
+                    if visibility == "PUBLIC" and previous_visibility == "PUBLIC"
+                    else "PRIVATE"
+                )
                 client.update_cx2_network(io.BytesIO(_json_bytes(cx2)), network_id)
             else:
                 uploaded_url = client.save_new_cx2_network(cx2, visibility="PRIVATE")
                 network_id = uploaded_url.rstrip("/").split("/")[-1]
                 record["ndex_uuid"] = network_id
+                record["previous_visibility"] = None
+                staging_visibility = "PRIVATE"
 
-            record["status"] = "UPLOADED_PRIVATE"
+            record["staging_visibility"] = staging_visibility
+            record["status"] = "UPLOADED"
             _write_json_atomic(manifest_path, manifest)
         elif not network_id:
             raise ValueError(
                 f"Cannot resume {record['slug']} from {record['status']} without an NDEx UUID"
             )
 
-        if record["status"] in {"VERIFIED_PRIVATE", "VERIFIED_PUBLIC"}:
-            client.make_network_private(network_id)
+        staging_visibility = record.get("staging_visibility") or (
+            "PUBLIC" if record["status"] == "VERIFIED_PUBLIC" else "PRIVATE"
+        )
         client.set_network_system_properties(
-            network_id, {"visibility": "PRIVATE", "index_level": index_level}
-        )
-        summary = _wait_for_valid_summary(
-            client,
             network_id,
-            record=record,
-            metadata=metadata,
-            expected_visibility="PRIVATE",
-            expected_index_level=index_level,
+            {"visibility": staging_visibility, "index_level": index_level},
         )
-        record["status"] = "VERIFIED_PRIVATE"
+        try:
+            summary = _wait_for_valid_summary(
+                client,
+                network_id,
+                record=record,
+                metadata=metadata,
+                expected_visibility=staging_visibility,
+                expected_index_level=index_level,
+            )
+        except RuntimeError:
+            if staging_visibility == "PUBLIC":
+                client.make_network_private(network_id)
+                record["staging_visibility"] = "PRIVATE"
+                record["status"] = "UPLOADED"
+                _write_json_atomic(manifest_path, manifest)
+            raise
+        record["status"] = f"VERIFIED_{staging_visibility}"
         record["viewer_url"] = f"{host}/viewer/networks/{network_id}"
         record["verification"] = {
             "is_valid": summary["isValid"],
@@ -323,16 +451,25 @@ def publish_release(
 
     if visibility == "PUBLIC":
         for record in publishable:
+            if record["status"] == "VERIFIED_PUBLIC":
+                continue
             network_id = record["ndex_uuid"]
             client.make_network_public(network_id)
-            _wait_for_valid_summary(
-                client,
-                network_id,
-                record=record,
-                metadata=metadata,
-                expected_visibility="PUBLIC",
-                expected_index_level=index_level,
-            )
+            try:
+                _wait_for_valid_summary(
+                    client,
+                    network_id,
+                    record=record,
+                    metadata=metadata,
+                    expected_visibility="PUBLIC",
+                    expected_index_level=index_level,
+                )
+            except RuntimeError:
+                client.make_network_private(network_id)
+                record["status"] = "VERIFIED_PRIVATE"
+                record["verification"]["visibility"] = "PRIVATE"
+                _write_json_atomic(manifest_path, manifest)
+                raise
             record["status"] = "VERIFIED_PUBLIC"
             record["verification"]["visibility"] = "PUBLIC"
             _write_json_atomic(manifest_path, manifest)
@@ -398,6 +535,7 @@ def main() -> None:
             password=os.getenv("NDEX_PASSWORD", ""),
             visibility=args.visibility,
             index_level=args.index_level,
+            allow_export_defects=args.allow_export_defects,
         )
 
 

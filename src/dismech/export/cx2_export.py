@@ -42,7 +42,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_NDEX_VISIBILITY = "PRIVATE"
 DEFAULT_NDEX_INDEX_LEVEL = "META"
-DEFAULT_SOURCE_REPO_URL = "https://github.com/monarch-initiative/dismech/blob/main"
+DEFAULT_SOURCE_REPO_BLOB_BASE = "https://github.com/monarch-initiative/dismech/blob"
+DEFAULT_SOURCE_REPO_URL = f"{DEFAULT_SOURCE_REPO_BLOB_BASE}/main"
 _SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schema" / "dismech.yaml"
 IQUERY_GENE_SYMBOL_PATTERN = re.compile(
     r"^(?:hgnc\.symbol:)?(?:[A-Z][A-Z0-9-]*|C[0-9]+orf[0-9]+)$"
@@ -900,9 +901,11 @@ def _guess_source_url(
     for parent in (resolved.parent, *resolved.parents):
         if (parent / ".git").exists():
             rel_path = resolved.relative_to(parent)
-            source_base = DEFAULT_SOURCE_REPO_URL
-            if source_revision:
-                source_base = source_base.rsplit("/", 1)[0] + f"/{source_revision}"
+            source_base = (
+                f"{DEFAULT_SOURCE_REPO_BLOB_BASE}/{source_revision}"
+                if source_revision
+                else DEFAULT_SOURCE_REPO_URL
+            )
             return f"{source_base}/{rel_path.as_posix()}"
     return None
 
@@ -1692,7 +1695,7 @@ def disorder_to_cx2(
     *,
     source_path: Path | None = None,
     apply_dot_layout: bool = False,
-    release_metadata: dict[str, str] | None = None,
+    release_metadata: dict[str, Any] | None = None,
     source_revision: str | None = None,
 ) -> list[dict[str, Any]]:
     """
@@ -1819,7 +1822,7 @@ def dump_cx2(
     *,
     output_path: Path | None = None,
     apply_dot_layout: bool = False,
-    release_metadata: dict[str, str] | None = None,
+    release_metadata: dict[str, Any] | None = None,
     source_revision: str | None = None,
 ) -> list[dict[str, Any]]:
     """Convert a disorder YAML file to CX2 and optionally write it to disk."""
@@ -1846,9 +1849,7 @@ def upload_cx2_to_ndex(
     password: str | None = None,
     visibility: str = DEFAULT_NDEX_VISIBILITY,
     replace_existing: bool = False,
-    network_id: str | None = None,
     index_level: str = DEFAULT_NDEX_INDEX_LEVEL,
-    strict_indexing: bool = False,
 ) -> str:
     """Upload a CX2 network to NDEx and return the network URL."""
     resolved_host = _normalize_ndex_host(host or os.getenv("NDEX_HOST"))
@@ -1859,15 +1860,8 @@ def upload_cx2_to_ndex(
         password=password or os.getenv("NDEX_PASSWORD"),
     )
 
-    if network_id:
-        cx2_stream = io.BytesIO(json.dumps(cx2).encode("utf-8"))
-        client.update_cx2_network(cx2_stream, network_id)
-        _set_network_visibility(
-            client,
-            network_id=network_id,
-            visibility=visibility,
-        )
-    elif replace_existing and resolved_username and network_name:
+    network_id: str | None = None
+    if replace_existing and resolved_username and network_name:
         matches = _find_matching_network_summaries(
             client,
             username=resolved_username,
@@ -1898,8 +1892,6 @@ def upload_cx2_to_ndex(
             network_id, {"index_level": str(index_level).upper()}
         )
     except Exception as error:
-        if strict_indexing:
-            raise
         logger.warning(
             "Uploaded network %s but failed to set NDEx index_level=%s: %s",
             network_id,

@@ -47,11 +47,17 @@ concurrency:
 jobs:
   export:
     runs-on: ubuntu-latest
+    outputs:
+      source_revision: ${{ steps.source.outputs.sha }}
     steps:
       - name: Check out requested revision
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
+
+      - name: Resolve source revision
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -65,11 +71,11 @@ jobs:
           NDEX_RIGHTS_HOLDER: ${{ vars.NDEX_RIGHTS_HOLDER }}
           PREVIOUS_MANIFEST: ${{ inputs.previous_manifest }}
           RELEASE_VERSION: ${{ inputs.release_version }}
+          SOURCE_REVISION: ${{ steps.source.outputs.sha }}
         run: |
           : "${NDEX_AUTHOR:?Configure the NDEX_AUTHOR repository variable}"
           : "${NDEX_RIGHTS:?Configure the NDEX_RIGHTS repository variable}"
           : "${NDEX_RIGHTS_HOLDER:?Configure the NDEX_RIGHTS_HOLDER repository variable}"
-          revision="$(git rev-parse HEAD)"
           previous_args=()
           if [[ -f "$PREVIOUS_MANIFEST" ]]; then
             previous_args=(--previous-manifest "$PREVIOUS_MANIFEST")
@@ -79,7 +85,7 @@ jobs:
             --manifest-out output/ndex/manifest.json \
             "${previous_args[@]}" \
             --release-version "$RELEASE_VERSION" \
-            --source-revision "$revision" \
+            --source-revision "$SOURCE_REVISION" \
             --author "$NDEX_AUTHOR" \
             --rights "$NDEX_RIGHTS" \
             --rights-holder "$NDEX_RIGHTS_HOLDER"
@@ -102,7 +108,7 @@ jobs:
       - name: Check out requested revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.export.outputs.source_revision }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -119,12 +125,14 @@ jobs:
         env:
           NDEX_USERNAME: ${{ secrets.NDEX_USERNAME }}
           NDEX_PASSWORD: ${{ secrets.NDEX_PASSWORD }}
+          NDEX_INDEX_LEVEL: ${{ inputs.index_level }}
+          NDEX_VISIBILITY: ${{ inputs.visibility }}
         run: |
           uv run python - <<'PY'
           import json
           import os
           from pathlib import Path
-          from dismech.export.ndex_publish import publish_release
+          from dismech.export.ndex_publish import publish_release, write_uuid_registry
 
           manifest_path = Path("output/ndex/manifest.json")
           manifest = json.loads(manifest_path.read_text())
@@ -134,9 +142,10 @@ jobs:
               host="https://www.ndexbio.org",
               username=os.environ["NDEX_USERNAME"],
               password=os.environ["NDEX_PASSWORD"],
-              visibility="${{ inputs.visibility }}",
-              index_level="${{ inputs.index_level }}",
+              visibility=os.environ["NDEX_VISIBILITY"],
+              index_level=os.environ["NDEX_INDEX_LEVEL"],
           )
+          write_uuid_registry(manifest, Path("output/ndex/uuid-registry.json"))
           PY
 
       - name: Upload verified manifest
@@ -144,6 +153,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dismech-ndex-${{ inputs.release_version }}-verified
-          path: output/ndex/manifest.json
+          path: |
+            output/ndex/manifest.json
+            output/ndex/uuid-registry.json
           if-no-files-found: error
           retention-days: 90

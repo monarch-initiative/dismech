@@ -194,9 +194,11 @@ The workflow has two jobs:
    carried forward from a previous manifest.
 2. `publish`, when explicitly enabled, runs behind the protected
    `ndex-production` GitHub environment. It uploads to
-   `https://www.ndexbio.org` as private, verifies the NDEx network summaries,
-   and changes visibility to public only after the complete private upload has
-   succeeded.
+   `https://www.ndexbio.org`, verifies the NDEx network summaries, and changes
+   newly created or previously private networks to public only after the
+   complete staged upload has succeeded. Existing public networks remain public
+   during a successful update; if one fails verification, that network is made
+   private before the workflow stops.
 
 Configure these repository variables before running the workflow:
 
@@ -208,11 +210,17 @@ Configure `NDEX_USERNAME` and `NDEX_PASSWORD` as secrets on the protected
 `ndex-production` environment. The workflow never passes the password on a
 command line.
 
-Production updates use the `ndex_uuid` values in a previous release manifest.
+Production updates use the `ndex_uuid` values in a previous UUID registry.
 They do not search for or delete networks by name. After the first successful
-private release, review the verified manifest and commit the approved UUID
-registry as `conf/ndex-production-manifest.json` before using update mode in a
-later release.
+private release, review `uuid-registry.json` from the verified artifact and
+commit it as `conf/ndex-production-manifest.json` before using update mode in a
+later release. This compact registry contains only slugs, UUIDs, and active or
+retired status; the full per-run manifest remains an Actions artifact.
+
+When a slug in the previous registry is absent from the current knowledge base,
+the manifest reports it under `retired_networks`. Retirement is never automatic:
+an operator must decide whether to retain, privatize, or delete that NDEx
+network.
 
 The workflow currently refuses to publish a corpus containing orphan/unknown
 nodes or missing disease metadata. Its failed export still uploads the manifest
