@@ -62808,6 +62808,108 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Cisplatin Toxicity",
+    "disease_id": "MONDO:0027664",
+    "category": "Complex",
+    "parents": [
+      "Drug Toxicity"
+    ],
+    "creation_date": "2026-09-02T00:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cisplatin toxicity is the injury a platinum drug does to the patient it is meant to cure. The drug works by crosslinking DNA, and it does that in whatever cell it enters, so the question of which tissue is harmed is not a question about the lesion at all. It is a question about which cells take the platinum up, and whether those cells can repair the damage or be replaced. Kidney proximal tubule takes it in through OCT2 and Ctr1 and dies. Cochlear hair cells take it in and cannot be regenerated, so the hearing loss is permanent. Dorsal root ganglion neurons sit outside the blood-nerve barrier, accumulate platinum, and go on degenerating for months after the last dose. Marrow is hit because marrow divides. Four dose-limiting toxicities, one lesion, and the difference between them is transport and repair rather than mechanism.",
+    "pathophysiology": [
+      "Cisplatin Uptake by Transporter-Expressing Cells",
+      "Platinum-DNA Adduct Formation",
+      "Oxidative Stress and Mitochondrial Injury",
+      "Apoptotic Cell Death in Platinum-Loaded Tissue",
+      "Proximal Tubular Epithelial Cell Death",
+      "Cisplatin-Induced Acute Kidney Injury",
+      "Cochlear Hair Cell Death",
+      "Irreversible Sensorineural Hearing Loss",
+      "Dorsal Root Ganglion Sensory Neuron Injury",
+      "Mitochondrial DNA Damage in Sensory Neurons",
+      "Sensory Peripheral Neuropathy",
+      "Cytotoxic Insult to Proliferating Hematopoietic Progenitors",
+      "Bone Marrow Hematopoietic Suppression",
+      "Emetogenic Response to Cisplatin"
+    ],
+    "cell_types": [
+      "epithelial cell of proximal tubule",
+      "cochlear outer hair cell",
+      "dorsal root ganglion sensory neuron",
+      "haematopoietic progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002306",
+      "CL:0000601",
+      "CL:1001451",
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "DNA damage response",
+      "cellular response to oxidative stress",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Nausea",
+      "Vomiting",
+      "Sensorineural hearing impairment",
+      "Tinnitus",
+      "Acute kidney injury",
+      "Hypomagnesemia",
+      "Peripheral neuropathy",
+      "Decreased total neutrophil count",
+      "Anemia",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Ear",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0000407",
+      "HP:0000360",
+      "HP:0001919",
+      "HP:0002917",
+      "HP:0009830",
+      "HP:0001875",
+      "HP:0001903",
+      "HP:0001873"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ACYP2",
+      "TPMT",
+      "COMT"
+    ],
+    "treatments": [
+      "Duloxetine for established painful CIPN",
+      "Acetyl-L-carnitine for CIPN prevention",
+      "Dose modification for intolerable neuropathy",
+      "Sodium thiosulfate otoprotection",
+      "Renoprotective supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cisplatin_Toxicity.yaml",
+    "page_url": "../pages/disorders/Cisplatin_Toxicity.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 14,
+    "num_genes": 3,
+    "num_treatments": 5,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Citrin Deficiency",
     "disease_id": "MONDO:0016602",
     "category": "Mendelian",
@@ -64900,6 +65002,116 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Colchicine Poisoning",
+    "disease_id": "MONDO:0017859",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-09-01T22:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Colchicine poisoning follows exposure to a drug with a narrow therapeutic index and no clear boundary between a therapeutic, a toxic and a lethal dose. It arrives by three routes: acute overdose of the drug taken in self-harm or in error, slow accumulation at ordinary prescribed doses when renal or hepatic clearance falls or a CYP3A4 or P-glycoprotein inhibitor is co-prescribed, and ingestion of a colchicine-containing plant. All three converge on one molecular lesion. Colchicine binds tubulin and prevents microtubule assembly, and every downstream injury is an extension of that binding. The cells that depend most on the mitotic spindle fail first, so the gut mucosa and then the bone marrow give way, and it is the resulting pancytopenia with neutropenic sepsis that kills. The cells that depend on microtubule-based transport rather than on mitosis fail far more slowly, producing the proximal myopathy and accompanying peripheral neuropathy that characterise the chronic-accumulation route. One lesion, two tissues, two clocks. There is no antidote in routine clinical use.",
+    "pathophysiology": [
+      "Colchicine Exposure Exceeding the Therapeutic Window",
+      "Impaired Colchicine Clearance via CYP3A4 and P-Glycoprotein Inhibition",
+      "Colchicine-Tubulin Binding and Microtubule Assembly Failure",
+      "Mitotic Arrest in Rapidly Proliferating Tissue",
+      "Gastrointestinal Mucosal Injury",
+      "Bone Marrow Hematopoietic Suppression",
+      "Multilineage Peripheral Cytopenias",
+      "Neutropenic Sepsis and Progressive Multi-Organ Failure",
+      "Microtubule-Dependent Intracellular Transport Failure",
+      "Colchicine Neuromyopathy",
+      "Hepatic and Renal Injury",
+      "Cardiac Myocyte Conduction and Contractility Failure"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "cardiac myocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "P-glycoprotein-mediated colchicine efflux",
+      "microtubule polymerization",
+      "mitotic cell cycle",
+      "microtubule-based transport"
+    ],
+    "phenotypes": [
+      "Diarrhea",
+      "Vomiting",
+      "Abdominal pain",
+      "Pancytopenia",
+      "Decreased total neutrophil count",
+      "Thrombocytopenia",
+      "Anemia",
+      "Acute kidney injury",
+      "Rhabdomyolysis",
+      "Lactic acidosis",
+      "Hypotension",
+      "Decreased liver function",
+      "Proximal muscle weakness",
+      "Peripheral neuropathy",
+      "Alopecia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0002013",
+      "HP:0002027",
+      "HP:0001876",
+      "HP:0001875",
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0001919",
+      "HP:0003201",
+      "HP:0003128",
+      "HP:0002615",
+      "HP:0001410",
+      "HP:0003701",
+      "HP:0009830",
+      "HP:0001596"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Granulocyte colony-stimulating factor",
+      "Activated charcoal",
+      "Withdrawal of colchicine and of interacting drugs",
+      "Intensive supportive care"
+    ],
+    "environmental": [
+      "Colchicine exposure above the therapeutic window",
+      "Ingestion of a colchicine-containing plant"
+    ],
+    "biochemical": [],
+    "source_file": "Colchicine_Poisoning.yaml",
+    "page_url": "../pages/disorders/Colchicine_Poisoning.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 12,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cole-Carpenter syndrome",
@@ -156754,8 +156966,8 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "OCCASIONAL",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "CCND1/IGH Translocation",
@@ -204618,6 +204830,7 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "OCCASIONAL",
       "FREQUENT"
     ],
     "genes": [],
@@ -259164,17 +259377,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2513,
+  "total_disorder_pages": 2515,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6072,
-  "total_unique_evidence_sources": 36027,
-  "total_unique_publications": 33897,
+  "total_disorders_and_subtypes": 6074,
+  "total_unique_evidence_sources": 36043,
+  "total_unique_publications": 33911,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2508,
-  "total_unique_pathological_events": 14612,
+  "total_pathographs": 2510,
+  "total_unique_pathological_events": 14633,
   "total_modules": 167,
-  "total_research_reports": 2635,
+  "total_research_reports": 2637,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
