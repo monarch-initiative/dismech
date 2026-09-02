@@ -2756,7 +2756,7 @@ had approved three other PRs, and acting on it removed a blocking review.
 ### Deterministic auto-merge of ready PRs
 
 The `pr-shepherd` workflow has a separate, fresh-runner **deterministic** sweep
-(`scripts/auto_merge_ready_prs.py`) that squash-merges any open PR — **by any
+(`scripts/auto_merge_ready_prs.py`) that submits for merge any open PR — **by any
 author, human or agent** — once it is simultaneously:
 
 - reviewer **approved**; draft status is ignored as a lifecycle signal (an
@@ -2776,6 +2776,17 @@ author, human or agent** — once it is simultaneously:
   `main` still has it after the final PR-state read. `baseRefOid` is not an
   ancestry signal and must not be used as this proof.
 - not in a separately managed `auto/` branch lane
+
+**Since the merge queue went live, the sweep enqueues rather than merges.**
+`main` carries a `merge_queue` ruleset (squash; up to 5 speculative builds;
+exactly one PR merged at a time), so the controller's final call adds the PR to
+the queue, and GitHub merges it only after `test (3.13)` passes on a temporary
+branch containing current `main` plus that PR. A successful sweep therefore
+means *queued*, not *merged* — the run prints `QUEUED #N` and the step summary
+says "Added to the merge queue". The controller reads the branch's effective
+rules to detect this and falls back to a direct `--squash` merge if the queue is
+paused (see the break-glass procedure in
+[`docs/explanation/automation-and-agents.md`](docs/explanation/automation-and-agents.md)).
 
 Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
 outcome is reproducible from the API response alone. This is separate from the
@@ -2806,25 +2817,34 @@ and is never swept. Draft status is not a hold: anything opened as a PR is in
 the review queue. The controller marks an eligible draft ready, re-reads every
 guard, and restores draft state if that merge attempt aborts.
 
-Each run merges at most one PR. Immediately before it does, the controller checks
+Each run acts on at most one PR. Immediately before it does, the controller checks
 the required build on the current `main`, re-reads every PR guard, proves by
 exact commit comparison that the PR head contains that `main`, and confirms that
 `main` has not moved. A red, pending, unobserved, or changed `main` opens the
-circuit. GitHub's merge API can pin the PR head but not an expected base SHA, so
-eliminating the final sub-second base race requires strict branch protection or
-a merge queue; this controller minimizes that race but does not claim atomicity.
+circuit. GitHub's merge API can pin the PR head but not an expected base SHA. The merge
+queue now closes that final sub-second base race by construction: each PR is
+tested against the `main` it will actually land on. The head pin still applies on
+the enqueue path — `gh` maps `--match-head-commit` to the queue's
+`expectedHeadOid` — so the commit queued is provably the commit whose checks and
+review state were verified.
 The LLM lane updates at most one approved-behind branch per run; updating a batch
 would only dismiss several approvals and start several CI runs before the first
 merge makes the rest stale again. Under the `slow` profile that intentionally
-bounds freshness tending to six runs per day. Higher safe throughput needs a
-real merge queue (plus `merge_group` CI), not wider update batches.
+bounds freshness tending to six runs per day. The merge queue and its `merge_group` CI now
+exist, so that is no longer the binding constraint. What still bounds drain rate
+is this controller's one-PR-per-run cap and its exact-ancestry requirement — the
+remaining rollout steps in #10168.
 
 Do not enable GitHub auto-merge on ordinary PRs: it is a separate server-side
 path and bypasses this controller's health, ancestry, age, assignment, and
 one-merge guards. The shepherd agent never arms it, and weekly-compliance PRs use
 this common controller rather than a separate merge path. The separately owned
 `auto/` lanes may manage their own auto-merge; a maintainer who manually arms
-another PR is making an explicit human override.
+another PR is making an explicit human override. (Since the queue went live,
+`gh pr merge` on a queue-required branch arms auto-merge when the PR's own checks
+are still pending, and the PR enters the queue when they pass. That is the
+controller's enqueue path, taken only after every guard has been verified — not
+a licence to arm auto-merge by hand.)
 
 Preview what the next sweep would do (read-only):
 
