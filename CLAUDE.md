@@ -801,7 +801,31 @@ rg --files kb/groupings -g "*.yaml" | sort
 sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
+just grouping-nesting-audit          # declared tree + undeclared containments
 ```
+
+**Nesting is declared, never inferred.** A grouping sits below another only
+when the parent lists it as a `member_type: GROUPING` member, and that is the
+only thing the index page's tree draws. Most groupings are deliberate
+cross-cuts (a shared organelle, gene family, or phenotype axis) that nest in
+nothing — 78 of the 100 are standalone — so the tree shows the nested trees
+first and folds the standalone groupings into one collapsed list. A disease
+held through a nested grouping *is* a member of the parent: the evaluator
+reports it as `(via <nested grouping>)`, the parent page's coverage table marks
+it `nested via …` and counts it toward coverage, and `test_valid_grouping_files`
+still evaluates it against the parent's criteria. When you nest a grouping,
+replace the direct rows it covers rather than duplicating them (the
+`Lysosomal_Storage_Disorders` review removed exactly such a redundancy), folding
+their differentiating mechanisms into the GROUPING row if they would otherwise
+be lost.
+
+`just grouping-nesting-audit` prints the declared forest and, next to it, the
+**undeclared containments** — pairs where every expanded disease member of one
+grouping is a member of another that does not list it. That is a lead, not a
+ruling: `Primary_Microcephaly_Spectrum` sits entirely inside `Centrosomopathies`,
+and the latter's rationale says the two cut the same diseases along different
+axes on purpose. Read both rationales before declaring the edge. The index page
+carries the same list as an advisory panel.
 
 ### Pathophysiology Biological Scale Tag
 

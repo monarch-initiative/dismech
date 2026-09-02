@@ -75,6 +75,32 @@ intended conceptual level rather than compensating for a missing annotation.
   siblings; bind genes, phenotypes, processes, or modules when appropriate.
 - Keep grouping names unique.
 
+## Nest a grouping inside another
+
+A grouping can list another grouping as a member with `member_type: GROUPING`.
+That declaration is the *only* source of hierarchy: the index page's tree, a
+grouping page's "Where this grouping sits" strip, and the evaluator all read it
+and nothing else (no MONDO inference).
+
+- Nest only when every disease member of the child belongs to the parent under
+  the parent's own criteria, and both rationales agree on the relation. Run
+  `just grouping-nesting-audit` first: it prints the declared tree and the
+  undeclared containments (child member set ⊆ parent member set). A
+  containment is a lead, not a ruling — orthogonal cross-cuts such as
+  `Centrosomopathies` vs `Primary_Microcephaly_Spectrum` contain each other's
+  members by design and must stay separate.
+- A nested grouping **replaces** the direct rows it covers; do not list a disease
+  both directly and through a nested grouping. Keep the differentiating text by
+  folding it into the GROUPING row's `differentiating_mechanisms` (one entry per
+  covered disease, gene bindings included), as `Motor_Neuron_Disorders` does for
+  `Bulbospinal_Muscular_Atrophies`.
+- Diseases reached through a nested grouping are still members: `just
+  check-groupings` evaluates them against the parent's criteria and prints them
+  as `(via <child>)`, and the parent page shows them as `nested via` rows that
+  count toward coverage.
+- Record the change in the parent's `notes` and in a history record under
+  `history/other/<Parent_slug>/`.
+
 ## Validate and inspect
 
 ```bash
