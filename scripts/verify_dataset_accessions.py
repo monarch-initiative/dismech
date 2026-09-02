@@ -527,9 +527,13 @@ def fetch_reference_record(prefix: str, local_id: str) -> bool:
     and ``UNSUPPORTED_PREFIXES`` alone and must not pay for the validator.
     """
     try:
-        import dismech.patch_reference_validator  # noqa: F401  (network resilience)
         from linkml_reference_validator.cli.shared import load_validation_config
         from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
+
+        # Applies at import and mutates the ReferenceFetcher class, so it is in
+        # effect for the instantiation below regardless of import order -- which
+        # is isort's (first-party last), not a sequencing requirement.
+        import dismech.patch_reference_validator  # noqa: F401  (network resilience)
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise RuntimeError(f"linkml-reference-validator unavailable: {exc}") from exc
 
