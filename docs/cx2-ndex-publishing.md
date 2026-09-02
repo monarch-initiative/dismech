@@ -225,8 +225,9 @@ network.
 
 For the first production release, select the workflow's `first_release` input.
 That is the only workflow path that intentionally runs without a previous UUID
-registry. Later releases require the configured registry path to exist; a
-missing or misspelled path fails rather than minting duplicate networks.
+registry, and it refuses to run if the configured registry already exists.
+Later releases require the configured registry path to exist; a missing or
+misspelled path fails rather than minting duplicate networks.
 
 The workflow currently refuses to publish a corpus containing orphan/unknown
 nodes or missing disease metadata. Its failed export still uploads the manifest
@@ -258,7 +259,8 @@ Review the recovered slug-to-UUID mapping, commit it on the ref that will be
 released, and rerun with `first_release` disabled. The next export carries those
 UUIDs forward and updates rather than duplicates the networks. After the run
 succeeds, replace the recovery registry with the verified
-`uuid-registry.json` artifact.
+`uuid-registry.json` artifact. A resumed public promotion skips networks already
+recorded as `VERIFIED_PUBLIC` and continues with the remaining private networks.
 
 NDEx warnings remain fatal for production releases. This is deliberate: an
 operator should inspect and explicitly resolve a server warning rather than

@@ -406,7 +406,6 @@ def publish_release(
                 previous_visibility = str(
                     previous_summary.get("visibility") or "PRIVATE"
                 ).upper()
-                record["previous_visibility"] = previous_visibility
                 staging_visibility = (
                     "PUBLIC"
                     if visibility == "PUBLIC" and previous_visibility == "PUBLIC"
@@ -417,7 +416,6 @@ def publish_release(
                 uploaded_url = client.save_new_cx2_network(cx2, visibility="PRIVATE")
                 network_id = uploaded_url.rstrip("/").split("/")[-1]
                 record["ndex_uuid"] = network_id
-                record["previous_visibility"] = None
                 staging_visibility = "PRIVATE"
 
             record["staging_visibility"] = staging_visibility
@@ -483,7 +481,7 @@ def publish_release(
             except RuntimeError:
                 client.make_network_private(network_id)
                 record["status"] = "VERIFIED_PRIVATE"
-                record["verification"]["visibility"] = "PRIVATE"
+                record.setdefault("verification", {})["visibility"] = "PRIVATE"
                 _write_json_atomic(manifest_path, manifest)
                 raise
             record["status"] = "VERIFIED_PUBLIC"
