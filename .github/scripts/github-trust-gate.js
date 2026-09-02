@@ -4,6 +4,7 @@ const { handleAlternation } = require("./agent-mention.js");
 
 const TRUSTED_PERMISSIONS = new Set(["admin", "maintain", "write", "triage"]);
 const DEFAULT_BOT_LOGINS = new Set([
+  "ai4c-agent",
   "app/claude",
   "claude",
   "dragon-ai-agent",

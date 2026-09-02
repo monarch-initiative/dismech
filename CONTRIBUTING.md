@@ -368,6 +368,9 @@ In dismech, ai4c-agent acts as an autonomous curator/reviewer bot integrated int
   doesn't accidentally trigger the agent).
 - The older **@dragon-ai-agent please …** still works, so existing threads and
   habits keep working, but prefer the name above.
+- The request runs to the end of your comment, so it can span several lines and
+  can include a fenced code block — pasting a patch or a failing command works.
+  Only a mention that is *itself* inside a code block is ignored.
 - Neither name is an account you can notify. The agent runs as the ai4c-agent
   GitHub App, and GitHub Apps cannot be @-mentioned, so both are plain text
   keywords that the workflow matches. Autocomplete will not offer them.

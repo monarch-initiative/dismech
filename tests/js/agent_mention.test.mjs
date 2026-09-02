@@ -52,6 +52,25 @@ describe("agent mention parsing", () => {
     assert.equal(result.prompt, "do two things:\n1. first\n2. second");
   });
 
+  it("keeps a fenced code block that is part of the request", () => {
+    const result = parseAgentMention(
+      "@ai4c-agent please apply this patch:\n\n```diff\n-old\n+new\n```\n\nthen run the tests.",
+    );
+
+    assert.equal(result.matched, true);
+    assert.equal(
+      result.prompt,
+      "apply this patch:\n\n```diff\n-old\n+new\n```\n\nthen run the tests.",
+    );
+  });
+
+  it("keeps an inline code span that is part of the request", () => {
+    const result = parseAgentMention("@ai4c-agent please run `just qc` and report");
+
+    assert.equal(result.matched, true);
+    assert.equal(result.prompt, "run `just qc` and report");
+  });
+
   it("ignores a mention inside a fenced code block", () => {
     const result = parseAgentMention(
       "Docs:\n```\n@ai4c-agent please do X\n```\nThat is how you call it.",

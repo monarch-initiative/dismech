@@ -9,6 +9,7 @@ the ai4c-agent App but left the trigger regex on the retired handle, so
 """
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -140,3 +141,84 @@ def test_check_script_declines_when_trusted_ref_predates_the_parser(tmp_path):
 
     assert "threw" not in result, f"check script crashed: {result.get('threw')}"
     assert result["qualifiedMention"] is False
+
+
+def test_request_is_delimited_by_a_marker_the_request_cannot_predict():
+    """The request is controller-supplied text that may legitimately contain a
+    code fence, now that the parser keeps fenced blocks in the prompt. A fixed
+    ``` wrapper can be closed from inside such a request, letting its tail read
+    as instructions rather than as quoted request text. Delimit with a value
+    generated at run time instead.
+    """
+    prompt = _step(
+        _workflow()["jobs"]["respond-to-mention"], "Create structured Claude prompt"
+    )
+    run = prompt["run"]
+
+    assert "openssl rand" in run, "delimiter must be generated at run time"
+
+    # Check the emitted prompt, not the surrounding script: a comment explaining
+    # this rule may legitimately mention a backtick fence.
+    body = run.split("<< EOL\n", 1)[1].split("\nEOL", 1)[0]
+    # Fences are backslash-escaped inside the heredoc, so compare unescaped.
+    assert "```" not in body.replace("\\", ""), (
+        "request must not be wrapped in a fixed backtick fence"
+    )
+    lines = [line.strip() for line in body.splitlines()]
+    request = lines.index("$(cat /tmp/claude-input/prompt.txt)")
+    assert lines[request - 1] == "${DELIM}", "no opening marker before the request"
+    assert lines[request + 1] == "${DELIM}", "no closing marker after the request"
+
+
+# Sites that legitimately document every handle, current and retired: the module
+# that defines them, and the workflow whose trigger comment explains both.
+LEGACY_HANDLE_ALLOWED = {
+    ".github/scripts/agent-mention.js",
+    ".github/workflows/dragon-ai.yml",
+}
+
+
+def _handles() -> tuple[str, list[str]]:
+    """Read the canonical and legacy handles out of the shared module."""
+    source = MENTION_MODULE.read_text(encoding="utf-8")
+    canonical = re.search(r'AGENT_MENTION = "([^"]+)"', source).group(1)
+    legacy = re.findall(
+        r'"([^"]+)"',
+        re.search(r"LEGACY_AGENT_MENTIONS = \[([^\]]*)\]", source).group(1),
+    )
+    return canonical, legacy
+
+
+def test_no_workflow_emits_a_retired_handle():
+    """A summon phrase written into a prompt must name the current handle.
+
+    The prompt in claude-issue-summarize-action is the only place in the repo
+    that *generates* a summon rather than documenting one, and it still named
+    the retired handle. It could not be caught by a dragon-ai.yml-scoped check,
+    so this one is repo-wide. Spelling the canonical handle out in a prompt is
+    unavoidable and allowed; spelling out a retired one is the bug.
+    """
+    canonical, legacy = _handles()
+    assert legacy, "expected at least one retired handle to guard against"
+
+    offenders = []
+    for directory in ("workflows", "actions"):
+        for path in (ROOT / ".github" / directory).rglob("*.y*ml"):
+            rel = path.relative_to(ROOT).as_posix()
+            if rel in LEGACY_HANDLE_ALLOWED:
+                continue
+            for number, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), start=1
+            ):
+                # Prose telling an agent *not* to use a phrase is the opposite
+                # of the defect, and must keep naming the alias it forbids.
+                if any(w in line.lower() for w in ("do not", "don't", "never")):
+                    continue
+                for handle in legacy:
+                    if f"@{handle} please" in line:
+                        offenders.append(f"{rel}:{number}")
+
+    assert not offenders, (
+        f"retired handle used to summon the agent; use @{canonical}: "
+        + ", ".join(offenders)
+    )
