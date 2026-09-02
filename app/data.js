@@ -40749,6 +40749,114 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Brachyolmia-Amelogenesis Imperfecta Syndrome",
+    "disease_id": "MONDO:0011018",
+    "category": "Mendelian",
+    "parents": [
+      "Brachyolmia",
+      "Skeletal dysplasia",
+      "Syndromic amelogenesis imperfecta"
+    ],
+    "creation_date": "2026-08-31T08:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brachyolmia with amelogenesis imperfecta - also published as dental anomalies and short stature (DASS, OMIM #601216) - is an autosomal recessive disorder caused by biallelic hypomorphic variants in LTBP3. Two things co-occur in every reported family: a short-trunk skeletal dysplasia with generalized platyspondyly and long bones that are essentially spared, and a hypoplastic amelogenesis imperfecta so severe that enamel is thin to absent on both dentitions. It was described as a clinical association in 1996, argued to be a single entity rather than a coincidence in 2009, and given its gene in 2015.\nThe mechanism is not a structural-matrix mechanism, which is the easy wrong reading of a skeletal dysplasia caused by an extracellular-matrix protein. LTBP3 is a latent TGF-beta binding protein: it associates with the small latent complex, targets latent TGF-beta to the extracellular matrix, and gates its subsequent activation. Losing it therefore reduces the amount of TGF-beta that can be stored and released where it is needed, and the disease is a TGF-beta bioavailability defect in two tissues that happen to depend heavily on that signal - the secretory ameloblast and the growth plate. The two apparently unrelated halves of the clinical picture, teeth and spine, are one lesion read out in two places.\nThe Ltbp3-null mouse is the strongest mechanistic evidence and also the clearest caution. It reproduces the enamel phenotype closely, down to disorganised ameloblasts laying an irregular matrix, and it reproduces the maxillary underdevelopment with relative mandibular prognathism. It does not reproduce platyspondyly at all, and its skeleton is osteopetrotic where patients are normal or osteopenic. This entry records the successes and that failure as separate, explicitly graded model links rather than letting the mouse stand in for the human skeleton.\n",
+    "pathophysiology": [
+      "Biallelic Hypomorphic LTBP3 Variants",
+      "Failure of Latent TGF-beta Matrix Targeting and Activation",
+      "Impaired Secretory Ameloblast Function",
+      "Hypoplastic Enamel Formation",
+      "Disturbed Axial Growth Plate and Vertebral Body Formation",
+      "Platyspondyly with Short-Trunk Short Stature"
+    ],
+    "cell_types": [
+      "ameloblast",
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000059",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "transforming growth factor beta receptor signaling pathway",
+      "amelogenesis",
+      "enamel mineralization",
+      "endochondral bone growth"
+    ],
+    "phenotypes": [
+      "Hypoplastic Amelogenesis Imperfecta",
+      "Platyspondyly",
+      "Short-Trunk Short Stature",
+      "Scoliosis",
+      "Coxa Valga with Elongated Femoral Necks",
+      "Hypodontia",
+      "Taurodontia",
+      "Mandibular Prognathism from Maxillary Underdevelopment",
+      "Maxillary Hypoplasia",
+      "Nephrocalcinosis",
+      "Delayed or Failed Tooth Eruption",
+      "Dental Malocclusion",
+      "Septal and Valvular Anomalies",
+      "Aortic Valve Stenosis and Hypertrophic Cardiomyopathy",
+      "Thoracic Aortic Aneurysm",
+      "Osteopenia"
+    ],
+    "phenotype_categories": [
+      "Dental",
+      "Skeletal",
+      "Growth",
+      "Craniofacial",
+      "Renal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0000705",
+      "HP:0000926",
+      "HP:0004322",
+      "HP:0002650",
+      "HP:0002673",
+      "HP:0000668",
+      "HP:0000679",
+      "HP:0000303",
+      "HP:0000327",
+      "HP:0000121",
+      "HP:0000684",
+      "HP:0000689",
+      "HP:0001631",
+      "HP:0001650",
+      "HP:0012727",
+      "HP:0000938"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LTBP3"
+    ],
+    "treatments": [
+      "Restorative dental rehabilitation",
+      "Orthodontic and orthognathic management of malocclusion",
+      "Aortic imaging surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Brachyolmia-Amelogenesis_Imperfecta_Syndrome.yaml",
+    "page_url": "../pages/disorders/Brachyolmia-Amelogenesis_Imperfecta_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Brachyolmia",
     "disease_id": "MONDO:0015262",
     "category": "Mendelian",
@@ -41947,6 +42055,97 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Bronchiectasis and Nasal Polyposis",
+    "disease_id": "MONDO:0975835",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-09-01T17:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive chronic destructive airway disease caused by biallelic loss-of-function variants in WFDC2, which encodes the secreted WAP four-disulfide core domain protein 2 (also called HE4). Affected individuals have bronchiectasis, severe chronic rhinosinusitis with nasal polyposis, and chronic airway infection, frequently with Pseudomonas aeruginosa. The presentation closely mimics cystic fibrosis and primary ciliary dyskinesia, and was first defined as a distinct Mendelian entity in 2024.\nWhat makes the entry mechanistically interesting is a negative result. WFDC2 is made by airway secretory cells and is absent from the airway surface liquid, saliva and serum of affected individuals, so the obvious hypothesis is failed mucociliary clearance. That hypothesis was tested and did not hold: ciliary beat frequency, ciliary length, epithelial composition and mucus viscosity are all normal, and patient cultures generate directed mucociliary transport. The step connecting loss of a secreted airway protein to airway destruction is therefore not yet established, and this entry models that gap explicitly rather than asserting a clearance defect the source data refute.",
+    "pathophysiology": [
+      "Biallelic Loss of Function in WFDC2",
+      "Failure of WFDC2 Secretion",
+      "Depletion of WFDC2 from Airway Surface Liquid and Secretions",
+      "Altered Airway Antiprotease Milieu",
+      "Chronic Airway Infection and Rhinosinusitis",
+      "Airway Wall Destruction and Nasal Polyp Formation",
+      "Preserved Mucociliary Clearance"
+    ],
+    "cell_types": [
+      "Airway secretory cell"
+    ],
+    "cell_type_ids": [
+      "CL:4052031"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "mucociliary clearance"
+    ],
+    "phenotypes": [
+      "Bronchiectasis",
+      "Nasal Polyposis",
+      "Chronic Rhinosinusitis",
+      "Chronic Pseudomonas aeruginosa Airway Infection",
+      "Nasal Pyramid Broadening",
+      "Otitis Media",
+      "Female Infertility",
+      "Neonatal Respiratory Distress",
+      "Reduced FEV1",
+      "Very Low Nasal Nitric Oxide"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Otolaryngologic",
+      "Reproductive",
+      "Diagnostic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002110",
+      "HP:0100582",
+      "HP:0011109",
+      "HP:5210057",
+      "HP:0000445",
+      "HP:0000388",
+      "HP:0008222",
+      "HP:0002643",
+      "HP:0032342",
+      "HP:0033036"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "WFDC2"
+    ],
+    "treatments": [
+      "Airway Clearance and Long-Term Macrolide Therapy",
+      "Lung Transplantation",
+      "WFDC2 Protein Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bronchiectasis_And_Nasal_Polyposis.yaml",
+    "page_url": "../pages/disorders/Bronchiectasis_and_Nasal_Polyposis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Brown-Vialetto-Van Laere Syndrome",
@@ -85664,6 +85863,119 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "EVEN-PLUS Syndrome",
+    "disease_id": "MONDO:0014801",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal dysplasia",
+      "Multiple congenital anomalies syndrome"
+    ],
+    "creation_date": "2026-08-31T07:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "EVEN-PLUS syndrome (OMIM #616854) is an autosomal recessive congenital malformation syndrome caused by biallelic hypomorphic variants in HSPA9, which encodes mortalin / mtHSP70 (also GRP75), the mitochondrial matrix Hsp70. The acronym names its cardinal features - Epiphyses, Vertebrae, Ears and Nose - PLUS a set of associated malformations: prenatal-onset short stature, cardiac septal defects, anal atresia, aplasia cutis, hypodontia and variable developmental delay. Skeletally it is a spondyloepiphyseal dysplasia with coronal vertebral clefts and severe, often unossified, proximal femoral epiphyses.\nThe disease was delineated by gene-based phenotypic sorting rather than by clinical splitting. Patients who looked like CODAS syndrome but carried no LONP1 variant turned out to carry biallelic HSPA9 variants instead, and earlier reports of \"EVE dysplasia\" and of \"caudal regression with spondyloepiphyseal dysplasia\" were retrospectively recognised as the same entity - one of them later confirmed molecularly. LONP1 and HSPA9 act together in the mitochondrial matrix chaperone-protease network, and the authors proposed the resulting pair as a family of \"mitochondrial chaperonopathies\".\nThe mechanistic point that makes this entry unusual is a negative one, and it is stated by the source rather than inferred here: EVEN-PLUS does not look like a bioenergetic mitochondrial disease. There is no lactic acidosis, no encephalomyopathy, no Leigh-type decompensation. The phenotype is one of disturbed embryonic morphogenesis - microtia, a flat nose, abnormal hair whorls, anal atresia, sacral agenesis - in a pattern that reads developmental rather than metabolic. How loss of a mitochondrial matrix chaperone produces that pattern is explicitly unexplained in the primary literature, and this entry curates that as a knowledge gap rather than papering over it with a plausible-sounding energy-failure chain.\n",
+    "pathophysiology": [
+      "Biallelic Hypomorphic HSPA9 Variants",
+      "Impaired Mitochondrial Matrix Hsp70 Chaperone Function",
+      "Disturbed Embryonic Morphogenesis",
+      "Chondro-Osseous Dysplasia of Epiphyses and Vertebral Bodies",
+      "Craniofacial and External Ear Hypoplasia"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "cranial neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0011012"
+    ],
+    "biological_processes": [
+      "protein import into mitochondrial matrix",
+      "protein folding",
+      "embryonic skeletal system morphogenesis",
+      "endochondral bone growth"
+    ],
+    "phenotypes": [
+      "Epiphyseal Dysplasia",
+      "Coronal Cleft Vertebrae",
+      "Synophrys and Arched Eyebrows",
+      "Basal Ganglia Lesions",
+      "Seizures",
+      "Microtia",
+      "Nasal Hypoplasia",
+      "Prenatal-Onset Short Stature",
+      "Short Stature",
+      "Atrial Septal Defect",
+      "Anal Atresia",
+      "Aplasia Cutis Congenita",
+      "Global Developmental Delay",
+      "Corpus Callosum Dysgenesis",
+      "Hypodontia",
+      "Hydronephrosis and Vesicoureteral Reflux"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Craniofacial",
+      "Neurologic",
+      "Growth",
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Dermatologic",
+      "Dental",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002656",
+      "HP:0003417",
+      "HP:0000664",
+      "HP:0002134",
+      "HP:0001250",
+      "HP:0008551",
+      "HP:0004646",
+      "HP:0001511",
+      "HP:0004322",
+      "HP:0001631",
+      "HP:0002023",
+      "HP:0001057",
+      "HP:0001263",
+      "HP:0001274",
+      "HP:0000668",
+      "HP:0000076"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "HSPA9"
+    ],
+    "treatments": [
+      "Reproductive genetic counseling with prenatal or preimplantation testing",
+      "Orthopedic management of hip dysplasia and epiphyseal disease",
+      "Surveillance for cardiac, renal and neurological involvement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "EVEN-PLUS_Syndrome.yaml",
+    "page_url": "../pages/disorders/EVEN-PLUS_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "EYA1-Related Branchiootorenal Spectrum Disorder",
@@ -176411,6 +176723,121 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Neurooculorenal Syndrome",
+    "disease_id": "MONDO:0957210",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital anomaly of the kidney and urinary tract",
+      "Multiple congenital anomalies syndrome"
+    ],
+    "creation_date": "2026-08-31T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurooculorenal syndrome (NORS, OMIM #620305) is an autosomal recessive developmental disorder caused by biallelic ROBO1 variants. It was delineated in 2022 from six unrelated living individuals and a family of three affected fetuses, assembled through GeneMatcher, retrospective phenotyping of previously published biallelic carriers, and an unbiased search of 78,195 genomes in the 100,000 Genomes Project.\nThree organ systems are involved, and the name lists them in the order the literature found them. The kidney and urinary tract carry the defining lesion: unilateral or bilateral renal agenesis, ureterovesical junction obstruction, vesicoureteral reflux, posterior urethral valve, cystic dysplasia and increased echogenicity - in short, syndromic CAKUT. The nervous system contributes midline and hindbrain malformations, chiefly corpus callosum thinning or partial agenesis, ventriculomegaly, vermis hypoplasia and absent pyramidal tracts, together with intellectual impairment and, in one patient, mirror movements. The eye contributes strabismus and iris anomalies.\nThe unifying claim is that these are not three coincident malformations but one signalling lesion read out in three places. ROBO1 is the receptor for the secreted SLIT ligands, and Slit-Robo signalling positions growing structures relative to the midline: commissural axons decide whether to cross it, and the ureteric bud decides where along the nephric duct to emerge. Human fetal kidney immunohistochemistry in this study puts ROBO1 exactly where nephrogenesis happens - the outer nephrogenic zone, in comma-shaped and S-shaped bodies - and shows that staining absent in dysplastic patient tissue.\nA dosage argument runs through the whole entity and is what makes it recessive. Heterozygous ROBO1 variants had already been reported in congenital heart disease and pituitary stalk interruption syndrome, but the heterozygous parents in this cohort were clinically unaffected, and renal involvement appeared only when both alleles were altered. The severity range within the biallelic group - from an adult who reached end-stage kidney disease at 44 with normal cognition, to terminated fetuses with bilateral renal agenesis and Potter sequence - tracks with allelic combination: two nulls at the severe end, a null plus a mild hypomorph at the mild end.\n",
+    "pathophysiology": [
+      "Biallelic Loss-of-Function ROBO1 Variants",
+      "Reduced SLIT-ROBO Guidance Signalling",
+      "Disturbed Ureteric Bud Outgrowth and Nephrogenesis",
+      "Disturbed CNS Midline and Commissural Axon Guidance",
+      "Disturbed Pituitary Stalk and Hypothalamic-Pituitary Axis Formation",
+      "Disturbed Retinal Ganglion Cell Axon Targeting",
+      "Congenital Anomalies of the Kidney and Urinary Tract",
+      "Midline Brain Malformation and Neurodevelopmental Impairment"
+    ],
+    "cell_types": [
+      "nephron progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000324"
+    ],
+    "biological_processes": [
+      "Roundabout signaling pathway",
+      "axon guidance",
+      "ureteric bud development",
+      "kidney development",
+      "retinal ganglion cell axon guidance"
+    ],
+    "phenotypes": [
+      "Renal Agenesis",
+      "Vesicoureteral Reflux",
+      "Cystic Renal Dysplasia",
+      "Chronic Kidney Failure",
+      "Strabismus",
+      "Pituitary Insufficiency",
+      "Growth Restriction",
+      "Corpus Callosum Anomaly",
+      "Mirror Movements",
+      "Corticospinal Tract Deficiency",
+      "Ventriculomegaly",
+      "Cerebellar Vermis Hypoplasia",
+      "Intellectual Disability",
+      "Dysmorphic Facial Features",
+      "Congenital Heart Defect",
+      "Cryptorchidism",
+      "Hearing Impairment"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Ocular",
+      "Endocrine",
+      "Growth",
+      "Neurologic",
+      "Craniofacial",
+      "Cardiovascular",
+      "Genitourinary",
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000104",
+      "HP:0000076",
+      "HP:0000800",
+      "HP:0003774",
+      "HP:0000486",
+      "HP:0040075",
+      "HP:0001510",
+      "HP:0001273",
+      "HP:0001335",
+      "HP:0007016",
+      "HP:0002119",
+      "HP:0001320",
+      "HP:0001249",
+      "HP:0001999",
+      "HP:0001627",
+      "HP:0000028",
+      "HP:0000407"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ROBO1"
+    ],
+    "treatments": [
+      "Kidney replacement therapy for established kidney failure",
+      "Urological correction of obstruction and reflux",
+      "Pituitary hormone replacement",
+      "Reproductive genetic counseling and cascade testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurooculorenal_Syndrome.yaml",
+    "page_url": "../pages/disorders/Neurooculorenal_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Neuropathy Hereditary Motor And Sensory Type VIc With Optic Atrophy",
     "disease_id": "MONDO:0032792",
     "category": "Mendelian",
@@ -258737,17 +259164,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2509,
+  "total_disorder_pages": 2513,
   "total_subtypes": 3559,
-  "total_disorders_and_subtypes": 6068,
-  "total_unique_evidence_sources": 36004,
-  "total_unique_publications": 33874,
+  "total_disorders_and_subtypes": 6072,
+  "total_unique_evidence_sources": 36027,
+  "total_unique_publications": 33897,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2504,
-  "total_unique_pathological_events": 14586,
+  "total_pathographs": 2508,
+  "total_unique_pathological_events": 14612,
   "total_modules": 167,
-  "total_research_reports": 2631,
+  "total_research_reports": 2635,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100

@@ -466,8 +466,12 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
         # reasonable place to make one and must not be silently ignored.
         it = node.get("inheritance_term")
         if isinstance(it, dict):
-            iterm = it.get("term") or {}
-            ihp = iterm.get("id") if isinstance(iterm, dict) else None
+            inheritance_term = it.get("term") or {}
+            ihp = (
+                inheritance_term.get("id")
+                if isinstance(inheritance_term, dict)
+                else None
+            )
             if isinstance(ihp, str) and ihp.startswith("HP:"):
                 facts.inheritance_ids.add(ihp)
 
@@ -800,7 +804,7 @@ def grouping_disease_members(
 
     Nested `member_type: GROUPING` references are expanded by default so the
     result is the set of concrete DisMech disease entries represented by the
-    grouping. `MODULE` members are not disease entries and are omitted.
+    grouping.
     """
     if isinstance(grouping, str):
         name = grouping

@@ -2473,10 +2473,35 @@ enums:
         description: A Disease entry in kb/disorders/.
       SUBTYPE:
         description: A named subtype within a Disease entry.
-      MODULE:
-        description: A mechanism module in kb/modules/.
       GROUPING:
         description: Another Grouping (nested grouping).
+
+  ModuleCollectionTypeEnum:
+    description: >-
+      The organizing principle for a curated collection of mechanism modules.
+      Collections are navigation and framework records, not mechanism modules
+      themselves and not disease groupings.
+    permissible_values:
+      PUBLISHED_FRAMEWORK:
+        title: Published framework
+        description: >-
+          A named framework or model defined in the scientific literature, such
+          as the Hallmarks of Aging.
+      MECHANISTIC_FAMILY:
+        title: Mechanistic family
+        description: Modules sharing a broad mechanistic pattern or process family.
+      BIOLOGICAL_SYSTEM:
+        title: Biological system
+        description: Modules organized by the biological system or compartment involved.
+      PATHOLOGICAL_OUTCOME:
+        title: Pathological outcome
+        description: Modules organized by a shared class of pathological outcome.
+      THERAPEUTIC_STRATEGY:
+        title: Therapeutic strategy
+        description: Modules organized by a shared intervention or therapeutic strategy.
+      OTHER:
+        title: Other
+        description: A module-collection basis not covered by the other values.
 
   ModuleCategoryEnum:
     description: >-
@@ -4859,8 +4884,7 @@ slots:
   member:
     description: >-
       Foreign key to the grouped entity. For member_type DISEASE this is the
-      Disease entry's `name`; for MODULE it is the module filename stem; for
-      GROUPING it is another grouping's `name`.
+      Disease entry's `name`; for GROUPING it is another grouping's `name`.
     range: string
     required: true
   member_type:
@@ -4873,6 +4897,28 @@ slots:
     multivalued: true
     range: DifferentiatingMechanism
     inlined_as_list: true
+  collection_type:
+    description: The organizing principle represented by a ModuleCollection.
+    range: ModuleCollectionTypeEnum
+  module_members:
+    description: >-
+      The mechanism modules explicitly included in this collection. Module
+      filename stems are used as foreign keys.
+    multivalued: true
+    range: ModuleCollectionMember
+    inlined_as_list: true
+  framework_terms:
+    description: >-
+      One or more labels used by the source framework for the concept represented
+      by this module. Multivalued because one module may intentionally combine
+      closely coupled framework concepts.
+    multivalued: true
+    range: string
+  child_collections:
+    description: >-
+      Names of more specific ModuleCollection records nested under this collection.
+    multivalued: true
+    range: string
 
 classes:
   Any:
@@ -7568,4 +7614,52 @@ classes:
     slot_usage:
       description:
         description: Human-readable statement of the differentiating mechanism.
+        required: true
+
+  # --- Module collections ---
+  ModuleCollection:
+    description: >-
+      A curated navigation or framework record that organizes mechanism modules.
+      A ModuleCollection is not itself a mechanism and does not assert disease
+      membership. It points down to module filename stems, may nest more specific
+      collections, and may cite the publication that defines the framework.
+    slots:
+      - name
+      - display_name
+      - creation_date
+      - description
+      - collection_type
+      - module_members
+      - child_collections
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        description: Preferred collection name (unique; serves as an FK target).
+        required: true
+      creation_date:
+        description: >-
+          Timestamp for initial creation of this module collection. Keep this
+          stable after first set.
+        recommended: true
+      collection_type:
+        required: true
+      module_members:
+        required: true
+
+  ModuleCollectionMember:
+    description: >-
+      A mechanism module included in a ModuleCollection, with optional labels
+      and explanation specific to the source framework.
+    slots:
+      - module
+      - framework_terms
+      - description
+      - evidence
+      - notes
+    slot_usage:
+      module:
+        description: >-
+          Foreign key to a mechanism module filename stem in kb/modules/. Node
+          anchors are not used for collection membership.
         required: true

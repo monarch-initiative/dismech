@@ -9,6 +9,7 @@ modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
 history_dir := "history"
 groupings_dir := "kb/groupings"
+module_collections_dir := "kb/module_collections"
 ref_validator_config := "conf/reference_validator_config.yaml"
 mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
 # Wrapper script that patches linkml-reference-validator for network resilience
@@ -491,6 +492,35 @@ validate-module file:
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
+# ModuleCollection currently has no ontology-bound slots, so term validation
+# adds no coverage here; module/child foreign keys are enforced in pytest.
+# Validate a single module collection (schema + references).
+[group('QC')]
+validate-module-collection file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class ModuleCollection {{file}}
+    echo "Reference validation..."
+    just fix-references-cache "{{file}}"
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ModuleCollection --config {{ref_validator_config}}
+    echo "✓ All validations passed for {{file}}"
+
+# Validate every curated module collection.
+[group('QC')]
+validate-module-collections:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=({{module_collections_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No module collection files found in {{module_collections_dir}}"
+        exit 0
+    fi
+    for f in "${files[@]}"; do
+        just validate-module-collection "$f"
+    done
+
 # Validate a single disease grouping file (schema + terms + references)
 # Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
@@ -744,7 +774,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1097,7 +1127,7 @@ list-source-defect-claims *files:
 check-snippet-boundaries *files:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} \
         --config {{ref_validator_config}} --check-boundaries \
-        {{ if files == "" { "kb/disorders/*.yaml kb/modules/*.yaml kb/comorbidities/*.yaml" } else { files } }}
+        {{ if files == "" { "kb/disorders/*.yaml kb/modules/*.yaml kb/module_collections/*.yaml kb/comorbidities/*.yaml" } else { files } }}
 
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
@@ -1472,6 +1502,7 @@ gen-page file:
 gen-module-pages:
     uv run python -m dismech.render --module {{modules_dir}}
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
+    @echo "Generated $(ls -1 pages/module-collections/*.html 2>/dev/null | wc -l | tr -d ' ') module collection pages"
 
 # Generate a single disease grouping page
 [group('Pages')]
