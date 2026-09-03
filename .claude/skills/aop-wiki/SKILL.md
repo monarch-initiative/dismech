@@ -119,13 +119,15 @@ aop-wiki-cli find-kers-for-events --ke-terms "oxidative stress,cell death" --dat
 - The first KER command for a date parses the full XML and is slow; later runs
   for that date read `all_kers_*.json` from the cache.
 
-**A KE is stressor-agnostic, so its KERs cross domains.** Filter by relevance
-rather than taking the list whole. `KE1562` (Decreased Na/K ATPase activity)
-matches six KERs — four leading out of it, two into it — and of the four, only
-KER3444 (to increased intracellular sodium, AOP 556) belongs to a cardiac chain.
-The rest run to growth inhibition, renal proximal tubular transport, and sodium
-uptake in fish gills. Note that the gill KER sits inside an AOP titled "leads to
-Heart failure", so check the downstream event and not just the AOP title.
+**A KE's partner KE in a KER can add specificity to the KER with respect to the
+cellular or organ location, taxa, sex, or life stage.** KERs should be filtered
+for curation based on their relevance to a particular disease or module entity
+that is being curated. `KE1562` (Decreased Na/K ATPase activity) matches six
+KERs — four leading out of it, two into it — and of the four, only KER3444 (to
+increased intracellular sodium, AOP 556) belongs to a cardiac chain. The rest
+run to growth inhibition, renal proximal tubular transport, and sodium uptake
+in fish gills. Note that the gill KER sits inside an AOP titled "leads to Heart
+failure", so check the downstream event and not just the AOP title.
 
 ### Date handling — the main footgun
 

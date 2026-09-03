@@ -23,18 +23,48 @@ CLI, the date footgun, and the entity shapes. This skill is what you do with the
 output.
 
 **The finding that motivates the whole procedure: a KER can be completely
-uncited.** In the 08-06-2026 snapshot, only 738 of 2,369 KERs carry any
-references at all. A KER with an empty evidence block still renders as a clean
+uncited** — most are. A KER with an empty evidence block still renders as a clean
 arrow between two named events, and nothing in the console output distinguishes
-it from a well-supported one. Step 5 is where you find out, and it belongs
-*before* any curation decision, not after.
+it from a well-supported one; `ker-evidence-triage` carries the measurement.
+Step 5 is where you find out, and it belongs *before* any curation decision, not
+after.
 
-## Step 1 — Fix the Key Event set, in writing
+## Scope — this is the MIE case
 
-List the KE IDs you are working from and where they came from (issue, project
-page table, an earlier sweep). Numeric IDs only; a KE title is not a key. Keep
-the list — every later step is scoped to it, and a KE that enters the set
-halfway through will silently skew the chain assembly.
+The procedure was written for **Molecular Initiating Events**: a Key Event with
+no dismech counterpart sitting at the *start* of a chain. Its worked examples are
+all that shape. The same quality checks would be wanted for a pathway-terminating
+Adverse Outcome, or for an intermediate Key Event, and most of this transfers
+unchanged — the lookup is direction-agnostic (`find-kers-for-events` returns both
+roles, and Step 4 says how to read each), and the relevance filter, evidence
+triage, connected components and literature verification do not care which end
+you started from.
+
+Two things do bake in the MIE direction, and are what a future AO or
+intermediate-KE version would have to revisit:
+
+- **Step 6 checks the downstream end** against the Step 1 entity. An AO-driven
+  sweep asks the mirror question — is the mechanism *leading to* this outcome
+  already represented? — so that check would run on the upstream end instead.
+- **Step 6's curation outcome assumes an entry point**: a new node plus a
+  `downstream` edge into existing mechanism. For an Adverse Outcome the new node
+  is terminal, and the edge runs from existing mechanism into it.
+
+Do not generalize either of those speculatively. Wait for a real Adverse Outcome
+or intermediate-Key-Event use case, and let it say what is actually needed.
+
+## Step 1 — Fix the Key Event set and the disease or module entity, in writing
+
+Record two things before anything else.
+
+**The disease or module entity** — the dismech entry this sweep is for, by
+slug. Every filtering decision from Step 4 on is relative to it, and leaving it
+unrecorded means "irrelevant" cannot be justified or reviewed later.
+
+**The KE set** — the KE IDs you are working from and where they came from
+(issue, project page table, an earlier sweep). Numeric IDs only; a KE title is
+not a key. Keep the list — every later step is scoped to it, and a KE that
+enters the set halfway through will silently skew the chain assembly.
 
 ## Step 2 — Run the lookup once, for the whole set
 
@@ -74,24 +104,21 @@ Each match carries `roles: {ke_id: "upstream"|"downstream"}`.
 - **`downstream`** — the KE is the effect. These answer "what produces it", which
   is what you want when the missing piece is an entry point rather than an outcome.
 
-Then throw out the irrelevant ones. **A Key Event is stressor- and
-organ-agnostic by design**, so its KERs run into every organ that shares the
-molecular event.
+Then throw out the irrelevant ones.
 
 `KE1562` (decreased Na/K ATPase activity) matches **six** KERs — four with
 KE1562 upstream, two with it downstream. Of the four it leads to, exactly **one**
 belongs to a cardiac chain:
 
-| KER | Downstream event | Parent AOP | Keep, for cardiac work? |
+| KER | Downstream event | Parent AOP | Keep, for the disease or module entity? |
 |---|---|---|---|
 | KER3444 | Increased, intracellular sodium | 556 — Decreased Na/K ATPase activity leading to heart failure | **yes** |
 | KER2787 | Increase, cell membrane depolarization | 266 — Uncoupling of oxidative phosphorylation leading to growth inhibition | no |
 | KER1811 | Decreased proximal tubular vectorial transport | 276 — Complex I inhibition leading to Fanconi syndrome | no |
 | KER3287 | Decreased, sodium uptake in gills | 539 — Decreased Sodium/Potassium ATPase activity leads to Heart failure | no |
 
-All four are correct AOP-Wiki content, and the ratio is the lesson: one edge in
-six survived, because most of what a lookup returns is another organ's use of the
-same molecular event.
+All four are correct AOP-Wiki content, but only one edge out of six aligns with
+the disease or module entity.
 
 **KER3287 is why no single title settles this.** Its parent AOP is titled "leads
 to Heart failure" while the KER itself ends at sodium uptake in fish gills.
@@ -107,92 +134,86 @@ resolve here.
 
 ## Step 5 — Triage the evidence, and let it set priority
 
-This is the step that changes what the rest of the work costs. Run it **before**
-committing deep-research effort, not after — it is a prioritization gate, not a
-post-hoc note.
+**Do this before Step 6, and before committing any deep-research effort.** It is
+a prioritization gate, not a post-hoc note: it decides what the rest of the work
+costs, and an edge triaged after curation has already been paid for.
 
-### 5a — The 29.41% rule
+Run the `ker-evidence-triage` skill over the KERs that survived Step 4. It covers
+the 29.41% stub rule, the four evidence fields to read on the KER and its parent
+AOP, the three traps in reading them, and how to map an AOP's citation blob onto
+its own steps.
 
-`completion_score.percent == 29.41` on a KER means the record is an empty stub:
-endpoints and identifiers, nothing else. This is exact, not a heuristic. In the
-08-06-2026 snapshot 1,536 of 2,369 KERs (65%) sit at that value and **zero of
-them carry a single reference**. It is also the corpus median, so most of
-AOP-Wiki's causal edges are assertions with nothing behind them.
-
-One number, read before anything else, tells you whether the KER has content.
-A stub KER is not disqualified — but it means AOP-Wiki is contributing a
-hypothesis and no evidence, and every citation will have to be found from
-scratch. Rank the work accordingly, and say so when you report the plan.
-
-### 5b — The evidence fields
-
-For each surviving KER, read three fields on `ker_info` and one on its parent AOP:
-
-| Field | On | What it tells you |
-|---|---|---|
-| `references` | KER | whether any literature is attached to *this edge* |
-| `weight_of_evidence.free_text` | KER | whether anyone assessed the edge |
-| `empirical_support.free_text` | KER | whether experimental support is described |
-| `oecd_status` | AOP | whether the pathway was ever externally reviewed |
-
-Three traps live here.
-
-**`completion_score` is not a quality score.** It counts populated fields on the
-wiki record. AOPs 552, 555, 556, 558 and 560 score 94–100% complete, have never
-been OECD reviewed (`oecd_status: ""`), and every one of their KERs used in the
-cardiac chains carries zero references. High completeness on an unreviewed
-pathway is the most misleading state in the data.
-
-**An empty `oecd_status` is not a rejection.** 450 of 596 AOPs are empty. It means
-no review has happened. Endorsement raises confidence in a pathway; its absence
-is not evidence against one, and neither state substitutes for literature.
-
-**AOP-level references do not discharge a KER.** The AOP record carries a
-`references` HTML blob — real citations, often substantial. They attest to the
-pathway as a whole and cannot be attributed to any specific causal step. Treat
-them as a starting bibliography for step 7, never as the citation for an edge.
-
-### 5c — Map the AOP's citations onto its own steps
-
-An AOP carries a `references` blob even when its KERs carry nothing. Do not stop
-at counting it. Split it into individual citations and assign each one to the step
-it actually serves — upstream, this edge, downstream, or none.
-
-Two things fall out that a count cannot show.
-
-**Whether the author evidenced this step at all.** AOP 558 carries ten citations
-and not one measures cAMP after PDE inhibition — the edge the AOP is named for.
-Four are enzyme-background or therapy reviews, four belong to the downstream
-RyR2/calcium half, one is tangential, one has no evident connection to the
-pathway. The bibliography is real and the step is still unevidenced.
-
-**Whether the bibliography contradicts the pathway.** In the same list, Zhou 2017
-attributes RyR2 hyperphosphorylation to oxidative-stress-driven calpain
-activation — a competing mechanism to the cAMP/PKA route asserted by the very
-next KER. An AOP citing evidence against its own edge is a strong signal to
-verify that edge before curating it, and you only see it by reading the
-citations rather than counting them.
-
-Record the triage result per edge. An uncited KER is not disqualified — it is a
-claim you will have to source entirely yourself, and knowing that up front is the
-point.
+Two of its results feed the steps below. A KER's triage outcome sets the priority
+you give its edge, and it is recorded per edge for Step 8. A stub KER is not
+disqualified — it means every citation will have to be found from scratch in
+Step 7, and knowing that up front is the point.
 
 ## Step 6 — Assemble chains and find where they land
 
-Group the surviving KERs by `aop_ids`. A single AOP usually supplies a connected
-run, and the run is more informative than its edges: it shows where the new
-entry point rejoins mechanism dismech already represents.
+**Compute connected components over the surviving KERs, and treat each component
+as one chain.** Two edges belong to the same chain when they share a Key Event —
+including an event you never named, since a chain routinely runs through events
+outside your Step 1 set. A component is more informative than its edges: it shows
+where the new entry point rejoins mechanism dismech already represents.
 
-Check each downstream KE against `kb/modules/` before treating it as missing:
+**Do not group by `aop_ids`.** An AOP is a curatorial packaging unit, not a
+mechanism boundary, so grouping by it goes wrong twice: it splits one connected
+mechanism across many buckets, and it double-counts, because a KER commonly
+belongs to several AOPs at once. A five-KE trial over the androgen-receptor axis
+returned 28 KERs forming exactly two components — the androgen chain and an
+unrelated cholinergic one, a split that matches the biology. Grouping the same
+edges by `aop_ids` scattered the 24-edge androgen component across **19** AOPs and
+listed one edge, KER2124, in **ten** of them.
+
+AOP identity is **provenance**: carry it on each edge so you can say which pathway
+asserted the claim, and cite it when you report. It is not the organizing key.
+
+### Is the downstream end already represented?
+
+Check each downstream KE before treating it as missing, and check the **entity
+from Step 1 first**. Its own pathophysiology nodes are what decide the question;
+`kb/modules/` answers a different one.
 
 ```bash
+# The entity you recorded in Step 1. Cystic fibrosis is the example used
+# throughout this section; substitute your own. A module target lives under
+# kb/modules/<name>.yaml and works the same way.
+ENTITY=kb/disorders/Cystic_Fibrosis.yaml
+
+# 1. the entity's own nodes — this is what "already represented" means
+python3 -c "import yaml,sys; print('\n'.join(p['name'] for p in \
+  yaml.safe_load(open(sys.argv[1]))['pathophysiology']))" "$ENTITY"
+
+# 2. modules — asked separately, and for conformance rather than coverage
 just list-modules                              # descriptions + conformance targets
-rg -il "<mechanism term>" kb/modules           # is this already covered?
+rg -il "<mechanism term>" kb/modules
 ```
 
-When a chain's downstream end already maps to a module node, the curation is an
-entry-point node plus one edge — not a new module. Establish that before
-proposing one.
+**Do not use `conforms_to` as the test.** A node represents its mechanism whether
+or not it declares one: 60% of disorder entries carry no `conforms_to` at all and
+only 17% of pathophysiology nodes have one, so routing the check through modules
+misses the majority case. Cystic fibrosis is typical — 27 nodes, none conforming,
+and its mucus and airway-obstruction nodes plainly cover the downstream half of
+AOP 148's EGFR chain.
+
+Three outcomes, and they differ in what work remains:
+
+| The downstream KE matches | What to curate | Step 7? |
+|---|---|---|
+| a node in the Step 1 entity | an entry-point node plus a `downstream` edge to the existing node | **no** — that edge is already carried, with its own evidence |
+| a node in `kb/modules/` but not in the entity | a node in the entity for it, declaring `conforms_to` the module node | yes |
+| nothing | the node and the edge, from scratch | yes |
+
+Row 1 is the only place this procedure narrows Step 7's input, and it is worth
+the check: re-verifying an edge dismech already holds is wasted deep-research
+effort. Record it in Step 8 so the next sweep does not re-nominate it.
+
+**The edge you add takes a bare name, not an entity reference.** A `downstream`
+target is matched verbatim against another item's `name` — writing
+`pathophysiology#Mucus Plugging` there is not an error anyone will catch for you.
+It draws a phantom node and silently detaches the real one (see `CLAUDE.md`,
+"Pathograph Targets Are Bare Names"). Run `just check-causal-targets <file>` after
+adding it.
 
 ## Step 7 — Verify every edge against primary literature
 
@@ -210,9 +231,17 @@ exact-substring `snippet`, `evidence_source` classifying the cited study, and
 An AOP author's causal assertion is a hypothesis about a chain. It tells you
 where to look. It never tells you what you found.
 
-## Step 8 — Record what did not survive
+## Step 8 — Record what you did not curate, and why
 
-An edge dropped for irrelevance, and an edge that no literature supports, are
-both results worth writing down — in the issue, or in `notes:` on the node that
-prompted the search. Otherwise the same KE gets re-nominated from the same AOP on
-the next sweep, and the work is repeated rather than continued.
+Three outcomes end without a new curated edge. Write all three down — in the
+issue, or in `notes:` on the node that prompted the search — so the next sweep
+continues the work rather than repeating it:
+
+| Outcome | Decided at | What a later sweep would otherwise do |
+|---|---|---|
+| Dropped as irrelevant to the disease or module entity | Step 4 | re-nominate the same KE from the same AOP |
+| Already represented in dismech | Step 6 | re-nominate an edge dismech already carries, with its own evidence |
+| No primary literature supports it | Step 7 | repeat a search that has already been paid for |
+
+The second is the one most easily lost, because it is not a failure — the edge
+exists, and the sweep's result is the confirmation that it does.
