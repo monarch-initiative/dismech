@@ -124,12 +124,23 @@ THERAPEUTIC_SLOTS = frozenset({"treatments", "clinical_trials"})
 # Only these classes own `cell_types` in the schema, so only their instances can
 # name the lymphocyte that sees an antigen. An evidence item or a treatment has
 # no such slot: "no cell_types" there is structurally impossible, not a curation
-# gap, and counting it as one inflates the unattributed rate. Matched on path
-# because iter_objects walks raw mappings with no class information, and only a
-# top-level member of one of these list slots is an instance of that class
-# (`pathophysiology[0].downstream[1]` is a CausalLink, not a Pathophysiology).
+# gap, and counting it as one inflates the unattributed rate.
+#
+# Matched on path, because iter_objects walks raw mappings with no class
+# information. The match must end at the list index: an object is an instance of
+# one of these classes only when the path's *last* segment is a member of that
+# slot's list. `pathophysiology[0].downstream[1]` is a CausalLink and
+# `pathophysiology[0].evidence[2]` an EvidenceItem, neither of which owns
+# `cell_types`; treating the whole subtree as eligible would add 907 such nested
+# objects and turn 64% into 88%.
+#
+# The prefix is deliberately unanchored so nesting is followed wherever the
+# schema puts these slots -- `stages[0].pathophysiology[1]` is as much a
+# Pathophysiology as a top-level one. Each of these three slot names has exactly
+# one range in the schema and no class overrides it, so the suffix alone
+# identifies the class.
 CELL_TYPE_BEARING_PATH = re.compile(
-    r"^(pathophysiology|biochemical|experimental_models)\[\d+\]$"
+    r"(?:^|\.)(pathophysiology|biochemical|experimental_models)\[\d+\]$"
 )
 
 # An HLA genetic row can only bind a gene_term when its name IS an HGNC gene
@@ -334,7 +345,7 @@ def audit_entry(path: Path) -> dict | None:
                     rec["antigen_obj_cell_types_non_lymphoid"] += 1
                 else:
                     rec["antigen_obj_no_cell_types"] += 1
-            if CELL_TYPE_BEARING_PATH.match(opath):
+            if CELL_TYPE_BEARING_PATH.search(opath):
                 rec["antigen_obj_eligible"] += 1
                 key = ("antigen_obj_eligible_with_lineage" if lin
                        else "antigen_obj_eligible_without_lineage")

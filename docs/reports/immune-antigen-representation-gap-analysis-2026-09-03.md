@@ -20,8 +20,8 @@ just immune-antigen-audit --entry Celiac_Disease
 ## The finding in one line
 
 **The schema has no antigen concept.** The string `antigen` does not appear once
-in any of the 21 files under `src/dismech/schema/` (7 at the top level plus 14
-under `classifications/`) — not as a class, not as a slot, not as an enum value.
+in any of the 21 files under `src/dismech/schema/` (7 top-level YAML, 13 more
+under `classifications/`, and a README) — not as a class, not as a slot, not as an enum value.
 Every antigen in the knowledge base is free text.
 
 The measurable consequence, stated over the denominator that can actually carry
@@ -139,8 +139,8 @@ biochemical:
 
 This is a real improvement over a bare string, and HPO supports it further than
 the KB uses it — **33 HP terms with `antibody` in the label are already in
-`cache/hp/terms.csv`** (`HP:0030057 Autoimmune antibody positivity` is the
-parent), covering ANA, anti-dsDNA-adjacent, ANCA/MPO/PR3, anti-Ro/SS-A,
+`cache/hp/terms.csv`** — 26 of them of the form `... antibody positivity`,
+headed by `HP:0030057 Autoimmune antibody positivity` — covering ANA, anti-dsDNA-adjacent, ANCA/MPO/PR3, anti-Ro/SS-A,
 anti-cardiolipin, anti-β2GPI, anti-MuSK and more. Three entries use them.
 
 But note what the HP binding says: it asserts *the patient is seropositive*. It
@@ -148,8 +148,9 @@ does not identify the antigen as a molecular entity, so it cannot be joined to
 the gene that encodes it, to the tissue that expresses it, or to a T-cell
 response against the same protein.
 
-`biomarker_term` bindings across `kb/disorders/` by prefix — CHEBI 451,
-NCIT 248, HP 71, `hgnc` 4, GO 2 — show the slot is already used
+`biomarker_term` bindings across `kb/disorders/` and `kb/modules/` by prefix —
+CHEBI 452, NCIT 269, HP 71, `hgnc` 4, GO 2, plus 22 blocks carrying no
+`term.id` at all — show the slot is already used
 heterogeneously, so an antigen-as-gene-product binding would not be
 unprecedented. It would just be undeclared.
 
@@ -271,12 +272,15 @@ a curated identity field (`name` / `preferred_term` / `label`) or in prose:
 |---|---:|---:|---:|
 | CD4 | 952 | 226 (23.7%) | 726 |
 | CD8 | 737 | 183 (24.8%) | 554 |
+| CD27 | 245 | 12 (4.9%) | 233 |
 | CD3 | 141 | 3 (2.1%) | 138 |
 | CD20 | 140 | 4 (2.9%) | 136 |
 | CD19 | 104 | 4 (3.8%) | 100 |
 
 CD4 and CD8 are the best-represented, but only as a side effect: they ride along
-inside CL labels such as `CD8-positive, alpha-beta T cell`. CD19, CD20 and CD3 —
+inside CL labels such as `CD8-positive, alpha-beta T cell`. CD27 is the third
+most-mentioned and sits at 4.9%, which is the same story — it appears in CL
+labels only where a term happens to be named for it. CD19, CD20 and CD3 —
 the B-lineage and pan-T markers, and the ones that matter for therapy — have no
 CL term to ride on and are therefore almost entirely prose. **79 entries mention
 rituximab**; the CD20 it depletes is a sentence in a `description`, not a target.
@@ -355,7 +359,7 @@ Nothing here requires a new ontology.
 | Antigen as a gene | `GeneDescriptor` (HGNC), already used for COL4A3, HARS1, PLA2R1 |
 | Antigen as a small molecule / hapten | `ChemicalEntityDescriptor` (CHEBI) |
 | Dietary or environmental antigen | `ExposureDescriptor` (ECTO), `FoodDescriptor` (FOODON) |
-| Seropositivity | 32 cached HP autoantibody-positivity terms under `HP:0030057` |
+| Seropositivity | 26 of those 33 cached HP terms are `... antibody positivity` terms |
 | Recognising lineage | B/T-lineage CL bindings already on 531 cohort pathophysiology nodes (2,158 carry some `cell_types`) |
 | Attaching an antigen to a node | the `<kind>#<name>` entity-reference grammar |
 | Recording *how* an antigen acts | the `ModelMechanismLink` / `influences_mechanisms` link-object pattern |
@@ -400,10 +404,15 @@ runner, ~3 min 40 s on a throttled container.
   3,122 antigen-naming objects (86.3%) are of such classes. The 64% figure is
   taken over the 428 that could carry the slot; the 95% figure over all 3,122 is
   reported alongside it and is a denominator artifact. Eligibility is decided by
-  path (`pathophysiology[N]`, `biochemical[N]`, `experimental_models[N]`),
-  because the walker sees raw mappings with no class information — so a nested
-  object such as `pathophysiology[0].downstream[1]` is correctly treated as
-  ineligible.
+  path, because the walker sees raw mappings with no class information: the
+  path's last segment must be a member of a `pathophysiology` / `biochemical` /
+  `experimental_models` list. That excludes objects nested *inside* an eligible
+  one — `pathophysiology[0].evidence[2]` is an EvidenceItem — and treating the
+  subtree as eligible would add 907 such objects (495 evidence items, 255
+  `downstream` links, 105 `biological_processes` descriptors) and report 88%
+  instead of 64%. The test does follow nesting in the other direction, so
+  `stages[0].pathophysiology[1]` counts; no antigen-naming object currently sits
+  there, so it does not move the 428.
 - **"No lineage" is not the same as "no cell types".** Of the 2,967 objects with
   no B/T/APC lineage, 2,892 have an empty or absent cell-type slot and 75 have
   one that names a non-lymphoid cell. The script reports these separately.
