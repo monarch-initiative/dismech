@@ -816,6 +816,14 @@ environmental-term-audit *args="":
 model-scale-audit *args="":
     uv run python scripts/model_scale_audit.py {{args}}
 
+# Census of how antigens on B and T cells are represented across immune entries.
+# Report-only, offline, never a gate. --format tsv gives a per-entry table;
+# --entry <stem> audits one file. See
+# docs/reports/immune-antigen-representation-gap-analysis-2026-09-03.md
+[group('QC')]
+immune-antigen-audit *args="":
+    uv run python scripts/immune_antigen_audit.py {{args}}
+
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
