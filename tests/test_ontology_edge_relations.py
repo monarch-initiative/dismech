@@ -21,7 +21,7 @@ from sqlalchemy import create_engine, text
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dismech.structured_sources.ontology_edges import (  # noqa: E402
+from dismech.structured_sources.ontology_edges import (
     OntologyEdgeSource,
     PredicateSpec,
 )

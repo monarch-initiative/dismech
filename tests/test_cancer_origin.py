@@ -23,7 +23,7 @@ from pathlib import Path
 # breaks that allowance (see tests/test_causal_targets.py).
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_cancer_origin import (  # noqa: E402
+from check_cancer_origin import (
     FINDING_MULTI,
     FINDING_NO_CELL,
     FINDING_NO_ORIGIN,
@@ -303,7 +303,11 @@ def test_worked_exemplars_still_derive_their_documented_cell():
 def test_script_is_advisory_by_default_and_gates_only_when_asked():
     """Most of the corpus is unmarked, so a default non-zero exit would be noise."""
     advisory = subprocess.run(
-        [sys.executable, str(SCRIPT)], capture_output=True, text=True, cwd=ROOT
+        [sys.executable, str(SCRIPT)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
     )
     assert advisory.returncode == 0, advisory.stderr
 
@@ -312,6 +316,7 @@ def test_script_is_advisory_by_default_and_gates_only_when_asked():
         capture_output=True,
         text=True,
         cwd=ROOT,
+        check=False,
     )
     assert gated.returncode == 1
 
@@ -323,6 +328,7 @@ def test_format_list_prints_one_line_per_entry():
         capture_output=True,
         text=True,
         cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     lines = [

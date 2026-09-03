@@ -100,7 +100,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.yaml_io import safe_load_path  # noqa: E402
+from dismech.yaml_io import safe_load_path
 
 KB_DIRS = ("kb/disorders", "kb/groupings")
 
@@ -113,7 +113,7 @@ NEOPLASM_RE = re.compile(
     r"cancer|neoplas|tumou?r|leuk[ae]m|lymphom|sarcom|carcinom|myelom|glioma"
     r"|blastoma|melanoma|malignan|mesotheliom|adenoma|myeloprolif|myelodysplas"
     r"|mycosis fungoides|sezary|polycythemia vera|thrombocythemia",
-    re.I,
+    re.IGNORECASE,
 )
 
 # Two ways the sweep above picks up something that is not a neoplasm: a
@@ -124,7 +124,7 @@ NEOPLASM_RE = re.compile(
 NOT_NEOPLASM_RE = re.compile(
     r"paraneoplastic|migrating partial seizures|malignant hyperthermia"
     r"|malignant atrophic papulosis",
-    re.I,
+    re.IGNORECASE,
 )
 
 # Germline predisposition syndromes are Mendelian diseases (design decisions
@@ -132,13 +132,13 @@ NOT_NEOPLASM_RE = re.compile(
 # rules, not this one. They are counted and skipped.
 PREDISPOSITION_RE = re.compile(
     r"predispos|hereditary cancer|cancer syndrome|tumor syndrome|tumour syndrome",
-    re.I,
+    re.IGNORECASE,
 )
 # ...unless the entry also carries a somatic-neoplasm category, which means it
 # curates the cancer itself rather than the syndrome.
 SOMATIC_CATEGORY_RE = re.compile(
     r"solid tumor|hematologic|sarcoma|carcinoma|leukemia|lymphoma|molecularly",
-    re.I,
+    re.IGNORECASE,
 )
 
 # --- origin detection ---------------------------------------------------------
@@ -467,24 +467,23 @@ def render_list(reports: list[EntryReport]) -> None:
         print(f"{report.path}\t{rules}\t{findings}\t{cells}")
 
 
+TSV_COLUMNS = (
+    "path",
+    "name",
+    "assessed",
+    "rules",
+    "origin_nodes",
+    "origin_cell_ids",
+    "origin_cell_labels",
+    "n_pathophysiology",
+    "n_subtypes",
+    "ncit_ids",
+    "findings",
+)
+
+
 def render_tsv(reports: list[EntryReport]) -> None:
-    print(
-        "\t".join(
-            [
-                "path",
-                "name",
-                "assessed",
-                "rules",
-                "origin_nodes",
-                "origin_cell_ids",
-                "origin_cell_labels",
-                "n_pathophysiology",
-                "n_subtypes",
-                "ncit_ids",
-                "findings",
-            ]
-        )
-    )
+    print("\t".join(TSV_COLUMNS))
     for report in reports:
         if not report.is_neoplasm:
             continue

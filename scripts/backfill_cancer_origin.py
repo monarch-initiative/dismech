@@ -65,13 +65,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from check_cancer_origin import (  # noqa: E402
+from check_cancer_origin import (
     _downstream_targets,
     _terms,
     assess,
     iter_paths,
 )
-from dismech.yaml_io import safe_load_path  # noqa: E402
+
+from dismech.yaml_io import safe_load_path
 
 # Vocabulary of an actual genetic lesion. "Activation" and "signaling" are
 # deliberately absent: a pathway running hot is a state, not a lesion, and the
@@ -100,7 +101,7 @@ LESION_RE = re.compile(
     r"|\bdriver (lesion|alteration|mutation|event)|oncogenic (lesion|alteration)"
     r"|(genetic|genomic|molecular|chromosomal|cytogenetic|epigenetic[- ]regulator)"
     r"\s+(alteration|lesion|abnormalit)",
-    re.I,
+    re.IGNORECASE,
 )
 
 # A node naming the setting rather than the lesion. The checker no longer needs
@@ -111,7 +112,7 @@ CONTEXT_NODE_RE = re.compile(
     r"microenvironment|immune (evasion|escape|suppress|surveillance)"
     r"|immunosuppress|t-?cell exhaustion|desmoplas|tumou?r stroma"
     r"|stromal (remodel|activation|reaction)|angiogen|myeloid suppression",
-    re.I,
+    re.IGNORECASE,
 )
 
 # Acquired-resistance and relapse nodes carry lesion vocabulary ("ESR1
@@ -122,7 +123,7 @@ CONTEXT_NODE_RE = re.compile(
 RESISTANCE_RE = re.compile(
     r"resistan|relapse|refractory|selection pressure|escape|reactivation"
     r"|bypass|progression|metasta|transformation to|richter",
-    re.I,
+    re.IGNORECASE,
 )
 
 # A viral oncoprotein inactivating a host tumor suppressor is not a host
@@ -135,7 +136,7 @@ VIRAL_RE = re.compile(
     r"\boncoprotein|\bE6\b|\bE7\b|\bHPV\b|papillomavirus|\bEBV\b|epstein"
     r"|\bHTLV|\bHBV\b|\bHCV\b|hepatitis [BC]\b|\bKSHV\b|\bHHV-?8\b"
     r"|\bTax\b|viral (protein|oncogene|oncoprotein)|virus-mediated",
-    re.I,
+    re.IGNORECASE,
 )
 
 # Any hint that the variant is inherited rather than acquired. Conservative on
@@ -144,7 +145,7 @@ VIRAL_RE = re.compile(
 GERMLINE_RE = re.compile(
     r"germline|inherited|heritable|hereditary|constitutional|familial"
     r"|de novo|autosomal|carrier|predispos",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -246,7 +247,7 @@ def propose(path: Path, *, bind_single_cell: bool = False) -> tuple[list[Proposa
 
 def _name_line_pattern(name: str) -> re.Pattern:
     escaped = re.escape(name)
-    return re.compile(rf"^- name: (?:{escaped}|\"{escaped}\"|'{escaped}')\s*$", re.M)
+    return re.compile(rf"^- name: (?:{escaped}|\"{escaped}\"|'{escaped}')\s*$", re.MULTILINE)
 
 
 def _cell_block(proposal: Proposal) -> str:
@@ -289,7 +290,7 @@ def apply_proposal(path: Path, proposals: list[Proposal]) -> bool:
             # Adding a second block would be a duplicate YAML key: legal to
             # PyYAML, which silently keeps the last one, and fatal to the
             # ruamel-based reference validator (dismech#8623). Merge instead.
-            block = re.compile(r"^  genetic_context:\s*$", re.M)
+            block = re.compile(r"^  genetic_context:\s*$", re.MULTILINE)
             existing = block.search(text, match.end())
             if existing is None:
                 print(
