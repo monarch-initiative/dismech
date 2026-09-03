@@ -194,6 +194,68 @@ def test_linked_and_cited_entry_is_not_a_gap(tmp_path):
     assert item.linked and not item.gap and not item.unevidenced_link
 
 
+def test_evidence_on_the_link_counts_as_cited(tmp_path):
+    """The regression the reviewer caught: link evidence was never read.
+
+    CLAUDE.md makes the link's own evidence the recommended place for
+    "this exposure acts on this node", so an entry can be fully cited with no
+    entry-level evidence block at all. Reading only the entry level called 17
+    such edges unevidenced.
+    """
+    _write(
+        tmp_path,
+        "Chronic_Kidney_Disease",
+        """environmental:
+- name: High Sodium Diet
+  influences_mechanisms:
+  - target: Glomerular Hyperfiltration
+    evidence:
+    - reference: PMID:1
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: sodium loading raised single-nephron filtration
+""",
+    )
+    (item,) = audit.collect(tmp_path)
+    assert item.tier == audit._TIER_HUMAN
+    assert item.linked
+    assert not item.unevidenced_link  # the bug this guards
+
+
+def test_intervention_link_evidence_also_counts(tmp_path):
+    _write(
+        tmp_path,
+        "Dravet_syndrome",
+        """treatments:
+- name: Ketogenic Diet
+  target_mechanisms:
+  - target: Seizure Threshold
+    evidence:
+    - reference: PMID:2
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: seizure frequency fell on the ketogenic diet
+""",
+    )
+    (item,) = audit.collect(tmp_path)
+    assert item.tier == audit._TIER_HUMAN
+    assert not item.unevidenced_link
+
+
+def test_entry_with_evidence_nowhere_is_still_the_inverse_defect(tmp_path):
+    _write(
+        tmp_path,
+        "Example",
+        """environmental:
+- name: Diet
+  influences_mechanisms:
+  - target: Barrier Dysfunction
+""",
+    )
+    (item,) = audit.collect(tmp_path)
+    assert item.unevidenced_link
+
+
 def test_linked_but_uncited_entry_is_the_inverse_defect(tmp_path):
     # Already rendering in the mechanism graph with nothing behind it.
     _write(

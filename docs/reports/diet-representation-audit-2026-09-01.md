@@ -23,22 +23,32 @@ mechanism graph**, not unbound terms.
 
 | | Causal | Intervention |
 |---|---|---|
-| Diet-related entries | 180 in 129 files | 605 in 442 files |
-| On the pathograph | 122 (67.8%) | 308 (50.9%) |
-| **Cited but off the pathograph** | **56** (42 after dropping weak matches) | **263** |
-| …of those, `CITED_HUMAN` | 39 (32 strong) | 204 |
-| On the pathograph but uncited | 1 | 18 |
-| Evidenced only by `REFUTE` | 1 | 9 |
+| Diet-related entries | 183 in 132 files | 614 in 449 files |
+| On the pathograph | 128 (69.9%) | 316 (51.5%) |
+| **Cited but off the pathograph** | **53** (40 after dropping weak matches) | **264** |
+| …of those, `CITED_HUMAN` | 37 | 205 |
+| On the pathograph but uncited | 0 | 3 |
+| Evidenced only by `REFUTE` | 1 | 10 |
 
 The causal track is in good shape: two thirds of its diet entries already carry
-`influences_mechanisms`, and the residue is 42 entries — a reviewable list, not a
+`influences_mechanisms`, and the residue is 40 entries — a reviewable list, not a
 programme. The intervention track is the weaker half: half of dietary treatments
-never link to a mechanism node, leaving 263 cited-but-unlinked treatments.
+never link to a mechanism node, leaving 264 cited-but-unlinked treatments.
 
-**The 19 entries on the pathograph with no evidence at all are the first thing to
-fix** — 18 interventions plus `Shigellosis` → "Contaminated water or food". They
-already render as mechanism edges, so they assert more than the KB can support.
-Three sit in `kb/modules/`, so each is inherited by every conforming disorder.
+**Three entries are on the pathograph with no evidence anywhere** — the dietary
+protein restriction in Chronic Kidney Disease, the ketogenic diet in Dravet
+syndrome, and the threonine restriction in Inherited Threoninemia. All three are
+interventions; the causal track has none. They already render as mechanism edges,
+so they assert more than the KB can support.
+
+An earlier draft of this report put that number at 19. It was wrong: the audit
+graded only the entry's own `evidence:` block and never looked at the evidence on
+the link itself, which is where CLAUDE.md says the claim "this exposure acts on
+this node" belongs. Sixteen of the other entries carry snippet-backed `SUPPORT`
+there, including all three `kb/modules/` entries the draft singled out as the
+worst case. `--strict` would have sent a curator to fix entries that were already
+right — the same failure mode as the `REFUTE_ONLY` bug below, one layer up. The
+gap counts are unaffected, since an unlinked entry has no links to read.
 
 `REFUTE_ONLY` is counted separately and is **not** a defect. NELABA's "Lipoic acid
 supplementation (ineffective)" carries two snippet-backed `REFUTE` items against
@@ -46,7 +56,7 @@ the mechanism it targets: a treatment recorded as failing against a node is a
 real, useful annotation, and an earlier draft of this audit wrongly flagged it as
 uncited.
 
-### The 42 strong causal candidates
+### The 40 strong causal candidates
 
 Concentrated in entries where diet is central: Gout (beer, fructose-sweetened
 soft drink, red/organ meat, shellfish — all `CITED_HUMAN`, none linked),
@@ -66,13 +76,13 @@ its own `explanation` already says.
 
 | State | Causal | Intervention |
 |---|---|---|
-| `BOUND` | 113 (62.8%) | 3 (0.5%) |
+| `BOUND` | 116 (63.4%) | 3 (0.5%) |
 | `PARTIAL` (block present, no `term:`) | 5 | 2 |
-| `FREE_TEXT` | 62 (34.4%) | 600 (99.2%) |
+| `FREE_TEXT` | 62 (33.9%) | 609 (99.2%) |
 
 `dietary_modifications` is effectively unused: 5 files in the whole KB (Celiac,
 ECHS1 Deficiency, Konzo, Lathyrism, Phenylketonuria), 11 modification records,
-against 605 dietary treatments. Only 18 FOODON bindings exist KB-wide across 10
+against 614 dietary treatments. Only 18 FOODON bindings exist KB-wide across 10
 distinct terms.
 
 **Free text is a legitimate outcome, not a backlog.** Two structural reasons, and
@@ -116,7 +126,7 @@ needs no schema change.
 
 Dietary treatments scatter across NCIT action terms — `NCIT:C15747` (supportive
 care), `NCIT:C15447` (dietary intervention), `NCIT:C15433` (nutritional support),
-`NCIT:C15986` (pharmacotherapy) — and **235 of 605 carry no
+`NCIT:C15986` (pharmacotherapy) — and **235 of 614 carry no
 `therapeutic_modality` at all**, with 232 `BEHAVIORAL` and 104 `SMALL_MOLECULE`.
 
 Do not mechanically backfill this. CLAUDE.md already records that
@@ -133,7 +143,7 @@ false-positive tail. Two mitigations, both visible in the output:
   description is a clinical paragraph that mentions diet incidentally — searching
   it pulled in ACE inhibitors (on "sodium"), cleft palate repair (on "feeding"),
   and beta blockers. The intervention track therefore matches `name` only, which
-  cut it from 1,262 entries to 605.
+  cut it from 1,262 entries to 614.
 - **Match provenance is recorded** (`matched_in`: `food_source` / `name` /
   `term_label` / `description`). A causal entry matched only in description prose
   is the weak tail — 14 of the 56 causal gap rows, including Ependymoma
@@ -158,8 +168,8 @@ uncited link either.
 Ordered by value per unit of work. None is started; all are decisions for a
 curator, not automated fixes.
 
-1. **Cite or unlink the 19 uncited pathograph edges** (18 intervention, 1 causal).
-   They already render, and three are in modules, so they propagate to conformers.
+1. **Cite or unlink the three uncited pathograph edges** (Chronic Kidney Disease,
+   Dravet syndrome, Inherited Threoninemia). They already render.
 2. **Work the 42 strong causal candidates**, reading each snippet before adding
    `influences_mechanisms`. Gout, Phenylketonuria, and Celiac Disease alone are 11
    of them and are the natural pilot, since all three already model diet well on

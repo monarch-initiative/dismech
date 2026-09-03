@@ -25,7 +25,10 @@ the pathograph. The reverse defect — linked but uncited — is counted separat
 and is the more urgent of the two, since it is already rendering.
 
 **Evidence tiers are structural, not a quality judgment.** This script cannot
-read a paper. It reports the shape of the citation and nothing more:
+read a paper. It reports the shape of the citation and nothing more. Evidence is
+read from the entry's own ``evidence:`` block *and* from its pathograph links
+(``influences_mechanisms`` / ``target_mechanisms``), since the link's evidence is
+the recommended place for the claim that the exposure acts on that node:
 
 * ``CITED_HUMAN`` — a ``SUPPORT`` item with a non-empty ``snippet`` and
   ``evidence_source: HUMAN_CLINICAL``. For a dietary claim about people this is
@@ -217,6 +220,22 @@ def _evidence_tier(items) -> str:
     return tier
 
 
+def _all_evidence(entry: dict, link_slot: str) -> list:
+    """Every evidence item on an entry, including on its pathograph links.
+
+    CLAUDE.md makes the link's own ``evidence`` the recommended place for
+    "this exposure acts on this node", separate from the entry's general
+    evidence -- so an entry can be fully cited with its ``evidence:`` block
+    absent. Reading only the entry level called 17 such edges unevidenced and
+    would have sent a curator to fix entries that were already right.
+    """
+    items = list(entry.get("evidence") or [])
+    for link in entry.get(link_slot) or []:
+        if isinstance(link, dict):
+            items.extend(link.get("evidence") or [])
+    return items
+
+
 def _descriptor_term(descriptor) -> tuple[str, str] | None:
     """Return ``(curie, label)`` from a descriptor, or None if it carries no term."""
     if not isinstance(descriptor, dict):
@@ -290,7 +309,7 @@ def _classify_causal(env: dict) -> _DietItem | None:
         name=name,
         linked=bool(env.get("influences_mechanisms")),
         state=state,
-        tier=_evidence_tier(env.get("evidence")),
+        tier=_evidence_tier(_all_evidence(env, "influences_mechanisms")),
         curies=curies,
         labels=labels,
         trigger=name_hit or trigger or exposure_label_hit,
@@ -344,7 +363,7 @@ def _classify_intervention(tx: dict) -> _DietItem | None:
         name=name,
         linked=bool(tx.get("target_mechanisms")),
         state=state,
-        tier=_evidence_tier(tx.get("evidence")),
+        tier=_evidence_tier(_all_evidence(tx, "target_mechanisms")),
         curies=curies,
         labels=labels,
         trigger=trigger or tid,
