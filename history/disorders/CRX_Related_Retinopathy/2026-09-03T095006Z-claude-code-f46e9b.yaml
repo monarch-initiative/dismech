@@ -1,0 +1,41 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: CRX_Related_Retinopathy
+  path: kb/disorders/CRX_Related_Retinopathy.yaml
+session:
+  id: 2026-09-03T095006Z-claude-code-f46e9b
+  timestamp: '2026-09-03T09:50:06Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/10537
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - evidence
+  - references
+  summary: 'Remove ellipses that elided nothing from CRX snippets (review response,
+    PR #10537)'
+  details: |
+    Review response on PR #10537.
+
+    Seven PMID:38414750 snippets carried ' ... ' immediately after the bracketed RefSeq variant nomenclature, e.g.
+
+      In humans, E168d2 [NM_000554.6: c.503_504del (p.Glu168fs), ClinVar VCV000099609] ... is associated with dominant LCA
+
+    The source is contiguous there — nothing was omitted — so the ellipsis stated something false about the source in a PR whose subject is quote fidelity. Removed from all seven.
+
+    Why they were there, and why removing them alone was not enough: the reference validator strips bracketed spans from the snippet before matching, so a curator can gloss a quote ('this cytokine [IL-6] is a key factor') without transcribing the gloss. Only the query side is stripped, never the cached text. RefSeq variant nomenclature written mid-sentence by the source is not a gloss, so stripping it left 'In humans, E168d2 is associated with...' which is not a substring of the cache. Splitting the quote with an ellipsis made each fragment match around the bracket. Removing the ellipses without addressing that dropped the file from 32/32 to 25/32.
+
+    The real fix is the mechanism conf/reference_validator_config.yaml already provides for this exact failure (issue #8597): a literal_bracket_patterns entry '^NM_\\d' keeps RefSeq nomenclature as literal source text. The pattern is anchored and requires a digit, so a gloss would have to open with a RefSeq accession to be caught by it. Validated the way that config's comment describes its existing patterns were chosen — by replaying every snippet in kb/: 144044 verified, 5427 skipped by prefix, zero failures, so no other entry's matching changed and the four editorial glosses in the KB stay stripped.
+
+    Found by the @claude re-review of 69eb562. The reviewer's diagnosis (the ellipses elide nothing) was right; its proposed fix (delete them) was incomplete, because it did not account for the bracket stripping.
+
+    Validation: linkml-validate clean; snippet audit 32/32 on this file and no regression KB-wide; duplicate-key and entity-ref checks pass.
