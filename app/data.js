@@ -34083,6 +34083,98 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Bacterial Vaginosis",
+    "disease_id": "MONDO:0005316",
+    "category": "Infectious Disease",
+    "parents": [
+      "Female reproductive system disorder",
+      "Bacterial infectious disease"
+    ],
+    "creation_date": "2026-08-20T05:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bacterial vaginosis is a polymicrobial dysbiosis in which the lactobacillus-dominated vaginal community is replaced by a dense consortium of facultative and strict anaerobes - Gardnerella, Prevotella (Hoylesella), Fannyhessea/Atopobium, Mobiluncus and others - with loss of lactic acid production and a rise in vaginal pH. Three features make it mechanistically distinctive. First, no single organism satisfies Koch's postulates: the disease is a community state, and the same taxa are recoverable from women without disease, so the pathogenic unit is the consortium and its adherent biofilm rather than a pathogen. Second, the damage that matters is done to a barrier rather than to a tissue - bacterial sialidases and glycosidases strip the cervicovaginal mucus of its protective glycans, and the resulting loss of mucus adhesive function, not inflammation, is what raises the risk of HIV acquisition and of ascending infection in pregnancy. Third, the clinical problem is recurrence, not cure: first-line antimicrobials clear most episodes and more than half of women relapse within six months, and the two candidate explanations - survival of the adherent biofilm and reinfection from an untreated sexual partner - are clinically indistinguishable in an individual woman. A 2025 randomised trial of male-partner treatment that was stopped early for benefit is the strongest evidence yet that the second route is real.\n",
+    "pathophysiology": [
+      "Loss of Lactobacillus Dominance and Vaginal Acidification",
+      "Polymicrobial Anaerobic Overgrowth",
+      "Biogenic Amine Production and Amplified Lactobacillus Suppression",
+      "Epithelial Adhesion and Gardnerella-Dominated Adherent Biofilm",
+      "Exfoliation of Bacteria-Coated Epithelial Cells (Clue Cells)",
+      "Vaginolysin-Mediated Epithelial Pore Formation and Signalling",
+      "Bacterial Sialidase and Glycosidase Degradation of the Mucus Barrier",
+      "Loss of Cervicovaginal Mucus Adhesive Barrier Function",
+      "Epithelial Barrier Disruption and Mucosal Immune Activation",
+      "Increased Susceptibility to HIV and Other Genital Tract Infections",
+      "Ascending Infection and Adverse Pregnancy Outcomes",
+      "Biofilm Persistence After Antimicrobial Therapy",
+      "Reinfection from an Untreated Sexual Partner",
+      "Recurrent Bacterial Vaginosis",
+      "Anaerobe Ribosomal Translation (Clindamycin and Tetracycline Target)"
+    ],
+    "cell_types": [
+      "vaginal squamous epithelial cell",
+      "CD4-positive T cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001578",
+      "CL:0000492"
+    ],
+    "biological_processes": [
+      "lactate biosynthetic process",
+      "response to bacterium",
+      "amine biosynthetic process",
+      "biofilm formation",
+      "cell adhesion involved in biofilm formation",
+      "cytolysis",
+      "killing of cells of another organism",
+      "inflammatory response",
+      "T cell activation",
+      "translation"
+    ],
+    "phenotypes": [
+      "Thin homogeneous malodorous vaginal discharge",
+      "Premature birth"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0034269",
+      "HP:0001622"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Metronidazole",
+      "Secnidazole",
+      "Tinidazole",
+      "Dequalinium Chloride",
+      "Clindamycin",
+      "LACTIN-V (Lactobacillus crispatus CTV-05 live biotherapeutic)",
+      "Concurrent male-partner antimicrobial treatment"
+    ],
+    "environmental": [
+      "Intrauterine device use and non-barrier contraception",
+      "Sexual activity with a regular untreated male partner"
+    ],
+    "biochemical": [],
+    "source_file": "Bacterial_Vaginosis.yaml",
+    "page_url": "../pages/disorders/Bacterial_Vaginosis.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 15,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Bacterial meningitis",
     "disease_id": "MONDO:0006670",
     "category": "Infectious Disease",
@@ -57561,6 +57653,128 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Charcot-Marie-Tooth disease type 4D",
+    "disease_id": "MONDO:0011085",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-08-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Charcot-Marie-Tooth disease type 4D (CMT4D), historically hereditary motor and sensory neuropathy-Lom (HMSNL), is an autosomal recessive, childhood-onset, severe demyelinating sensorimotor neuropathy caused by biallelic loss-of-function variants in NDRG1. It was first delineated in Roma families from the town of Lom in Bulgaria, where a single founder nonsense allele p.Arg148* accounts for most cases worldwide, but it is not a Roma-restricted disease: frameshift, splice-site, missense and exon-duplication alleles have since been reported in families of Italian, Turkish, Indian, Chinese, Saudi and Bulgarian Muslim origin. NDRG1 is expressed at very high levels in the Schwann cell and not detectably in axons, so the primary lesion is glial; what distinguishes CMT4D from other demyelinating CMT is that severe axonal loss appears early rather than as a late consequence of chronic demyelination, which is why the original gene-discovery work framed the disorder as a failure of axon-glia interaction rather than of myelin structure. Sensorineural deafness, usually emerging in the third decade, is the second defining feature. The molecular function of NDRG1 remains only partly understood; the leading account is a Schwann-cell vesicular-trafficking role that cannot meet the enormous membrane demand of myelin growth, and the neuregulin-1/ErbB evidence that would connect that defect to demyelination is so far entirely from mouse.",
+    "pathophysiology": [
+      "Biallelic NDRG1 Loss-of-Function Variant",
+      "Loss of Schwann Cell NDRG1 Function",
+      "Impaired Schwann Cell Vesicular Trafficking",
+      "Attenuated Neuregulin 1-ErbB Signaling",
+      "Dysregulated Myelination Transcription Program",
+      "Myelin Sheath Breakdown with Onion Bulb Formation",
+      "Early Severe Axonal Loss",
+      "Progressive Demyelinating Sensorimotor Neuropathy",
+      "Auditory Pathway Involvement"
+    ],
+    "cell_types": [
+      "Schwann cell",
+      "peripheral nervous system neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0002573",
+      "CL:2000032"
+    ],
+    "biological_processes": [
+      "endosomal recycling of membrane receptors",
+      "ERBB signaling pathway",
+      "myelination in peripheral nervous system",
+      "myelin maintenance"
+    ],
+    "phenotypes": [
+      "Demyelinating Sensorimotor Polyneuropathy",
+      "Distal Muscle Weakness",
+      "Distal Amyotrophy",
+      "Loss of Ambulation",
+      "Steppage Gait",
+      "Decreased Motor Nerve Conduction Velocity",
+      "Sensorineural Hearing Loss",
+      "Pes Cavus",
+      "Talipes Equinovarus",
+      "Claw Hand Deformity",
+      "Scoliosis",
+      "Areflexia",
+      "Distal Sensory Loss",
+      "Visual Pathway Involvement",
+      "Bulbar Dysfunction with Dysphagia",
+      "Bilateral Vocal Cord Paralysis",
+      "Respiratory Insufficiency",
+      "Cognitive Impairment",
+      "Central Nervous System White Matter Abnormality",
+      "Infratentorial and Cervical Cord Atrophy",
+      "Cervical Spinal Cord Atrophy"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Ophthalmologic",
+      "Gastrointestinal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0007108",
+      "HP:0002460",
+      "HP:0003693",
+      "HP:0002505",
+      "HP:0003376",
+      "HP:0003431",
+      "HP:0000407",
+      "HP:0001761",
+      "HP:0001762",
+      "HP:0034337",
+      "HP:0002650",
+      "HP:0001284",
+      "HP:0002936",
+      "HP:0000649",
+      "HP:0002015",
+      "HP:0012820",
+      "HP:0002093",
+      "HP:0100543",
+      "HP:0002500",
+      "HP:0001272",
+      "HP:0010873"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NDRG1"
+    ],
+    "treatments": [
+      "Percutaneous Endoscopic Gastrostomy Feeding",
+      "Non-Invasive Ventilation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Charcot-Marie-Tooth_Disease_Type_4D.yaml",
+    "page_url": "../pages/disorders/Charcot-Marie-Tooth_disease_type_4D.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Type 4K",
@@ -261754,17 +261968,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2538,
+  "total_disorder_pages": 2540,
   "total_subtypes": 3571,
-  "total_disorders_and_subtypes": 6109,
-  "total_unique_evidence_sources": 36286,
-  "total_unique_publications": 34153,
+  "total_disorders_and_subtypes": 6111,
+  "total_unique_evidence_sources": 36330,
+  "total_unique_publications": 34194,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 270,
-  "total_pathographs": 2533,
-  "total_unique_pathological_events": 14796,
+  "total_pathographs": 2535,
+  "total_unique_pathological_events": 14820,
   "total_modules": 167,
-  "total_research_reports": 2655,
+  "total_research_reports": 2658,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
