@@ -1,0 +1,183 @@
+name: Publish NDEx release
+
+on:  # yamllint disable-line rule:truthy
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to export
+        required: true
+        default: main
+      release_version:
+        description: Version attached to every NDEx network
+        required: true
+      upload:
+        description: Upload to production NDEx (otherwise export and audit only)
+        required: true
+        type: boolean
+        default: false
+      visibility:
+        description: Final visibility after the complete release verifies
+        required: true
+        type: choice
+        options:
+          - PRIVATE
+          - PUBLIC
+        default: PRIVATE
+      index_level:
+        description: NDEx indexing level; ALL enables node/gene search
+        required: true
+        type: choice
+        options:
+          - META
+          - ALL
+          - NONE
+        default: META
+      previous_manifest:
+        description: Committed path to the prior UUID registry
+        required: false
+        default: conf/ndex-production-manifest.json
+      first_release:
+        description: Explicitly mint new UUIDs without a previous registry
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ndex-production
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    outputs:
+      source_revision: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Check out requested revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Resolve source revision
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Build and audit release
+        env:
+          NDEX_AUTHOR: ${{ vars.NDEX_AUTHOR }}
+          NDEX_RIGHTS: ${{ vars.NDEX_RIGHTS }}
+          NDEX_RIGHTS_HOLDER: ${{ vars.NDEX_RIGHTS_HOLDER }}
+          FIRST_RELEASE: ${{ inputs.first_release }}
+          PREVIOUS_MANIFEST: ${{ inputs.previous_manifest }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          SOURCE_REVISION: ${{ steps.source.outputs.sha }}
+        run: |
+          : "${NDEX_AUTHOR:?Configure the NDEX_AUTHOR repository variable}"
+          : "${NDEX_RIGHTS:?Configure the NDEX_RIGHTS repository variable}"
+          : "${NDEX_RIGHTS_HOLDER:?Configure the NDEX_RIGHTS_HOLDER repository variable}"
+          : "${PREVIOUS_MANIFEST:?previous_manifest must name the reserved registry path}"
+          if [[ "$FIRST_RELEASE" == "true" ]]; then
+            if [[ -e "$PREVIOUS_MANIFEST" ]]; then
+              echo "Refusing first release because $PREVIOUS_MANIFEST already exists" >&2
+              exit 1
+            fi
+            previous_args=()
+          else
+            : "${PREVIOUS_MANIFEST:?Set previous_manifest or select first_release}"
+            previous_args=(--previous-manifest "$PREVIOUS_MANIFEST")
+          fi
+          uv run dismech-ndex-publish \
+            --output-dir output/ndex/cx2 \
+            --manifest-out output/ndex/manifest.json \
+            "${previous_args[@]}" \
+            --release-version "$RELEASE_VERSION" \
+            --source-revision "$SOURCE_REVISION" \
+            --author "$NDEX_AUTHOR" \
+            --rights "$NDEX_RIGHTS" \
+            --rights-holder "$NDEX_RIGHTS_HOLDER"
+
+      - name: Summarize UUID continuity
+        if: always()
+        run: |
+          if [[ -f output/ndex/manifest.json ]]; then
+            carried="$(jq '[.networks[] | select(.ndex_uuid != null)] | length' output/ndex/manifest.json)"
+            retired="$(jq '.summary.retired_network_count' output/ndex/manifest.json)"
+            echo "Carried forward ${carried} NDEx UUIDs; reported ${retired} retired networks." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload release artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dismech-ndex-${{ inputs.release_version }}
+          path: output/ndex/
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    if: inputs.upload
+    needs: export
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    environment: ndex-production
+    steps:
+      - name: Check out requested revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.export.outputs.source_revision }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Download audited release
+        uses: actions/download-artifact@v4
+        with:
+          name: dismech-ndex-${{ inputs.release_version }}
+          path: output/ndex/
+
+      - name: Publish and verify
+        env:
+          NDEX_USERNAME: ${{ secrets.NDEX_USERNAME }}
+          NDEX_PASSWORD: ${{ secrets.NDEX_PASSWORD }}
+          NDEX_INDEX_LEVEL: ${{ inputs.index_level }}
+          NDEX_VISIBILITY: ${{ inputs.visibility }}
+        run: |
+          uv run python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from dismech.export.ndex_publish import publish_release, write_uuid_registry
+
+          manifest_path = Path("output/ndex/manifest.json")
+          manifest = json.loads(manifest_path.read_text())
+          publish_release(
+              manifest,
+              manifest_path=manifest_path,
+              host="https://www.ndexbio.org",
+              username=os.environ["NDEX_USERNAME"],
+              password=os.environ["NDEX_PASSWORD"],
+              visibility=os.environ["NDEX_VISIBILITY"],
+              index_level=os.environ["NDEX_INDEX_LEVEL"],
+          )
+          write_uuid_registry(manifest, Path("output/ndex/uuid-registry.json"))
+          PY
+
+      - name: Upload verified manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dismech-ndex-${{ inputs.release_version }}-verified
+          path: |
+            output/ndex/manifest.json
+            output/ndex/uuid-registry.json
+          if-no-files-found: error
+          retention-days: 90

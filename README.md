@@ -189,7 +189,9 @@ just upload-cx2-test-all
 and applies a deterministic layout so the uploaded network is immediately viewable in
 NDEx. Add `--dot-layout` if Graphviz and `pydot` are available and you want a Graphviz
 layout instead of the built-in layered layout. The default NDEx upload visibility is
-`PUBLIC`, and the `just` upload targets default the host to `https://test.ndexbio.org`.
+`PRIVATE`, and the `just` upload targets default the host to `https://test.ndexbio.org`.
+Production releases use the protected, manually triggered `Publish NDEx release`
+GitHub Actions workflow described in the operator documentation.
 
 ## Agentic Curation Guide
 
