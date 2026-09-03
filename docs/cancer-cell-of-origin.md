@@ -169,7 +169,10 @@ output back into YAML, and it asks for the canonical label explicitly
 entry had them — the curator's wording in `preferred_term`, the ontology's
 label in `term.label` — because `term.label` must match the ontology exactly.
 Collapsing the two writes a label CL does not have, and `just validate-terms`
-rejects it.
+rejects it. That script writes YAML as text, so it emits every borrowed value
+as a quoted scalar where a plain one would not survive -- the KB holds
+`preferred_term`s like `EMG: myopathic abnormalities`, where an unquoted
+colon-space would make a nested mapping instead of a string.
 
 `ORIGIN_WITHOUT_CELL`
 : An origin node was identified but binds no CL term. The cheapest class to fix,

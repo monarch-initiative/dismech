@@ -426,7 +426,7 @@ def iter_paths(args_files: list[str]) -> Iterator[Path]:
 
 
 def _fmt_cells(report: EntryReport) -> str:
-    return "; ".join(f"{cid} {label}".strip() for cid, label in report.origin_cells)
+    return "; ".join(f"{cid} {name}".strip() for cid, name in report.origin_cells)
 
 
 def render_summary(reports: list[EntryReport], *, verbose: bool) -> None:
@@ -461,7 +461,7 @@ def render_summary(reports: list[EntryReport], *, verbose: bool) -> None:
             for origin in report.origins:
                 if not origin.cell_terms:
                     continue
-                cells = "; ".join(f"{c} {lab}".strip() for c, lab in origin.cell_terms)
+                cells = "; ".join(f"{c} {nm}".strip() for c, nm in origin.cell_terms)
                 print(f"     [{origin.rule}] {origin.name!r}: {cells}")
         print()
 

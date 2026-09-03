@@ -17,6 +17,8 @@ from backfill_cancer_origin import (
     propose,
 )
 
+from dismech.yaml_io import safe_load
+
 ROOT = Path(__file__).parent.parent
 
 ENTRY_HEAD = "name: Fake Carcinoma\ncategories:\n- Solid Tumor\npathophysiology:\n"
@@ -158,3 +160,34 @@ def test_a_borrowed_binding_keeps_the_canonical_label_in_term_label(tmp_path):
     assert "preferred_term: mesenchymal cell of uncertain differentiation" in written
     assert "label: mesenchymal stem cell" in written
     assert "label: mesenchymal cell of uncertain differentiation" not in written
+
+
+def test_a_borrowed_preferred_term_with_a_colon_still_round_trips(tmp_path):
+    """This script writes YAML as text, so the value has to be emitted safely.
+
+    `preferred_term` became curator free text rather than an ontology label, and
+    the KB already holds values a plain scalar cannot carry -- `EMG: myopathic
+    abnormalities` would parse as a nested mapping. No cell binding hits it
+    today, but this is committed tooling whose documented use is re-running with
+    `--bind-single-cell`.
+    """
+    hedge = "EMG: cell of uncertain differentiation"
+    path = tmp_path / "Fake_Sarcoma.yaml"
+    path.write_text(
+        "name: Fake Sarcoma\ncategories:\n- Solid Tumor\npathophysiology:\n"
+        "- name: SMARCB1 Loss\n"
+        "  description: Biallelic inactivation.\n"
+        "- name: Downstream Consequence\n"
+        "  cell_types:\n"
+        f"  - preferred_term: '{hedge}'\n"
+        "    term:\n      id: CL:0000134\n      label: mesenchymal stem cell\n"
+    )
+    proposals, status = propose(path, bind_single_cell=True)
+    assert status == "ready"
+    assert apply_proposal(path, proposals)
+
+    reloaded = safe_load(path.read_text())
+    lesion = reloaded["pathophysiology"][0]
+    assert lesion["genetic_context"]["variant_origin"] == "SOMATIC"
+    assert lesion["cell_types"][0]["preferred_term"] == hedge
+    assert lesion["cell_types"][0]["term"]["label"] == "mesenchymal stem cell"

@@ -56,10 +56,13 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -207,17 +210,17 @@ def propose(path: Path, *, bind_single_cell: bool = False) -> tuple[list[Proposa
         if VIRAL_RE.search(_node_text(node)):
             continue
         cells = [
-            (cid, name)
-            for cid, name in _terms(node.get("cell_types"))
+            (cid, cell_name)
+            for cid, cell_name in _terms(node.get("cell_types"))
             if cid not in GENERIC_CELLS
         ]
         labels = dict(_terms(node.get("cell_types"), display=False))
         borrowed = False
         if not cells and bind_single_cell:
             entry_cells = {
-                cid: name
+                cid: cell_name
                 for other in nodes
-                for cid, name in _terms(other.get("cell_types"))
+                for cid, cell_name in _terms(other.get("cell_types"))
                 if cid not in GENERIC_CELLS
             }
             if len(entry_cells) == 1:
@@ -235,8 +238,10 @@ def propose(path: Path, *, bind_single_cell: bool = False) -> tuple[list[Proposa
                 path=path,
                 node_name=str(node.get("name", "")),
                 cell_ids=[c for c, _ in cells],
-                cell_names=[name for _, name in cells],
-                cell_labels=[labels.get(c, name) for c, name in cells],
+                cell_names=[cell_name for _, cell_name in cells],
+                # `labels` is keyed by the same `term.id` guard `cells` is,
+                # and is unfiltered, so it is a superset -- never a miss.
+                cell_labels=[labels[c] for c, _ in cells],
                 is_root=node.get("name") not in targeted,
                 matched=match.group(0),
                 has_genetic_context=isinstance(node.get("genetic_context"), dict),
@@ -263,6 +268,26 @@ def _name_line_pattern(name: str) -> re.Pattern:
     return re.compile(rf"^- name: (?:{escaped}|\"{escaped}\"|'{escaped}')\s*$", re.MULTILINE)
 
 
+def _scalar(value: str) -> str:
+    """Emit `value` as a YAML scalar, quoted whenever plain would not survive.
+
+    This script writes YAML as text, and since `preferred_term` became curator
+    free text rather than an ontology label the character surface is wide enough
+    to matter: the KB already holds values like `EMG: myopathic abnormalities`,
+    where an unquoted colon-space makes a nested mapping instead of a string.
+    (`ATP:ADP antiporter activity` is fine plain -- only `: ` separates a
+    mapping -- and PyYAML knows the difference, which is why the decision is
+    delegated to it rather than to a hand-written character test.)
+    """
+    dumped = yaml.safe_dump(
+        {"v": value}, default_flow_style=False, allow_unicode=True, width=10**9
+    )[len("v: ") :].rstrip("\n")
+    # A value containing a newline dumps across lines, which would not survive
+    # being spliced into a fixed indentation. JSON's double-quoted form is a
+    # valid YAML scalar and stays on one line.
+    return json.dumps(value) if "\n" in dumped else dumped
+
+
 def _cell_block(proposal: Proposal) -> str:
     """The `cell_types` YAML for a borrowed binding, or nothing."""
     if not proposal.borrowed_cell:
@@ -272,8 +297,8 @@ def _cell_block(proposal: Proposal) -> str:
         proposal.cell_ids, proposal.cell_names, proposal.cell_labels
     ):
         out += (
-            f"  - preferred_term: {name}\n"
-            f"    term:\n      id: {cid}\n      label: {label}\n"
+            f"  - preferred_term: {_scalar(name)}\n"
+            f"    term:\n      id: {_scalar(cid)}\n      label: {_scalar(label)}\n"
         )
     return out
 
