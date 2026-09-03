@@ -547,6 +547,13 @@ complementarity with sibling modules, worked conformers, and key conformance
 target. Read it before conforming to it, and keep it current when you change the
 module — that description is now the *only* place that information lives.
 
+**Module collections:** records in `kb/module_collections/` organize modules
+into a published framework or another explicit navigational family. They
+validate against `ModuleCollection`, not `Disease`, and use module filename
+stems (without node anchors) as members. A collection is not a mechanism,
+does not replace the module directory as the complete registry, and does not
+assert disease membership. One module may belong to several collections.
+
 Thematic families to be aware of when picking a conformance target (find their
 members with `just list-modules`, do not assume this list is exhaustive):
 
@@ -780,8 +787,9 @@ creating any new cancer/neoplasm entry. The short version:
 - **Stage is never an entry.** Metastatic/advanced disease is `stages:` on the
   parent plus `conforms_to` on the `invasion_and_metastasis` module — do not
   create `Metastatic_X` entries.
-- **Pathways/hallmarks are never entries** — they live in `kb/modules/` and
-  mechanism groupings.
+- **Pathways/hallmarks are never disease entries** — mechanisms live in
+  `kb/modules/`; named multi-module frameworks live in
+  `kb/module_collections/`.
 - **Germline predisposition syndromes** (Li-Fraumeni, Lynch) follow the plain
   Mendelian lump/split rules; keep them separate from the somatic cancer
   entries they predispose to.
@@ -789,8 +797,11 @@ creating any new cancer/neoplasm entry. The short version:
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
-modules, or groupings. They validate against `Grouping`, not `Disease`, and list
-members explicitly rather than recreating an ontology hierarchy.
+named disease subtypes, or nested disease groupings. They validate against
+`Grouping`, not `Disease`, and list members explicitly rather than recreating an
+ontology hierarchy. Modules may occur in grouping criteria and differentiating
+mechanisms, but are never grouping members; organize modules with a
+`ModuleCollection` instead.
 
 Use the `curate-grouping` skill when creating, editing, reviewing, or auditing a
 grouping. It covers membership logic, criteria semantics, ontology closure,
@@ -801,7 +812,31 @@ rg --files kb/groupings -g "*.yaml" | sort
 sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
+just grouping-nesting-audit          # declared tree + undeclared containments
 ```
+
+**Nesting is declared, never inferred.** A grouping sits below another only
+when the parent lists it as a `member_type: GROUPING` member, and that is the
+only thing the index page's tree draws. Most groupings are deliberate
+cross-cuts (a shared organelle, gene family, or phenotype axis) that nest in
+nothing — 78 of the 100 are standalone — so the tree shows the nested trees
+first and folds the standalone groupings into one collapsed list. A disease
+held through a nested grouping *is* a member of the parent: the evaluator
+reports it as `(via <nested grouping>)`, the parent page's coverage table marks
+it `nested via …` and counts it toward coverage, and `test_valid_grouping_files`
+still evaluates it against the parent's criteria. When you nest a grouping,
+replace the direct rows it covers rather than duplicating them (the
+`Lysosomal_Storage_Disorders` review removed exactly such a redundancy), folding
+their differentiating mechanisms into the GROUPING row if they would otherwise
+be lost.
+
+`just grouping-nesting-audit` prints the declared forest and, next to it, the
+**undeclared containments** — pairs where every expanded disease member of one
+grouping is a member of another that does not list it. That is a lead, not a
+ruling: `Primary_Microcephaly_Spectrum` sits entirely inside `Centrosomopathies`,
+and the latter's rationale says the two cut the same diseases along different
+axes on purpose. Read both rationales before declaring the edge. The index page
+carries the same list as an advisory panel.
 
 ### Pathophysiology Biological Scale Tag
 
@@ -2617,8 +2652,8 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 
 | Path | Commit? | Reason |
 |------|---------|--------|
-| `kb/disorders/*.yaml`, `kb/modules/*.yaml` | YES | Core content |
-| `references_cache/*.md` | YES | Required for deterministic `validate-kb-references` CI |
+| `kb/disorders/*.yaml`, `kb/modules/*.yaml`, `kb/module_collections/*.yaml` | YES | Core content |
+| `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `stubs/*.yaml` | YES | The curation queue. A curation PR **deletes** the stub it curates |

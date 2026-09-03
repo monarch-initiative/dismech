@@ -7,6 +7,12 @@ on:  # yamllint disable-line rule:truthy
   push:
     branches: [main]
   pull_request:
+  # Merge-queue integration builds (#10168, #2034). The queue tests each PR on
+  # a temporary gh-readonly-queue/* branch and waits for the required
+  # `test (3.13)` check on that commit; without this trigger the check is never
+  # reported and every queued PR times out. Merge-group runs execute the full
+  # suite regardless of paths -- see "Check for changes" below.
+  merge_group:
 
 env:
   FORCE_COLOR: "1" # Make tools pretty.
@@ -57,6 +63,21 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
         run: git fetch --no-tags --force --depth=1 origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
+      # Also runs on merge_group (merge-queue integration builds, #10168):
+      # paths-filter supports that event since v4.0.1 -- `base`/`ref` default
+      # to the event's commit hashes, so the outputs describe exactly what the
+      # queued PR(s) change, and the `*_files` lists feed the changed-file KB
+      # validations below. Most gates below are nevertheless FORCED on for
+      # merge_group, deliberately: a queue build must run the full suite
+      # regardless of paths, because path filtering is why the #9538
+      # cross-file enum incompatibility was invisible until the branch was
+      # updated, and catching that class of break is what the queue is for. A
+      # merge group is a handful of runs per merge, so the wall-clock cost is
+      # bounded. (Do not downgrade this action below v4.0.1: older versions
+      # have no merge_group case and fall back to a merge-base diff against
+      # the default branch, an over-broad result that can include other PRs'
+      # changes -- upstream added the event support in dorny/paths-filter#255
+      # precisely to stop those false positives.)
       - name: Check for changes
         uses: dorny/paths-filter@v4
         id: changes
@@ -64,10 +85,19 @@ jobs:
           list-files: shell
           filters: |
             python:
+              # Globs, because the repo-wide guard in tests/test_dragon_ai_workflow.py
+              # scans every workflow and composite action, so an edit to any of them
+              # must run this lane. The individually named files below are redundant
+              # against these globs and kept deliberately: other guard tests assert
+              # those exact entries, and each records why that file needs this lane.
+              - '.github/actions/**'
+              - '.github/workflows/**'
               - '.github/actions/approve-regen-pr/action.yml'
               - '.github/cron-profiles.yaml'
+              - '.github/scripts/**'
               - '.github/workflows/claude-code-review.yml'
               - '.github/workflows/curation-scanner.yml'
+              - '.github/workflows/dragon-ai.yml'
               - '.github/workflows/generate-grouping-pages.yaml'
               - '.github/workflows/generate-pages.yaml'
               - '.github/workflows/generate-project-pages.yaml'
@@ -75,10 +105,12 @@ jobs:
               - '.github/workflows/pr-shepherd.yml'
               - '.github/workflows/reference-title-baseline.yaml'
               - '.github/workflows/title-snippet-baseline.yaml'
+              - '.github/workflows/verify-merge-integrity.yaml'
               - '.github/workflows/warm-reference-cache.yaml'
               - 'src/**'
               - 'scripts/auto_merge_ready_prs.py'
               - 'scripts/pr_shepherd_policy.py'
+              - 'scripts/verify_merge_integrity.py'
               - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
@@ -129,6 +161,7 @@ jobs:
               - 'project.justfile'
             app:
               - 'app/**'
+              - '.github/scripts/**'
               - 'tests/js/**'
               - 'package.json'
               - 'package-lock.json'
@@ -270,7 +303,7 @@ jobs:
         uses: ./.github/actions/oak-cache
 
       - name: Validate schema term references
-        if: steps.changes.outputs.schema_terms == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.schema_terms == 'true'
         run: just validate-terms-schema
 
       - name: Lint with ruff
@@ -489,6 +522,14 @@ jobs:
       - name: Check the curation stub queue
         run: uv run dismech-stubs check
 
+      # This step and the comorbidity one below stay filter-gated rather than
+      # merge_group-forced: they consume the paths-filter's *file lists*, so
+      # forcing the gate without a list would validate nothing. On merge_group
+      # the filter computes those lists from the queue's base..head diff (the
+      # queued PRs' changes), so these validations run against exactly the KB
+      # files entering `main` -- including term/reference re-validation in the
+      # merged context, where a co-queued PR may have changed cache/** or
+      # references_cache/**.
       - name: Validate changed disorder KB files
         if: steps.changes.outputs.kb_disorders == 'true'
         run: |
@@ -502,39 +543,39 @@ jobs:
           just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
 
       - name: Validate hypothesis review artifacts
-        if: steps.changes.outputs.kb_hypotheses == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.kb_hypotheses == 'true'
         run: |
           just validate-hypothesis-assessment-all
           just validate-hypothesis-reconciliation-all
 
       - name: Validate history records
-        if: steps.changes.outputs.history == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.history == 'true'
         run: just validate-history-all
 
       - name: Set up Node.js
-        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.extension == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.app == 'true' || steps.changes.outputs.extension == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Node.js dependencies
-        if: steps.changes.outputs.app == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.app == 'true'
         run: npm ci
 
       # The browser-extension tests are pure Node (no npm deps), so they run
       # whenever extension/ changes without needing `npm ci`.
       - name: Run browser-extension tests
-        if: steps.changes.outputs.extension == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.extension == 'true'
         run: just test-extension
 
       # CI runs narrower slices of `just test-code` so unrelated test-only
       # changes do not pay for full LinkML project generation or Node setup.
       - name: Run schema generation smoke test
-        if: steps.changes.outputs.schema_generation == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.schema_generation == 'true'
         run: just test-schema
 
       - name: Run Python code/logic tests
-        if: steps.changes.outputs.python == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.python == 'true'
         env:
           # Grandfather the snippet-length ratchet against the base branch's
           # live content, not the committed baseline snapshot (see the fetch
@@ -553,11 +594,11 @@ jobs:
         run: just test-python-code
 
       - name: Run LinkML example tests
-        if: steps.changes.outputs.examples == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.examples == 'true'
         run: just test-examples
 
       - name: Run browser search tests
-        if: steps.changes.outputs.app == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.app == 'true'
         run: just test-search
 
       # The whole-KB conformance sweep runs only when the schema itself (or the
@@ -569,5 +610,5 @@ jobs:
       # window for enum values specifically. Parallelized with xdist inside
       # `just test-kb`.
       - name: Run whole-KB schema-conformance sweep
-        if: steps.changes.outputs.schema == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.schema == 'true'
         run: just test-kb

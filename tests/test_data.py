@@ -30,6 +30,7 @@ SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "dismech.yaml"
 KB_DIR = ROOT_DIR / "kb" / "disorders"
 COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
 MODULES_DIR = ROOT_DIR / "kb" / "modules"
+MODULE_COLLECTIONS_DIR = ROOT_DIR / "kb" / "module_collections"
 GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
 SYNTHESIS_SCHEMA_PATH = (
     ROOT_DIR / "src" / "dismech" / "schema" / "research_synthesis.yaml"
@@ -50,6 +51,7 @@ DISORDER_FILES = [
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
 MODULE_FILES = glob.glob(str(MODULES_DIR / "*.yaml"))
+MODULE_COLLECTION_FILES = glob.glob(str(MODULE_COLLECTIONS_DIR / "*.yaml"))
 # Every KB entry kind whose pathophysiology nodes may carry `conforms_to`.
 # Groupings are excluded: they reference modules through criteria `module:`
 # slots (checked by test_grouping_module_references), not `conforms_to`.
@@ -255,6 +257,19 @@ def test_valid_comorbidity_files(filepath, validator):
         data = safe_load(f)
 
     report = validator.validate(data, target_class="ComorbidityAssociation")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODULE_COLLECTION_FILES)
+def test_valid_module_collection_files(filepath, validator):
+    """Module collections validate independently from diseases and groupings."""
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    report = validator.validate(data, target_class="ModuleCollection")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
 
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
@@ -1731,12 +1746,11 @@ def test_hypothesis_reconciliation_links_lineage_and_quotes(filepath):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_member_foreign_keys(filepath):
-    """Each grouping member must resolve to a real Disease, module, or grouping."""
+    """Each grouping member must resolve to a real Disease or grouping."""
     with open(filepath) as f:
         data = safe_load(f)
 
     disease_names = _disease_names()
-    module_stems = _module_stems()
     grouping_names = _grouping_names()
 
     errors = []
@@ -1749,9 +1763,6 @@ def test_grouping_member_foreign_keys(filepath):
             # SUBTYPE members still name their parent Disease entry.
             if ref not in disease_names:
                 errors.append(f"members[{i}].member={ref!r} (type {mtype})")
-        elif mtype == "MODULE":
-            if _module_stem(ref) not in module_stems:
-                errors.append(f"members[{i}].member={ref!r} (type MODULE)")
         elif mtype == "GROUPING" and ref not in grouping_names:
             errors.append(f"members[{i}].member={ref!r} (type GROUPING)")
 
@@ -1840,6 +1851,20 @@ def test_grouping_unique_names():
             seen.setdefault(name, []).append(Path(fp).name)
     dupes = {k: v for k, v in seen.items() if len(v) > 1}
     assert not dupes, f"Duplicate grouping names: {dupes}"
+
+
+@pytest.mark.kb_data
+def test_module_collection_references_resolve():
+    """Collection module and child-collection foreign keys must resolve."""
+    from dismech.module_collections import (
+        load_module_collections,
+        module_collection_reference_errors,
+    )
+
+    collections = load_module_collections(MODULE_COLLECTIONS_DIR)
+    module_stems = {Path(path).stem for path in MODULE_FILES}
+    errors = module_collection_reference_errors(collections, module_stems)
+    assert not errors, "Module collection reference errors:\n" + "\n".join(errors)
 
 
 @pytest.mark.kb_data
@@ -1985,7 +2010,6 @@ def test_grouping_overlap_expands_nested_grouping_members():
             "members": [
                 {"member": "A", "member_type": "DISEASE"},
                 {"member": "Child", "member_type": "GROUPING"},
-                {"member": "mechanism_module", "member_type": "MODULE"},
             ],
         },
     }
