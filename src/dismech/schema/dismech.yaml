@@ -17,6 +17,7 @@ imports:
   - classifications/phenotype_category
   - classifications/icimd
   - classifications/isds_skeletal_nosology
+  - classifications/gene_table_nmd
   - classifications/nih_research_priorities
   - classifications/ilo_occupational_diseases
   - classifications/eu_occupational_schedule
@@ -549,6 +550,16 @@ enums:
           required causal role.
       DISPUTED:
         title: Disputed
+        deprecated: >-
+          Use the `validity` slot (`GeneDiseaseValidityEnum`) instead. "Disputed"
+          states how well established an association is, not what kind of
+          relationship it is, so it belongs on the validity axis alongside
+          DEFINITIVE/STRONG/MODERATE/LIMITED rather than alongside
+          CAUSATIVE/RISK_FACTOR/MODIFIER. Record the asserted relationship kind
+          in `relationship_type` and the contested status in
+          `validity: DISPUTED` (or `REFUTED`).
+        annotations:
+          deprecated_element_has_possible_replacement: validity
         description: >-
           Reported gene-disease association whose validity is contested
           (corresponds to ClinGen "Disputed" or "Refuted").
@@ -557,6 +568,71 @@ enums:
         description: >-
           The relationship between the gene and the disease is unclear or
           not yet classified.
+  GeneDiseaseValidityEnum:
+    description: >-
+      How well established a gene-disease association is, independent of what
+      *kind* of association it is. This is the ClinGen Gene-Disease Validity
+      classification, which GenCC adopts as its harmonised ladder and onto
+      which the Genomics England PanelApp green/amber/red ratings map
+      (green ~ DEFINITIVE/STRONG, amber ~ MODERATE/LIMITED, red ~ LIMITED or
+      below).
+
+      Deliberately orthogonal to `GeneDiseaseRelationshipEnum`: a gene may be
+      `relationship_type: RISK_FACTOR` with `validity: DEFINITIVE` (a
+      well-established risk allele) or `relationship_type: CAUSATIVE` with
+      `validity: LIMITED` (a claimed monogenic cause resting on one family).
+      Recording only the relationship kind loses that distinction.
+
+      Assign from a citable source rather than curator impression. dismech
+      caches ClinGen Gene-Disease Validity assertions as `CGGV:` structured
+      references, so the assignment is normally evidenced by quoting the
+      validity row (see "Structured-Database Reference Sources" in CLAUDE.md).
+      Leave the slot absent when no source states a validity.
+    permissible_values:
+      DEFINITIVE:
+        title: Definitive
+        description: >-
+          The gene-disease relationship has been repeatedly demonstrated in
+          the research and clinical diagnostic setting, upheld over time, and
+          has never been credibly disputed.
+      STRONG:
+        title: Strong
+        description: >-
+          Substantial genetic and experimental evidence supports the
+          relationship, but it has not yet accrued the replication over time
+          required for DEFINITIVE.
+      MODERATE:
+        title: Moderate
+        description: >-
+          Several unrelated probands with variants and some experimental
+          support, but the evidence is not yet compelling.
+      LIMITED:
+        title: Limited
+        description: >-
+          Little human genetic evidence — few probands, or variants of
+          uncertain significance — with or without supporting experimental
+          data.
+      DISPUTED:
+        title: Disputed
+        description: >-
+          Conflicting evidence: valid experimental or genetic evidence has been
+          published, but other credible reports dispute the relationship.
+      REFUTED:
+        title: Refuted
+        description: >-
+          Convincing evidence against the relationship has emerged since it was
+          first reported, and it is no longer considered valid.
+      NO_KNOWN_DISEASE_RELATIONSHIP:
+        title: No known disease relationship
+        description: >-
+          The gene has been evaluated and no evidence supports a relationship
+          to the disease. Distinct from an absent `validity`, which means the
+          pair has not been assessed.
+      ANIMAL_MODEL_ONLY:
+        title: Animal model only
+        description: >-
+          The relationship is supported only by a non-human model organism;
+          no human genetic evidence has been reported.
   VariantOriginEnum:
     description: >-
       The origin of variation in a gene with respect to a disease entry.
@@ -3557,10 +3633,23 @@ slots:
     description: >-
       Controlled-vocabulary classification of the gene-disease relationship
       (e.g., causative, risk factor, modifier, somatic driver). Use this in
-      addition to the free-text `association` slot when possible.
+      addition to the free-text `association` slot when possible. Says what
+      *kind* of relationship is asserted; how well established it is belongs in
+      `validity`.
     examples:
       - value: RISK_FACTOR
     range: GeneDiseaseRelationshipEnum
+  validity:
+    description: >-
+      How well established the gene-disease association is, on the ClinGen
+      Gene-Disease Validity ladder. Orthogonal to `relationship_type`, which
+      records the kind of relationship rather than the strength of evidence for
+      it. Normally evidenced by quoting the validity row of a cached `CGGV:`
+      ClinGen assertion; leave absent when no source states a validity, which
+      is not the same as `NO_KNOWN_DISEASE_RELATIONSHIP`.
+    examples:
+      - value: DEFINITIVE
+    range: GeneDiseaseValidityEnum
   variant_origin:
     description: >-
       The origin of disease-associated variation in this gene (germline,
@@ -6495,6 +6584,84 @@ classes:
         required: true
       surrogate_endpoints:
         required: true
+  GeneClassification:
+    description: >-
+      One gene's membership in a gene-classification system, as asserted by
+      that system's source. A row in a `GeneClassificationCollection`.
+
+      `values` is multivalued because gene classifications are genuinely
+      set-valued: a gene appears in as many groups as it has clinically
+      distinct disease associations. Its range is left open here because each
+      collection draws from its own enum (`GeneTableNMDGroupEnum` for the
+      neuromuscular gene table, and others as further sources are added); the
+      per-collection test asserts membership of the right enum.
+    slots:
+      - gene
+      - notes
+    attributes:
+      values:
+        description: >-
+          Classification values this gene carries in the collection's system,
+          drawn from the enum named by the collection's
+          `classification_system`. Transcribed from the source, never inferred.
+        multivalued: true
+        required: true
+        range: string
+      source_label:
+        description: >-
+          The gene symbol as written by the source, recorded when it differs
+          from the HGNC-approved symbol in `gene` (for example when the source
+          still uses a previous symbol). Lets a reader confirm the mapping.
+        range: string
+    slot_usage:
+      gene:
+        required: true
+  GeneClassificationCollection:
+    description: >-
+      A source-level transcription of one gene-classification system: which
+      genes the source lists, and which of its categories each gene falls in.
+
+      This is a lookup table, deliberately not a `Disease`-like entity. It
+      carries no pathophysiology, no per-row evidence, and no disease links;
+      provenance is recorded once at the file level. It is a transcription of a
+      source, not an inference engine — include only genes the source itself
+      lists, and do not derive memberships.
+
+      Distinct from `gene_sets`, which reference flat, typically
+      experimentally-derived gene sets (signatures, perturbation results) used
+      as enrichment inputs. A gene classification is instead a curated,
+      authoritative assertion about which genes cause disease in a domain, and
+      usually carries its own category structure.
+    slots:
+      - name
+      - description
+      - source_url
+      - source_content_current_as_of
+      - retrieved_date
+      - tracked_issues
+      - notes
+    attributes:
+      classification_system:
+        description: >-
+          Identifier for the classification system this collection transcribes,
+          naming the enum its `values` are drawn from (e.g. GENE_TABLE_NMD ->
+          GeneTableNMDGroupEnum).
+        required: true
+        range: string
+      source_version:
+        description: >-
+          The source's own version string for this snapshot, where it publishes
+          one (e.g. "GT_NMD 2026").
+        range: string
+      genes:
+        description: One row per gene listed by the source.
+        multivalued: true
+        required: true
+        inlined_as_list: true
+        range: GeneClassification
+    slot_usage:
+      name:
+        required: true
   ProteinStructure:
     description: >-
       A 3D protein structure from PDB or AlphaFold relevant to understanding
@@ -6827,6 +6994,7 @@ classes:
       - evidence
       - association
       - relationship_type
+      - validity
       - variant_origin
       - review_notes
       - subtype
