@@ -2785,7 +2785,8 @@ author, human or agent** — once it is simultaneously:
 
 - reviewer **approved**; draft status is ignored as a lifecycle signal (an
   otherwise eligible draft is marked ready immediately before final verification)
-- **unassigned** (no assignees)
+- **not assigned to a human** (known bot/agent assignees are routing metadata,
+  not a hold)
 - **conflict-free** (`mergeable == MERGEABLE`)
 - **green** (`mergeStateStatus == CLEAN` *and* a status-check rollup with at
   least one success and nothing failing, cancelled, or still running)
@@ -2794,12 +2795,6 @@ author, human or agent** — once it is simultaneously:
   drops the age requirement entirely, negatives are rejected). Scheduled runs
   always use 3.
 - targeting `main`
-- the required GitHub Actions-owned `test (3.13)` check is successful on the
-  exact current `main` SHA, GitHub's compare API proves that SHA is an ancestor
-  of the PR head (`behind_by == 0` and `merge_base_commit.sha == main`), and
-  `main` still has it after the final PR-state read. `baseRefOid` is not an
-  ancestry signal and must not be used as this proof.
-- not in a separately managed `auto/` branch lane
 
 Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
 outcome is reproducible from the API response alone. This is separate from the
@@ -2824,31 +2819,24 @@ shepherd's own agent step — can never be swept up on the strength of that olde
 review. If that protection setting is ever turned off, the sweep needs an explicit
 "approving review's commit == head SHA" check added.
 
-**To stop a PR being auto-merged, assign it to someone or leave a
-CHANGES_REQUESTED review.** An assigned PR is treated as somebody's active work
-and is never swept. Draft status is not a hold: anything opened as a PR is in
-the review queue. The controller marks an eligible draft ready, re-reads every
-guard, and restores draft state if that merge attempt aborts.
+**To stop a PR being auto-merged, assign it to a human or leave a
+CHANGES_REQUESTED review.** A human-assigned PR is treated as somebody's active
+work and is never swept; bot or agent assignment is not a hold. Draft status is
+not a hold: anything opened as a PR is in the review queue. The controller marks
+an eligible draft ready, re-reads every guard, and restores draft state if that
+merge attempt aborts.
 
-Each run merges at most one PR. Immediately before it does, the controller checks
-the required build on the current `main`, re-reads every PR guard, proves by
-exact commit comparison that the PR head contains that `main`, and confirms that
-`main` has not moved. A red, pending, unobserved, or changed `main` opens the
-circuit. GitHub's merge API can pin the PR head but not an expected base SHA, so
-eliminating the final sub-second base race requires strict branch protection or
-a merge queue; this controller minimizes that race but does not claim atomicity.
-The LLM lane updates at most one approved-behind branch per run; updating a batch
-would only dismiss several approvals and start several CI runs before the first
-merge makes the rest stale again. Under the `slow` profile that intentionally
-bounds freshness tending to six runs per day. Higher safe throughput needs a
-real merge queue (plus `merge_group` CI), not wider update batches.
+Each run acts on at most one PR. Immediately before it does, the controller
+re-reads every PR guard and pins the merge request to that verified head SHA.
+It deliberately does not require that head to contain the latest `main` commit:
+loose branch protection permits an already-green PR to merge, while a required
+merge queue tests the latest-main combination on a temporary merge-group commit.
+Branch-freshness updates are therefore not part of deterministic eligibility.
 
-Do not enable GitHub auto-merge on ordinary PRs: it is a separate server-side
-path and bypasses this controller's health, ancestry, age, assignment, and
-one-merge guards. The shepherd agent never arms it, and weekly-compliance PRs use
-this common controller rather than a separate merge path. The separately owned
-`auto/` lanes may manage their own auto-merge; a maintainer who manually arms
-another PR is making an explicit human override.
+Do not enable GitHub auto-merge on ordinary PRs outside this controller: it is a
+separate server-side path that bypasses the controller's age and assignment
+guards. The deterministic sweep covers every branch lane, including `auto/`;
+owning workflows may still request a merge earlier under their own policy.
 
 Preview what the next sweep would do (read-only):
 

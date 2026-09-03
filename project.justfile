@@ -3215,7 +3215,7 @@ cron-profile name:
 # ============== Deterministic PR auto-merge (pr-shepherd closing step) ==============
 
 # Report which open PRs the pr-shepherd auto-merge sweep would squash-merge:
-# approved, unassigned, conflict-free, green, and older than `days`.
+# approved, not human-assigned, conflict-free, green, and older than `days`.
 # Example: just auto-merge-preview 3
 [group('Auto-merge')]
 auto-merge-preview days='3':
