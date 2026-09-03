@@ -690,6 +690,67 @@ rate gives a value that is always fillable (the band), precise when the source s
 (the rate), and never conflates incompatible epidemiological measures. Because prevalence
 is not yet rendered on disorder pages, the remodel carries no display-breakage risk.
 
+
+**Amendment (2026-09): prevalence vs. incidence — what a band means.** The
+`measure_type` discriminator above was necessary but not sufficient. Nothing below it
+respected the distinction it drew: `rate_per_100000` carried no dimension (a point
+prevalence of `5.0` is a dimensionless proportion; an annual incidence of `5.0` is
+5 per 100,000 *per year*), `_band_from_rate()` assigned Orphanet **prevalence** classes
+purely as a function of the number, and no test or QC plugin read `measure_type` at all.
+The KB drifted accordingly — 116 of 138 `ANNUAL_INCIDENCE` and 41 of 45
+`CARRIER_FREQUENCY` records carry numeric prevalence bands (issue #8431).
+
+**Decision.** A `prevalence_class` band reports **magnitude only**; `measure_type`
+supplies the semantics. `BAND_1_9_PER_100000` means "1-9 per 100,000 of whatever this
+record measures" — people with the disease, new cases per year, or carriers — and is
+meaningless read alone. Consumers **must** read `measure_type` alongside the band, and
+should prefer the new `rate_denominator` slot (`RateDenominatorEnum`: `POPULATION`,
+`LIVE_BIRTHS`, `PERSON_YEARS`, `POPULATION_PER_YEAR`) where present, which pins the
+dimension explicitly instead of leaving it implied.
+
+The qualitative tiers are the exception: `COMMON`, `RARE`, and `ULTRA_RARE` are each
+defined by a *prevalence* threshold and each presuppose that the source gave no numeric
+estimate. They are therefore invalid on the two measures that are definitely not
+prevalence — `ANNUAL_INCIDENCE` and `CARRIER_FREQUENCY` — and should not sit alongside a
+populated `rate_per_100000`. They remain correct on the prevalence measures, on
+`CASES_IN_LITERATURE`, and on `UNKNOWN`, which is the ordinary prose-only case: a source
+that says only "rare" without naming its measure. Scoping the rule this way matters — 82
+of the 90 records pairing a qualitative tier with a non-prevalence measure are `UNKNOWN`
+and legitimate; only 8 (all `ANNUAL_INCIDENCE`) are errors.
+
+**Rationale for this reading over the alternative.** The alternative — treating bands as
+strictly prevalence-typed and stripping them from incidence and carrier records — would
+have required rewriting 157 KB records against a queue of 100+ open curation PRs, and
+would have *lost* information: the only landing place for those records is a qualitative
+tier, which is both less precise and itself prevalence-semantic, so the category error
+would survive in a less detectable form. Worked counterexample:
+`2-Methylbutyryl-CoA_Dehydrogenase_Deficiency` records a 21.8% Hmong carrier frequency
+alongside a 1-in-227,571 Zhejiang birth prevalence; demoting the carrier record's band to
+its nearest tier (`COMMON`) would make one file assert both that the disease is common and
+that it is 1-9 per million.
+
+The magnitude reading costs one thing: a band is no longer self-describing. That cost is
+cheap to control *now* and expensive later, because at the time of this decision the
+fields had **no consumers** — no renderer, no export, no dashboard referenced
+`prevalence_class`, `rate_per_100000`, or `measure_type`. The rule is therefore a
+requirement on the first consumer rather than a migration of existing ones; #7520 (render
+structured epidemiology on disorder pages) is the issue that must honor it.
+
+**Accepted debt.** The slot is still named `prevalence_class` and the class is still
+`Prevalence`, so the names remain prevalence-flavored while the semantics are now
+occurrence-general. Renaming would touch every KB record carrying a prevalence block and
+was judged not worth the churn; the enum documentation carries the meaning instead.
+
+**Deferred to follow-ups.** (a) A QC check gating qualitative tiers to prevalence-shaped
+measure types, landing alongside the band-vs-rate check proposed in #7005 — 8 records to
+fix. (b) Backfilling the 286 records that set no `measure_type` (a further 203 are
+`UNKNOWN`), after which the slot can become required. (c) Whether `CARRIER_FREQUENCY`
+belongs on `Prevalence` at all — it is a genotype frequency among unaffected people, and
+`GeneCaseFraction` is structurally closer; moving it would remove 41 of the flagged
+records from this class entirely.
+(d) `SCREEN_POSITIVE_RATE` is still missing from `PrevalenceMeasureEnum` (#7003), the same
+modeling gap one level up.
+
 **Per-gene case fractions (the genetic-spectrum analog).** For a genetically
 heterogeneous disease, "what share of cases does each gene explain?" is a *different axis*
 from population occurrence — it is cohort/ancestry-dependent (e.g. BBS1 dominates European

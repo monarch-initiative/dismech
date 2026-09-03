@@ -326,49 +326,90 @@ enums:
         description: The measure type is not stated or cannot be determined from the source.
   PrevalenceClassEnum:
     description: >-
-      Coarse, always-fillable band for disease occurrence — the population-rate
-      analog of the HPO-style FrequencyEnum used for phenotype frequency. The
-      numeric bands are the Orphanet prevalence classes (so the ~7% of records
-      already quoting Orphanet map directly and the ICEES/ORPHA structured sources
-      stay aligned); the qualitative tiers cover records that report only
-      prose ("rare", "common") with no numeric estimate. When a numeric estimate
-      exists, also populate rate_per_100000 (or rate_low/rate_high); the band is
-      the queryable summary, the rate carries the precision.
+      Coarse, always-fillable band for the MAGNITUDE of a disease-occurrence rate
+      — the population-rate analog of the HPO-style FrequencyEnum used for
+      phenotype frequency.
+
+      IMPORTANT: a band reports magnitude only. It does not say what is being
+      measured; the sibling `measure_type` slot does that, and a band is
+      meaningless without it. `BAND_1_9_PER_100000` on a POINT_PREVALENCE record
+      means "1-9 of every 100,000 people have this disease"; the same band on an
+      ANNUAL_INCIDENCE record means "1-9 new cases per 100,000 per year"; on a
+      CARRIER_FREQUENCY record it describes carriers, who do not have the disease
+      at all. Never read, compare, aggregate, or render a band without reading
+      `measure_type` alongside it. `rate_denominator` pins the denominator
+      explicitly and should be preferred by consumers where present.
+
+      The five numeric bands are aligned to the Orphanet prevalence classes, so
+      Orphanet-sourced prevalence records (and the ICEES/ORPHA structured sources)
+      map across directly; on a non-prevalence measure the same boundaries are
+      read purely as magnitude.
+
+      The qualitative tiers are NOT magnitude bands. COMMON/RARE/ULTRA_RARE are
+      each defined by a prevalence threshold and each presuppose that the source
+      gave no numeric estimate. They are therefore INVALID on the two measures
+      that are definitely not prevalence — ANNUAL_INCIDENCE and
+      CARRIER_FREQUENCY — and should not sit alongside a populated
+      `rate_per_100000`. They remain correct on the prevalence measures, on
+      CASES_IN_LITERATURE, and on UNKNOWN, which is the ordinary prose-only case:
+      a source that says only "rare" without naming its measure.
+
+      When a numeric estimate exists, also populate rate_per_100000 (or
+      rate_low/rate_high); the band is the queryable summary, the rate carries the
+      precision.
     permissible_values:
       ABOVE_1_IN_1000:
         title: ">1 / 1,000"
-        description: More than 1 in 1,000 (more than 100 per 100,000). Orphanet class.
+        description: >-
+          More than 100 per 100,000, in whatever denominator `measure_type`
+          specifies. Boundary aligned to the Orphanet >1/1,000 prevalence class.
       BAND_1_5_PER_10000:
         title: 1-9 / 10,000
-        description: 1 to 9 per 10,000 (10-99 per 100,000). Combines the Orphanet
-          1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching
-          the other per-decade bands and the _band_from_rate() boundaries.
+        description: >-
+          10-99 per 100,000 (1-9 per 10,000), in whatever denominator
+          `measure_type` specifies. Combines the Orphanet 1-5 and 6-9 per 10,000
+          classes into one decade-spanning band, matching the other per-decade
+          bands and the _band_from_rate() boundaries.
       BAND_1_9_PER_100000:
         title: 1-9 / 100,000
-        description: 1 to 9 per 100,000. Orphanet class.
+        description: >-
+          1-9 per 100,000, in whatever denominator `measure_type` specifies.
+          Boundary aligned to the Orphanet 1-9/100,000 prevalence class.
       BAND_1_9_PER_1000000:
         title: 1-9 / 1,000,000
-        description: 1 to 9 per 1,000,000 (0.1-0.9 per 100,000). Orphanet class.
+        description: >-
+          0.1-0.9 per 100,000 (1-9 per 1,000,000), in whatever denominator
+          `measure_type` specifies. Boundary aligned to the Orphanet
+          1-9/1,000,000 prevalence class.
       BELOW_1_IN_1000000:
         title: "<1 / 1,000,000"
-        description: Fewer than 1 in 1,000,000 (less than 0.1 per 100,000). Orphanet class.
+        description: >-
+          Fewer than 0.1 per 100,000 (less than 1 per 1,000,000), in whatever
+          denominator `measure_type` specifies. Boundary aligned to the Orphanet
+          <1/1,000,000 prevalence class.
       COMMON:
         title: Common
         description: >-
           Qualitative tier for disorders described as common/endemic with no numeric
           estimate captured. Roughly corresponds to the >1/1,000 region but asserted
           only qualitatively.
+          Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and
+          should not sit alongside a populated rate_per_100000.
       RARE:
         title: Rare
         description: >-
           Qualitative tier for disorders described as "rare" in the source without a
           numeric estimate (the EU rare-disease threshold is <1 in 2,000).
+          Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and
+          should not sit alongside a populated rate_per_100000.
       ULTRA_RARE:
         title: Ultra-rare
         description: >-
           Qualitative tier for disorders described as ultra-rare / only a handful of
           reported cases, with no population rate available. Often paired with
           measure_type CASES_IN_LITERATURE.
+          Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and
+          should not sit alongside a populated rate_per_100000.
       NOT_YET_DOCUMENTED:
         title: Not yet documented
         description: Source states prevalence is not yet documented. Orphanet class.
@@ -377,6 +418,45 @@ enums:
       UNKNOWN:
         title: Unknown
         description: Prevalence is unknown or not stated.
+  RateDenominatorEnum:
+    description: >-
+      What a Prevalence record's rate is a rate *of* — the denominator its
+      numerator is divided by. Together with `measure_type` this pins the
+      dimension of `rate_per_100000`, which is otherwise ambiguous: a point
+      prevalence of 5.0 is a dimensionless proportion of a population, while an
+      annual incidence of 5.0 is 5 per 100,000 per year (dimension time^-1).
+      Records that omit the slot fall back to the denominator implied by
+      `measure_type` (POPULATION for the prevalence measures and
+      CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE, PERSON_YEARS for
+      ANNUAL_INCIDENCE); set it explicitly whenever the source disagrees with
+      that default, which is most common for incidence reported per population
+      per year rather than per person-year.
+    permissible_values:
+      POPULATION:
+        title: Per population
+        description: >-
+          Cases per 100,000 people in the stated population. Dimensionless
+          proportion; the denominator for point, period, and lifetime prevalence,
+          and for carrier frequency.
+      LIVE_BIRTHS:
+        title: Per live births
+        description: >-
+          Cases per 100,000 live births (or births). A birth-cohort proportion,
+          not a per-year rate; the denominator for birth prevalence and for
+          predicted per-birth incidence catalogues.
+      PERSON_YEARS:
+        title: Per person-years
+        description: >-
+          New cases per 100,000 person-years of observation. A true rate with
+          dimension time^-1; never directly comparable with a prevalence
+          proportion.
+      POPULATION_PER_YEAR:
+        title: Per population per year
+        description: >-
+          New cases per 100,000 population per year, where the source reports an
+          annual rate against a mid-period population rather than accumulated
+          person-time. Distinguished from PERSON_YEARS because the two are only
+          interchangeable when the population is stable over the interval.
   ClinicalSignificanceEnum:
     description: The clinical significance of a variant for a condition (ACMG guidelines)
     permissible_values:
@@ -3069,6 +3149,17 @@ slots:
     range: float
     examples:
       - value: '9.0'
+  rate_denominator:
+    description: >-
+      What `rate_per_100000` (and rate_low/rate_high) is a rate *of*. Makes the
+      dimension of the rate explicit so a prevalence proportion is never silently
+      compared with an incidence rate. Optional: when absent, consumers fall back
+      to the denominator implied by `measure_type` (see RateDenominatorEnum).
+      Populate it whenever the source's denominator differs from that default, or
+      whenever the record is intended for cross-record comparison.
+    range: RateDenominatorEnum
+    examples:
+      - value: LIVE_BIRTHS
   case_fractions:
     description: >-
       Per-cohort estimates of the fraction of cases of a genetically
@@ -6600,6 +6691,7 @@ classes:
       - rate_per_100000
       - rate_low
       - rate_high
+      - rate_denominator
       - percentage
       - evidence
       - notes
