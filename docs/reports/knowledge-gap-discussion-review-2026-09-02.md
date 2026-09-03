@@ -8,12 +8,12 @@
 
 ## Summary
 
-The knowledge-gap layer is large and its prose is good. 1,763 knowledge gaps are
-curated across 1,035 entries — more than every other discussion kind combined
-(570 `HUMAN_MODEL_MISMATCH`, 177 `CONTROVERSY`, 148 `OPEN_QUESTION`, 112
+The knowledge-gap layer is large and its prose is good. 1,781 knowledge gaps are
+curated across 1,046 entries — more than every other discussion kind combined
+(573 `HUMAN_MODEL_MISMATCH`, 181 `CONTROVERSY`, 150 `OPEN_QUESTION`, 112
 `INTERPRETATION`, 34 `CURATION_TODO`, 27 `EMERGING_HYPOTHESIS`). Prompts state a
 real unanswered question rather than a curation chore, rationales explain what
-hangs on the answer, and 1,234 gaps cite evidence.
+hangs on the answer, and 1,243 gaps cite evidence.
 
 The *structural* half is weaker, and nothing in `just qc` looks at it. A gap that
 anchors to nothing, or that proposes an experiment with no way to tell a
@@ -22,14 +22,14 @@ complete one.
 
 | State | Gaps | Entries |
 |---|---:|---:|
-| Proposed experiment with no decision logic | 624 | 408 |
-| No `status` | 301 | 192 |
+| Proposed experiment with no decision logic | 626 | 409 |
+| No `status` | 302 | 193 |
 | No `attaches_to` | 47 | 36 |
 | Evidence prose still arguing the retired `PARTIAL` grade | 66 | 62 |
 | Bare-name experiment target (fixed by this change) | 13 | 6 |
 | `RESOLVED` with no `resolution_note` (fixed by this change) | 1 | 1 |
 
-930 of the 1,763 gaps are in none of those states.
+945 of the 1,781 gaps are in none of those states.
 
 ## Finding 1: experiment targets were unchecked, and 13 were broken
 
@@ -66,7 +66,7 @@ reintroduction.
 
 ## Finding 2: 59% of proposed experiments cannot be decided
 
-Of 1,511 experiments proposed under knowledge gaps, 897 carry nothing beyond
+Of 1,525 experiments proposed under knowledge gaps, 899 carry nothing beyond
 `experiment_id`, `name` and `description`. No `decision_criterion`, no
 `would_support`/`would_refute`, no `supporting_outcome`/`refuting_outcome`, and
 no `readouts`.
@@ -79,14 +79,14 @@ they work well:
 
 | Slot | Experiments using it |
 |---|---:|
-| `decision_criterion` | 435 |
-| `would_support` | 281 |
+| `decision_criterion` | 438 |
+| `would_support` | 290 |
 | `readouts` | 183 |
-| `supporting_outcome` | 169 |
-| `refuting_outcome` | 155 |
-| `would_refute` | 80 |
+| `supporting_outcome` | 181 |
+| `refuting_outcome` | 166 |
+| `would_refute` | 82 |
 
-`would_refute` at 80 against `would_support` at 281 is worth noting on its own: a
+`would_refute` at 82 against `would_support` at 290 is worth noting on its own: a
 proposal that names only the confirming direction is weaker than one that says
 what would kill the hypothesis.
 
@@ -106,10 +106,10 @@ was for.
 
 `DiscussionStatusEnum` is what separates an open gap from a resolved or archived
 one, and the discussions browser exports the value as a facet. Absent, a gap
-cannot be filtered as open. 1,460 gaps say `OPEN`, two say `RESOLVED`, and 301
-across 192 entries say nothing.
+cannot be filtered as open. 1,477 gaps say `OPEN`, two say `RESOLVED`, and 302
+across 193 entries say nothing.
 
-Two resolved gaps in 1,763 is itself a signal: the layer is effectively
+Two resolved gaps in 1,781 is itself a signal: the layer is effectively
 append-only. Nothing yet retires a gap when the literature answers it, and no
 workflow does that sweep.
 
@@ -124,7 +124,7 @@ questions ("What is the natural history of AIMS across the lifespan",
 intellectual disability"), management questions, and nosology questions about the
 entry's own boundaries. `CLAUDE.md` supplies the empty-anchor idiom exactly for
 these — `prevalence#`, `progression#`, `clinical_burden#`, `treatments#` — and
-only 34 gaps in the whole KB currently use it. "There was nothing to point at"
+only 36 gaps in the whole KB currently use it. "There was nothing to point at"
 is rarely the real answer.
 
 The grouping cases are different and genuinely interesting: several ask whether
@@ -182,7 +182,7 @@ here. They are listed so a curator can decide them as a batch.
   the second case is a genuinely shared cross-disorder question. It is worth
   knowing that the discussions export keys records on `discussion_id` and builds
   the page anchor from it.
-- **156 gaps carry neither evidence nor a proposed experiment.** Prompt and
+- **158 gaps carry neither evidence nor a proposed experiment.** Prompt and
   rationale only. Legitimate for a gap whose point is that nothing has been
   published, but it is the population to check first for gaps that were simply
   never finished.
