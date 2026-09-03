@@ -3,8 +3,11 @@
 **Date:** 2026-09-02
 **Scope:** every `discussions[]` entry with `kind: KNOWLEDGE_GAP` in
 `kb/disorders/`, `kb/modules/`, `kb/comorbidities/` and `kb/groupings/`
-**Regenerate:** `just knowledge-gap-audit` (per-gap detail with
-`--format list --state <STATE>`; a table with `--format tsv`)
+**Regenerate:** `just knowledge-gap-audit` reproduces the summary table, the
+experiment counts and the decision-slot table below; per-gap detail comes from
+`--format list --state <STATE>` and a full table from `--format tsv`. The
+kind-drift candidates in Finding 6 and the Minor observations were one-off
+analyses and are not emitted by the script.
 
 ## Summary
 
@@ -15,10 +18,11 @@ curated across 1,046 entries — more than every other discussion kind combined
 real unanswered question rather than a curation chore, rationales explain what
 hangs on the answer, and 1,243 gaps cite evidence.
 
-The *structural* half is weaker, and nothing in `just qc` looks at it. A gap that
-anchors to nothing, or that proposes an experiment with no way to tell a
-supporting result from a refuting one, validates and renders exactly like a
-complete one.
+The *structural* half is weaker, and until this change nothing in `just qc`
+looked at it. A gap that anchors to nothing, or that proposes an experiment with
+no way to tell a supporting result from a refuting one, validates and renders
+exactly like a complete one. The two states that are unambiguous breakage now
+gate; the rest are reported.
 
 | State | Gaps | Entries |
 |---|---:|---:|
@@ -28,8 +32,9 @@ complete one.
 | Evidence prose still arguing the retired `PARTIAL` grade | 66 | 62 |
 | Bare-name experiment target (fixed by this change) | 13 | 6 |
 | `RESOLVED` with no `resolution_note` (fixed by this change) | 1 | 1 |
+| `RESOLVED` with no `resolved_date` | 1 | 1 |
 
-945 of the 1,781 gaps are in none of those states.
+944 of the 1,781 gaps are in none of those states.
 
 ## Finding 1: experiment targets were unchecked, and 13 were broken
 
@@ -54,15 +59,36 @@ in the same file and were repaired by prefixing `pathophysiology#`.
 The other two, both in `Alcoholic_Liver_Disease`, held a Gene Ontology process
 label rather than a node name (`lactate biosynthetic process`,
 `aryl hydrocarbon receptor signaling`), each appearing once as a perturbation and
-once as a readout. Both arms of that experiment are microbiota-mediated routes
-tested against the intestinal barrier, and the discussion already anchors there,
-so all four were retargeted to
-`pathophysiology#Intestinal Barrier Dysfunction and Endotoxin Translocation`.
-That is a curator judgment, not a mechanical re-prefixing; the GO identity is
-retained in each item's own `biological_processes` descriptor.
+once as a readout. Those needed a curator judgment rather than a prefix, and the
+first attempt at it got two things wrong, both caught in review:
 
-`just knowledge-gap-audit --strict` now exits zero, and fails on any
-reintroduction.
+- **Anchoring the AhR arm to the endotoxin node contradicted its own text.** The
+  readout says it tests "a causal microbial-metabolite route independently of
+  lactate and endotoxin". Both AhR items now target
+  `pathophysiology#Kupffer-Cell and Hepatocyte Inflammatory Injury`, the node
+  that route actually bears on, and also one of the discussion's own anchors.
+- **The lactate arm's perturbation and readout pointed at different nodes.**
+  `Species-resolved microbial lactate flux` now targets
+  `pathophysiology#Lipotoxic and Oxidative Hepatocyte Stress`, matching the
+  `Stable-isotope lactate tracing and lactate add-back` perturbation it is paired
+  with. The donor-community perturbation stays on
+  `pathophysiology#Intestinal Barrier Dysfunction and Endotoxin Translocation`,
+  which is the arm it belongs to.
+
+**What happened to the two GO concepts is not symmetrical, and an earlier draft
+of this report claimed it was.** Lactate keeps its grounding: `GO:0019249` is
+carried by both lactate items' own `biological_processes` descriptors, so those
+retargets lose nothing. AhR does not, because **GO has no aryl-hydrocarbon-receptor
+signalling-pathway term** — searching GO returns `GO:0017162` (a *molecular
+function*, and neither `ExperimentalPerturbation` nor `ExperimentalReadout` has a
+`molecular_functions` slot) plus three receptor-complex terms, and CHEBI has no
+FICZ entry. So the concept is carried where the schema does allow it: the
+perturbation gained a `genes` descriptor for `AHR` (`hgnc:348`), which is exactly
+what that arm perturbs — it crosses arms with Ahr-deficient recipients — and the
+readout keeps its `AhR reporter assay` descriptor.
+
+`just check-knowledge-gap-targets` now exits zero, and fails on any
+reintroduction — see the next section.
 
 ## Finding 2: 59% of proposed experiments cannot be decided
 
@@ -110,7 +136,9 @@ cannot be filtered as open. 1,477 gaps say `OPEN`, two say `RESOLVED`, and 302
 across 193 entries say nothing.
 
 Two resolved gaps in 1,781 is itself a signal: the layer is effectively
-append-only. Nothing yet retires a gap when the literature answers it, and no
+append-only. One of the two also has no `resolved_date` — the audit reports that
+state but never gates on it, because unlike a resolution note, a date cannot be
+reconstructed by whoever notices it is missing. Nothing yet retires a gap when the literature answers it, and no
 workflow does that sweep.
 
 ## Finding 4: 47 gaps anchor to nothing
@@ -136,7 +164,9 @@ a curation lapse.
 
 ## Finding 5: 66 gaps still argue for a retired evidence grade
 
-Seventy-five evidence items inside knowledge-gap discussions, across 62 entries,
+Seventy-five evidence items inside knowledge-gap discussions — counting those
+nested in a proposed experiment's readouts, not only discussion-level ones —
+across 62 entries,
 have an `explanation` that justifies the `PARTIAL` grade retired by #10003
 ("Graded PARTIAL on the word 'many'…", "Marked PARTIAL because the trial was
 small…"). The values were migrated; this prose was not, which #10003 recorded as
@@ -195,9 +225,17 @@ here. They are listed so a curator can decide them as a batch.
 - Repaired 13 bare experiment targets across six entries (Finding 1).
 - Added the missing `resolution_note` to the single `RESOLVED` gap lacking one,
   summarizing the scoping decision already stated in its `rationale`.
-- Added `scripts/knowledge_gap_discussion_audit.py` and
-  `just knowledge-gap-audit`, report-only by default, with `--strict` covering
-  the two states that are breakage rather than backlog.
+- Added `scripts/knowledge_gap_discussion_audit.py` with two recipes:
+  `just knowledge-gap-audit` for the advisory census, and
+  `just check-knowledge-gap-targets` for the gating half. The gate runs in
+  `just qc` and as an ungated, whole-KB CI step beside `check-entity-refs` and
+  `check-causal-targets` — a bare experiment target is written by a curation PR,
+  and a curation PR matches neither pytest path filter, which is the same
+  argument those two steps are there on. Both strict states are at zero, which
+  is the condition `CLAUDE.md` sets for promoting a reported state to a hard
+  gate.
+- Added `tests/test_knowledge_gap_discussion_audit.py` (19 tests), since the
+  bare-target rule is now load-bearing and no other check duplicates it.
 - Left Findings 2, 3, 4, 5 and 6 as reported backlog. Each is either a curatorial
   judgment or a multi-hundred-entry sweep that should not ride along with a
   review.

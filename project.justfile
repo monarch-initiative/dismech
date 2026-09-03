@@ -774,7 +774,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-knowledge-gap-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -807,6 +807,16 @@ environmental-term-audit *args="":
 [group('QC')]
 knowledge-gap-audit *args="":
     uv run python scripts/knowledge_gap_discussion_audit.py {{args}}
+
+# The gating half of knowledge-gap-audit. Both strict states are at zero, which
+# is the condition CLAUDE.md sets for promoting a reported state to a hard gate
+# (as check-environmental-evidence was once #8296 reached zero). Ungated and
+# whole-KB in CI for the reason its neighbours are: a bare experiment target is
+# written by a curation PR, and a curation PR touches only kb/, so it matches
+# neither pytest path filter.
+[group('QC')]
+check-knowledge-gap-targets *files:
+    uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet "$@"
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]

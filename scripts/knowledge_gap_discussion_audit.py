@@ -53,8 +53,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
+import re
 import sys
 from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -89,11 +92,41 @@ STATES = (
     "UNDECIDABLE_EXPERIMENT",
     "BARE_EXPERIMENT_TARGET",
     "RESOLVED_NO_NOTE",
+    "RESOLVED_NO_DATE",
     "RETIRED_GRADE_PROSE",
 )
 
 #: States that are breakage rather than backlog, and so gate under ``--strict``.
 _STRICT_STATES = ("BARE_EXPERIMENT_TARGET", "RESOLVED_NO_NOTE")
+
+#: The retired ``PARTIAL`` grade as a whole word. A bare substring test also
+#: fires on "PARTIALLY", which is ordinary prose and not a retired enum value.
+_RETIRED_GRADE = re.compile(r"\bPARTIAL\b")
+
+
+def _iter_evidence(discussion: dict) -> "Iterator[dict]":
+    """Every evidence item under one discussion, at any depth.
+
+    Discussion-level ``evidence`` is only part of it: a proposed experiment
+    carries its own, and so does each of its readouts and perturbations. A
+    census that reads only the top level reports a floor rather than a count.
+    """
+    for item in discussion.get("evidence") or []:
+        if isinstance(item, dict):
+            yield item
+    for experiment in discussion.get("proposed_experiments") or []:
+        if not isinstance(experiment, dict):
+            continue
+        for item in experiment.get("evidence") or []:
+            if isinstance(item, dict):
+                yield item
+        for slot in ("perturbations", "readouts"):
+            for child in experiment.get(slot) or []:
+                if not isinstance(child, dict):
+                    continue
+                for item in child.get("evidence") or []:
+                    if isinstance(item, dict):
+                        yield item
 
 
 @dataclass
@@ -107,8 +140,10 @@ class Gap:
     status: str
     n_experiments: int
     n_evidence: int
+    n_undecidable: int = 0
     states: list[str] = field(default_factory=list)
     detail: list[str] = field(default_factory=list)
+    decision_slots: list[str] = field(default_factory=list)
 
 
 def _kb_files(root: Path) -> list[Path]:
@@ -154,16 +189,24 @@ def audit_entry(path: Path, root: Path) -> list[Gap]:
             gap.states.append("UNANCHORED")
         if not discussion.get("status"):
             gap.states.append("NO_STATUS")
-        if discussion.get("status") == "RESOLVED" and not discussion.get(
-            "resolution_note"
-        ):
-            gap.states.append("RESOLVED_NO_NOTE")
+        if discussion.get("status") == "RESOLVED":
+            if not discussion.get("resolution_note"):
+                gap.states.append("RESOLVED_NO_NOTE")
+            # Reported, never gated: unlike the note, a date cannot be
+            # reconstructed by whoever notices it is missing.
+            if not discussion.get("resolved_date"):
+                gap.states.append("RESOLVED_NO_DATE")
 
         undecidable = [
             str(e.get("experiment_id") or e.get("name") or "?")
             for e in experiments
             if not any(e.get(slot) for slot in _DECISION_SLOTS)
         ]
+        gap.n_undecidable = len(undecidable)
+        for experiment in experiments:
+            gap.decision_slots.extend(
+                slot for slot in _DECISION_SLOTS if experiment.get(slot)
+            )
         if undecidable:
             gap.states.append("UNDECIDABLE_EXPERIMENT")
             gap.detail.extend(f"undecidable experiment: {name}" for name in undecidable)
@@ -177,12 +220,17 @@ def audit_entry(path: Path, root: Path) -> list[Gap]:
                     if target and "#" not in str(target):
                         if "BARE_EXPERIMENT_TARGET" not in gap.states:
                             gap.states.append("BARE_EXPERIMENT_TARGET")
-                        gap.detail.append(
-                            f"bare target in {experiment.get('experiment_id')}.{slot}: "
-                            f"{target!r}"
+                        label = (
+                            experiment.get("experiment_id")
+                            or experiment.get("name")
+                            or "?"
                         )
+                        gap.detail.append(f"bare target in {label}.{slot}: {target!r}")
 
-        if any("PARTIAL" in str(item.get("explanation") or "") for item in evidence):
+        if any(
+            _RETIRED_GRADE.search(str(item.get("explanation") or ""))
+            for item in _iter_evidence(discussion)
+        ):
             gap.states.append("RETIRED_GRADE_PROSE")
         gaps.append(gap)
     return gaps
@@ -196,68 +244,94 @@ def collect(root: Path, paths: list[Path] | None = None) -> list[Gap]:
     return gaps
 
 
-def print_summary(gaps: list[Gap]) -> None:
+def summary_text(gaps: list[Gap]) -> str:
+    """The census, as text.
+
+    Emits the experiment-level figures too -- the undecidable share and the
+    decision-slot table -- so a report citing them can say "regenerate with
+    this command" and be telling the truth.
+    """
     counts = Counter(state for gap in gaps for state in set(gap.states))
     files = {gap.path for gap in gaps}
     experiments = sum(gap.n_experiments for gap in gaps)
-    print(f"KNOWLEDGE_GAP discussions: {len(gaps)} across {len(files)} entries")
-    print(f"  with proposed experiments: {sum(1 for g in gaps if g.n_experiments)}")
-    print(f"  with evidence:             {sum(1 for g in gaps if g.n_evidence)}")
-    print(f"  proposed experiments:      {experiments}")
-    print()
-    print(f"  {'count':>6}  {'entries':>7}  state")
-    print(f"  {'-' * 6}  {'-' * 7}  {'-' * 24}")
+    undecidable = sum(gap.n_undecidable for gap in gaps)
+    lines = [
+        f"KNOWLEDGE_GAP discussions: {len(gaps)} across {len(files)} entries",
+        f"  with proposed experiments: {sum(1 for g in gaps if g.n_experiments)}",
+        f"  with evidence:             {sum(1 for g in gaps if g.n_evidence)}",
+        "",
+        f"  {'count':>6}  {'entries':>7}  state",
+        f"  {'-' * 6}  {'-' * 7}  {'-' * 24}",
+    ]
     for state in STATES:
         entries = len({gap.path for gap in gaps if state in gap.states})
-        print(f"  {counts.get(state, 0):>6}  {entries:>7}  {state}")
-    print()
+        lines.append(f"  {counts.get(state, 0):>6}  {entries:>7}  {state}")
     clean = sum(1 for gap in gaps if not gap.states)
-    print(f"  complete (no state above): {clean}")
+    lines += ["", f"  complete (no state above): {clean}", ""]
+
+    share = f"{undecidable / experiments:.0%}" if experiments else "n/a"
+    lines += [
+        f"Proposed experiments: {experiments}",
+        f"  with no decision logic: {undecidable} ({share})",
+        "",
+        f"  {'used by':>7}  decision slot",
+        f"  {'-' * 7}  {'-' * 24}",
+    ]
+    slot_counts = Counter()
+    for gap in gaps:
+        slot_counts.update(gap.decision_slots)
+    for slot, n in slot_counts.most_common():
+        lines.append(f"  {n:>7}  {slot}")
+    return "\n".join(lines)
 
 
-def print_list(gaps: list[Gap], state: str | None) -> None:
-    selected = [g for g in gaps if (state in g.states if state else g.states)]
-    for i, gap in enumerate(
-        sorted(selected, key=lambda g: (g.path, g.discussion_id)), 1
-    ):
-        print(f"{i:4d}. [{','.join(gap.states)}] {gap.path} :: {gap.discussion_id}")
-        print(f"      {gap.prompt[:150]}")
-        for line in gap.detail:
-            print(f"      - {line}")
+def list_text(gaps: list[Gap]) -> str:
+    """One block per gap: its states, location, prompt and per-state detail.
+
+    Filtering happens in :func:`main`, so every format narrows identically.
+    """
+    lines: list[str] = []
+    for i, gap in enumerate(sorted(gaps, key=lambda g: (g.path, g.discussion_id)), 1):
+        lines.append(
+            f"{i:4d}. [{','.join(gap.states)}] {gap.path} :: {gap.discussion_id}"
+        )
+        lines.append(f"      {gap.prompt[:150]}")
+        lines.extend(f"      - {line}" for line in gap.detail)
+    return "\n".join(lines)
 
 
-def write_tsv(gaps: list[Gap], out: Path | None) -> None:
-    handle = out.open("w", newline="") if out else sys.stdout
-    try:
-        writer = csv.writer(handle, delimiter="\t")
+def tsv_text(gaps: list[Gap]) -> str:
+    """The per-gap table, as text, so every format shares one output path."""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter="\t", lineterminator="\n")
+    writer.writerow(
+        [
+            "path",
+            "discussion_id",
+            "status",
+            "n_experiments",
+            "n_evidence",
+            "n_undecidable",
+            "states",
+            "detail",
+            "prompt",
+        ]
+    )
+    for gap in gaps:
         writer.writerow(
             [
-                "path",
-                "discussion_id",
-                "status",
-                "n_experiments",
-                "n_evidence",
-                "states",
-                "detail",
-                "prompt",
+                gap.path,
+                gap.discussion_id,
+                gap.status,
+                gap.n_experiments,
+                gap.n_evidence,
+                gap.n_undecidable,
+                ";".join(gap.states),
+                ";".join(gap.detail),
+                gap.prompt,
             ]
         )
-        for gap in gaps:
-            writer.writerow(
-                [
-                    gap.path,
-                    gap.discussion_id,
-                    gap.status,
-                    gap.n_experiments,
-                    gap.n_evidence,
-                    ";".join(gap.states),
-                    ";".join(gap.detail),
-                    gap.prompt,
-                ]
-            )
-    finally:
-        if out:
-            handle.close()
+    return buffer.getvalue().rstrip("\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -277,9 +351,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--state",
         choices=STATES,
-        help="with --format list, show only gaps in this state",
+        help=(
+            "restrict the report to gaps in this state; applies to every format "
+            "except summary, which always counts the whole corpus"
+        ),
     )
-    parser.add_argument("--out", type=Path, help="write to this file instead of stdout")
+    parser.add_argument(
+        "--out",
+        type=Path,
+        help="write the report to this file instead of stdout, in any format",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="print one OK/FAIL line instead of the report; for use as a gate",
+    )
     parser.add_argument(
         "--strict",
         action="store_true",
@@ -291,25 +377,50 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     gaps = collect(_REPO_ROOT, [p.resolve() for p in args.files] or None)
+    broken = [g for g in gaps if any(s in g.states for s in _STRICT_STATES)]
 
-    if args.format == "tsv":
-        write_tsv(gaps, args.out)
-        if args.out:
-            print(f"Wrote {args.out}", file=sys.stderr)
-    elif args.format == "list":
-        print_list(gaps, args.state)
+    if args.format == "summary":
+        selected = gaps
+    elif args.state:
+        selected = [g for g in gaps if args.state in g.states]
     else:
-        print_summary(gaps)
+        selected = [g for g in gaps if g.states]
+
+    if args.quiet:
+        report = None
+    elif args.format == "tsv":
+        report = tsv_text(selected)
+    elif args.format == "list":
+        report = list_text(selected)
+    else:
+        report = summary_text(gaps)
+
+    if report is not None:
+        if args.out:
+            args.out.write_text(report + "\n")
+            print(f"Wrote {args.out}", file=sys.stderr)
+        else:
+            print(report)
 
     if args.strict:
-        broken = [g for g in gaps if any(s in g.states for s in _STRICT_STATES)]
         if broken:
+            for gap in broken:
+                print(
+                    f"{gap.path} :: {gap.discussion_id}: {','.join(gap.states)}",
+                    file=sys.stderr,
+                )
+                for line in gap.detail:
+                    print(f"  - {line}", file=sys.stderr)
             print(
-                f"\nFAIL: {len(broken)} knowledge gap(s) in "
-                f"{', '.join(_STRICT_STATES)}",
+                f"FAIL: {len(broken)} knowledge gap(s) in {', '.join(_STRICT_STATES)}",
                 file=sys.stderr,
             )
             return 1
+        if args.quiet:
+            print(
+                f"OK: no {' or '.join(_STRICT_STATES)} in "
+                f"{len(gaps)} KNOWLEDGE_GAP discussion(s)."
+            )
     return 0
 
 
