@@ -103,12 +103,15 @@ in MONDO — it is obsolete in the clinical nosology too, which strengthens the
 decision rather than complicating it.
 
 NDLVC itself has no `kb/` entry and no stub. It appears in `kb/` only inside two
-other entries' evidence, `Dilated_Cardiomyopathy_1FF.yaml` and
-`Hypertrophic_Cardiomyopathy_20.yaml` — abbreviated as the cohort label
-"DCM/NDLVC" in snippets, explanations and notes, and spelled out in full in the
-reference title *Prediction and Prognostic Role of Left Ventricular Systolic
-Dysfunction in Family Screening for Dilated Cardiomyopathy and Non-Dilated Left
-Ventricular Cardiomyopathy*. Never as an entity in its own right.
+other entries' evidence, never as an entity in its own right:
+
+- `Hypertrophic_Cardiomyopathy_20.yaml` — the abbreviated cohort label
+  "DCM/NDLVC" in snippets, explanations and notes, and nothing else.
+- `Dilated_Cardiomyopathy_1FF.yaml` — the same abbreviated label, plus the only
+  place the name is spelled out in full: five `reference_title` occurrences of
+  *Prediction and Prognostic Role of Left Ventricular Systolic Dysfunction in
+  Family Screening for Dilated Cardiomyopathy and Non-Dilated Left Ventricular
+  Cardiomyopathy*.
 
 The blocker is upstream, though, and it needs saying before anyone files a stub:
 **MONDO has no NDLVC term.** Searching `l~non-dilated` returns nothing, and
