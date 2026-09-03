@@ -281,15 +281,12 @@ pass.
 
 `pr-shepherd`'s closing sweep merges a PR only when **all** hold:
 
-`reviewDecision == APPROVED` · **no assignees** ·
+`reviewDecision == APPROVED` · **no human assignees** ·
 `mergeable == MERGEABLE` · `mergeStateStatus == CLEAN` · every status check
 passing (stricter than `CLEAN`, which only covers *required* checks) ·
-created more than **3 days** ago · targeting `main` · the required `test (3.13)`
-check successful on the exact current `main` SHA from the GitHub Actions App ·
-an exact compare proving that SHA is an ancestor of the PR head (`behind_by ==
-0` and `merge_base_commit.sha == main`) · `main` unchanged after the final
-PR-state read · not in a separately managed `auto/` branch lane. GitHub's
-`baseRefOid` is metadata, not ancestry proof.
+created more than **3 days** ago · targeting `main`. Author identity, head-branch
+prefix, draft status, and exact ancestry with current `main` are not eligibility
+criteria. A known bot/agent assignee is routing metadata rather than a human hold.
 
 Draft state is metadata, not a hold. An otherwise eligible draft is marked
 ready immediately before a complete re-read of the merge guards. If the attempt
@@ -307,13 +304,11 @@ uses a read-only token for discovery plus a dedicated write token only for its
 fixed transitions. The controller runs hourly; under the active `slow` cron
 profile, the costlier agent tending job runs every four hours on a separate
 concurrency lane (hourly in the faster profiles) and receives a ranked shortlist
-capped at three times its action budget. The controller merges at most one PR
-per run. Before that merge it
-checks the required build on current `main`, performs the final PR-state read,
-proves the final head contains current `main`, and confirms `main` still has the
-healthy SHA. A red, pending, or not-yet-observed required check opens that
-circuit and performs no merge, but is repository state rather than a controller
-failure; API, policy-execution, and write failures still make the run fail.
+capped at three times its action budget. The controller acts on at most one PR
+per run. Before that request it performs the final PR-state read and pins the
+operation to the verified head SHA. On a queue-required branch GitHub tests the
+latest-main combination as a temporary merge group; without a queue the repo's
+loose required-check policy permits the already-green PR to merge directly.
 
 This runner split protects the deterministic job from process-level changes
 made during the LLM run. It is not a complete GitHub capability boundary: the
@@ -321,17 +316,9 @@ agent's own App token needs contents-write access to repair branches, which also
 permits merge operations. Its no-merge rule remains prompt-enforced until a
 separate identity, broker, or repository ruleset can enforce that distinction.
 
-GitHub's merge API can pin the expected PR head but not the expected base SHA.
-Because branch protection currently is not strict, there remains a final narrow
-race between the last base read and the merge call. Strict protection or a merge
-queue is required to make that boundary atomic; the controller's recheck and
-one-merge cap are bounded mitigations, not a substitute for either setting.
-The agent correspondingly updates at most one approved-behind branch per run.
-Batch-updating several would dismiss several approvals and start CI, only for
-the first merge to make every remaining branch stale again. Under the `slow`
-profile this limits automated freshness tending to six runs per day. Increasing
-safe drain rate is a merge-queue project—including `merge_group` CI—not a reason
-to weaken ancestry checks or batch more branch updates.
+The final head pin prevents merging a commit that changed after verification.
+The controller does not chase current `main`; doing so would dismiss approvals
+and restart CI without being required by branch protection or queue admission.
 
 The `merge_group` CI half of that project is in place (#10168): `main.yaml`
 declares the trigger, and merge-group runs execute the **full suite** — every
@@ -413,8 +400,8 @@ expiring during a full page build. The identity is load-bearing twice.
 App-authenticated branch pushes and PR creation start the required
 `pull_request` checks; the built-in token instead leaves these bot runs at
 `action_required`. App-attributed merges then trigger the `push` workflows on
-the new `main` SHA, ensuring the exact-SHA main-health circuit gets its
-`test (3.13)` result. Each lane also removes an
+the new `main` SHA, providing the normal post-merge `test (3.13)` result. Each
+lane also removes an
 existing auto-merge request before re-enabling it, because merely issuing
 `--auto` again can preserve the previous request's `enabledBy` actor. A workflow
 test enumerates the six lanes and protects all three App-authenticated writes.
@@ -428,14 +415,15 @@ judgement at all. What remains is:
 
 - **more than 3 days old** — a standing window in which any human can look at
   any queued PR before it merges;
-- **unassigned** — the per-PR veto. Assigning a PR marks it as somebody's active
-  work, and the sweep never touches it.
+- **not human-assigned** — the per-PR veto. Assigning a PR to a human marks it as
+  somebody's active work, and the sweep never touches it. Bot/agent assignment
+  remains eligible.
 
 So "a human is in the loop" here means *a human has a guaranteed opportunity to
 intervene*, not *a human signed off*. Read the 3-day delay as the price paid for
 that opportunity rather than as an arbitrary cooling-off period.
 
-> **To stop a PR being auto-merged, assign it to someone or leave a
+> **To stop a PR being auto-merged, assign it to a human or leave a
 > `CHANGES_REQUESTED` review.** Draft status does not block it.
 
 Preview what the next sweep would do, read-only: `just auto-merge-preview`.

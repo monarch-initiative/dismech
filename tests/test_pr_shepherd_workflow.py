@@ -52,8 +52,8 @@ def test_merge_controller_has_a_fresh_trusted_runner_and_scoped_writer():
         "${{ steps.ai4c-token-merge.outputs.token }}"
     )
     assert "scripts/auto_merge_ready_prs.py" in controller["run"]
-    assert '--base-health-check "test (3.13)"' in controller["run"]
-    assert '--base-health-app-id "15368"' in controller["run"]
+    assert "--base-health-check" not in controller["run"]
+    assert "--base-health-app-id" not in controller["run"]
     assert 'args+=(--specific-pr "$SPECIFIC_PR")' in controller["run"]
     assert merge_job["env"]["SPECIFIC_PR"] == "${{ inputs.pr_number || '' }}"
     assert "python scripts/auto_merge_ready_prs.py" in controller["run"]
