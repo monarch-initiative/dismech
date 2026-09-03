@@ -1,9 +1,9 @@
 # Diet exposures and the pathograph: disposition of 42 candidates, 2026-09-01
 
-The [diet representation audit](diet-representation-audit-2026-09-01.md) found 42
-`environmental[]` diet entries that carry a supporting, snippet-backed citation
-but no `influences_mechanisms` link, so they never appear in the mechanism graph.
-This records what was decided for each.
+The diet representation audit — `diet-representation-audit-2026-09-01.md`, added by
+PR #10358 — found 42 `environmental[]` diet entries that carry a supporting,
+snippet-backed citation but no `influences_mechanisms` link, so they never appear
+in the mechanism graph. This records what was decided for each.
 
 **20 got an edge (21 links). 8 are proposed but not added. 14 were left alone.**
 
@@ -40,7 +40,7 @@ re-accumulation and the forward claim is inferred from that removal design.
 | Celiac Disease | Wheat / Barley / Rye | Gluten-Triggered Immune Response | TRIGGERS | One snippet names all three grains as triggering and maintaining it (3 links) |
 | Gastroesophageal Reflux | Alcohol Consumption | Lower Esophageal Sphincter Dysfunction | EXACERBATES | Snippet states the sphincter-pressure reduction |
 | Gastroesophageal Reflux | Dietary Factors | Lower Esophageal Sphincter Dysfunction | EXACERBATES | Physiologic evidence for chocolate and high-fat meals on the same node |
-| Heart Failure | Alcohol Abuse | Myocardial Contractile Dysfunction | TRIGGERS | Snippet names decreased contractility and dilated cardiomyopathy |
+| Heart Failure | Alcohol Abuse | Myocardial Contractile Dysfunction | TRIGGERS | Snippet names chronic cardiac dysfunction and alcoholic dilated cardiomyopathy |
 | Hyperlipidemia | High Saturated Fat Diet | Increased LDL Cholesterol | EXACERBATES | Snippet attributes the LDL-C rise to saturated fat substitution |
 | Obesity | High-Calorie Diet | Energy Imbalance | TRIGGERS | Inpatient randomised crossover trial; excess intake attributable to processing itself |
 | Obesity | Obesogenic Environment | Increased Body Mass Index | PREDISPOSES | Causal-inference systematic review linking outlet density to BMI |
