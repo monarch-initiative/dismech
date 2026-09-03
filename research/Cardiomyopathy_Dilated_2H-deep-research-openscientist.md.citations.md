@@ -4,7 +4,7 @@
 
 ## Target Disease
 - **Disease Name:** Cardiomyopathy Dilated 2H
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0859358 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
@@ -457,24 +457,18 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** openscientist
-**Generated:** 2026-09-01T23:22:55.249786
+**Generated:** 2026-09-03T09:23:13.953610
 
-1. PMID:32514796
-2. PMID:35323613
-3. PMID:41495453
-4. PMID:39803500
-5. PMID:36882085
-6. PMID:30271950
-7. PMID:32822252
-8. PMID:42360425
-9. PMID:38427064
-10. PMID:38722325
-11. PMID:42334151
-12. PMID:42159538
-13. PMID:40645388
-14. PMID:30384889
-15. PMID:32458740
-16. PMID:18652581
-17. PMID:35849328
-18. PMID:38053305
-19. PMID:31298178
+1. PMID:31461301
+2. PMID:41898170
+3. PMID:42415986
+4. PMID:41747776
+5. PMID:21444755
+6. PMID:27226539
+7. PMID:29180572
+8. PMID:26438609
+9. PMID:41370295
+10. PMID:42511685
+11. PMID:42471840
+12. PMID:42536775
+13. PMID:42573902
