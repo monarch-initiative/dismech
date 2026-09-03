@@ -148,6 +148,14 @@ Always re-validate afterwards — `just validate-disorders` on the changed files
   EATL. `Lung_Carcinoma` and `Non-Small_Cell_Lung_Cancer` now agree: the broad
   pool reports the same split its own subtype entry does.
 
+**What the census prints.** The derived cell is shown by its `preferred_term`
+when the binding has one, falling back to the ontology label. A curator uses
+that slot to say something the label does not — `Epithelioid_Sarcoma` binds
+`CL:0000134` under `mesenchymal cell of uncertain differentiation`, and printing
+the label would have the census assert "mesenchymal stem cell", which the entry
+is careful not to. Only the display name changes: the CURIE is what identifies
+a cell, so de-duplication and multi-origin detection are unaffected.
+
 `ORIGIN_WITHOUT_CELL`
 : An origin node was identified but binds no CL term. The cheapest class to fix,
   since the marking is already there.

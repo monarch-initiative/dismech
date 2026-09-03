@@ -200,7 +200,19 @@ class EntryReport:
 
 
 def _terms(descriptors: object) -> list[tuple[str, str]]:
-    """Pull ``(id, label)`` pairs out of a list of ontology descriptors."""
+    """Pull ``(id, display name)`` pairs out of a list of ontology descriptors.
+
+    The display name prefers ``preferred_term`` over the ontology ``label``,
+    because a curator uses that slot to say something the label does not.
+    Epithelioid sarcoma is the case: its origin is bound to ``CL:0000134`` under
+    ``preferred_term: mesenchymal cell of uncertain differentiation``, which is
+    a deliberate hedge. Reporting the label instead made the census say
+    "mesenchymal stem cell" -- a claim the entry is careful not to make.
+
+    Only the display name changes. The CURIE is what identifies a cell, so
+    de-duplication, multi-origin detection and the generic-term checks are
+    unaffected.
+    """
     out: list[tuple[str, str]] = []
     if not isinstance(descriptors, list):
         return out
@@ -209,7 +221,13 @@ def _terms(descriptors: object) -> list[tuple[str, str]]:
             continue
         term = descriptor.get("term")
         if isinstance(term, dict) and term.get("id"):
-            out.append((str(term["id"]), str(term.get("label", ""))))
+            preferred = descriptor.get("preferred_term")
+            display = (
+                str(preferred)
+                if isinstance(preferred, str) and preferred.strip()
+                else str(term.get("label", ""))
+            )
+            out.append((str(term["id"]), display))
     return out
 
 

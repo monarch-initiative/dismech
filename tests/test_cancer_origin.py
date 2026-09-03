@@ -357,3 +357,58 @@ def test_viral_oncoprotein_entries_derive_through_the_exposure_rule():
         assert report is not None, slug
         assert report.rules == [RULE_TRIGGER], (slug, report.rules)
         assert report.origin_cells, slug
+
+
+def test_a_hedged_preferred_term_is_reported_over_the_ontology_label():
+    """The census must not state a stronger claim than the entry does.
+
+    Epithelioid sarcoma binds `CL:0000134` under `preferred_term: mesenchymal
+    cell of uncertain differentiation`. Reporting the ontology label instead
+    made the derivation say "mesenchymal stem cell", which the entry
+    deliberately avoids saying.
+    """
+    report = assess(ROOT / "kb" / "disorders" / "Epithelioid_Sarcoma.yaml")
+    assert report is not None
+    assert report.origin_cells == [
+        ("CL:0000134", "mesenchymal cell of uncertain differentiation")
+    ]
+
+
+def test_the_curie_still_identifies_the_cell_when_preferred_terms_differ():
+    """Only the display name changes: two spellings of one CURIE are one cell."""
+    origins = find_origins(
+        _entry(
+            [
+                {
+                    "name": "Driver Mutation",
+                    "genetic_context": {"variant_origin": "SOMATIC"},
+                    "cell_types": [
+                        {
+                            "preferred_term": "a carefully hedged name",
+                            "term": {"id": "CL:0000134", "label": "mesenchymal stem cell"},
+                        },
+                        {
+                            "preferred_term": "another name for the same cell",
+                            "term": {"id": "CL:0000134", "label": "mesenchymal stem cell"},
+                        },
+                    ],
+                }
+            ]
+        )
+    )
+    assert origins[0].cell_ids == {"CL:0000134"}
+
+
+def test_a_missing_preferred_term_falls_back_to_the_label():
+    origins = find_origins(
+        _entry(
+            [
+                {
+                    "name": "Driver Mutation",
+                    "genetic_context": {"variant_origin": "SOMATIC"},
+                    "cell_types": [{"term": {"id": "CL:0000066", "label": "epithelial cell"}}],
+                }
+            ]
+        )
+    )
+    assert origins[0].cell_terms == [("CL:0000066", "epithelial cell")]
