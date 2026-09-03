@@ -82,7 +82,7 @@ its own `explanation` already says.
 
 `dietary_modifications` is effectively unused: 5 files in the whole KB (Celiac,
 ECHS1 Deficiency, Konzo, Lathyrism, Phenylketonuria), 11 modification records,
-against 614 dietary treatments. Only 18 FOODON bindings exist KB-wide across 10
+against 614 dietary treatments. Only 19 FOODON bindings exist KB-wide across 11
 distinct terms.
 
 **Free text is a legitimate outcome, not a backlog.** Two structural reasons, and
@@ -127,7 +127,7 @@ needs no schema change.
 Dietary treatments scatter across NCIT action terms — `NCIT:C15747` (supportive
 care), `NCIT:C15447` (dietary intervention), `NCIT:C15433` (nutritional support),
 `NCIT:C15986` (pharmacotherapy) — and **235 of 614 carry no
-`therapeutic_modality` at all**, with 232 `BEHAVIORAL` and 104 `SMALL_MOLECULE`.
+`therapeutic_modality` at all**, with 233 `BEHAVIORAL` and 92 `SMALL_MOLECULE`.
 
 Do not mechanically backfill this. CLAUDE.md already records that
 `NCIT:C15433` names a specific vitamin or compound far more often than a diet
@@ -146,7 +146,7 @@ false-positive tail. Two mitigations, both visible in the output:
   cut it from 1,262 entries to 614.
 - **Match provenance is recorded** (`matched_in`: `food_source` / `name` /
   `term_label` / `description`). A causal entry matched only in description prose
-  is the weak tail — 14 of the 56 causal gap rows, including Ependymoma
+  is the weak tail — 13 of the 53 causal gap rows, including Ependymoma
   ("high-dose ionizing radiation", whose description mentions diet) and CKD
   tobacco smoking (on "glycemic"). Filter with `--strong-only`.
 
@@ -170,7 +170,7 @@ curator, not automated fixes.
 
 1. **Cite or unlink the three uncited pathograph edges** (Chronic Kidney Disease,
    Dravet syndrome, Inherited Threoninemia). They already render.
-2. **Work the 42 strong causal candidates**, reading each snippet before adding
+2. **Work the 40 strong causal candidates**, reading each snippet before adding
    `influences_mechanisms`. Gout, Phenylketonuria, and Celiac Disease alone are 11
    of them and are the natural pilot, since all three already model diet well on
    the other track.
