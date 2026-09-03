@@ -299,6 +299,11 @@ head name outside the separately managed `auto/` lanes. This deliberately
 replaces the older `claude/` prefix heuristic with the boundary the guardrail
 actually means: never modify a human-authored PR.
 
+That tending restriction is intentionally narrower than deterministic merge
+eligibility. The LLM lane may decline to edit an assigned or `auto/` PR while
+the fixed controller can still merge it after the waiting period; mutation
+authority and merge eligibility are separate policies.
+
 The closing controller runs on a fresh runner, separate from the LLM job, and
 uses a read-only token for discovery plus a dedicated write token only for its
 fixed transitions. The controller runs hourly; under the active `slow` cron
@@ -306,9 +311,10 @@ profile, the costlier agent tending job runs every four hours on a separate
 concurrency lane (hourly in the faster profiles) and receives a ranked shortlist
 capped at three times its action budget. The controller acts on at most one PR
 per run. Before that request it performs the final PR-state read and pins the
-operation to the verified head SHA. On a queue-required branch GitHub tests the
-latest-main combination as a temporary merge group; without a queue the repo's
-loose required-check policy permits the already-green PR to merge directly.
+operation to the verified head SHA. The active queue tests the latest-main
+combination as a temporary merge group. If that queue is disabled, the repo's
+loose required-check policy intentionally permits the already-green PR to merge
+directly; disabling the queue does not reactivate an ancestry requirement.
 
 This runner split protects the deterministic job from process-level changes
 made during the LLM run. It is not a complete GitHub capability boundary: the

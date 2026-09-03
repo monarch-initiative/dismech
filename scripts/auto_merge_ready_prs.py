@@ -14,9 +14,10 @@ A PR is merged only when ALL of these hold:
 - **reviewer approved** — ``reviewDecision == "APPROVED"``
 - **no conflicts** — ``mergeable == "MERGEABLE"``
 - **green** — ``mergeStateStatus == "CLEAN"`` (GitHub's configured protection
-  rules are satisfied). Because required checks are non-strict, this alone does
-  *not* prove the branch includes current main; an explicit compare does that
-  below.
+  rules are satisfied). The PR branch is not required to contain current
+  ``main``. The active merge queue tests that integration on a temporary
+  merge-group commit; if the queue is disabled, direct loose merging remains
+  intentional repository policy.
 - **tests passing** — the head commit's status-check rollup has at least one
   SUCCESS and nothing failing, cancelled, or still running. This is stricter
   than ``CLEAN``, which only accounts for *required* checks: a failing
@@ -67,9 +68,9 @@ The list stage therefore defers the mergeability, merge-state, and status-check
 criteria rather than rejecting on them. Immediately before merging, the
 controller performs a final PR read and pins the merge/enqueue operation to that
 verified head SHA. It deliberately does not require the PR head to contain the
-latest ``main`` commit: branch protection permits a green PR to merge without
-that update, and a required merge queue performs current-main integration
-testing on its temporary merge-group commit.
+latest ``main`` commit. The active merge queue performs current-main integration
+testing on its temporary merge-group commit. If that queue is disabled, direct
+loose merging of the verified green PR remains intentional repository policy.
 
 Usage::
 
@@ -100,9 +101,9 @@ from datetime import UTC, datetime, timedelta
 LIST_FIELDS = (
     "number,title,isDraft,createdAt,assignees,reviewDecision,mergeable,baseRefName"
 )
-# headRefOid pins the reviewed head and is compared against the exact healthy
-# current-main SHA before merge. `baseRefOid` is intentionally absent: GitHub's
-# field is the PR's associated base-ref OID, not proof that the head contains it.
+# headRefOid pins the reviewed head for the merge request. `baseRefOid` is
+# intentionally absent: GitHub's field is the PR's associated base-ref OID, not
+# proof that the head contains it, and exact-base ancestry is not a policy gate.
 VIEW_FIELDS = LIST_FIELDS + ",state,statusCheckRollup,headRefOid,mergeStateStatus"
 
 # Check conclusions that do not count as a failure. SKIPPED/NEUTRAL are how
@@ -146,8 +147,6 @@ MERGE_COMMENT = (
 # recognize GitHub's conventional ``[bot]`` suffix.
 NON_HUMAN_ASSIGNEE_LOGINS = frozenset(
     {
-        "app/claude",
-        "app/github-actions",
         "ai4c-agent",
         "ai4c-reviewer",
         "claude",
