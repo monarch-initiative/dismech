@@ -26,8 +26,9 @@ MONDO the entry itself rejects — into a "do not use this term" comment in
 tests pin that and forbid a regression to a line window.
 """
 
+import contextlib
+import io
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -91,20 +92,41 @@ def test_mondo_extraction_does_not_use_a_line_window():
         )
 
 
-def _extract(path: Path) -> str:
-    """Run the same extraction the recipes use."""
-    code = (
-        "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};"
-        "t=(d.get('disease_term') or {}).get('term') or {};"
-        "print(t.get('id') or '' if isinstance(t,dict) else '')"
+def _shipped_extraction_code() -> str:
+    """Pull the extraction one-liner out of `project.justfile` verbatim.
+
+    Reading it rather than restating it is the point: a hardcoded copy tests
+    the copy. An earlier version of this file did exactly that, so the corpus
+    test below was verifying a transcription while claiming to verify the
+    shipped code.
+    """
+    bodies = {r: _recipe_body(_justfile(), r) for r in RECIPES}
+    codes = set()
+    for recipe, body in bodies.items():
+        m = re.search(r'mondo_id=\$\(uv run python -c "(.+?)" "\$yaml_file"', body)
+        assert m, f"could not find the extraction one-liner in {recipe}"
+        codes.add(m.group(1))
+    assert len(codes) == 1, (
+        f"the three recipes no longer share one extraction: {codes}"
     )
-    out = subprocess.run(
-        [sys.executable, "-c", code, str(path)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return out.stdout.strip()
+    return codes.pop()
+
+
+def _extract(path: Path, code: str) -> str:
+    """Run the shipped extraction, in-process, against one file.
+
+    In-process rather than by subprocess so the whole-corpus test stays fast;
+    the code string is still the one read out of the justfile.
+    """
+    buf = io.StringIO()
+    argv = sys.argv
+    try:
+        sys.argv = ["-c", str(path)]
+        with contextlib.redirect_stdout(buf):
+            exec(compile(code, "<justfile one-liner>", "exec"), {"__name__": "__main__"})
+    finally:
+        sys.argv = argv
+    return buf.getvalue().strip()
 
 
 def test_extraction_matches_the_parsed_disease_term_for_every_entry():
@@ -114,6 +136,7 @@ def test_extraction_matches_the_parsed_disease_term_for_every_entry():
     four happened to have no `description:` in the block, which is the only
     failure mode the change had. Sampling was the wrong check.
     """
+    code = _shipped_extraction_code()
     mismatches = []
     for path in sorted(KB.glob("*.yaml")):
         try:
@@ -121,8 +144,11 @@ def test_extraction_matches_the_parsed_disease_term_for_every_entry():
         except yaml.YAMLError:
             continue
         term = (data.get("disease_term") or {}).get("term") or {}
-        expected = (term.get("id") or "") if isinstance(term, dict) else ""
-        actual = _extract(path)
+        raw = (term.get("id") or "").strip() if isinstance(term, dict) else ""
+        # The recipes deliberately withhold a non-MONDO id and the ontology
+        # root, so the expected value is the guarded form, not the raw binding.
+        expected = raw if raw.startswith("MONDO:") and raw != "MONDO:0000001" else ""
+        actual = _extract(path, code)
         if actual != expected:
             mismatches.append((path.name, actual, expected))
     assert not mismatches, (
@@ -139,11 +165,30 @@ def test_unbound_disease_term_yields_no_mondo_id():
     and from a `skos:closeMatch` cross-reference respectively, neither of which
     is disease identity.
     """
+    code = _shipped_extraction_code()
     for name in ("Acute_Post-Surgical_Pain", "CKD-Mineral_Bone_Disorder"):
         path = KB / f"{name}.yaml"
         if not path.exists():
             continue
-        assert _extract(path) == "", (
+        assert _extract(path, code) == "", (
             f"{name} has an unbound disease_term but extraction returned an ID. "
             "A cross-reference or a commented-out term is not disease identity."
         )
+
+
+def test_the_ontology_root_is_never_sent_as_a_disease_identity():
+    """`Dorsalgia` binds MONDO:0000001 -- the root of MONDO, labelled "disease".
+
+    Extracting it would tell a provider the disease's identifier is the root of
+    the ontology: a wrong identity rather than a missing one, which is worse in
+    exactly the code path this plumbing exists to make trustworthy. Empty is
+    honest. Mirrors the guard at `src/dismech/export/mondo_emc_export.py`.
+    """
+    code = _shipped_extraction_code()
+    offenders = []
+    for path in sorted(KB.glob("*.yaml")):
+        if _extract(path, code) == "MONDO:0000001":
+            offenders.append(path.name)
+    assert not offenders, (
+        f"these entries would send MONDO:0000001 as their disease identity: {offenders}"
+    )
