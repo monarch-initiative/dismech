@@ -93568,11 +93568,11 @@ window.searchData = [
       "HP:0011304",
       "HP:0010055",
       "HP:0001212",
-      "HP:0001371",
+      "HP:0034392",
       "HP:0006394",
       "HP:0001385",
       "HP:0000767",
-      "HP:0001159",
+      "HP:0006101",
       "HP:0003468",
       "HP:0100025",
       "HP:0000752",
@@ -93627,8 +93627,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 10,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "55",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "FG Syndrome 4",
@@ -120696,7 +120696,6 @@ window.searchData = [
       "Delayed Meconium Passage",
       "Failure to Thrive",
       "Enterocolitis",
-      "Failure to Thrive",
       "Developmental Delay"
     ],
     "phenotype_categories": [
@@ -120746,7 +120745,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Hirschsprung_Disease.yaml",
     "page_url": "../pages/disorders/Hirschsprung_Disease.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 8,
     "num_pathophysiology": 2,
     "num_genes": 9,
     "num_treatments": 3,
@@ -128606,6 +128605,143 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 7,
     "causal_graph_edges": "28",
+    "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "IRF2BPL-Related Neurodevelopmental Disorder with Regression",
+    "disease_id": "MONDO:0060759",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "NEDAMSS (neurodevelopmental disorder with regression, abnormal movements, loss of speech, and seizures) is an autosomal dominant, almost always de novo disorder caused by heterozygous truncating variants in IRF2BPL, a single-exon gene encoding a nuclear transcriptional regulator also known as EAP1 (enhanced at puberty protein 1).\nThe feature that defines the entry, and that the pathophysiology below is built around, is that the disorder is *regressive*. Affected children reach their early psychomotor milestones - often normally - and then lose them, together with speech, alongside emerging epilepsy, dystonia, ataxia and spasticity. That makes NEDAMSS a genuine childhood neurodegenerative disease rather than the static encephalopathy its MONDO placement under \"Mendelian neurodevelopmental disorder\" would suggest, and postmortem neuropathology bears this out: the one detailed autopsy reported shows polyglutamine inclusions and a picture consistent with DRPLA.\nThe molecular route to that progression is unusual and is not simple haploinsufficiency. IRF2BPL is intronless, so a transcript carrying a premature stop codon escapes nonsense-mediated decay and is expressed at roughly the same level as the wild-type allele - meaning a truncated protein is actually made. That truncated product mislocalises to the cytoplasm and drags full-length IRF2BPL out of the nucleus with it, forming aggregates. The result is a dominant-negative loss of nuclear IRF2BPL transcriptional repression, which releases Wnt signalling; excess Wnt is by itself sufficient to cause age-dependent axonal loss in flies, and inhibiting Wnt is neuroprotective. Patient-derived astrocytes carry the same lesion, show abnormal mitochondria and respiratory dysfunction, and fail to support neuronal survival in coculture - so neuronal loss is driven both cell-autonomously and through failing glial support.",
+    "pathophysiology": [
+      "De Novo Heterozygous IRF2BPL Truncating Variant",
+      "Nonsense-Mediated Decay Escape and Truncated Protein Expression",
+      "Cytoplasmic Sequestration of Wild-Type IRF2BPL",
+      "Loss of IRF2BPL Transcriptional Repression",
+      "Excess Wnt Signaling",
+      "Astrocyte Mitochondrial Respiratory Dysfunction",
+      "Loss of Astrocytic Trophic Support for Neurons",
+      "Intracellular Protein Aggregate Formation",
+      "Progressive Neuronal and Axonal Loss",
+      "Cerebral and Cerebellar Atrophy",
+      "Loss of Previously Acquired Developmental Milestones"
+    ],
+    "cell_types": [
+      "patient-derived astrocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000127",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "nonsense-mediated decay of the IRF2BPL premature-stop transcript",
+      "nuclear import of full-length IRF2BPL",
+      "IRF2BPL-mediated transcriptional repression",
+      "Wnt signaling pathway",
+      "astrocyte mitochondrial respiration",
+      "inclusion body assembly",
+      "neuron projection maintenance"
+    ],
+    "phenotypes": [
+      "Developmental regression",
+      "Loss of speech",
+      "Seizure",
+      "Myoclonic seizure",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Progressive cerebellar ataxia",
+      "Dystonia",
+      "Spasticity",
+      "Hypotonia",
+      "Tremor",
+      "Parkinsonism",
+      "Cerebellar atrophy",
+      "Cerebral atrophy",
+      "Autistic behavior",
+      "Psychosis",
+      "Feeding difficulties",
+      "Gastrointestinal dysmotility",
+      "Ocular involvement",
+      "Dysphagia",
+      "Dysarthria",
+      "Nystagmus",
+      "Mild dysmorphic features",
+      "Delayed puberty"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Other",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002376",
+      "HP:0002371",
+      "HP:0001250",
+      "HP:0032794",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0002073",
+      "HP:0001332",
+      "HP:0001257",
+      "HP:0001252",
+      "HP:0001337",
+      "HP:0001300",
+      "HP:0001272",
+      "HP:0002059",
+      "HP:0000729",
+      "HP:0000709",
+      "HP:0011968",
+      "HP:0002579",
+      "HP:0000478",
+      "HP:0002015",
+      "HP:0001260",
+      "HP:0000639",
+      "HP:0000823"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "IRF2BPL"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Developmental and Educational Support",
+      "Spasticity Management and Rehabilitation",
+      "Feeding and Nutritional Support",
+      "Ophthalmologic Management",
+      "Endocrine Management of Pubertal Delay",
+      "Family and Social Work Support",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "IRF2BPL-Related_Neurodevelopmental_Disorder_with_Regression.yaml",
+    "page_url": "../pages/disorders/IRF2BPL-Related_Neurodevelopmental_Disorder_with_Regression.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 8,
+    "causal_graph_edges": "40",
     "causal_graph_longest_path": "8"
   },
   {
@@ -149829,6 +149965,7 @@ window.searchData = [
     ],
     "description": "Liver cirrhosis is the end stage of chronic liver disease, characterized by diffuse fibrosis and regenerative nodules that replace the normal hepatic architecture. Sustained hepatocyte injury from causes such as alcohol, viral hepatitis, or steatohepatitis activates hepatic stellate cells through TGF-beta and inflammatory signaling, driving excessive extracellular matrix deposition. The resulting distortion of blood flow produces portal hypertension and its complications (ascites, variceal bleeding, hepatic encephalopathy), while progressive loss of functional hepatocytes causes synthetic dysfunction and predisposes to hepatocellular carcinoma.",
     "pathophysiology": [
+      "Reactive Metabolite Formation and Covalent Protein Adduction",
       "Hepatocyte Injury and Death",
       "IL-11 Signalling in Hepatic Stellate Cells",
       "Hepatic Stellate Cell Activation",
@@ -149852,6 +149989,7 @@ window.searchData = [
       "CL:1000398"
     ],
     "biological_processes": [
+      "Trichloromethylation of hepatic microsomal protein",
       "Interleukin-11-mediated signaling pathway",
       "ERK1 and ERK2 cascade",
       "TGF-beta Receptor Signaling",
@@ -149922,7 +150060,8 @@ window.searchData = [
       "Alcohol Consumption",
       "Hepatitis B/C Virus",
       "Obesity/Metabolic Syndrome",
-      "Hepatotoxic Drugs"
+      "Hepatotoxic Drugs",
+      "Carbon Tetrachloride Exposure"
     ],
     "biochemical": [
       "Albumin",
@@ -149934,10 +150073,10 @@ window.searchData = [
     "source_file": "Liver_Cirrhosis.yaml",
     "page_url": "../pages/disorders/Liver_Cirrhosis.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 8,
     "num_genes": 3,
     "num_treatments": 9,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "4"
   },
   {
@@ -175634,8 +175773,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Neurodevelopmental Disorder with Early-Onset Parkinsonism and Behavioral Abnormalities",
@@ -196001,6 +196140,114 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Pelvic Organ Prolapse",
+    "disease_id": "MONDO:0000082",
+    "category": "Complex",
+    "parents": [
+      "reproductive system disorder",
+      "female reproductive system disease"
+    ],
+    "creation_date": "2026-08-24T21:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pelvic organ prolapse is the downward descent of the bladder, uterus, post-hysterectomy vaginal cuff, or bowel, producing protrusion of the vaginal walls or uterus toward and beyond the hymen. It is a mechanical failure of a composite support system rather than a disease of one tissue: the levator ani muscles hold the pelvic floor closed, and the cardinal, uterosacral and paravaginal connective tissue attachments suspend the uterus and vagina from the pelvic sidewall. The two elements are load-sharing, so failure of either transfers load to the other, and the modern anatomic evidence places the primary lesion in the muscle: birth-induced injury to the pubococcygeal portion of the levator ani is present in 55% of women with prolapse against 16% of women with normal support, and enlarges the urogenital hiatus so that vaginal wall descending below the hymen is exposed to a pressure differential that then loads the connective tissue attachments abnormally.\nA parallel connective tissue arm supplies susceptibility rather than the initiating injury. Recovery of pelvic organ support after vaginal delivery requires a postpartum burst of elastic fiber assembly; mice null for LOXL1 or FBLN5 cannot make it and prolapse, and human GWAS repeatedly returns connective tissue and estrogen-pathway loci (WNT4, EFEMP1, WT1, FGFR2). At the protein level, prolapsed tissue shows less type I collagen and TIMP-1 and more type III collagen and MMP-1/-2/-9, with oxidative injury markers raised in the uterosacral ligament and the vaginal wall muscularis depleted of smooth muscle. Whether that matrix signature is cause or consequence is genuinely unsettled and is curated here as an open gap rather than assumed.\nProlapse is extremely common as an anatomic finding and much less common as a complaint - anatomy and symptoms track each other poorly, and only vaginal bulging is specific to it. Management is graded from observation through pelvic floor muscle training and vaginal pessary to reconstructive surgery, none of which repairs the levator injury itself; a widened genital hiatus predicts surgical failure, which is the clinical signature of an unaddressed muscular lesion.\n",
+    "pathophysiology": [
+      "Vaginal Childbirth Mechanical Overload",
+      "Levator Ani Muscle Injury and Avulsion",
+      "Urogenital Hiatus Enlargement and Loss of Levator Closure",
+      "Constitutional Connective Tissue Susceptibility",
+      "Impaired Elastic Fiber Assembly and Postpartum Elastogenesis",
+      "Oxidative Stress in Pelvic Floor Connective Tissue",
+      "Collagen and MMP-TIMP Remodelling Imbalance",
+      "Vaginal Wall Smooth Muscle Depletion",
+      "Oestrogen Withdrawal and Ageing of the Pelvic Support Tissues",
+      "Chronically Increased Intra-Abdominal Load",
+      "Failure of Apical and Lateral Connective Tissue Attachment",
+      "Descent of the Pelvic Organs Beyond the Hymen",
+      "Recurrence After Reconstructive Surgery"
+    ],
+    "cell_types": [
+      "levator ani skeletal muscle fiber",
+      "uterosacral ligament fibroblast",
+      "pelvic connective tissue fibroblast",
+      "vaginal wall smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000057",
+      "CL:0000192"
+    ],
+    "biological_processes": [
+      "response to mechanical stimulus",
+      "extracellular matrix organization",
+      "elastic fiber assembly",
+      "response to oxidative stress",
+      "collagen catabolic process",
+      "extracellular matrix disassembly"
+    ],
+    "phenotypes": [
+      "Pelvic Organ Prolapse",
+      "Cystocele",
+      "Uterine Prolapse",
+      "Rectocele",
+      "Stress Urinary Incontinence",
+      "Voiding Dysfunction",
+      "Obstructed Defecation and Constipation",
+      "Dyspareunia",
+      "Pelvic Pain and Pressure"
+    ],
+    "phenotype_categories": [
+      "Anatomic",
+      "Urinary",
+      "Gastrointestinal",
+      "Sexual",
+      "Pain"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0031607",
+      "HP:0100645",
+      "HP:0000139",
+      "HP:0100822",
+      "HP:0010992",
+      "HP:0000016",
+      "HP:0002019",
+      "HP:0030016",
+      "HP:0034267"
+    ],
+    "frequencies": [],
+    "genes": [
+      "WNT4",
+      "EFEMP1",
+      "WT1",
+      "FGFR2",
+      "LOXL1",
+      "FBLN5"
+    ],
+    "treatments": [
+      "Pelvic Floor Muscle Training",
+      "Vaginal Pessary",
+      "Reconstructive Prolapse Surgery",
+      "Weight Loss and Reduction of Abdominal Straining",
+      "Vaginal Oestrogen"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pelvic_Organ_Prolapse.yaml",
+    "page_url": "../pages/disorders/Pelvic_Organ_Prolapse.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 13,
+    "num_genes": 6,
+    "num_treatments": 5,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Pemphigus Erythematosus",
@@ -261167,17 +261414,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2533,
+  "total_disorder_pages": 2535,
   "total_subtypes": 3566,
-  "total_disorders_and_subtypes": 6099,
-  "total_unique_evidence_sources": 36191,
-  "total_unique_publications": 34059,
+  "total_disorders_and_subtypes": 6101,
+  "total_unique_evidence_sources": 36231,
+  "total_unique_publications": 34099,
   "total_unique_disease_categories": 52,
-  "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2528,
-  "total_unique_pathological_events": 14745,
+  "total_unique_phenotype_categories": 270,
+  "total_pathographs": 2530,
+  "total_unique_pathological_events": 14769,
   "total_modules": 167,
-  "total_research_reports": 2651,
+  "total_research_reports": 2652,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
