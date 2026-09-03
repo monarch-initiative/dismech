@@ -2404,6 +2404,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reports/non-mendelian-cardiac-pathograph-review-2026-09-02/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pathograph Review: Non-Mendelian Cardiac Disease (2026-09-02)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reports/biomarkers-of-aging-gap-analysis-2026-08-31/" class="md-nav__link">
         
   
@@ -24325,7 +24353,8 @@ PRs: <code>curation-scanner</code>, <code>literature-scan</code>, <code>preprint
 stalled bot-authored PRs and deterministically merges ready PRs, including weekly
 compliance PRs, through one common closing controller).</p>
 <p><strong>Interactive agents</strong> — <code>claude.yml</code> and <code>dragon-ai.yml</code> respond to <code>@</code>-mentions
-on issues, PRs, and review comments. <code>claude-issue-triage</code> and
+on issues, PRs, and review comments (<code>dragon-ai.yml</code> is summoned as <code>@ai4c-agent</code>;
+the file keeps its old name). <code>claude-issue-triage</code> and
 <code>claude-issue-summarize</code> process new issues.</p>
 <p><strong>Derived artifacts</strong> — <code>generate-pages</code>, <code>generate-grouping-pages</code>,
 <code>generate-project-pages</code> render HTML; <code>warm-reference-cache</code> pre-resolves
@@ -24537,6 +24566,48 @@ filter's event coverage and its v4.0.1 version floor, the no-suppression rule,
 and the never-forced rule for the two file-scoped steps. Enabling an actual
 queue on <code>main</code> (branch ruleset, shepherd enqueue behavior) is the remaining,
 separately gated half.</p>
+<p><strong>Merge-integrity verification.</strong> Passing tests are not evidence of correct
+history: in the April 2026 GitHub merge-queue incident (#2034), squash merges
+of multi-PR merge groups silently reverted other PRs' changes and CI stayed
+green — GitHub learned of the bug from customer reports, because it corrupted
+content, not availability. The <code>verify-merge-integrity</code> workflow is the local
+monitoring that closes that gap: on every push to <code>main</code> it recomputes, for
+each squash commit, the tree that merging the PR's head into the previous tip
+should have produced (<code>git merge-tree --write-tree</code>), compares it to the tree
+actually pushed, and on mismatch fails red and opens (or comments on) a
+<code>merge-integrity</code>-labelled issue. Merge commits, rebase merges, and direct
+pushes are reported as skipped, not judged — see
+<code>scripts/verify_merge_integrity.py</code> for the exact contract, including the two
+known false-positive sources (a PR branch reused after merge, and rename-
+detection divergence between local merge-ort and GitHub's merge machinery):
+a <code>MISMATCH</code> alarm warrants comparing the trees by hand before declaring an
+incident, especially in the workflow's first weeks. This must be live
+<strong>before</strong> a merge queue with build concurrency above 1 is enabled on <code>main</code>,
+because speculative merge groups contain multiple PRs — the structural shape
+of the incident — and it is cheap insurance against non-queue merge anomalies
+in the meantime.</p>
+<p><strong>Merge-queue break-glass.</strong> A required merge queue removes the ordinary
+escape hatch — the merge button becomes "add to queue", and a red or wedged
+required check on <code>main</code> (the #5074 shape) blocks every entry. The queue is
+managed as a repository ruleset, and pausing it is one admin API call each
+way:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># find the ruleset carrying the merge_queue rule (don&#39;t rely on its name)</span>
+gh<span class="w"> </span>api<span class="w"> </span>repos/monarch-initiative/dismech/rulesets<span class="w"> </span>--jq<span class="w"> </span><span class="s1">&#39;.[] | &quot;\(.id) \(.name)&quot;&#39;</span>
+gh<span class="w"> </span>api<span class="w"> </span>repos/monarch-initiative/dismech/rulesets/&lt;id&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--jq<span class="w"> </span><span class="s1">&#39;[.rules[].type]&#39;</span><span class="w">   </span><span class="c1"># confirm it includes &quot;merge_queue&quot;</span>
+<span class="c1"># pause (PRs merge normally again; queue state is abandoned)</span>
+gh<span class="w"> </span>api<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>repos/monarch-initiative/dismech/rulesets/&lt;id&gt;<span class="w"> </span>-f<span class="w"> </span><span class="nv">enforcement</span><span class="o">=</span>disabled
+<span class="c1"># resume</span>
+gh<span class="w"> </span>api<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>repos/monarch-initiative/dismech/rulesets/&lt;id&gt;<span class="w"> </span>-f<span class="w"> </span><span class="nv">enforcement</span><span class="o">=</span>active
+</code></pre></div>
+<p>Pause when <code>main</code>'s required check is red for a reason no queued PR can fix,
+when the queue itself is misbehaving, or when <code>verify-merge-integrity</code> has
+flagged a mismatch and history needs auditing before more merges land. While
+paused, branch protection's other rules (required check, review) still apply;
+what is lost is only current-<code>main</code> integration testing, so treat a pause as
+an incident state to exit, not a convenience. Note that the queue rule also
+blocks direct pushes to <code>main</code> while active — a deliberate side effect that
+also covers resetting a branch the rule targets.</p>
 <p>GitHub auto-merge is a separate server-side path and does not execute these
 controller guards. Ordinary agents must not arm it, and weekly-compliance PRs use
 the common controller rather than a separate merge path. The separately managed
@@ -24619,7 +24690,7 @@ listens for assignment:</p>
 </tr>
 <tr>
 <td><code>dragon-ai.yml</code></td>
-<td><code>@dragon-ai-agent please …</code> as ordinary prose — ignored inside code spans and fenced blocks, so documenting the keyword doesn't fire it</td>
+<td><code>@ai4c-agent please …</code> as ordinary prose, or the legacy <code>@dragon-ai-agent please …</code> — ignored inside code spans and fenced blocks, so documenting the keyword doesn't fire it. Both are text keywords, not accounts: the agent runs as the ai4c-agent GitHub App, which cannot be @-mentioned. The handles live in <a href="https://github.com/monarch-initiative/dismech/blob/main/.github/scripts/agent-mention.js"><code>.github/scripts/agent-mention.js</code></a>, shared with the comment trust gate</td>
 <td>Must be listed in <a href="https://github.com/monarch-initiative/dismech/blob/main/.github/ai-controllers.json"><code>.github/ai-controllers.json</code></a></td>
 </tr>
 </tbody>
