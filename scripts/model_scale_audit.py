@@ -43,7 +43,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 SCALE_ORDER = ["MOLECULAR", "CELLULAR", "TISSUE", "ORGANISM"]
 MODEL_SECTIONS = ["experimental_models", "animal_models", "computational_models"]

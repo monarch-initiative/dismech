@@ -4,7 +4,7 @@ import glob
 import sys
 import warnings
 from collections import Counter
-from functools import lru_cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 import pytest
@@ -1258,7 +1258,7 @@ def test_failure_to_recapitulate_links_are_substantiated(filepath):
     )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _enum_values(enum_name: str) -> tuple[str, ...]:
     """Permissible values of a schema enum, in declaration order.
 
