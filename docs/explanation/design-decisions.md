@@ -122,9 +122,8 @@ This graph backs the rendered pathographs and the computational-model integratio
 
 ### 3a. Model-to-target scale gap is recorded as a fact and derived, not asserted (2026-09-02)
 
-**Status: PROPOSED — schema change implemented on a branch, maintainer sign-off outstanding.**
-Per the amendment process at the top of this document, this needs an issue and
-`@cmungall`'s approval before it can be described as enacted.
+**Status: ENACTED (2026-09-03, `@cmungall`-approved).** See
+[model credibility](model-credibility.md) for the reader-facing explanation.
 
 **Decision.** `ModelMechanismLink` carries an optional `model_scale`
 (`BiologicalScaleEnum`, the same enum as `Pathophysiology.biological_scale`) recording the
@@ -175,7 +174,8 @@ multiscale frameworks such as PhysiBoSS.
 
 ### 3b. Model divergence is typed and explained, not compressed into a fidelity tier (2026-09-02)
 
-**Status: PROPOSED — implemented on a branch alongside §3a, maintainer sign-off outstanding.**
+**Status: ENACTED (2026-09-03, `@cmungall`-approved), alongside §3a.** See
+[model credibility](model-credibility.md) for the reader-facing explanation.
 
 **Decision.** `ModelMechanismLink` carries `divergences`: a multivalued list of
 `ModelDivergence`, each naming a kind from a closed `ModelDivergenceTypeEnum`, a required
@@ -224,13 +224,31 @@ set was chosen to extend to NAM and animal models unchanged; extending it would 
 `SUPRAPHYSIOLOGICAL_EXPRESSION` and `INCOMPLETE_PHENOTYPE`, each already visible in the
 animal set at 20-53 keyword hits and so evidenceable the same way.
 
-**Prior art.** [ASME V&V 40](https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices)
-and the FDA's [computational model credibility guidance](https://www.fda.gov/media/154985/download)
-anchor credibility in a stated *context of use* and require an *applicability analysis* —
-the relevance of validation evidence to that context. A `ModelMechanismLink` is a
-context-of-use statement; a typed divergence list is its applicability analysis.
-`PROXY_QUANTITY` maps to a quantity-of-interest mismatch, and `materiality` is the
-per-divergence analogue of that framework's risk grading.
+**Prior art, and the limits of the borrowing.**
+[ASME V&V 40](https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices)
+(FDA-recognized consensus standard) and the FDA's
+[Assessing the Credibility of Computational Modeling and Simulation in Medical Device
+Submissions](https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions)
+(final guidance, CDRH, 16 November 2023) anchor credibility in a stated *context of use*
+and require an *applicability analysis* — the relevance of validation evidence to that
+context. A `ModelMechanismLink` is a context-of-use statement; a typed divergence list is
+its applicability analysis. `PROXY_QUANTITY` maps to a quantity-of-interest mismatch, and
+`materiality` is the per-divergence analogue of that framework's risk grading
+(model influence × decision consequence).
+
+Both were written for regulatory submissions of physics-based device models, so only the
+*structural* ideas are borrowed — assess a model for a stated use, argue applicability
+separately from validity, grade evidence by how much the answer matters. The *procedural*
+apparatus is not imitated: no V&V plan, no uncertainty quantification, no numeric
+credibility goals, and no claim about numerical accuracy, since dismech annotates
+published models from their papers rather than building them. The domain-general check is
+[the ten rules of credible practice in healthcare modeling](https://pmc.ncbi.nlm.nih.gov/articles/PMC7526418/)
+(Erdemir et al., *J Transl Med* 2020, PMID:32993675), which reach the same conclusions
+with no device framing at all: rule 1 "define context clearly" is the link, rule 3
+"evaluate within context" is `materiality`, and rule 4 "list limitations explicitly" is
+`divergences` — typed rather than prose being the only change. All four references are
+carried in the schema itself as `see_also` on `ModelMechanismLink`, `ModelDivergence`,
+`ModelDivergenceTypeEnum` and `ModelDivergenceMaterialityEnum`.
 
 
 ### 3a. Cancer granularity ladder (2026-08-28)

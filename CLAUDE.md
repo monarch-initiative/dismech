@@ -952,8 +952,11 @@ link's claim.
         Nigrostriatal terminal loss and the presynaptic deficit are not in the model.
 ```
 
-The taxonomy was fixed by reading all 50 computational-model `limitations` strings in the
-KB and clustering them — see
+Background reading: [`docs/explanation/model-credibility.md`](docs/explanation/model-credibility.md)
+explains what a model-to-mechanism link does and does not claim, and how the design maps
+onto the ten rules of credible practice in healthcare modeling (PMID:32993675) and the
+ASME V&V 40 / FDA credibility frameworks. The taxonomy itself was fixed by reading all 50
+computational-model `limitations` strings in the KB and clustering them — see
 [`docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md`](docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md).
 Rules for using it:
 
