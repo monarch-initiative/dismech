@@ -41,7 +41,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dismech.yaml_io import safe_load_path  # noqa: E402
+from dismech.yaml_io import safe_load_path
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -103,21 +103,21 @@ APC_LINEAGE = (
 # *named*, precisely because none of those places is a structured slot.
 # --------------------------------------------------------------------------
 ANTIGEN_PATTERNS = [
-    ("anti_x_antibody", re.compile(r"\banti[-‐-―\s]([A-Za-z0-9][\w\-α-ω./()' ]{1,40}?)\s*(?:auto)?antibod", re.I)),
+    ("anti_x_antibody", re.compile(r"\banti[-‐-―\s]([A-Za-z0-9][\w\-α-ω./()' ]{1,40}?)\s*(?:auto)?antibod", re.IGNORECASE)),
     ("anti_x_bare", re.compile(r"\banti[-‐-―]([A-Z][A-Za-z0-9\-]{1,20})\b")),
-    ("autoantigen", re.compile(r"\bauto[-\s]?antigen\b", re.I)),
-    ("epitope", re.compile(r"\bepitopes?\b", re.I)),
-    ("epitope_spreading", re.compile(r"\bepitope spreading\b", re.I)),
-    ("neoantigen", re.compile(r"\bneo[-\s]?antigens?\b", re.I)),
-    ("superantigen", re.compile(r"\bsuper[-\s]?antigens?\b", re.I)),
-    ("antigen_presentation", re.compile(r"\bantigen[- ]present", re.I)),
-    ("antigen_generic", re.compile(r"\bantigens?\b", re.I)),
-    ("molecular_mimicry", re.compile(r"\bmolecular mimicry\b", re.I)),
-    ("citrullination", re.compile(r"\bcitrullinat", re.I)),
-    ("deamidation", re.compile(r"\bdeamidat", re.I)),
+    ("autoantigen", re.compile(r"\bauto[-\s]?antigen\b", re.IGNORECASE)),
+    ("epitope", re.compile(r"\bepitopes?\b", re.IGNORECASE)),
+    ("epitope_spreading", re.compile(r"\bepitope spreading\b", re.IGNORECASE)),
+    ("neoantigen", re.compile(r"\bneo[-\s]?antigens?\b", re.IGNORECASE)),
+    ("superantigen", re.compile(r"\bsuper[-\s]?antigens?\b", re.IGNORECASE)),
+    ("antigen_presentation", re.compile(r"\bantigen[- ]present", re.IGNORECASE)),
+    ("antigen_generic", re.compile(r"\bantigens?\b", re.IGNORECASE)),
+    ("molecular_mimicry", re.compile(r"\bmolecular mimicry\b", re.IGNORECASE)),
+    ("citrullination", re.compile(r"\bcitrullinat", re.IGNORECASE)),
+    ("deamidation", re.compile(r"\bdeamidat", re.IGNORECASE)),
 ]
 
-HLA_RE = re.compile(r"\bHLA[-‐-―]?[A-Z]{1,3}\d?\b|\bMHC class [I]{1,2}\b|\bH2-[A-Z]", re.I)
+HLA_RE = re.compile(r"\bHLA[-‐-―]?[A-Z]{1,3}\d?\b|\bMHC class [I]{1,2}\b|\bH2-[A-Z]", re.IGNORECASE)
 CD_MARKER_RE = re.compile(r"\bCD(?:19|20|3|4|8|21|22|27|38|138|79[ab])\b")
 
 # Slots we report separately because they are the plausible homes for a future
@@ -138,6 +138,17 @@ INTERESTING_SLOTS = (
 )
 
 
+def ranked(counter, limit=None):
+    """`Counter.most_common`, with ties broken by key so runs are reproducible.
+
+    Several counters here are fed from sets, whose iteration order varies with
+    PYTHONHASHSEED. `most_common` preserves that order for equal counts, so the
+    same tree produced differently-ordered output run to run.
+    """
+    items = sorted(counter.items(), key=lambda kv: (-kv[1], str(kv[0])))
+    return items[:limit] if limit else items
+
+
 def is_immune_entry(doc: dict, text: str) -> tuple[bool, str]:
     """Classify an entry into the immune cohort, recording *why*.
 
@@ -151,9 +162,9 @@ def is_immune_entry(doc: dict, text: str) -> tuple[bool, str]:
     for key in ("iuis_immunodeficiency", "icimd"):
         if cls.get(key):
             return True, "classification"
-    if re.search(r"\bauto[-\s]?immun|\bautoantibod|\bautoantigen", text, re.I):
+    if re.search(r"\bauto[-\s]?immun|\bautoantibod|\bautoantigen", text, re.IGNORECASE):
         return True, "autoimmune_prose"
-    if re.search(r"\bimmunodeficien|\bimmune[- ]mediated|\bhypersensitivit|\bvasculit", text, re.I):
+    if re.search(r"\bimmunodeficien|\bimmune[- ]mediated|\bhypersensitivit|\bvasculit", text, re.IGNORECASE):
         return True, "immune_prose"
     return False, ""
 
@@ -189,7 +200,7 @@ def lineage_of(obj: dict) -> set[str]:
 def local_text(obj: dict) -> str:
     """Scalar text belonging to this object, excluding nested structures."""
     parts = []
-    for k, v in obj.items():
+    for v in obj.values():
         if isinstance(v, str):
             parts.append(v)
     return " ".join(parts)
@@ -294,7 +305,7 @@ def audit_entry(path: Path) -> dict | None:
         if not isinstance(b, dict):
             continue
         nm = b.get("name") or ""
-        if re.search(r"\banti[-\s]|antibod|immunoglobulin", nm, re.I):
+        if re.search(r"\banti[-\s]|antibod|immunoglobulin", nm, re.IGNORECASE):
             rec["autoantibody_biomarkers"] += 1
             if b.get("biomarker_term"):
                 rec["autoantibody_biomarkers_bound"] += 1
@@ -368,17 +379,17 @@ def main() -> int:
 
         w(f"entries scanned              {len(recs)}")
         w(f"immune cohort                {len(immune)}")
-        for k, v in reasons.most_common():
+        for k, v in ranked(reasons):
             w(f"    via {k:<22} {v}")
         w(f"immune entries naming an antigen  {len(antigen)}"
           f"  ({100*len(antigen)/max(1,len(immune)):.0f}% of cohort)")
         w("")
         w("-- where antigen text lives (objects, immune cohort) --")
-        for k, v in tot_slots.most_common(15):
+        for k, v in ranked(tot_slots, 15):
             w(f"    {k:<28} {v}")
         w("")
         w("-- antigen pattern frequency (raw matches) --")
-        for k, v in tot_hits.most_common():
+        for k, v in ranked(tot_hits):
             w(f"    {k:<28} {v}")
         w("")
         w("-- lymphocyte attribution of antigen-naming objects --")
@@ -403,19 +414,19 @@ def main() -> int:
         w(f"    ... with a biomarker_term   {agg['autoantibody_biomarkers_bound']}")
         w("")
         w("-- surface/lineage markers (CD) --")
-        for k, v in tot_cd.most_common():
+        for k, v in ranked(tot_cd):
             w(f"    {k:<28} {v}")
         w("    slots:")
-        for k, v in tot_cd_slots.most_common(8):
+        for k, v in ranked(tot_cd_slots, 8):
             w(f"        {k:<24} {v}")
         w("")
         w("-- most-named antigens outside treatments (free text, uncontrolled) --")
-        for k, v in names.most_common(30):
+        for k, v in ranked(names, 30):
             w(f"    {v:3d}  {k}")
         w("")
         w("-- 'anti-X' targets named inside treatments/clinical_trials --")
         w("   (drug targets, not autoantigens; the YAML gives no way to tell them apart)")
-        for k, v in drug_targets.most_common(15):
+        for k, v in ranked(drug_targets, 15):
             w(f"    {v:3d}  {k}")
 
     out = "\n".join(lines)
