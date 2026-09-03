@@ -99,7 +99,10 @@ def _extract(path: Path) -> str:
         "print(t.get('id') or '' if isinstance(t,dict) else '')"
     )
     out = subprocess.run(
-        [sys.executable, "-c", code, str(path)], capture_output=True, text=True
+        [sys.executable, "-c", code, str(path)],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     return out.stdout.strip()
 
