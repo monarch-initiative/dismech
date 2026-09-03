@@ -432,9 +432,24 @@ resolved `geo:GSE…`, so a fabricated accession used to pass `just qc`.
 ```bash
 just datasets-coverage                    # which entries still need datasets
 just discover-datasets Asthma             # real candidates from the GEO index
+just discover-dbgap-immport Asthma        # dbGaP + ImmPort, keyed on MONDO->MeSH
 just verify-datasets kb/disorders/Asthma.yaml   # resolve accessions (run before commit)
 just research-datasets openscientist Marfan_Syndrome  # non-GEO repositories
 ```
+
+`discover-dbgap-immport` is the only **coded-disease** route: dbGaP and ImmPort
+publish MeSH/disease fields, so it queries the entry's MONDO→MeSH xref instead
+of its name. It tiers hits as `TITLE_MATCH`, `VARIABLE_MATCH` (the study's own
+dbGaP data dictionary records the disease as an outcome variable — both
+auto-approved), `SUBJECT_ONLY` (coded but neither of the above; never
+auto-approved) and `CONFLICT` (sibling disease, vetoed). **dbGaP variables are a
+triage signal, never KB content** — do not ingest data dictionaries into
+`Dataset` records, and never read `*.var_report.xml`, whose statistics are
+disease-cohort distributions rather than the clinical normal intervals
+`reference_ranges` means. Use the
+repositories' own APIs, **not** `datasetcatalog.nlm.nih.gov`, which mirrors the
+same records with more noise and fewer fields — see
+[`docs/reports/nlm-dataset-catalog-evaluation-2026-08-07.md`](docs/reports/nlm-dataset-catalog-evaluation-2026-08-07.md).
 
 **Always run `just verify-datasets` on any file whose `datasets:` block you
 touched.** An offline pytest guard catches malformed/mis-prefixed accessions;

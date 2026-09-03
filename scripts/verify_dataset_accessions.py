@@ -14,7 +14,7 @@ Prefix                  Resolver
 ``geo``                 NCBI E-utilities ``gds`` (GSE/GDS/GPL/GSM)
 ``sra``                 NCBI E-utilities ``sra`` (SRP/SRR/SRX/SRS/ERP/ERR/DRP)
 ``bioproject``          NCBI E-utilities ``bioproject`` (PRJNA/PRJEB/PRJDB)
-``dbgap``               NCBI E-utilities ``gap`` (phs######)
+``dbgap``               dbGaP FHIR ``ResearchStudy`` (phs######)
 ``arrayexpress``        EBI BioStudies (E-MTAB-####, E-GEOD-####)
 ``scea``                EBI Single Cell Expression Atlas (E-####-####)
 ``pride``               EBI PRIDE (PXD######)
@@ -23,6 +23,7 @@ Prefix                  Resolver
 ``osdr`` / ``nasa_osdr``NASA OSDR (OSD-###)
 ``massive``             MassIVE (MSV#########)
 ``mgnify``              EBI MGnify (MGYS########)
+``immport``             ImmPort public study search (SDY####)
 ======================  =============================================
 
 Accessions whose prefix is a literature identifier (``PMID``, ``DOI``) or a
@@ -51,6 +52,7 @@ not re-hit the public APIs. Use ``--refresh`` to bypass the cache.
 from __future__ import annotations
 
 import argparse
+import codecs
 import datetime as dt
 import html
 import json
@@ -72,6 +74,10 @@ CACHE_PATH = REPO_ROOT / "cache" / "dataset_accessions.json"
 KB_GLOBS = ("kb/disorders/*.yaml", "kb/modules/*.yaml", "kb/comorbidities/*.yaml")
 
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+# dbGaP is NOT reachable through E-utilities: NCBI has withdrawn the `gap` db.
+# See resolve_dbgap.
+DBGAP_FHIR = "https://dbgap-api.ncbi.nlm.nih.gov/fhir/x1"
+IMMPORT_SEARCH = "https://www.immport.org/shared/data/query/api/search/study"
 USER_AGENT = "dismech-dataset-verifier (https://github.com/monarch-initiative/dismech)"
 
 # Status values
@@ -122,6 +128,7 @@ SHAPE = {
     "osdr": re.compile(r"^OSD-\d+$", re.IGNORECASE),
     "massive": re.compile(r"^MSV\d+$", re.IGNORECASE),
     "mgnify": re.compile(r"^MGYS\d+$", re.IGNORECASE),
+    "immport": re.compile(r"^SDY\d+$", re.IGNORECASE),
     "metabolomics_workbench": re.compile(r"^ST\d+$", re.IGNORECASE),
 }
 
@@ -176,6 +183,23 @@ class Throttle:
         self._last = time.monotonic()
 
 
+# dbGaP's FHIR service declares ``charset=iso-8859-1`` but serves *mixed*
+# content: most text is valid UTF-8 while the odd eponym carries a raw latin-1
+# byte (0xf6 for the "o" of Sjogren). Decoding the whole body as either charset
+# alone is wrong, and ``errors="replace"`` silently plants U+FFFD in text that
+# ends up in a curated ``description:``. Decode as UTF-8 and fall back to
+# latin-1 for exactly the bytes that are not valid UTF-8.
+def _latin1_fallback(err: UnicodeDecodeError):
+    return err.object[err.start : err.end].decode("latin-1"), err.end
+
+
+codecs.register_error("dismech_latin1_fallback", _latin1_fallback)
+
+
+def decode_body(raw: bytes) -> str:
+    return raw.decode("utf-8", errors="dismech_latin1_fallback")
+
+
 def http_json(url: str, throttle: Throttle | None = None, retries: int = 3) -> Any:
     last_err: Exception | None = None
     for attempt in range(retries):
@@ -186,7 +210,7 @@ def http_json(url: str, throttle: Throttle | None = None, retries: int = 3) -> A
         )
         try:
             with urllib.request.urlopen(req, timeout=45) as resp:
-                return json.loads(resp.read().decode("utf-8", "replace"))
+                return json.loads(decode_body(resp.read()))
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
                 return None
@@ -296,8 +320,87 @@ def resolve_bioproject(local_id: str, throttle: Throttle, api_key: str | None):
 
 
 def resolve_dbgap(local_id: str, throttle: Throttle, api_key: str | None):
+    """Resolve a dbGaP study accession against the dbGaP FHIR API.
+
+    This deliberately does *not* use E-utilities. NCBI has withdrawn the ``gap``
+    database -- ``esearch.fcgi?db=gap`` now answers ``Invalid db name specified:
+    gap`` and ``gap`` is absent from the current ``einfo`` dblist -- so the
+    previous implementation reported NOT_FOUND for every real dbGaP accession.
+    NOT_FOUND means "treat as fabricated", so that silently condemned the whole
+    repository.
+
+    ``ResearchStudy?_id=`` wants the *unversioned* study id: ``phs001289``
+    resolves, ``phs001289.v1.p1`` returns nothing. The response carries the
+    canonical versioned accession, which is reported back so a curator can see
+    when the KB is pinned to a superseded version.
+    """
     base = local_id.split(".")[0]
-    return _eutils_lookup("gap", f"{base}[Study Accession]", base, throttle, api_key)
+    if throttle:
+        throttle.wait()
+    data = http_json(f"{DBGAP_FHIR}/ResearchStudy?_id={urllib.parse.quote(base)}&_format=json")
+    entries = (data or {}).get("entry") or []
+    if not entries:
+        return NOT_FOUND, "", f"no dbGaP study {base}", {}
+
+    study = entries[0].get("resource") or {}
+    canonical = ""
+    for ident in study.get("identifier") or []:
+        value = str(ident.get("value") or "")
+        if value.lower().startswith("phs"):
+            canonical = value
+            break
+
+    # Same defence in depth as _eutils_lookup: confirm we got the study we asked
+    # for rather than whatever the server chose to return.
+    if canonical and not canonical.lower().startswith(base.lower()):
+        return NOT_FOUND, "", f"dbGaP returned {canonical}, not {base}", {}
+
+    extra: dict[str, Any] = {}
+    if canonical:
+        extra["canonical_accession"] = canonical
+        if "." in local_id and canonical.lower() != local_id.lower():
+            extra["version_note"] = f"KB pins {local_id}; dbGaP current is {canonical}"
+    conditions = [
+        c["text"] for c in (study.get("condition") or []) if c.get("text")
+    ]
+    if conditions:
+        extra["conditions"] = [html.unescape(c) for c in conditions[:8]]
+    # FHIR serves titles HTML-escaped ("Sjogren&#39;s Syndrome"); unescape here so
+    # the entity never reaches a curated `title:` field.
+    return OK, html.unescape(study.get("title") or ""), "", extra
+
+
+def resolve_immport(local_id: str, throttle: Throttle, api_key: str | None):
+    """Resolve an ImmPort study accession (SDY####).
+
+    ``api.immport.org`` requires a bearer token, but the search service backing
+    the public ImmPort data browser does not, and it answers a field-restricted
+    ``studyAccession=`` query with exactly the one matching study.
+    """
+    if throttle:
+        throttle.wait()
+    data = http_json(f"{IMMPORT_SEARCH}?studyAccession={urllib.parse.quote(local_id)}")
+    hits = ((data or {}).get("hits") or {}).get("hits") or []
+    if not hits:
+        return NOT_FOUND, "", f"no ImmPort study {local_id}", {}
+
+    source = hits[0].get("_source") or {}
+    echoed = str(source.get("study_accession") or "").upper()
+    if echoed and echoed != local_id.upper():
+        return NOT_FOUND, "", f"ImmPort returned {echoed}, not {local_id}", {}
+
+    extra: dict[str, Any] = {}
+    for key, out in (
+        ("condition_or_disease", "conditions"),
+        ("pubmed_id", "pubmed_ids"),
+        ("species", "organism"),
+        ("actual_enrollment", "sample_count"),
+        ("assay_method", "assay_methods"),
+    ):
+        if source.get(key):
+            extra[out] = source[key]
+    title = source.get("brief_title") or source.get("official_title") or ""
+    return OK, title, "", extra
 
 
 def resolve_arrayexpress(local_id: str, throttle: Throttle, api_key: str | None):
@@ -444,6 +547,7 @@ RESOLVERS = {
     "osdr": resolve_osdr,
     "massive": resolve_massive,
     "mgnify": resolve_mgnify,
+    "immport": resolve_immport,
     "metabolomics_workbench": resolve_metabolomics_workbench,
 }
 
