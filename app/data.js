@@ -43555,6 +43555,109 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Byssinosis",
+    "disease_id": "MONDO:0006688",
+    "category": "Environmental Lung Disease",
+    "parents": [
+      "Occupational Lung Disease"
+    ],
+    "creation_date": "2026-09-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Acute Byssinosis",
+      "Chronic Byssinosis"
+    ],
+    "description": "Byssinosis (\"brown lung\", \"Monday fever\") is an occupational airway disease caused by inhaling dust from cotton, flax, hemp or sisal, classically in textile mill carding and spinning rooms. MONDO files it under pneumoconiosis, but it is not one in the mineral-dust sense: the lesion is in the conducting airways rather than the parenchyma, there is no retained indigestible particle building a nodule, and the defining feature is a temporal pattern rather than a structural one \u2014 chest tightness and a measurable fall in FEV1 on the first working day after a break, attenuating across the working week.\nGram-negative bacterial endotoxin contaminating the vegetable dust is the leading candidate agent, and endotoxin exposure does predict both symptoms and lung-function decline. It is not the whole story: cotton extracts with low measured endotoxin still provoke large airway responses, and complement activation by cotton dust does not track endotoxin concentration, so at least one non-endotoxin constituent contributes. This entry curates that as an open question rather than resolving it.\nThe natural history is counterintuitive and is the clinically important part. Acute cross-shift responses appear within the first week of exposure and then shrink with continued exposure \u2014 a tolerance effect \u2014 yet their magnitude and frequency predict irreversible long-term FEV1 loss. Acute reactivity fades while damage accumulates, and past cumulative exposure predicts chronic decline while recent exposure predicts current symptoms, so the two phases are measurably decoupled.",
+    "pathophysiology": [
+      "Inhalation of Endotoxin-Contaminated Vegetable Dust",
+      "Endotoxin Sensing by CD14 and TLR4",
+      "Non-Endotoxin Dust Constituent Activity",
+      "Airway Cytokine Release and Neutrophil Recruitment",
+      "Pulmonary Mast Cell Histamine Accumulation and Release",
+      "Acute Bronchoconstriction and Cross-Shift Airflow Decline",
+      "Exposure Tolerance Across the Working Week",
+      "Chronic Airway Inflammation and Remodeling",
+      "Chronic Airflow Obstruction and Accelerated FEV1 Loss"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "bronchial epithelial cell",
+      "neutrophil",
+      "mast cell",
+      "bronchial smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0002328",
+      "CL:0000775",
+      "CL:0000097",
+      "CL:0002598"
+    ],
+    "biological_processes": [
+      "response to lipopolysaccharide",
+      "toll-like receptor 4 signaling pathway",
+      "complement activation",
+      "neutrophil chemotaxis",
+      "production of molecular mediator involved in inflammatory response",
+      "mast cell degranulation",
+      "muscle contraction",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Chest tightness",
+      "Airway hyperresponsiveness",
+      "Chronic bronchitis",
+      "Reduced forced expiratory volume in one second",
+      "Reduced FEV1/FVC ratio",
+      "Wheezing",
+      "Dyspnea"
+    ],
+    "phenotype_categories": [
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0031352",
+      "HP:0032933",
+      "HP:0004469",
+      "HP:0032342",
+      "HP:0030877",
+      "HP:0030828",
+      "HP:0002094"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TNF",
+      "LTA",
+      "Cotton textile worker FEV1-decline risk loci (rs1910047, rs9469089)",
+      "TLR4",
+      "CD14"
+    ],
+    "treatments": [
+      "Exposure Reduction and Dust Control",
+      "Bronchodilator Therapy"
+    ],
+    "environmental": [
+      "Occupational inhalation of cotton, flax, hemp or sisal dust",
+      "Cigarette smoking"
+    ],
+    "biochemical": [],
+    "source_file": "Byssinosis.yaml",
+    "page_url": "../pages/disorders/Byssinosis.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 9,
+    "num_genes": 5,
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "CACNA1A-Related Disorder",
     "disease_id": "MONDO:0100254",
     "category": "Mendelian",
@@ -261651,17 +261754,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2537,
-  "total_subtypes": 3569,
-  "total_disorders_and_subtypes": 6106,
-  "total_unique_evidence_sources": 36271,
-  "total_unique_publications": 34138,
+  "total_disorder_pages": 2538,
+  "total_subtypes": 3571,
+  "total_disorders_and_subtypes": 6109,
+  "total_unique_evidence_sources": 36286,
+  "total_unique_publications": 34153,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 270,
-  "total_pathographs": 2532,
-  "total_unique_pathological_events": 14787,
+  "total_pathographs": 2533,
+  "total_unique_pathological_events": 14796,
   "total_modules": 167,
-  "total_research_reports": 2654,
+  "total_research_reports": 2655,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
