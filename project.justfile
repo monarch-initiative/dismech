@@ -1990,6 +1990,7 @@ research-disorder provider disorder *args="":
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    mondo_id=$(grep -A3 "^disease_term:" "$yaml_file" | grep -o "MONDO:[0-9]*" | head -1 || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
@@ -1999,7 +2000,7 @@ research-disorder provider disorder *args="":
     {{dr_client}} research \
         --template "$template_file" \
         --var "disease_name=$disease_name" \
-        --var "mondo_id=" \
+        --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         $provider_arg \
         --output "$output_file" \
@@ -2224,6 +2225,7 @@ research-disorder-cyberian-codex disorder *args="":
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    mondo_id=$(grep -A3 "^disease_term:" "$yaml_file" | grep -o "MONDO:[0-9]*" | head -1 || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     requested_provider="cyberian-codex"
@@ -2231,7 +2233,7 @@ research-disorder-cyberian-codex disorder *args="":
     {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
         --var "disease_name=$disease_name" \
-        --var "mondo_id=" \
+        --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         --provider cyberian \
         --param agent_type=codex \
