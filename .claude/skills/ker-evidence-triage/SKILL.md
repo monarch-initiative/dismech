@@ -56,10 +56,19 @@ Three traps live here.
 
 **`completion_score` is not a quality score.** It counts populated fields on the
 wiki record. AOPs 552, 555, 556, 558 and 560 score 94–100% complete, have never
-been OECD reviewed (`oecd_status: ""`), and every one of their KERs examined in
-the cardiac sweep worked through in `mie-ker-capture` carries zero references.
-High completeness on an unreviewed pathway is the most misleading state in the
-data.
+been OECD reviewed (`oecd_status: ""`), and every one of their KERs sampled in a
+cardiac Na/K-ATPase and phosphodiesterase sweep carries zero references. High
+completeness on an unreviewed pathway is the most misleading state in the data.
+
+The 29.41% value makes the same point more sharply, and provably.
+`ker_completion_score()` scores 17 fields unconditionally, so 5/17 is the only
+route to that percentage. The five are `aop_ids` plus the four evidence blocks —
+which the parser always builds as three-key dicts, and which `_has_content()`
+scores on `len(dict) > 0`, so a wholly empty evidence block still counts as
+populated. `references` is a separate scored field, so **a KER carrying any
+reference scores at least 35.29%**. "Zero of them carry a single reference" is
+therefore guaranteed by the scoring function, not merely observed in this
+snapshot.
 
 **An empty `oecd_status` is not a rejection.** 450 of 596 AOPs are empty. It means
 no review has happened. Endorsement raises confidence in a pathway; its absence
