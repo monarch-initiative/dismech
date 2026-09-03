@@ -154,7 +154,22 @@ that slot to say something the label does not — `Epithelioid_Sarcoma` binds
 `CL:0000134` under `mesenchymal cell of uncertain differentiation`, and printing
 the label would have the census assert "mesenchymal stem cell", which the entry
 is careful not to. Only the display name changes: the CURIE is what identifies
-a cell, so de-duplication and multi-origin detection are unaffected.
+a cell, so de-duplication and multi-origin detection are unaffected. The TSV
+column and JSON key are named `origin_cell_names` / `"name"` rather than
+`label` for that reason — they hold what the entry calls the cell, which is
+often not the ontology's label, so joining them against CL labels would miss
+on exactly the hedged bindings. Where two origin nodes bind one CURIE under
+different `preferred_term`s both wordings are kept, joined with ` / `: it is
+still one cell, but the disagreement is the sort of thing this census exists
+to show.
+
+`scripts/backfill_cancer_origin.py` is the one caller that writes `_terms()`
+output back into YAML, and it asks for the canonical label explicitly
+(`display=False`). A borrowed binding reproduces both slots as the source
+entry had them — the curator's wording in `preferred_term`, the ontology's
+label in `term.label` — because `term.label` must match the ontology exactly.
+Collapsing the two writes a label CL does not have, and `just validate-terms`
+rejects it.
 
 `ORIGIN_WITHOUT_CELL`
 : An origin node was identified but binds no CL term. The cheapest class to fix,

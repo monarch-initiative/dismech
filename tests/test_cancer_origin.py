@@ -412,3 +412,36 @@ def test_a_missing_preferred_term_falls_back_to_the_label():
         )
     )
     assert origins[0].cell_terms == [("CL:0000066", "epithelial cell")]
+
+
+def test_two_nodes_hedging_one_cell_differently_keep_both_wordings(tmp_path):
+    """Still one cell, but the disagreement is not thrown away.
+
+    The CURIE is the identity, so binding `CL:0000134` on two origin nodes is
+    one cell and must not read as MULTI_ORIGIN_CELL. But the display name comes
+    from `preferred_term`, which is where a hedge lives -- so two nodes can name
+    one cell with different strength of claim. Keeping only whichever was seen
+    first would hide exactly the kind of disagreement this census exists to
+    surface.
+    """
+    entry = tmp_path / "Fake_Sarcoma.yaml"
+    entry.write_text(
+        "name: Fake Sarcoma\ncategories:\n- Solid Tumor\npathophysiology:\n"
+        "- name: First Driver Mutation\n"
+        "  genetic_context:\n    variant_origin: SOMATIC\n"
+        "  cell_types:\n"
+        "  - preferred_term: mesenchymal cell of uncertain differentiation\n"
+        "    term:\n      id: CL:0000134\n      label: mesenchymal stem cell\n"
+        "- name: Second Driver Mutation\n"
+        "  genetic_context:\n    variant_origin: SOMATIC\n"
+        "  cell_types:\n"
+        "  - preferred_term: mesenchymal stem cell\n"
+        "    term:\n      id: CL:0000134\n      label: mesenchymal stem cell\n"
+    )
+    report = assess(entry)
+    assert report is not None
+    assert [cid for cid, _ in report.origin_cells] == ["CL:0000134"]
+    assert FINDING_MULTI not in report.findings
+    name = report.origin_cells[0][1]
+    assert "mesenchymal cell of uncertain differentiation" in name
+    assert "mesenchymal stem cell" in name

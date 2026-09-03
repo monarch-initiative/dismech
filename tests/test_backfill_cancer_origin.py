@@ -113,6 +113,7 @@ def test_a_borrowed_cell_is_written_when_the_node_already_has_genetic_context(tm
         path=path,
         node_name="BRAF Somatic Driver Mutation",
         cell_ids=["CL:0000148"],
+        cell_names=["melanocyte"],
         cell_labels=["melanocyte"],
         is_root=True,
         matched="mutation",
@@ -125,3 +126,35 @@ def test_a_borrowed_cell_is_written_when_the_node_already_has_genetic_context(tm
     assert "id: CL:0000148" in written
     # exactly one genetic_context block: a second would be a duplicate YAML key
     assert written.count("genetic_context:") == 1
+
+
+def test_a_borrowed_binding_keeps_the_canonical_label_in_term_label(tmp_path):
+    """The slot a hedge must not leak into.
+
+    `_terms()` reports `preferred_term` so the census does not overstate a
+    hedged binding. This script is the one caller that writes its output back
+    into YAML, where `term.label` is required to match the ontology exactly.
+    Borrowing has to split the two: the curator's wording into `preferred_term`,
+    the canonical label into `term.label`. Collapsing them writes a label the
+    ontology does not have, which `just validate-terms` rejects.
+    """
+    path = tmp_path / "Fake_Sarcoma.yaml"
+    path.write_text(
+        "name: Fake Sarcoma\ncategories:\n- Solid Tumor\npathophysiology:\n"
+        "- name: SMARCB1 (INI1) Loss\n"
+        "  description: Biallelic inactivation.\n"
+        "- name: Downstream Consequence\n"
+        "  cell_types:\n"
+        "  - preferred_term: mesenchymal cell of uncertain differentiation\n"
+        "    term:\n      id: CL:0000134\n      label: mesenchymal stem cell\n"
+    )
+    proposals, status = propose(path, bind_single_cell=True)
+    assert status == "ready"
+    assert proposals[0].cell_names == ["mesenchymal cell of uncertain differentiation"]
+    assert proposals[0].cell_labels == ["mesenchymal stem cell"]
+
+    assert apply_proposal(path, proposals)
+    written = path.read_text()
+    assert "preferred_term: mesenchymal cell of uncertain differentiation" in written
+    assert "label: mesenchymal stem cell" in written
+    assert "label: mesenchymal cell of uncertain differentiation" not in written

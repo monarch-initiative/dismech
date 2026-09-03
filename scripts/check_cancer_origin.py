@@ -184,11 +184,22 @@ class EntryReport:
 
     @property
     def origin_cells(self) -> list[tuple[str, str]]:
-        seen: dict[str, str] = {}
+        """Distinct origin cells, keyed on CURIE, with every display name kept.
+
+        The CURIE is the identity, so binding one cell on two origin nodes is
+        one cell. But the display name comes from ``preferred_term``, which is
+        where a curator records a hedge -- so two nodes can name the same CURIE
+        with different strength of claim. Keeping only the first would hide
+        exactly the kind of disagreement this census exists to surface, so the
+        distinct names are joined instead.
+        """
+        seen: dict[str, list[str]] = {}
         for origin in self.origins:
-            for cid, label in origin.cell_terms:
-                seen.setdefault(cid, label)
-        return sorted(seen.items())
+            for cid, name in origin.cell_terms:
+                names = seen.setdefault(cid, [])
+                if name not in names:
+                    names.append(name)
+        return sorted((cid, " / ".join(names)) for cid, names in seen.items())
 
     @property
     def rules(self) -> list[str]:
@@ -199,19 +210,25 @@ class EntryReport:
         return out
 
 
-def _terms(descriptors: object) -> list[tuple[str, str]]:
-    """Pull ``(id, display name)`` pairs out of a list of ontology descriptors.
+def _terms(descriptors: object, *, display: bool = True) -> list[tuple[str, str]]:
+    """Pull ``(id, name)`` pairs out of a list of ontology descriptors.
 
-    The display name prefers ``preferred_term`` over the ontology ``label``,
-    because a curator uses that slot to say something the label does not.
-    Epithelioid sarcoma is the case: its origin is bound to ``CL:0000134`` under
-    ``preferred_term: mesenchymal cell of uncertain differentiation``, which is
-    a deliberate hedge. Reporting the label instead made the census say
-    "mesenchymal stem cell" -- a claim the entry is careful not to make.
+    ``display=True`` (the default, and what the census wants) prefers
+    ``preferred_term`` over the ontology ``label``, because a curator uses that
+    slot to say something the label does not. Epithelioid sarcoma is the case:
+    its origin is bound to ``CL:0000134`` under ``preferred_term: mesenchymal
+    cell of uncertain differentiation``, a deliberate hedge. Reporting the label
+    instead made the census say "mesenchymal stem cell" -- a claim the entry is
+    careful not to make.
 
-    Only the display name changes. The CURIE is what identifies a cell, so
-    de-duplication, multi-origin detection and the generic-term checks are
-    unaffected.
+    ``display=False`` gives the canonical ontology label. **Any caller that
+    writes a `term.label` back into YAML must use it**, because that slot is
+    required to match the ontology exactly and a `preferred_term` routinely does
+    not. `backfill_cancer_origin` is that caller.
+
+    The CURIE is what identifies a cell either way, so de-duplication,
+    multi-origin detection and the generic-term checks are unaffected by the
+    choice.
     """
     out: list[tuple[str, str]] = []
     if not isinstance(descriptors, list):
@@ -221,13 +238,12 @@ def _terms(descriptors: object) -> list[tuple[str, str]]:
             continue
         term = descriptor.get("term")
         if isinstance(term, dict) and term.get("id"):
+            label = str(term.get("label", ""))
             preferred = descriptor.get("preferred_term")
-            display = (
-                str(preferred)
-                if isinstance(preferred, str) and preferred.strip()
-                else str(term.get("label", ""))
-            )
-            out.append((str(term["id"]), display))
+            name = label
+            if display and isinstance(preferred, str) and preferred.strip():
+                name = str(preferred)
+            out.append((str(term["id"]), name))
     return out
 
 
@@ -492,7 +508,7 @@ TSV_COLUMNS = (
     "rules",
     "origin_nodes",
     "origin_cell_ids",
-    "origin_cell_labels",
+    "origin_cell_names",
     "n_pathophysiology",
     "n_subtypes",
     "ncit_ids",
@@ -515,7 +531,7 @@ def render_tsv(reports: list[EntryReport]) -> None:
                     ",".join(report.rules),
                     "; ".join(o.name for o in report.origins),
                     ",".join(cid for cid, _ in report.origin_cells),
-                    "; ".join(label for _, label in report.origin_cells),
+                    "; ".join(name for _, name in report.origin_cells),
                     str(report.n_pathophysiology),
                     str(report.subtype_count),
                     ",".join(report.ncit_ids),
@@ -539,11 +555,11 @@ def render_json(reports: list[EntryReport]) -> None:
                     "rule": o.rule,
                     "is_root": o.is_root,
                     "first_hit": o.first_hit,
-                    "cell_types": [{"id": cid, "label": lab} for cid, lab in o.cell_terms],
+                    "cell_types": [{"id": cid, "name": nm} for cid, nm in o.cell_terms],
                 }
                 for o in r.origins
             ],
-            "origin_cells": [{"id": cid, "label": lab} for cid, lab in r.origin_cells],
+            "origin_cells": [{"id": cid, "name": nm} for cid, nm in r.origin_cells],
             "ncit_ids": r.ncit_ids,
             "n_subtypes": r.subtype_count,
             "findings": r.findings,

@@ -154,6 +154,12 @@ class Proposal:
     path: Path
     node_name: str
     cell_ids: list[str]
+    # Two different strings on purpose: `cell_names` is what the source
+    # descriptor's `preferred_term` says (a hedge, sometimes), `cell_labels` is
+    # the canonical ontology label. A borrowed binding has to reproduce both, in
+    # their own slots -- writing the name into `term.label` breaks the ontology
+    # term contract and fails `just validate-terms`.
+    cell_names: list[str]
     cell_labels: list[str]
     is_root: bool
     matched: str
@@ -201,20 +207,26 @@ def propose(path: Path, *, bind_single_cell: bool = False) -> tuple[list[Proposa
         if VIRAL_RE.search(_node_text(node)):
             continue
         cells = [
-            (cid, label)
-            for cid, label in _terms(node.get("cell_types"))
+            (cid, name)
+            for cid, name in _terms(node.get("cell_types"))
             if cid not in GENERIC_CELLS
         ]
+        labels = dict(_terms(node.get("cell_types"), display=False))
         borrowed = False
         if not cells and bind_single_cell:
             entry_cells = {
-                cid: label
+                cid: name
                 for other in nodes
-                for cid, label in _terms(other.get("cell_types"))
+                for cid, name in _terms(other.get("cell_types"))
                 if cid not in GENERIC_CELLS
             }
             if len(entry_cells) == 1:
                 cells = list(entry_cells.items())
+                labels = {
+                    cid: label
+                    for other in nodes
+                    for cid, label in _terms(other.get("cell_types"), display=False)
+                }
                 borrowed = True
         if not cells:
             continue
@@ -223,7 +235,8 @@ def propose(path: Path, *, bind_single_cell: bool = False) -> tuple[list[Proposa
                 path=path,
                 node_name=str(node.get("name", "")),
                 cell_ids=[c for c, _ in cells],
-                cell_labels=[label for _, label in cells],
+                cell_names=[name for _, name in cells],
+                cell_labels=[labels.get(c, name) for c, name in cells],
                 is_root=node.get("name") not in targeted,
                 matched=match.group(0),
                 has_genetic_context=isinstance(node.get("genetic_context"), dict),
@@ -255,9 +268,11 @@ def _cell_block(proposal: Proposal) -> str:
     if not proposal.borrowed_cell:
         return ""
     out = "  cell_types:\n"
-    for cid, label in zip(proposal.cell_ids, proposal.cell_labels):
+    for cid, name, label in zip(
+        proposal.cell_ids, proposal.cell_names, proposal.cell_labels
+    ):
         out += (
-            f"  - preferred_term: {label}\n"
+            f"  - preferred_term: {name}\n"
             f"    term:\n      id: {cid}\n      label: {label}\n"
         )
     return out
@@ -350,7 +365,7 @@ def main(argv: list[str] | None = None) -> int:
             for path, proposals in group.items():
                 for p in proposals:
                     cells = ";".join(
-                        f"{i} {label}" for i, label in zip(p.cell_ids, p.cell_labels)
+                        f"{i} {name}" for i, name in zip(p.cell_ids, p.cell_names)
                     )
                     print(
                         f"{status}\t{path.relative_to(ROOT)}\t{p.node_name}\t"
@@ -371,7 +386,7 @@ def main(argv: list[str] | None = None) -> int:
         for path, proposals in ambiguous.items():
             print(f"  {path.relative_to(ROOT)}")
             for p in proposals:
-                cells = "; ".join(p.cell_labels)
+                cells = "; ".join(p.cell_names)
                 print(f"     {p.node_name!r}: {cells}")
         print()
 
