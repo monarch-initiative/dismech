@@ -89,13 +89,30 @@ def _load_previous_networks(path: Path | None) -> dict[str, dict[str, Any]]:
     }
 
 
+def _load_allowed_export_defects(path: Path | None) -> set[str]:
+    if path is None:
+        return set()
+    if not path.exists():
+        raise FileNotFoundError(f"Export-defect allowlist {path} does not exist")
+    return {
+        line.strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+
 def write_uuid_registry(manifest: dict[str, Any], path: Path) -> dict[str, Any]:
     """Write the stable, reviewable subset of a release manifest."""
     unverified = [
         record["slug"]
         for record in manifest.get("networks", [])
         if record.get("ndex_uuid")
-        and record.get("status") not in {"VERIFIED_PRIVATE", "VERIFIED_PUBLIC"}
+        and record.get("status")
+        not in {
+            "SKIPPED_EXPORT_DEFECT",
+            "VERIFIED_PRIVATE",
+            "VERIFIED_PUBLIC",
+        }
     ]
     if unverified:
         raise RuntimeError(
@@ -110,7 +127,12 @@ def write_uuid_registry(manifest: dict[str, Any], path: Path) -> dict[str, Any]:
         }
         for record in manifest.get("networks", [])
         if record.get("ndex_uuid")
-        and record.get("status") in {"VERIFIED_PRIVATE", "VERIFIED_PUBLIC"}
+        and record.get("status")
+        in {
+            "SKIPPED_EXPORT_DEFECT",
+            "VERIFIED_PRIVATE",
+            "VERIFIED_PUBLIC",
+        }
     ]
     retired = [
         {
@@ -239,6 +261,7 @@ def build_release(
     source_revision: str,
     fail_on_export_defects: bool,
     require_disease_metadata: bool,
+    allowed_export_defects_path: Path | None = None,
 ) -> dict[str, Any]:
     missing = [
         key for key in REQUIRED_RELEASE_METADATA if not release_metadata.get(key)
@@ -247,6 +270,7 @@ def build_release(
         raise ValueError(f"Missing required release metadata: {', '.join(missing)}")
 
     previous = _load_previous_networks(previous_manifest_path)
+    allowed_export_defects = _load_allowed_export_defects(allowed_export_defects_path)
     output_dir.mkdir(parents=True, exist_ok=True)
     records: list[dict[str, Any]] = []
     defects: list[str] = []
@@ -276,18 +300,40 @@ def build_release(
         aspects = _aspect_map(cx2)
         network_attributes = aspects["networkAttributes"][0]
         nodes = aspects["nodes"]
-        orphan_count = sum(
-            (node.get("v") or {}).get("dismech_type") == "orphan" for node in nodes
+        orphan_nodes = sorted(
+            str((node.get("v") or {}).get("name"))
+            for node in nodes
+            if (node.get("v") or {}).get("dismech_type") == "orphan"
         )
-        unknown_count = sum(
-            (node.get("v") or {}).get("dismech_type") == "unknown" for node in nodes
+        unknown_nodes = sorted(
+            str((node.get("v") or {}).get("name"))
+            for node in nodes
+            if (node.get("v") or {}).get("dismech_type") == "unknown"
         )
+        orphan_count = len(orphan_nodes)
+        unknown_count = len(unknown_nodes)
+        record_defects: list[str] = []
         if orphan_count:
-            defects.append(f"{slug}: {orphan_count} orphan node(s)")
+            record_defects.append(
+                f"{slug}: orphan nodes: {json.dumps(orphan_nodes, ensure_ascii=False)}"
+            )
         if unknown_count:
-            defects.append(f"{slug}: {unknown_count} unknown node(s)")
+            record_defects.append(
+                f"{slug}: unknown nodes: {json.dumps(unknown_nodes, ensure_ascii=False)}"
+            )
         if require_disease_metadata and not network_attributes.get("disease"):
-            defects.append(f"{slug}: missing disease metadata")
+            record_defects.append(f"{slug}: missing disease metadata")
+        defects.extend(record_defects)
+
+        unapproved_record_defects = [
+            defect for defect in record_defects if defect not in allowed_export_defects
+        ]
+        if unapproved_record_defects:
+            status = "BLOCKED_EXPORT_DEFECT"
+        elif record_defects:
+            status = "SKIPPED_EXPORT_DEFECT"
+        else:
+            status = "EXPORTED"
 
         output_path = output_dir / f"{slug}.cx2.json"
         serialized = json.dumps(cx2, indent=2) + "\n"
@@ -306,12 +352,12 @@ def build_release(
                 "orphan_node_count": orphan_count,
                 "unknown_node_count": unknown_count,
                 "ndex_uuid": prior.get("ndex_uuid"),
-                "status": "EXPORTED",
+                "status": status,
             }
         )
 
-    exported_slugs = {
-        record["slug"] for record in records if record["status"] == "EXPORTED"
+    active_or_quarantined_slugs = {
+        record["slug"] for record in records if record["status"] != "SKIPPED_NO_EDGES"
     }
     retired_networks = [
         {
@@ -320,7 +366,13 @@ def build_release(
             "previous_status": record.get("status"),
         }
         for slug, record in sorted(previous.items())
-        if slug not in exported_slugs and record.get("ndex_uuid")
+        if slug not in active_or_quarantined_slugs and record.get("ndex_uuid")
+    ]
+    approved_defects = [
+        defect for defect in defects if defect in allowed_export_defects
+    ]
+    unapproved_defects = [
+        defect for defect in defects if defect not in allowed_export_defects
     ]
     manifest = {
         "schema_version": "1.0",
@@ -332,16 +384,23 @@ def build_release(
             "exported_count": sum(r["status"] == "EXPORTED" for r in records),
             "skipped_count": sum(r["status"].startswith("SKIPPED") for r in records),
             "export_defect_count": len(defects),
+            "quarantined_network_count": sum(
+                r["status"] == "SKIPPED_EXPORT_DEFECT" for r in records
+            ),
+            "unapproved_export_defect_count": len(unapproved_defects),
             "retired_network_count": len(retired_networks),
         },
         "export_defects": defects,
+        "allowed_export_defects": approved_defects,
+        "unapproved_export_defects": unapproved_defects,
         "retired_networks": retired_networks,
         "networks": records,
     }
     _write_json_atomic(manifest_path, manifest)
-    if defects and fail_on_export_defects:
+    if unapproved_defects and fail_on_export_defects:
         raise RuntimeError(
-            f"Refusing publication because {len(defects)} export defect(s) were found; "
+            "Refusing publication because "
+            f"{len(unapproved_defects)} unapproved export defect(s) were found; "
             f"see {manifest_path}"
         )
     return manifest
@@ -370,10 +429,29 @@ def publish_release(
         raise ValueError("NDEX_USERNAME and NDEX_PASSWORD are required")
     if "export_defects" not in manifest:
         raise ValueError("Release manifest is missing its export_defects audit")
-    if manifest["export_defects"] and not allow_export_defects:
+    unapproved_export_defects = manifest.get(
+        "unapproved_export_defects", manifest["export_defects"]
+    )
+    if unapproved_export_defects and not allow_export_defects:
         raise RuntimeError(
             f"Refusing publication because the manifest contains "
-            f"{len(manifest['export_defects'])} export defect(s)"
+            f"{len(unapproved_export_defects)} unapproved export defect(s)"
+        )
+
+    defective_slugs = {
+        str(defect).split(":", 1)[0] for defect in manifest["export_defects"]
+    }
+    unquarantined_slugs = sorted(
+        record["slug"]
+        for record in manifest.get("networks", [])
+        if record.get("slug") in defective_slugs
+        and record.get("status")
+        in {"EXPORTED", "UPLOADED", "VERIFIED_PRIVATE", "VERIFIED_PUBLIC"}
+    )
+    if unquarantined_slugs and not allow_export_defects:
+        raise RuntimeError(
+            "Refusing publication because defective networks are not quarantined: "
+            + ", ".join(unquarantined_slugs)
         )
 
     client = Ndex2(host=host, username=username, password=password)
@@ -501,6 +579,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--manifest-out", type=Path, required=True)
     parser.add_argument("--previous-manifest", type=Path)
+    parser.add_argument("--allowed-export-defects", type=Path)
     parser.add_argument("--release-version", required=True)
     parser.add_argument("--source-revision")
     parser.add_argument("--author", required=True)
@@ -539,6 +618,7 @@ def main() -> None:
         source_revision=_source_revision(args.source_revision),
         fail_on_export_defects=not args.allow_export_defects,
         require_disease_metadata=not args.allow_missing_disease_metadata,
+        allowed_export_defects_path=args.allowed_export_defects,
     )
     if args.upload:
         publish_release(

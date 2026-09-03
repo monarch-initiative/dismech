@@ -81,6 +81,8 @@ def test_build_release_writes_versioned_cx2_and_manifest(tmp_path: Path) -> None
         "exported_count": 1,
         "skipped_count": 0,
         "export_defect_count": 0,
+        "quarantined_network_count": 0,
+        "unapproved_export_defect_count": 0,
         "retired_network_count": 0,
     }
     assert manifest_path.exists()
@@ -266,7 +268,75 @@ def test_build_release_records_defects_before_refusing(tmp_path: Path) -> None:
 
     manifest = json.loads(manifest_path.read_text())
     assert manifest["summary"]["export_defect_count"] == 1
-    assert manifest["export_defects"] == ["Example_Disease: 1 orphan node(s)"]
+    assert manifest["summary"]["unapproved_export_defect_count"] == 1
+    assert manifest["export_defects"] == [
+        'Example_Disease: orphan nodes: ["Missing node"]'
+    ]
+    assert manifest["networks"][0]["status"] == "BLOCKED_EXPORT_DEFECT"
+
+
+def test_build_release_quarantines_exactly_allowlisted_defect(tmp_path: Path) -> None:
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+    disorder_path = kb_dir / "Example_Disease.yaml"
+    _write_disorder(disorder_path)
+    disorder = yaml.safe_load(disorder_path.read_text())
+    disorder["pathophysiology"][0]["downstream"][0]["target"] = "Missing node"
+    disorder_path.write_text(yaml.safe_dump(disorder, sort_keys=False))
+    allowlist_path = tmp_path / "allowed.txt"
+    allowlist_path.write_text(
+        '# Reviewed production quarantine\nExample_Disease: orphan nodes: ["Missing node"]\n',
+        encoding="utf-8",
+    )
+
+    manifest = ndex_publish.build_release(
+        kb_dir=kb_dir,
+        output_dir=tmp_path / "cx2",
+        manifest_path=tmp_path / "manifest.json",
+        previous_manifest_path=None,
+        release_metadata=_metadata(),
+        source_revision="abc123",
+        fail_on_export_defects=True,
+        require_disease_metadata=True,
+        allowed_export_defects_path=allowlist_path,
+    )
+
+    assert manifest["summary"]["exported_count"] == 0
+    assert manifest["summary"]["skipped_count"] == 1
+    assert manifest["summary"]["quarantined_network_count"] == 1
+    assert manifest["summary"]["unapproved_export_defect_count"] == 0
+    assert manifest["allowed_export_defects"] == [
+        'Example_Disease: orphan nodes: ["Missing node"]'
+    ]
+    assert manifest["unapproved_export_defects"] == []
+    assert manifest["networks"][0]["status"] == "SKIPPED_EXPORT_DEFECT"
+
+
+def test_build_release_rejects_changed_defect_with_same_count(tmp_path: Path) -> None:
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+    disorder_path = kb_dir / "Example_Disease.yaml"
+    _write_disorder(disorder_path)
+    disorder = yaml.safe_load(disorder_path.read_text())
+    disorder["pathophysiology"][0]["downstream"][0]["target"] = "New missing node"
+    disorder_path.write_text(yaml.safe_dump(disorder, sort_keys=False))
+    allowlist_path = tmp_path / "allowed.txt"
+    allowlist_path.write_text(
+        'Example_Disease: orphan nodes: ["Old missing node"]\n', encoding="utf-8"
+    )
+
+    with pytest.raises(RuntimeError, match="1 unapproved export defect"):
+        ndex_publish.build_release(
+            kb_dir=kb_dir,
+            output_dir=tmp_path / "cx2",
+            manifest_path=tmp_path / "manifest.json",
+            previous_manifest_path=None,
+            release_metadata=_metadata(),
+            source_revision="abc123",
+            fail_on_export_defects=True,
+            require_disease_metadata=True,
+            allowed_export_defects_path=allowlist_path,
+        )
 
 
 def test_build_release_reports_retired_networks(tmp_path: Path) -> None:
@@ -309,6 +379,62 @@ def test_build_release_reports_retired_networks(tmp_path: Path) -> None:
     ]
 
 
+def test_quarantined_existing_network_keeps_uuid_without_retirement(
+    tmp_path: Path,
+) -> None:
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+    disorder_path = kb_dir / "Example_Disease.yaml"
+    _write_disorder(disorder_path)
+    disorder = yaml.safe_load(disorder_path.read_text())
+    disorder["pathophysiology"][0]["downstream"][0]["target"] = "Missing node"
+    disorder_path.write_text(yaml.safe_dump(disorder, sort_keys=False))
+    allowlist_path = tmp_path / "allowed.txt"
+    allowlist_path.write_text(
+        'Example_Disease: orphan nodes: ["Missing node"]\n', encoding="utf-8"
+    )
+    previous_path = tmp_path / "uuid-registry.json"
+    previous_path.write_text(
+        json.dumps(
+            {
+                "networks": [
+                    {
+                        "slug": "Example_Disease",
+                        "ndex_uuid": "stable-uuid",
+                        "status": "ACTIVE",
+                    }
+                ]
+            }
+        )
+    )
+
+    manifest = ndex_publish.build_release(
+        kb_dir=kb_dir,
+        output_dir=tmp_path / "cx2",
+        manifest_path=tmp_path / "manifest.json",
+        previous_manifest_path=previous_path,
+        release_metadata=_metadata(),
+        source_revision="abc123",
+        fail_on_export_defects=True,
+        require_disease_metadata=True,
+        allowed_export_defects_path=allowlist_path,
+    )
+
+    assert manifest["networks"][0]["status"] == "SKIPPED_EXPORT_DEFECT"
+    assert manifest["networks"][0]["ndex_uuid"] == "stable-uuid"
+    assert manifest["retired_networks"] == []
+    registry = ndex_publish.write_uuid_registry(
+        manifest, tmp_path / "new-uuid-registry.json"
+    )
+    assert registry["networks"] == [
+        {
+            "slug": "Example_Disease",
+            "ndex_uuid": "stable-uuid",
+            "status": "ACTIVE",
+        }
+    ]
+
+
 def test_build_release_rejects_missing_previous_registry(tmp_path: Path) -> None:
     kb_dir = tmp_path / "kb"
     kb_dir.mkdir()
@@ -334,7 +460,7 @@ def test_publish_release_rechecks_defects_and_content_hash(tmp_path: Path) -> No
         "source_revision": "abc123",
         "release_metadata": _metadata(),
         "summary": {},
-        "export_defects": ["Example_Disease: 1 orphan node(s)"],
+        "export_defects": ['Example_Disease: orphan nodes: ["Missing node"]'],
         "networks": [
             {
                 "slug": "Example_Disease",
@@ -345,7 +471,21 @@ def test_publish_release_rechecks_defects_and_content_hash(tmp_path: Path) -> No
         ],
     }
 
-    with pytest.raises(RuntimeError, match="manifest contains 1 export defect"):
+    with pytest.raises(
+        RuntimeError, match="manifest contains 1 unapproved export defect"
+    ):
+        ndex_publish.publish_release(
+            manifest,
+            manifest_path=tmp_path / "manifest.json",
+            host="https://www.ndexbio.org",
+            username="user",
+            password="secret",
+            visibility="PRIVATE",
+            index_level="META",
+        )
+
+    manifest["unapproved_export_defects"] = []
+    with pytest.raises(RuntimeError, match="defective networks are not quarantined"):
         ndex_publish.publish_release(
             manifest,
             manifest_path=tmp_path / "manifest.json",
