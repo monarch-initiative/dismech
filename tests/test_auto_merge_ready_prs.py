@@ -136,8 +136,7 @@ def test_typename_wins_over_shape():
     [
         ({"state": "CLOSED"}, "not open"),
         ({"baseRefName": "some-feature"}, "base branch"),
-        ({"headRefName": "auto/generate-pages"}, "separately managed lane"),
-        ({"assignees": [{"login": "cmungall"}]}, "assigned to cmungall"),
+        ({"assignees": [{"login": "cmungall"}]}, "assigned to human(s): cmungall"),
         ({"reviewDecision": "CHANGES_REQUESTED"}, "not approved"),
         ({"reviewDecision": "REVIEW_REQUIRED"}, "not approved"),
         ({"reviewDecision": None}, "not approved"),
@@ -170,6 +169,35 @@ def test_draft_blocked_merge_state_is_accepted_only_for_preflight():
     pr = make_pr(isDraft=True, mergeStateStatus="BLOCKED")
     assert decide(pr).eligible
     assert not decide(pr, include_drafts=False).eligible
+
+
+def test_auto_lane_pr_uses_the_common_controller():
+    assert decide(make_pr(headRefName="auto/generate-pages")).eligible
+
+
+@pytest.mark.parametrize(
+    "login",
+    ["dragon-ai-agent", "github-actions[bot]", "ai4c-agent", "AI4C-AGENT[bot]"],
+)
+def test_machine_assignee_does_not_hold_pr(login):
+    assert decide(make_pr(assignees=[{"login": login}])).eligible
+
+
+def test_machine_and_human_assignee_still_holds_pr():
+    decision = decide(
+        make_pr(
+            assignees=[
+                {"login": "dragon-ai-agent"},
+                {"login": "cmungall"},
+            ]
+        )
+    )
+    assert not decision.eligible
+    assert decision.reason == "assigned to human(s): cmungall"
+
+
+def test_missing_assignee_login_fails_closed_as_human():
+    assert not decide(make_pr(assignees=[{}])).eligible
 
 
 def test_pr_younger_than_three_days_is_skipped():
@@ -216,6 +244,24 @@ def test_non_negative_int_rejects_negatives(value):
     loudly rather than widen the merge criteria."""
     with pytest.raises(argparse.ArgumentTypeError, match="zero or positive"):
         auto_merge.non_negative_int(value)
+
+
+def test_default_scan_limit_covers_the_large_backlog(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_gh(args, *, token=None):
+        calls.append(args)
+        if args[:2] == ["pr", "list"]:
+            return "[]"
+        return ""
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    code = auto_merge.main(
+        ["--repo", "o/r", "--dry-run", "--summary-file", str(tmp_path / "s.md")]
+    )
+    assert code == 0
+    list_call = next(call for call in calls if call[:2] == ["pr", "list"])
+    assert list_call[list_call.index("--limit") + 1] == "1000"
 
 
 @pytest.mark.parametrize("value", ["", "three", "3.5", "1e3"])
@@ -331,135 +377,6 @@ def test_list_stage_rejects_criteria_it_can_answer(overrides):
     assert not decide(make_pr(**overrides), final=False).eligible
 
 
-# --- exact-main health circuit ---------------------------------------------
-
-
-def make_health_check(**overrides):
-    check = {
-        "id": 10,
-        "name": "test (3.13)",
-        "head_sha": "base123",
-        "status": "completed",
-        "conclusion": "success",
-        "app": {"id": 15368, "slug": "github-actions"},
-    }
-    check.update(overrides)
-    return check
-
-
-def make_comparison(**overrides):
-    comparison = {
-        "base_commit": {"sha": "base123"},
-        "merge_base_commit": {"sha": "base123"},
-        "behind_by": 0,
-        "status": "ahead",
-    }
-    comparison.update(overrides)
-    return comparison
-
-
-def test_current_base_success_closes_health_circuit():
-    health = auto_merge.main_health_decision(
-        "base123", [make_health_check()], "test (3.13)"
-    )
-    assert health.healthy
-    assert health.sha == "base123"
-
-
-@pytest.mark.parametrize(
-    "comparison",
-    [
-        make_comparison(
-            merge_base_commit={"sha": "oldbase456"}, behind_by=2, status="diverged"
-        ),
-        make_comparison(base_commit={"sha": "wrong-base"}),
-        make_comparison(behind_by=None),
-    ],
-)
-def test_pr_head_must_contain_the_healthy_current_base(comparison):
-    decision = auto_merge.base_alignment_decision(comparison, "base123", "head123")
-    assert not decision.eligible
-
-
-def test_pr_head_containing_current_base_is_aligned():
-    assert auto_merge.base_alignment_decision(
-        make_comparison(), "base123", "head123"
-    ).eligible
-
-
-def test_base_ref_oid_is_not_an_ancestry_signal():
-    stale = make_comparison(
-        merge_base_commit={"sha": "oldbase456"}, behind_by=2, status="diverged"
-    )
-    pr = make_pr(baseRefOid="base123")
-    assert pr["baseRefOid"] == "base123"
-    assert not auto_merge.base_alignment_decision(
-        stale, "base123", pr["headRefOid"]
-    ).eligible
-
-
-def test_base_alignment_uses_exact_compare_endpoint(monkeypatch):
-    calls = []
-
-    def fake_gh(args, *, token=None):
-        calls.append(args)
-        return json.dumps(make_comparison())
-
-    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
-    assert auto_merge.get_base_alignment("o/r", "base123", "head123").eligible
-    assert calls == [["api", "repos/o/r/compare/base123...head123"]]
-
-
-@pytest.mark.parametrize(
-    "checks,expected",
-    [
-        ([], "has not reported"),
-        ([make_health_check(status="in_progress", conclusion=None)], "in_progress"),
-        ([make_health_check(conclusion="failure")], "failure"),
-        ([make_health_check(head_sha="stale456")], "has not reported"),
-    ],
-)
-def test_main_health_fails_closed(checks, expected):
-    health = auto_merge.main_health_decision("base123", checks, "test (3.13)")
-    assert not health.healthy
-    assert expected in health.reason
-
-
-def test_main_health_rejects_a_same_named_check_from_another_app():
-    health = auto_merge.main_health_decision(
-        "base123",
-        [make_health_check(app={"id": 999, "slug": "untrusted"})],
-        "test (3.13)",
-    )
-    assert not health.healthy
-    assert "has not reported" in health.reason
-
-
-def test_newest_check_attempt_is_authoritative():
-    checks = [
-        make_health_check(id=10, conclusion="success"),
-        make_health_check(id=11, status="in_progress", conclusion=None),
-    ]
-    health = auto_merge.main_health_decision("base123", checks, "test (3.13)")
-    assert not health.healthy
-    assert "in_progress" in health.reason
-
-
-def test_base_health_filters_check_runs_by_name_server_side(monkeypatch):
-    calls = []
-
-    def fake_gh(args, *, token=None):
-        calls.append(args)
-        if "/branches/main" in args[1]:
-            return json.dumps({"commit": {"sha": "base123"}})
-        return json.dumps({"check_runs": [make_health_check()]})
-
-    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
-    assert auto_merge.get_base_health("o/r", "main", "test (3.13)").healthy
-    check_url = calls[1][1]
-    assert "check_name=test%20%283.13%29" in check_url
-
-
 # --- benign vs real merge failures ----------------------------------------
 
 # Verbatim stderr from `gh pr merge --squash --match-head-commit <wrong sha>`
@@ -571,8 +488,7 @@ def test_real_errors_are_not_benign(message):
 
 
 def _run_main(
-    monkeypatch, tmp_path, *, view, listed=None, comparison=None, extra_args=(),
-    queue_payload=None,
+    monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None
 ):
     """Drive main() against a stubbed gh, returning (exit code, gh calls)."""
     if listed is None:
@@ -590,12 +506,6 @@ def _run_main(
             payload = views[min(view_index, len(views) - 1)]
             view_index += 1
             return json.dumps(payload)
-        if args[0] == "api" and "/branches/main" in args[1]:
-            return json.dumps({"commit": {"sha": "base123"}})
-        if args[0] == "api" and "/check-runs" in args[1]:
-            return json.dumps({"check_runs": [make_health_check()]})
-        if args[0] == "api" and "/compare/" in args[1]:
-            return json.dumps(comparison or make_comparison())
         if args[:2] == ["api", "graphql"]:
             # No queue by default, so existing tests keep the direct-merge path.
             return queue_payload or json.dumps(
@@ -846,7 +756,6 @@ def _run_draft_controller(
     final=None,
     ready_error=None,
     merge_error=None,
-    healths=None,
 ):
     """Exercise draft transitions with policy reads stubbed above the gh layer."""
     initial = make_pr(
@@ -857,24 +766,10 @@ def _run_draft_controller(
     )
     final = final or make_pr(number=42, isDraft=False, headRefOid="cafe1234")
     views = iter([initial, final])
-    health_values = iter(
-        healths
-        or [
-            auto_merge.BaseHealth(True, "base123", "healthy"),
-            auto_merge.BaseHealth(True, "base123", "healthy"),
-        ]
-    )
     calls = []
 
     monkeypatch.setattr(auto_merge, "list_open_prs", lambda *_: [initial])
     monkeypatch.setattr(auto_merge, "view_pr", lambda *_, **__: next(views))
-    monkeypatch.setattr(auto_merge, "get_base_health", lambda *_: next(health_values))
-    monkeypatch.setattr(auto_merge, "get_base_sha", lambda *_: "base123")
-    monkeypatch.setattr(
-        auto_merge,
-        "get_base_alignment",
-        lambda *_: auto_merge.Decision(True, "aligned"),
-    )
 
     def mark_ready(*_):
         calls.append("ready")
@@ -925,19 +820,6 @@ def test_post_ready_merge_failures_restore_draft_unless_pr_is_gone(
     assert code == (1 if message.startswith("HTTP 403") else 0)
 
 
-def test_health_circuit_opening_after_ready_restores_draft(monkeypatch, tmp_path):
-    code, calls = _run_draft_controller(
-        monkeypatch,
-        tmp_path,
-        healths=[
-            auto_merge.BaseHealth(True, "base123", "healthy"),
-            auto_merge.BaseHealth(False, "base123", "check still running"),
-        ],
-    )
-    assert code == 0
-    assert calls == ["ready", "draft"]
-
-
 def test_ready_transition_still_draft_after_retry_budget_is_rolled_back(
     monkeypatch, tmp_path
 ):
@@ -952,28 +834,23 @@ def test_ready_transition_still_draft_after_retry_budget_is_rolled_back(
     assert calls == ["ready", "draft"]
 
 
-def test_compare_blocks_false_current_draft_before_promotion(monkeypatch, tmp_path):
+def test_behind_draft_is_promoted_and_merged(monkeypatch, tmp_path):
     behind = make_pr(
         number=42,
         isDraft=True,
         mergeStateStatus="DRAFT",
         headRefOid="cafe1234",
-        # GitHub can report the current associated base ref even when the head's
-        # real merge base is older; the compare fixture below is authoritative.
         baseRefOid="base123",
-    )
-    comparison = make_comparison(
-        merge_base_commit={"sha": "oldbase456"}, behind_by=2, status="diverged"
     )
     code, calls = _run_main(
         monkeypatch,
         tmp_path,
-        view=behind,
+        view=[behind, make_pr(number=42, headRefOid="cafe1234")],
         listed=[behind],
-        comparison=comparison,
     )
     assert code == 0
-    assert not [call for call in calls if call[:2] == ["pr", "ready"]]
+    assert [call for call in calls if call[:2] == ["pr", "ready"]]
+    assert [call for call in calls if call[:2] == ["pr", "merge"]]
 
 
 def test_main_list_call_does_not_request_merge_state_status(monkeypatch, tmp_path):
@@ -994,12 +871,6 @@ def test_main_reports_a_race_as_skipped_not_failed(monkeypatch, tmp_path):
             return json.dumps([make_pr(number=42)])
         if args[:2] == ["pr", "view"]:
             return json.dumps(make_pr(number=42, headRefOid="cafe1234"))
-        if args[0] == "api" and "/branches/main" in args[1]:
-            return json.dumps({"commit": {"sha": "base123"}})
-        if args[0] == "api" and "/check-runs" in args[1]:
-            return json.dumps({"check_runs": [make_health_check()]})
-        if args[0] == "api" and "/compare/" in args[1]:
-            return json.dumps(make_comparison())
         if args[:2] == ["pr", "merge"]:
             raise subprocess.CalledProcessError(1, "gh", stderr=GH_REFUSAL_STDERR)
         return ""
@@ -1021,12 +892,6 @@ def test_main_exits_nonzero_on_a_genuine_merge_error(monkeypatch, tmp_path):
             return json.dumps([make_pr(number=42)])
         if args[:2] == ["pr", "view"]:
             return json.dumps(make_pr(number=42, headRefOid="cafe1234"))
-        if args[0] == "api" and "/branches/main" in args[1]:
-            return json.dumps({"commit": {"sha": "base123"}})
-        if args[0] == "api" and "/check-runs" in args[1]:
-            return json.dumps({"check_runs": [make_health_check()]})
-        if args[0] == "api" and "/compare/" in args[1]:
-            return json.dumps(make_comparison())
         if args[:2] == ["pr", "merge"]:
             raise subprocess.CalledProcessError(
                 1, "gh", stderr="HTTP 403: Resource not accessible by integration"
@@ -1040,10 +905,7 @@ def test_main_exits_nonzero_on_a_genuine_merge_error(monkeypatch, tmp_path):
     assert "Failed to merge 1" in (tmp_path / "s.md").read_text()
 
 
-def test_execute_merges_at_most_one_even_if_branch_endpoint_stays_stale(
-    monkeypatch, tmp_path
-):
-    """Serialization must not rely on GitHub exposing the new main SHA quickly."""
+def test_execute_merges_at_most_one(monkeypatch, tmp_path):
     listed = [make_pr(number=41), make_pr(number=42)]
     calls = []
 
@@ -1054,12 +916,6 @@ def test_execute_merges_at_most_one_even_if_branch_endpoint_stays_stale(
         if args[:2] == ["pr", "view"]:
             number = int(args[2])
             return json.dumps(make_pr(number=number, headRefOid=f"head{number}"))
-        if args[0] == "api" and "/branches/main" in args[1]:
-            return json.dumps({"commit": {"sha": "base123"}})
-        if args[0] == "api" and "/commits/base123/check-runs" in args[1]:
-            return json.dumps({"check_runs": [make_health_check()]})
-        if args[0] == "api" and "/compare/" in args[1]:
-            return json.dumps(make_comparison())
         return ""
 
     monkeypatch.setattr(auto_merge, "_gh", fake_gh)
@@ -1069,81 +925,6 @@ def test_execute_merges_at_most_one_even_if_branch_endpoint_stays_stale(
     merges = [c for c in calls if c[:2] == ["pr", "merge"]]
     assert len(merges) == 1
     assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 2
-
-
-def test_base_change_after_final_pr_read_opens_circuit(monkeypatch, tmp_path):
-    branch_shas = iter(["base123", "base456"])
-    calls = []
-
-    def fake_gh(args, *, token=None):
-        calls.append(args)
-        if args[:2] == ["pr", "list"]:
-            return json.dumps([make_pr(number=42)])
-        if args[:2] == ["pr", "view"]:
-            return json.dumps(make_pr(number=42, headRefOid="head42"))
-        if args[0] == "api" and "/branches/main" in args[1]:
-            return json.dumps({"commit": {"sha": next(branch_shas)}})
-        if args[0] == "api" and "/check-runs" in args[1]:
-            return json.dumps({"check_runs": [make_health_check()]})
-        if args[0] == "api" and "/compare/" in args[1]:
-            return json.dumps(make_comparison())
-        return ""
-
-    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
-    monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
-    code = auto_merge.main(["--repo", "o/r", "--summary-file", str(tmp_path / "s.md")])
-    assert code == 0
-    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
-    summary = (tmp_path / "s.md").read_text()
-    assert "Main-health circuit open" in summary
-    assert "base123 -> base456" in summary
-
-
-def test_main_health_api_error_fails_closed(monkeypatch, tmp_path):
-    def fake_gh(args, *, token=None):
-        if args[:2] == ["pr", "list"]:
-            return json.dumps([make_pr(number=42)])
-        if args[:2] == ["pr", "view"]:
-            return json.dumps(make_pr(number=42, headRefOid="cafe1234"))
-        if args[0] == "api":
-            raise subprocess.CalledProcessError(1, "gh", stderr="HTTP 502: Bad Gateway")
-        return ""
-
-    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
-    monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
-    code = auto_merge.main(["--repo", "o/r", "--summary-file", str(tmp_path / "s.md")])
-    assert code == 1
-    assert "could not verify current base health" in (tmp_path / "s.md").read_text()
-
-
-def test_completed_failure_on_main_opens_circuit_without_failing_controller(
-    monkeypatch, tmp_path
-):
-    calls = []
-
-    def fake_gh(args, *, token=None):
-        calls.append(args)
-        if args[:2] == ["pr", "list"]:
-            return json.dumps([make_pr(number=42)])
-        if args[:2] == ["pr", "view"]:
-            return json.dumps(make_pr(number=42))
-        if args[0] == "api" and "/branches/main" in args[1]:
-            return json.dumps({"commit": {"sha": "base123"}})
-        if args[0] == "api" and "/check-runs" in args[1]:
-            return json.dumps({"check_runs": [make_health_check(conclusion="failure")]})
-        return ""
-
-    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
-    monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
-    code = auto_merge.main(
-        ["--repo", "o/r", "--summary-file", str(tmp_path / "red-main.md")]
-    )
-    assert code == 0
-    assert not [call for call in calls if call[:2] == ["pr", "merge"]]
-    summary = (tmp_path / "red-main.md").read_text()
-    assert "Main-health circuit open" in summary
-    assert "concluded failure" in summary
-    assert "Failed to merge" not in summary
 
 
 # --- reporting ------------------------------------------------------------
@@ -1325,8 +1106,7 @@ def test_gh_error_skips_the_queue_warning_line():
 
 def test_summary_does_not_claim_a_queued_pr_was_merged():
     body = auto_merge.render_summary(
-        [{"number": 7, "title": "t", "queued": True}], [], [],
-        dry_run=False, circuit_open="",
+        [{"number": 7, "title": "t", "queued": True}], [], [], dry_run=False
     )
     assert "Added to the merge queue" in body
     assert "**Merged 1:**" not in body
