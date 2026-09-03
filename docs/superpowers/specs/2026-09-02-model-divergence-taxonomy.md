@@ -16,6 +16,12 @@ over- and under-count, and are quoted only to show which kinds recur.
 
 ## 1. Coverage
 
+Measured 2026-09-02, against the KB as it stood when the 50 computational-model
+strings below were read and clustered. These are a **snapshot of the derivation
+input**, not a live count — the KB grows, and the ratio has since moved (1,646
+links / 80% on `main` at 2026-09-03). The clustering in section 3 is what the value
+set rests on; re-measuring the totals does not change it.
+
 | | links | with `limitations` |
 |---|---:|---:|
 | `animal_models` | 603 | 577 |
