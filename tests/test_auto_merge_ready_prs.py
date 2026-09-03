@@ -1392,11 +1392,15 @@ def test_gh_error_still_reports_a_warning_when_it_is_all_there_is():
 def test_a_queued_pr_is_skipped_and_the_sweep_reaches_the_next_one(
     monkeypatch, tmp_path
 ):
-    """A PR in the queue stays open, approved and green, so it keeps passing
-    the predicate — and re-enqueueing it SUCCEEDS (gh exits 0 on an
-    already-queued PR). Without this skip the sweep would spend its one-action
-    budget re-announcing the head of the queue every run and never reach the
-    PRs behind it."""
+    """The queued PR here is stubbed CLEAN/MERGEABLE, which is the state
+    measured on #10576 at 2026-09-02T23:37Z while its entry was UNMERGEABLE:
+    it passes every predicate, and re-enqueueing SUCCEEDS (gh exits 0 on an
+    already-queued PR), so without this skip the sweep spends its one action
+    re-announcing a PR that is already queued.
+
+    An AWAITING_CHECKS entry reports UNKNOWN instead and is already rejected
+    by `evaluate` with a `continue`, so for that state the skip buys a cheaper
+    path and an accurate reason rather than different behavior."""
     queued, next_up = 11, 22
     listed = [
         make_pr(number=queued, mergeable="MERGEABLE"),

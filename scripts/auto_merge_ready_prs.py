@@ -139,7 +139,8 @@ BENIGN_MERGE_FAILURES = (
 )
 
 # Status glyphs gh prefixes to its stderr lines, stripped for readability.
-GH_STATUS_MARKERS = ("X ", "! ", "✓ ")
+GH_WARNING_MARKER = "! "
+GH_STATUS_MARKERS = ("X ", GH_WARNING_MARKER, "✓ ")
 
 MERGE_COMMENT = (
     "🐑 **PR Shepherd** (deterministic sweep) — Squash-merged: approved, "
@@ -403,7 +404,7 @@ def _gh_error(exc: subprocess.CalledProcessError) -> str:
     warnings: list[str] = []
     for line in (exc.stderr or "").splitlines():
         cleaned = line.strip()
-        is_warning = cleaned.startswith("!")
+        is_warning = cleaned.startswith(GH_WARNING_MARKER)
         # removeprefix, not lstrip: lstrip takes a character *set*, so it would
         # eat the leading "X" and "-" of a line like "X-Ratelimit is 0".
         for marker in GH_STATUS_MARKERS:
@@ -622,7 +623,7 @@ def read_queue_state(repo: str, branch: str) -> QueueState:
     query = (
         "query($owner:String!,$name:String!,$branch:String!){"
         "repository(owner:$owner,name:$name){mergeQueue(branch:$branch){id "
-        "entries(first:100){nodes{pullRequest{number}}}}}}"
+        "entries(first:100){totalCount nodes{pullRequest{number}}}}}}"
     )
     try:
         payload = _gh([
@@ -640,12 +641,23 @@ def read_queue_state(repo: str, branch: str) -> QueueState:
     queue = repository.get("mergeQueue")
     if not queue:
         return QueueState(False, frozenset())
-    nodes = ((queue.get("entries") or {}).get("nodes")) or []
+    entries = queue.get("entries") or {}
+    nodes = entries.get("nodes") or []
     numbers = {
         int(entry["pullRequest"]["number"])
         for entry in nodes
         if isinstance(entry, dict) and (entry.get("pullRequest") or {}).get("number")
     }
+    total = entries.get("totalCount")
+    if isinstance(total, int) and total > len(nodes):
+        # Truncation is only a missed skip, never a bad merge -- but say so
+        # rather than letting the page size silently bound correctness.
+        print(
+            f"WARN  merge queue holds {total} entries; only the first "
+            f"{len(nodes)} were read, so a queued PR beyond that may be "
+            "reselected",
+            file=sys.stderr,
+        )
     return QueueState(True, frozenset(numbers))
 
 
@@ -898,11 +910,28 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     # Once per run, before any write: is a queue in force, and who is in it?
-    # A PR sitting in the queue is still open, still approved and still green,
-    # so it keeps passing the predicate -- and re-enqueueing it SUCCEEDS (gh
-    # exits 0 on an already-queued PR). Without this skip the sweep would
-    # re-announce the head of the queue every run and consume its one-action
-    # budget there, never reaching the PRs behind it.
+    #
+    # What a queued PR reports depends on its ENTRY state, and the two cases
+    # were measured separately on the live queue:
+    #
+    #   AWAITING_CHECKS -> mergeable/mergeStateStatus are UNKNOWN while the
+    #     queue builds. `evaluate` rejects that ("mergeability is unknown")
+    #     and the loop `continue`s, so the sweep already moves on. Skipping
+    #     here saves the repeated view_pr attempts and their backoff sleeps
+    #     spent waiting for an UNKNOWN that will not resolve, and reports an
+    #     accurate reason instead of a misleading mergeability one.
+    #
+    #   UNMERGEABLE -> observed on #10576 at 2026-09-02T23:37Z: entry state
+    #     UNMERGEABLE, isInMergeQueue true, yet the PR itself reported
+    #     mergeable=MERGEABLE and mergeStateStatus=CLEAN, and it stayed that
+    #     way for ~48 minutes before GitHub ejected it. THAT is the
+    #     budget-consuming case: it passes every predicate, re-enqueueing
+    #     SUCCEEDS (gh exits 0 on an already-queued PR), and the sweep spends
+    #     its one action re-announcing a PR that is already queued.
+    #
+    # So the skip is load-bearing for the second case and a cost/clarity win
+    # for the first. It also stops correct behavior resting on GitHub's
+    # undocumented UNKNOWN reporting for queued PRs.
     queue_state = read_queue_state(args.repo, args.base_branch)
     if queue_state.active:
         already = [pr for pr in candidates if pr["number"] in queue_state.queued_pr_numbers]
