@@ -9,26 +9,36 @@ description: >-
   existing pages but never curated, high-confidence module-conformance
   suggestions awaiting triage, and the lowest-compliance existing entries.
 diseases:
-  - SCN2A-Related_Developmental_and_Epileptic_Encephalopathy
-  - Lennox-Gastaut_Syndrome
-  - Self-Limited_Epilepsy_with_Centrotemporal_Spikes
-  - Childhood_Absence_Epilepsy
-  - SCN8A-Related_Developmental_and_Epileptic_Encephalopathy
-  - PCDH19_Clustering_Epilepsy
-  - Epilepsy_of_Infancy_with_Migrating_Focal_Seizures
-  - Febrile_Infection-Related_Epilepsy_Syndrome
-  - GNAO1-Related_Developmental_and_Epileptic_Encephalopathy
-  - STX1B-Related_Epilepsy
   - Juvenile_Myoclonic_Epilepsy
+  - DNM1_Encephalopathy
+  - SNAP25_Encephalopathy
+  - Epilepsy_of_Infancy_with_Migrating_Focal_Seizures
+  - Pyridoxine-Dependent_Epilepsy
+  - PCDH19_Clustering_Epilepsy
+  - PNPO_Deficiency
+  - Epilepsy_with_Myoclonic_Atonic_Seizures
+  - Mesial_Temporal_Lobe_Epilepsy_with_Hippocampal_Sclerosis
+  - KCNQ2_Developmental_and_Epileptic_Encephalopathy
+  - Febrile_Infection-Related_Epilepsy_Syndrome
   - CPLX1-Related_DEE
-  - Coarctation_of_the_Aorta
-  - Aortic_Valve_Stenosis
-  - Mitral_Valve_Prolapse
   - Tetralogy_of_Fallot
-  - Ventricular_Septal_Defect
   - Pericarditis
   - Infective_Endocarditis
+  - Rheumatic_Heart_Disease
+  - Hypoplastic_Left_Heart_Syndrome
+  - Familial_Atrial_Fibrillation
+  - Uveal_Melanoma
+  - FGFR_Altered_Cholangiocarcinoma
+  - Diffuse_Large_B_Cell_Lymphoma
+  - Kaposi_Sarcoma
+  - IDH_Mutant_Cholangiocarcinoma
+  - IDH_Mutant_Astrocytoma
+  - RET_Fusion_Thyroid_Cancer
+  - Li-Fraumeni_Syndrome
   - Sturge-Weber_Syndrome
+  - Beare-Stevenson_Cutis_Gyrata_Syndrome
+  - Pituitary_Tumor
+  - Cushing_Disease
 modules:
   - cerebellar_purkinje_degeneration
   - immune_checkpoint_blockade
@@ -40,6 +50,8 @@ modules:
   - hemolytic_anemia_erythrocyte_destruction
   - hypothyroidism_thyroid_hormone_deficiency
   - glaucoma_optic_neuropathy
+  - corticotroph_egfr_pomc_acth_activation
+  - somatotroph_camp_pka_overactivation
 ---
 
 # Curation Backlog (Cross-Cutting)
@@ -59,103 +71,143 @@ Supporting data lives in
 [`projects/CURATION_BACKLOG/`](https://github.com/monarch-initiative/dismech/tree/main/projects/CURATION_BACKLOG);
 regenerate it from the dashboards rather than hand-editing.
 
-> ### ⚠️ Mixed provenance — read before using the numbers
+> ### How fast this decays
 >
-> This file was first assembled from a working tree that turned out to be
-> **9,389 commits behind `main`** (tree of 2026-08-13; the KB had grown from
-> 1,937 to 2,462 disorder entries in the interval). The dashboards were
-> regenerated at the time and came back byte-identical, which was mistaken for
-> confirmation that the figures were current — in fact both the committed and
-> the regenerated dashboards were derived from that same stale tree, so the
-> check only established self-consistency.
+> All four workstreams were rebuilt against `main` @ `48bd0eb60c` (2026-09-03).
+> Treat that date as a short expiry, not a footnote: **61 of workstream 1's
+> candidates were curated in the four days** between two rebuilds, and the KB
+> grew from 1,937 to 2,535 disorder entries over three weeks.
 >
-> **Workstream 1 has since been re-derived against `main` @ `9cb071deca`
-> (2026-08-29) and is current.** Workstreams 2, 3 and 4 have **not** been, and
-> their counts should be treated as lower bounds pending a rebuild. The lesson
-> generalizes: regenerating a derived artifact from a stale input proves
-> nothing about currency. Check `git log -1 origin/main` first.
+> The first version of this file was assembled from a tree 9,389 commits behind
+> `main`. The dashboards were regenerated at the time and came back
+> byte-identical, which was read as confirmation the figures were current. It was
+> not: both the committed and the regenerated dashboards derived from the same
+> stale tree, so the check established self-consistency and nothing about
+> currency. `git log -1 origin/main` settles it in one command — run that before
+> trusting any count here.
 
 ## Where the KB stands
 
-Verified against `main` @ `9cb071deca` (2026-08-29):
+Verified against `main` @ `48bd0eb60c` (2026-09-03):
 
 | Measure | Value |
 |---|---|
-| Disorder entries | 2,462 |
-| Distinct curated MONDO IDs (primary, subtype, exact/narrow mapping) | 2,503 |
-| Comorbidity entries | 25 |
+| Disorder entries | 2,535 |
+| …with a MONDO-anchored `disease_term` | 2,499 |
+| Distinct curated MONDO IDs (primary, subtype, exact/narrow mapping) | 3,857 |
+| MONDO human-disease terms with an exact dismech page | 2,469 of 23,213 (10.6%) |
+| …covered exactly **or** by a parent page | 48.3% |
+| Average weighted compliance | 90.0% (684 violations) |
+| Entries declaring any module conformance | 1,001 (39.5%) |
+| Comorbidity entries | 26 |
 | Mechanism modules | 164 |
 | Groupings | 98 |
 
-The following are from the **stale** 2026-08-13 tree and are not yet re-derived —
-directionally useful, numerically wrong: MONDO exact-page coverage 8.1% (45.1%
-including parent-page coverage); average weighted compliance 89.5% with 597
-violations; 31.2% of entries declaring module conformance.
+Pathophysiology and phenotype coverage are effectively complete. The gaps are
+everywhere else.
 
-Phenotypes and pathophysiology were effectively complete (99.9% / 99.7%) at the
-stale snapshot and are unlikely to have regressed. The gaps are everywhere else.
+## A prior question: is the candidate genuinely uncovered?
+
+Before curating anything from these lists, check that a curated entry does not
+already cover the concept under a **different MONDO term** — usually the target's
+parent. The lexical preflight cannot see this, which is how issue #10069 was
+filed against a concept `Pituitary_Tumor.yaml` had covered for ten days.
+
+```bash
+uv run python scripts/audit_curation_queue_coverage.py --max-descendants 20
+```
+
+Over the 1,338-stub queue that check finds 3 stubs already curated exactly and
+**641 with a curated ancestor**. Those 641 are mostly not duplicates — they are
+lump/split rulings the queue is presenting as "curate a new entry" (mevalonic
+aciduria and hyper-IgD both under `Mevalonate_Kinase_Deficiency`; sclerosteosis 2
+under `Sclerosteosis`). Curating one as a fresh entry creates a contradiction
+rather than resolving it. Details and the over-broad-anchor finding are in #10679.
 
 ---
 
 ## Workstream 1 — MONDO terms already linked from existing pages
 
-**458 candidates** (was 552 at the stale snapshot; **94 have been curated since**).
-Data: `linked-but-uncurated.tsv`. ✅ **Current as of `main` @ `9cb071deca`.**
+**397 candidates** (552 → 458 → 397 across three rebuilds; **61 curated in the
+last four days alone**). Data: `linked-but-uncurated.tsv`.
 
 These diseases are already referenced *by* curated entries — as differentials,
 comorbidities, or related conditions — but have no entry of their own. Demand is
 therefore already demonstrated, which makes this the cheapest breadth work in the
 repo: no need to argue the disease is worth curating, only to curate it.
 
-That 94 closed in ~two weeks is itself the argument for re-deriving this list
-before picking from it: myocarditis, the former top of this queue at 4 inbound
-links, was curated in [#9954](https://github.com/monarch-initiative/dismech/pull/9954)
-and is gone from the list. Several more resolved not as new entries but as
-*existing* ones the lexical check had missed — `velocardiofacial syndrome` →
-`22q11.2_Deletion_Syndrome`, `proximal spinal muscular atrophy` →
+The churn is the argument for re-deriving before picking. Myocarditis, once top of
+this queue at 4 inbound links, was curated in
+[#9954](https://github.com/monarch-initiative/dismech/pull/9954). Pituitary gland
+adenoma left the list not by being curated but by being *recognised* — a
+`skos:narrowMatch` on the entry that already covered it (#10069). And several
+resolved to existing entries the lexical check had missed: `velocardiofacial
+syndrome` → `22q11.2_Deletion_Syndrome`, `proximal spinal muscular atrophy` →
 `Spinal_Muscular_Atrophy`, `RASopathy` → `RASopathies`.
 
-Ranked by inbound links from existing pages. Top of the queue:
+Ranked by inbound links from existing pages. Top of the queue, with the
+coverage check from the section above already applied:
 
 | Links | MONDO | Disease | Status |
 |---:|---|---|---|
-| 3 | MONDO:0044970 | mitochondrial disease | scope decision needed |
-| 3 | MONDO:0006373 | pituitary gland adenoma | **claimed — [#10069](https://github.com/monarch-initiative/dismech/issues/10069)** |
+| 3 | MONDO:0044970 | mitochondrial disease | scope decision needed — likely a Grouping |
 | 2 | MONDO:0018564 | 3p25.3 microdeletion syndrome | |
-| 2 | MONDO:0003709 | agoraphobia | |
-| 2 | MONDO:0011786 | allergic rhinitis | |
-| 2 | MONDO:0001164 | antisocial personality disorder | |
+| 2 | MONDO:0003709 | agoraphobia | clear |
+| 2 | MONDO:0011786 | allergic rhinitis | clear |
+| 2 | MONDO:0001164 | antisocial personality disorder | clear |
 | 2 | MONDO:0024557 | ataxia-telangiectasia-like disorder 1 | |
-| 2 | MONDO:0005230 | cellulitis | |
-| 2 | MONDO:0017843 | congenital pulmonary sequestration | |
+| 2 | MONDO:0005230 | cellulitis | clear |
+| 2 | MONDO:0017843 | congenital pulmonary sequestration | clear |
 | 2 | MONDO:0008021 | Cowden syndrome | NEC risk: eponym + numbered series |
 | 2 | MONDO:0015474 | cryptosporidiosis | |
-| 2 | MONDO:0015612 | Dent disease | |
+| 2 | MONDO:0015612 | Dent disease | clear |
+| 2 | MONDO:0001521 | intermittent explosive disorder | clear |
+
+**Recommended next tranche — the psychiatric trio.** `agoraphobia`,
+`antisocial personality disorder` and `intermittent explosive disorder`: two
+inbound links each, all `CURATE_ROOT`, none in the stub queue, none blocked by a
+curated ancestor, none with an open issue. Psychiatry is thin in the KB and the
+three share a DSM/epidemiology literature base, so they cost less together than
+apart.
+
+**Second tranche — the pituitary follow-on.** `acromegaly` (MONDO:0019933) and
+`hypopituitarism` (MONDO:0005152), both clear and unclaimed, both sitting on work
+already in place: `Pituitary_Tumor.yaml` is now anchored, the
+`somatotroph_camp_pka_overactivation` module exists, and
+`Somatotroph_cAMP_PKA_Pituitary_Tumor_Syndromes` groups them. Acromegaly should be
+its own entry that *conforms to* that module rather than a subtype of pituitary
+tumour — ectopic GHRH-driven acromegaly involves no pituitary tumour at all.
 
 - [x] Curate myocarditis (MONDO:0004496) — done in #9954
-- [ ] Curate pituitary gland adenoma (MONDO:0006373) — claimed, #10069
-- [ ] Decide scope for mitochondrial disease (MONDO:0044970) — likely a Grouping, not a Disease
-- [ ] Curate agoraphobia (MONDO:0003709) and allergic rhinitis (MONDO:0011786) — both `CURATE_ROOT`, no NEC risk
+- [x] Anchor pituitary gland adenoma (MONDO:0006373) — narrowMatch on `Pituitary_Tumor.yaml`, #10069
+- [ ] Curate the psychiatric trio: agoraphobia, antisocial personality disorder, intermittent explosive disorder
+- [ ] Curate acromegaly and hypopituitarism as the pituitary follow-on
+- [ ] Decide scope for mitochondrial disease (MONDO:0044970)
 - [ ] Curate Cowden syndrome (MONDO:0008021) — **run `just preflight-dr` first**: NEC flags for numbered series (`type 1`), eponym collision (`Cowden`) and synonym aliasing (`Duclos`, `Lhermitte`)
 - [ ] Work down the remainder of `linked-but-uncurated.tsv` by inbound-link count
 
-**Before claiming from this list, re-derive it.** Regenerate the underlying data
-with `just gen-dashboard` (writes `dashboard/not_yet_curated.json`), then drop
-rows whose MONDO ID is curated on current `main`. Do not claim off a stale copy —
-that is how the myocarditis miss happened.
+**Do not claim off a stale copy of this list.** Regenerate with
+`just gen-dashboard`, drop rows curated on current `main`, then run the coverage
+audit. Skipping the first step is how the myocarditis miss happened; skipping the
+third is how #10069 happened.
 
 ---
 
 ## Workstream 2 — Module-conformance suggestions awaiting triage
 
-> ⚠️ **Stale — derived from the 2026-08-13 tree, not re-derived against current `main`.** Counts are lower bounds; entries named here may already be curated.
-
-**66 suggestions at cosine ≥ 0.90; 58 of them actionable.** Data:
-`conformance-suggestions.tsv` (full set of 1,128 lives in
+**66 suggestions at cosine ≥ 0.90; 55 still actionable** — 8 have been wired
+since, and 3 name a node that no longer exists. Data:
+`conformance-suggestions.tsv` (full set of 1,128 in
 `research/conforms_to_suggestions.tsv`).
 
-Only 31.2% of entries declare any `conforms_to`, and a node-embedding pass has
-already proposed links for the rest. The high-confidence tail is small enough to
+**The suggestion set itself is stale and cannot currently be regenerated.**
+`research/conforms_to_suggestions.tsv` dates from 2026-08-12 and has no committed
+generator, so it predates roughly 600 entries. Only each suggestion's *status* is
+re-derived here. Recovering or rewriting the node-embedding generator would be
+worth more than triaging what it produced a month ago.
+
+39.5% of entries declare a `conforms_to` (up from 31.2%), and a node-embedding
+pass proposed links for some of the rest. The high-confidence tail is small enough to
 review by hand.
 
 **These are suggestions, not findings.** The embedding matches on *node label
@@ -185,60 +237,74 @@ node name.
 
 ## Workstream 3 — Lowest-compliance existing entries
 
-> ⚠️ **Stale — derived from the 2026-08-13 tree, not re-derived against current `main`.** Counts are lower bounds; entries named here may already be curated.
+**Three coherent clusters in the bottom 30.** Data: `low-compliance-entries.tsv`
+(bottom 60, with the exact missing sections per file). Scores are weighted
+compliance against 2,535 entries; the KB average is 90.0%.
 
-**Two coherent clusters in the bottom 30.** Data: `low-compliance-entries.tsv`
-(bottom 60, with the exact missing sections per file).
+The epilepsy and cardiac clusters have both improved since the first pass — the
+worst entry was 53.7% and is now 61.9% — but both persist, and a third has
+appeared.
 
-### Pediatric epilepsy (14 of the bottom 30)
+### Epilepsy and developmental epileptic encephalopathy (12 of the bottom 30)
 
-`SCN2A-Related_Developmental_and_Epileptic_Encephalopathy` (53.7% weighted),
-`Lennox-Gastaut_Syndrome` (53.7), `Self-Limited_Epilepsy_with_Centrotemporal_Spikes`
-(54.7), `Childhood_Absence_Epilepsy` (56.5),
-`SCN8A-Related_Developmental_and_Epileptic_Encephalopathy` (58.4),
-`PCDH19_Clustering_Epilepsy` (60.5),
-`Epilepsy_of_Infancy_with_Migrating_Focal_Seizures` (60.6),
-`Febrile_Infection-Related_Epilepsy_Syndrome` (61.8),
-`GNAO1-Related_Developmental_and_Epileptic_Encephalopathy` (64.8),
-`STX1B-Related_Epilepsy` (65.3), `Juvenile_Myoclonic_Epilepsy` (65.8),
-`CPLX1-Related_DEE` (66.7).
+`Juvenile_Myoclonic_Epilepsy` (65.8), `DNM1_Encephalopathy` (67.2),
+`SNAP25_Encephalopathy` (69.1), `Epilepsy_of_Infancy_with_Migrating_Focal_Seizures`
+(69.3), `Pyridoxine-Dependent_Epilepsy` (69.8), `PCDH19_Clustering_Epilepsy` (69.9),
+`PNPO_Deficiency` (69.9), `Epilepsy_with_Myoclonic_Atonic_Seizures` (69.9),
+`Mesial_Temporal_Lobe_Epilepsy_with_Hippocampal_Sclerosis` (70.3),
+`KCNQ2_Developmental_and_Epileptic_Encephalopathy` (70.3),
+`Febrile_Infection-Related_Epilepsy_Syndrome` (70.5), `CPLX1-Related_DEE` (70.8).
 
-Shared gaps (missing in 10-12 of the 12): `environmental`, `histopathology`,
-`definitions`, `epidemiology`, `experimental_models`, `classifications`,
-`datasets`, `biochemical`. The cluster shares a literature base and an ILAE
-classification vocabulary, so curating them as one tranche is far cheaper than
-one at a time — and `classifications` in particular is close to mechanical once
-the ILAE mapping is settled.
+Shared gaps: `environmental`, `histopathology`, `definitions`, `epidemiology`,
+`experimental_models`, `classifications`, `datasets`, `biochemical`. The cluster
+shares a literature base and the ILAE classification vocabulary, so it is far
+cheaper as one tranche — `classifications` in particular is near-mechanical once
+the ILAE mapping is settled once.
 
 - [ ] Settle the ILAE classification mapping once, then backfill `classifications` across all 12
-- [ ] Backfill `definitions` (EHR/OMOP phenotype algorithms) for the cluster — see the `create-definitions-from-ohdsi` skill
+- [ ] Backfill `definitions` (EHR/OMOP phenotype algorithms) — see the `create-definitions-from-ohdsi` skill
 - [ ] Backfill `epidemiology` + `prevalence` from a shared incidence source
-- [ ] Sweep `datasets` with `just discover-datasets` per entry, then `just verify-datasets`
-- [ ] Add `experimental_models` / `animal_models` with `modeled_mechanisms` links (the SCN2A/SCN8A/GNAO1 entries have well-known mouse models)
+- [ ] Sweep `datasets` with `just discover-datasets`, then `just verify-datasets`
+- [ ] Add `animal_models` with `modeled_mechanisms` links — **blocked on #8320**, which invalidates 229 files carrying unnamed animal models
 
-### Structural cardiac (7 of the bottom 30)
+### Structural and inflammatory cardiac (6 of the bottom 30)
 
-`Coarctation_of_the_Aorta` (59.7), `Aortic_Valve_Stenosis` (63.9),
-`Mitral_Valve_Prolapse` (64.3), `Tetralogy_of_Fallot` (65.8),
-`Ventricular_Septal_Defect` (66.0), `Pericarditis` (66.0),
-`Infective_Endocarditis` (65.9).
+`Tetralogy_of_Fallot` (61.9 — now the lowest-scoring entry in the KB),
+`Pericarditis` (63.9), `Infective_Endocarditis` (64.4),
+`Rheumatic_Heart_Disease` (66.1), `Hypoplastic_Left_Heart_Syndrome` (67.9),
+`Familial_Atrial_Fibrillation` (69.8).
 
 Shared gaps: `datasets`, `clinical_trials`, `histopathology`, `definitions`,
-`biochemical`. `Mitral_Valve_Prolapse` is the weakest (14 sections absent,
-including `diagnosis`, `inheritance` and `prevalence`).
+`biochemical`. Congenital-heart trials are well registered on ClinicalTrials.gov,
+so `clinical_trials` is the cheapest win here.
 
-- [ ] Bring `Mitral_Valve_Prolapse` up to the cluster baseline first
-- [ ] Backfill `clinical_trials` across the cluster — congenital-heart trials are well registered on ClinicalTrials.gov
-- [ ] Backfill `histopathology` (valve/myocardial pathology is well described)
+- [ ] Backfill `clinical_trials` across the cluster
+- [ ] Backfill `histopathology` — valve and myocardial pathology is well described
+- [ ] `Tetralogy_of_Fallot` first: it is the lowest-scoring entry in the KB
 
-`Sturge-Weber_Syndrome` (56.1) sits in the bottom 10 but belongs to neither
-cluster; it needs its own pass.
+### Molecularly stratified oncology (8 of the bottom 30) — new
+
+`Uveal_Melanoma` (65.9), `FGFR_Altered_Cholangiocarcinoma` (69.3),
+`Diffuse_Large_B_Cell_Lymphoma` (69.7), `Kaposi_Sarcoma` (69.9),
+`IDH_Mutant_Cholangiocarcinoma` (70.3), `IDH_Mutant_Astrocytoma` (70.6),
+`RET_Fusion_Thyroid_Cancer` (70.8), `Li-Fraumeni_Syndrome` (70.9).
+
+This cluster did not exist at the first pass and is worth reading together with
+the over-broad-anchor finding in #10679: the L4 biomarker-stratum entries
+(`IDH_Mutant_AML`, and the three colorectal strata) are exactly the entries that
+anchor a parent MONDO term without the `skos:narrowMatch` mapping design decisions
+L4 requires. Low compliance and loose anchoring look like the same underlying
+thing — these entries were split out of a parent quickly and not finished.
+
+- [ ] Audit the molecular-stratum entries against design decisions L4 — anchor plus `narrowMatch` mapping, or fold back into the parent
+- [ ] Then backfill the shared gaps rather than treating them as eight separate jobs
+
+`Sturge-Weber_Syndrome` (62.7) and `Beare-Stevenson_Cutis_Gyrata_Syndrome` (65.9)
+sit in the bottom 10 and belong to no cluster; each needs its own pass.
 
 ---
 
 ## Workstream 4 — Outstanding entries from the original disease list
-
-> ⚠️ **Stale — derived from the 2026-08-13 tree, not re-derived against current `main`.** Counts are lower bounds; entries named here may already be curated.
 
 **177 rows still outstanding** of the 431 on `initial-diseases.tsv`
 (207 were flagged as candidates; 30 have been curated since that file was
