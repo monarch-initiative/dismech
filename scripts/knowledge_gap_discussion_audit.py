@@ -65,7 +65,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 # Imported after the sys.path insertion above, so it resolves from src/.
-from dismech.yaml_io import safe_load_path  # noqa: E402
+from dismech.yaml_io import safe_load_path
 
 #: KB subtrees whose entries may carry ``discussions:``.
 _KB_GLOBS = (
@@ -104,7 +104,7 @@ _STRICT_STATES = ("BARE_EXPERIMENT_TARGET", "RESOLVED_NO_NOTE")
 _RETIRED_GRADE = re.compile(r"\bPARTIAL\b")
 
 
-def _iter_evidence(discussion: dict) -> "Iterator[dict]":
+def _iter_evidence(discussion: dict) -> Iterator[dict]:
     """Every evidence item under one discussion, at any depth.
 
     Discussion-level ``evidence`` is only part of it: a proposed experiment
