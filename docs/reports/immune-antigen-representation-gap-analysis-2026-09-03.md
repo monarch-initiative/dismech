@@ -10,9 +10,9 @@ with `scripts/immune_antigen_audit.py`; nothing here is gated, and no KB or
 schema file was changed.
 
 ```bash
-uv run python scripts/immune_antigen_audit.py                        # the summary below
-uv run python scripts/immune_antigen_audit.py --format tsv --out /tmp/antigen.tsv
-uv run python scripts/immune_antigen_audit.py --entry Celiac_Disease
+just immune-antigen-audit                                            # the summary below
+just immune-antigen-audit --format tsv --out /tmp/antigen.tsv
+just immune-antigen-audit --entry Celiac_Disease
 ```
 
 ---
@@ -20,23 +20,44 @@ uv run python scripts/immune_antigen_audit.py --entry Celiac_Disease
 ## The finding in one line
 
 **The schema has no antigen concept.** The string `antigen` does not appear once
-in any of the seven files under `src/dismech/schema/` — not as a class, not as a
-slot, not as an enum value. Every antigen in the knowledge base is free text.
+in any of the 21 files under `src/dismech/schema/` (7 at the top level plus 14
+under `classifications/`) — not as a class, not as a slot, not as an enum value.
+Every antigen in the knowledge base is free text.
 
-The measurable consequence: of the **3,122 objects** across the immune cohort
-that name an antigen in prose, **2,967 (95.0%)** carry no `cell_types` at all.
-For the overwhelming majority of antigen mentions, *which lymphocyte sees this
-antigen* is not recoverable from structure — only by reading the sentence.
+The measurable consequence, stated over the denominator that can actually carry
+the answer: **only three classes own a cell-type slot** — `Pathophysiology`,
+`Biochemical` and `ExperimentalModel` (plus `FunctionalEffect.affected_cell_types`).
+Of the 3,122 objects that name an antigen, **428 are instances of one of those
+classes, and 274 of them (64.0%) name no B, T or antigen-presenting lineage.**
+So for roughly two thirds of the antigen mentions that *could* say which
+lymphocyte sees the antigen, the answer is not recorded and can only be had by
+reading the sentence.
 
-| Antigen-naming objects | Count | Share |
+| Antigen-naming objects in a class that can own a cell-type slot | Count | Share |
+|---|---:|---:|
+| naming a B, T or antigen-presenting lineage | 154 | 36.0% |
+| **naming none** | **274** | **64.0%** |
+
+The remaining **2,694 (86.3% of 3,122)** are evidence items, treatments,
+phenotypes, references, `genetic` rows and descriptors — classes with no
+cell-type slot at all. For those, an absent lineage is not a curation gap, it is
+structurally impossible, so they are excluded from the rate above.
+
+Counted across *all* 3,122 objects the figure is 2,967 (95.0%) with no lineage,
+of which 2,892 have an empty or absent cell-type slot and 75 have one naming a
+non-lymphoid cell. That number is real but inflated by its denominator; 64% is
+the one a design decision should be taken on.
+
+| Antigen-naming objects (all 3,122) | Count | Share |
 |---|---:|---:|
 | with a B-lineage cell type | 58 | 1.9% |
 | with a T-lineage cell type | 87 | 2.8% |
 | with an antigen-presenting cell | 49 | 1.6% |
-| **with no `cell_types` whatsoever** | **2,967** | **95.0%** |
+| no B/T/APC lineage — cell-type slot empty or absent | 2,892 | 92.6% |
+| no B/T/APC lineage — slot set, names a non-lymphoid cell | 75 | 2.4% |
 
-Per entry, the picture is the same: of the 323 immune-cohort entries that name
-an antigen anywhere, **226 (70%) attribute none of them to a B or T lineage**.
+Per entry: of the 323 immune-cohort entries that name an antigen anywhere,
+**226 (70%) attribute none of them to a B or T lineage**.
 
 ---
 
@@ -117,7 +138,7 @@ biochemical:
 ```
 
 This is a real improvement over a bare string, and HPO supports it further than
-the KB uses it — **32 HP terms with `antibody` in the label are already in
+the KB uses it — **33 HP terms with `antibody` in the label are already in
 `cache/hp/terms.csv`** (`HP:0030057 Autoimmune antibody positivity` is the
 parent), covering ANA, anti-dsDNA-adjacent, ANCA/MPO/PR3, anti-Ro/SS-A,
 anti-cardiolipin, anti-β2GPI, anti-MuSK and more. Three entries use them.
@@ -203,45 +224,62 @@ the antigen set *changes over time* — has no antigens to spread between.
 
 ## 5. Senses 3 and 4 — HLA restriction and surface markers
 
-**HLA.** 1,289 prose mentions. 106 cohort entries mention HLA; **48 bind an
-`HLA-*` gene via `gene_term`**, so 58 do not. The split is not random — it
-correlates with nothing, and the entries missing the binding include the two
-diseases where HLA restriction *is* the mechanism:
+**HLA, and why almost none of it is backfillable.** 1,289 prose mentions across
+106 cohort entries; 48 entries bind an `HLA-*` gene via `gene_term`. At the row
+level there are 100 `genetic` rows naming HLA, of which 59 are bound and 41 are
+not.
 
-| Entry | HLA rows | `gene_term` bound? |
-|---|---|---|
-| `Celiac_Disease` | HLA-DQ2, HLA-DQ8 | **no** |
-| `Type_I_Diabetes` | HLA-DQ2, HLA-DQ8 | **no** |
-| `Pemphigus_Vulgaris` | HLA-DRB1\*04, HLA-DRB1\*14, HLA-DQB1\*0503 | **no** |
-| `Systemic_Lupus_Erythematosus` | HLA-DR2, HLA-DR3 | **no** |
-| `Multiple_Sclerosis`, `Rheumatoid_Arthritis`, `Graves_Disease` | HLA-DRB1 | yes (`hgnc:4948`) |
-| `Anti-GBM_Disease` | HLA-DRB1 (DR15 / DRB1\*15:01) | yes |
+The unbound 41 look like a backlog and are not one. **Not a single one names an
+HGNC gene symbol:**
 
-Two further problems are visible in that table. Serological and allele-level
-designations (`HLA-DQ2`, `HLA-DR3`, `DRB1*15:01`) have no home: they are not
-HGNC genes, so they get typed into `name` as free text. And even where the gene
-binds, the binding loses the allele — `hgnc:4948` is *HLA-DRB1*, which cannot
+| Of the 41 unbound HLA rows, the name is | Rows |
+|---|---:|
+| an HGNC gene symbol (`HLA-DRB1`, `HLA-B`, …) — bindable | **0** |
+| a serotype (`HLA-DQ2`, `HLA-B27`, `HLA-DR3`), an allele (`HLA-DRB1*03:01`, `HLA-DQB1*06:02`), a haplotype (`HLA-DR3-DQ2`) or a region | **41** |
+
+A serotype is not a gene. `HLA-DQ2` is a serological specificity carried by an
+HLA-DQA1/HLA-DQB1 haplotype, so there is no single HGNC identifier that means
+it, and binding one would assert something false. Six of the 41 rows say exactly
+this in their own `notes`, and the two entries where HLA restriction *is* the
+mechanism are among them:
+
+> `Celiac_Disease` — "No gene_term is bound because DQ2 is a serotype encoded by
+> an HLA-DQA1/HLA-DQB1 haplotype rather than a single gene."
+
+> `Type_I_Diabetes` — "HLA-DQ2 is a haplotype-level risk label, not a single
+> HGNC-resolvable gene."
+
+That is the [ontology term contract](../../CLAUDE.md) working as intended — no
+term beats a bad one — and it is prior art, not a gap. The other 35 unbound rows
+have no such note, but they are the same *kind* of name; what they are missing
+is the written-down reasoning, not a binding.
+
+The real gap here is a different one, and no amount of `gene_term` backfill
+touches it: **the KB has nowhere to put a serotype, an allele or a haplotype.**
+`HLA-DQ2`, `HLA-B27` and `DRB1*15:01` are typed into a free-text `name` because
+`GeneDescriptor` binds HGNC genes and nothing binds an HLA allele. Even where a
+gene does bind, it loses the allele — `hgnc:4948` is *HLA-DRB1*, which cannot
 distinguish the DR15 haplotype of anti-GBM disease from the shared-epitope
-DRB1\*04 of RA. **Nowhere in the KB is a peptide linked to the allele that
-presents it.**
+DRB1\*04 of rheumatoid arthritis. **Nowhere in the KB is a peptide linked to the
+allele that presents it.**
 
-**Surface / lineage markers.** These divide sharply by whether a CL term
-happens to encode them:
+**Surface / lineage markers.** These divide sharply by whether a CL term happens
+to encode them. Counted over the immune cohort, by whether the marker appears in
+a curated identity field (`name` / `preferred_term` / `label`) or in prose:
 
-| Marker | Total mentions | In `name` / `preferred_term` / `label` | In prose (`description`/`snippet`/`explanation`/…) |
+| Marker | Mentions | In an identity field | In prose |
 |---|---:|---:|---:|
-| CD4 | 1,080 | 257 (24%) | 823 |
-| CD8 | 988 | 243 (25%) | 745 |
-| CD3 | 198 | 4 (2%) | 194 |
-| CD19 | 172 | 11 (6%) | 161 |
-| CD20 | 167 | 4 (2%) | 163 |
+| CD4 | 952 | 226 (23.7%) | 726 |
+| CD8 | 737 | 183 (24.8%) | 554 |
+| CD3 | 141 | 3 (2.1%) | 138 |
+| CD20 | 140 | 4 (2.9%) | 136 |
+| CD19 | 104 | 4 (3.8%) | 100 |
 
-CD4 and CD8 are well represented, but only as a side effect: they ride along
+CD4 and CD8 are the best-represented, but only as a side effect: they ride along
 inside CL labels such as `CD8-positive, alpha-beta T cell`. CD19, CD20 and CD3 —
 the B-lineage and pan-T markers, and the ones that matter for therapy — have no
 CL term to ride on and are therefore almost entirely prose. **79 entries mention
-rituximab**; the CD20 it depletes is a sentence in a `description`, not a
-target.
+rituximab**; the CD20 it depletes is a sentence in a `description`, not a target.
 
 ## 6. Worked exemplars
 
@@ -257,7 +295,7 @@ the entry actually holds:
   and `Autoantibody Production` (cell type: `Plasma Cell`) — the two lineages are
   correctly separated into distinct nodes, and **neither node names its antigen**.
 - `biochemical`: `Anti-tTG IgA`, `Anti-Endomysial Antibodies`, `Anti-DGP
-  Antibodies` — three unbound strings, `biomarker_term: null` on all three. Note
+  Antibodies` — three unbound strings, with no `biomarker_term` key on any of them. Note
   `Anti-DGP` is a *B-cell* readout of the *T-cell* antigen; nothing records that.
 - `genetic`: TGM2, the B-cell autoantigen, is **absent**. The block holds
   HLA-DQ2 and HLA-DQ8 with `gene_term: null`, plus ten bound susceptibility
@@ -318,7 +356,7 @@ Nothing here requires a new ontology.
 | Antigen as a small molecule / hapten | `ChemicalEntityDescriptor` (CHEBI) |
 | Dietary or environmental antigen | `ExposureDescriptor` (ECTO), `FoodDescriptor` (FOODON) |
 | Seropositivity | 32 cached HP autoantibody-positivity terms under `HP:0030057` |
-| Recognising lineage | CL bindings already on 531 pathophysiology nodes in the cohort |
+| Recognising lineage | B/T-lineage CL bindings already on 531 cohort pathophysiology nodes (2,158 carry some `cell_types`) |
 | Attaching an antigen to a node | the `<kind>#<name>` entity-reference grammar |
 | Recording *how* an antigen acts | the `ModelMechanismLink` / `influences_mechanisms` link-object pattern |
 
@@ -338,8 +376,11 @@ free.
   the 105 unbound autoantibody strings could equally be addressed by binding
   them to existing HP terms with no schema change at all.
 - **Which sense of "different antigens" matters most.** All four are gaps, but
-  they are not equally expensive: HLA `gene_term` backfill for 57 entries is
-  mechanical; peptide-to-allele restriction is a genuinely new modelling problem.
+  they are not equally expensive. Note that the one that *looked* mechanical is
+  not: §5 shows all 41 unbound HLA rows name a serotype, allele or haplotype
+  rather than a gene, so there is no `gene_term` backfill to do — the HLA work
+  is the genuinely new modelling problem (somewhere to put an allele, and a
+  peptide-to-allele link), not a sweep.
 - **Whether an unbound antigen is a defect.** Many are correctly unbound —
   `Anti-Endomysial Antibodies` names a *tissue staining pattern*, not a molecule,
   and forcing a CURIE onto it would be worse than leaving it. The
@@ -347,9 +388,25 @@ free.
 
 ## 9. Method and caveats
 
-`scripts/immune_antigen_audit.py`, offline, ~4 min over `kb/disorders/` and
-`kb/modules/`.
+`scripts/immune_antigen_audit.py` (`just immune-antigen-audit`), offline, over
+`kb/disorders/` and `kb/modules/`. Runtime is hardware-bound: ~70 s on a CI
+runner, ~3 min 40 s on a throttled container.
 
+- **Only three classes can answer the lineage question, and the headline is
+  reported over those.** `cell_types` is a slot on `Pathophysiology`,
+  `Biochemical` and `ExperimentalModel` only (`FunctionalEffect` has
+  `affected_cell_types`). An evidence item or a treatment cannot record a
+  lineage, so counting its silence as a gap inflates the rate: 2,694 of the
+  3,122 antigen-naming objects (86.3%) are of such classes. The 64% figure is
+  taken over the 428 that could carry the slot; the 95% figure over all 3,122 is
+  reported alongside it and is a denominator artifact. Eligibility is decided by
+  path (`pathophysiology[N]`, `biochemical[N]`, `experimental_models[N]`),
+  because the walker sees raw mappings with no class information — so a nested
+  object such as `pathophysiology[0].downstream[1]` is correctly treated as
+  ineligible.
+- **"No lineage" is not the same as "no cell types".** Of the 2,967 objects with
+  no B/T/APC lineage, 2,892 have an empty or absent cell-type slot and 75 have
+  one that names a non-lymphoid cell. The script reports these separately.
 - **The cohort is a keyword union, not an ontology closure.** No MONDO descendant
   query was run (that needs the MONDO build). 263 of 573 entries are in the cohort
   because their prose says "autoimmune". False positives are certain — an entry
@@ -361,8 +418,16 @@ free.
   absent, `biomarker_term` bound or not) are exact.
 - **Lineage is matched on curated CL labels by substring**, not by CL closure, so
   a node bound to an unusual CL term whose label omits "B cell" / "T cell" is
-  counted as unattributed. This biases the 95% figure *upward* slightly; the
-  correction is bounded by the 20 uses of the ambiguous `CL:0000542 lymphocyte`.
+  counted as unattributed. This biases both unattributed figures *upward*
+  slightly; the correction is bounded by the 20 uses of the ambiguous
+  `CL:0000542 lymphocyte`.
+- **The HLA row classification is a name test, not a curator's judgement.** A
+  row counts as bindable only when its `name` is exactly an HGNC HLA gene symbol;
+  serotypes, alleles, haplotypes and region descriptions are counted as not
+  bindable. "Explained" means the row's `notes` say why it is unbound, matched on
+  wording — a row could be deliberate without using those words. One row
+  (`Juvenile_Idiopathic_Arthritis` — "Non-HLA immune-susceptibility genes…")
+  matches the HLA substring while being about the opposite, and is counted.
 - **Attribution is scored on the antigen-naming object itself**, not on its
   parent or siblings. A node whose `description` names an antigen while a sibling
   node carries the B cell counts as unattributed — correctly, since no relation
