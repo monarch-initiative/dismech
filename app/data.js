@@ -74460,6 +74460,84 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Cyanosis Transient Neonatal",
+    "disease_id": "MONDO:0013511",
+    "category": "Mendelian",
+    "parents": [
+      "Hematological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Toms River"
+    ],
+    "description": "Autosomal dominant missense variants in the fetal Ggamma-globin gene HBG2 produce an abnormal fetal hemoglobin (HbF, alpha2gamma2) that either binds oxygen with low affinity or stabilizes the ferric heme iron as an M-hemoglobin, causing neonatal cyanosis with or without transient hemolytic anemia. Because the defect resides in the gamma-globin chain, the disorder is self-limited: as physiological gamma-to-beta (fetal-to-adult) hemoglobin switching completes over the first months of life, the variant HbF fraction falls and the cyanosis resolves.",
+    "pathophysiology": [
+      "Variant Gamma-Globin in Fetal Hemoglobin",
+      "Methemoglobin M-Hemoglobin Formation",
+      "Low Oxygen Affinity of Fetal Hemoglobin",
+      "Fetal Hemoglobin Instability and Denaturation",
+      "Impaired Fetal Oxygen Transport",
+      "Fetal-to-Adult Gamma-to-Beta Hemoglobin Switching",
+      "Spontaneous Resolution of Cyanosis"
+    ],
+    "cell_types": [
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "hemoglobin biosynthetic process",
+      "response to oxidative stress",
+      "oxygen transport",
+      "hemoglobin metabolic process"
+    ],
+    "phenotypes": [
+      "Cyanosis",
+      "Methemoglobinemia",
+      "Hypoxemia",
+      "Anemia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Integument",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000961",
+      "HP:0012119",
+      "HP:0012418",
+      "HP:0001903"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HBG2"
+    ],
+    "treatments": [
+      "Supportive Care and Reassurance",
+      "Erythrocyte Transfusion",
+      "Supplemental Oxygen",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Fetal hemoglobin fraction (HbF %)",
+      "Methemoglobin level",
+      "Oxygen affinity (P50)"
+    ],
+    "source_file": "Cyanosis_Transient_Neonatal.yaml",
+    "page_url": "../pages/disorders/Cyanosis_Transient_Neonatal.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Cyclosporiasis",
     "disease_id": "MONDO:0005725",
     "category": "Infectious Disease",
@@ -197239,6 +197317,111 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Peroxisome Biogenesis Disorder 11B",
+    "disease_id": "MONDO:0013950",
+    "category": "Mendelian",
+    "parents": [
+      "Peroxisome Biogenesis Disorder"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Peroxisome biogenesis disorder 11B is the OMIM designation for the milder end of the PEX13 disease spectrum, corresponding to the presentations historically called neonatal adrenoleukodystrophy and infantile Refsum disease rather than classic Zellweger syndrome. It shares its gene and its core mechanism with peroxisome biogenesis disorder 11A and is separated from it by disease severity, not by a different lesion.\nPEX13 encodes a peroxin of the docking/translocation module. It first homodimerises and then binds PEX14 to assemble the module at the peroxisomal membrane, which is where a cargo-loaded PTS receptor arrives. Loss of function therefore blocks import of peroxisomal matrix proteins, and the downstream metabolic consequences run in two directions: very-long-chain fatty acids, phytanic and pipecolic acid and bile acid intermediates accumulate because peroxisomal oxidation fails, while plasmalogens are not made. PEX13 is one of the rarest ZSD genes - PEX1 and PEX6 together account for about three quarters of cases.\nTwo mechanistic findings specific to this locus are worth curating rather than generalising from the wider ZSD literature. The recurrent p.Arg294Trp variant sits in the SH3 domain at a residue implicated in homodimerisation, and docking analysis predicts it destabilises the PEX13/PEX14 translocation module rather than abolishing the protein. And patient muscle and fibroblasts show mitochondrial mislocalisation and biochemical abnormalities of mitochondrial function alongside a reduced number of peroxisomes, which has raised secondary mitochondrial dysfunction as a contributing mechanism rather than an incidental finding.\nThe clinical picture at this end of the spectrum lacks the congenital malformations of severe ZSD. Instead there is progressive peroxisomal failure: sensorineural hearing loss and retinal dystrophy, ataxia, polyneuropathy and leukodystrophy, hepatic dysfunction, adrenal insufficiency and renal oxalate stones. Hypotonia and developmental delay are usual, but intellect can be normal.\nA nosological caveat belongs on the front of this entry rather than buried in it. GeneReviews states that the term Zellweger spectrum disorder is now used for all individuals with a ZSD-PEX gene defect regardless of phenotype, precisely because the Zellweger syndrome / neonatal adrenoleukodystrophy / infantile Refsum disease divisions predate the biochemical and molecular understanding of the spectrum. The 11A versus 11B split preserved by OMIM and MONDO is that superseded division applied to one gene. This entry is curated as the milder-end entity to match the ontology and the existing 11A entry, and the alternative - a single PEX13-related ZSD entry with severity subtypes - is recorded as an open question rather than silently taken.",
+    "pathophysiology": [
+      "PEX13 Hypomorphic Deficiency",
+      "Impaired Docking Translocation Module Assembly",
+      "Failed Peroxisomal Matrix Protein Import",
+      "Peroxisomal Metabolic Failure",
+      "Pexophagy of Import-Incompetent Peroxisomes",
+      "Plasmalogen Deficiency",
+      "Secondary Mitochondrial Dysfunction"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "protein import into peroxisome matrix",
+      "very long-chain fatty acid catabolic process",
+      "pexophagy",
+      "PEX5 ubiquitination",
+      "ether lipid biosynthetic process"
+    ],
+    "phenotypes": [
+      "Leukodystrophy",
+      "Hypotonia",
+      "Developmental regression",
+      "Spasticity",
+      "Seizure",
+      "Osteopenia",
+      "Sensorineural hearing impairment",
+      "Retinal dystrophy",
+      "Ataxia",
+      "Polyneuropathy",
+      "Adrenal insufficiency",
+      "Decreased liver function",
+      "Nephrolithiasis",
+      "Amelogenesis imperfecta"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Skeletal",
+      "Otologic",
+      "Ophthalmologic",
+      "Endocrine",
+      "Hepatic",
+      "Renal",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002415",
+      "HP:0001252",
+      "HP:0002376",
+      "HP:0001257",
+      "HP:0001250",
+      "HP:0000938",
+      "HP:0000407",
+      "HP:0000556",
+      "HP:0001251",
+      "HP:0001271",
+      "HP:0000846",
+      "HP:0001410",
+      "HP:0000787",
+      "HP:0000705"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PEX13"
+    ],
+    "treatments": [
+      "Symptomatic and supportive care",
+      "Cholic acid supplementation",
+      "Adrenal replacement therapy",
+      "Multisystem surveillance",
+      "Renal oxalate stone management"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Very-long-chain fatty acids"
+    ],
+    "source_file": "Peroxisome_Biogenesis_Disorder_11B.yaml",
+    "page_url": "../pages/disorders/Peroxisome_Biogenesis_Disorder_11B.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Peroxisome Biogenesis Disorder 1B",
     "disease_id": "MONDO:0011101",
     "category": "Mendelian",
@@ -260708,17 +260891,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2528,
-  "total_subtypes": 3565,
-  "total_disorders_and_subtypes": 6093,
-  "total_unique_evidence_sources": 36167,
-  "total_unique_publications": 34035,
+  "total_disorder_pages": 2530,
+  "total_subtypes": 3566,
+  "total_disorders_and_subtypes": 6096,
+  "total_unique_evidence_sources": 36172,
+  "total_unique_publications": 34040,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2523,
-  "total_unique_pathological_events": 14716,
+  "total_pathographs": 2525,
+  "total_unique_pathological_events": 14727,
   "total_modules": 167,
-  "total_research_reports": 2648,
+  "total_research_reports": 2649,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
