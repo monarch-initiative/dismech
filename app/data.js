@@ -64346,6 +64346,135 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Coal Workers Pneumoconiosis",
+    "disease_id": "MONDO:0006654",
+    "category": "Environmental Lung Disease",
+    "parents": [
+      "Pneumoconiosis",
+      "Occupational Lung Disease"
+    ],
+    "creation_date": "2026-09-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Simple CWP",
+      "Complicated CWP",
+      "Rapidly Progressive Pneumoconiosis"
+    ],
+    "description": "Coal workers' pneumoconiosis (CWP, \"black lung\") is a preventable, progressive occupational interstitial lung disease caused by the inhalation and pulmonary retention of respirable coal mine dust \u2014 a heterogeneous mixture of coal, crystalline silica, and other silicate minerals. Particles reaching the distal airways are phagocytosed by alveolar macrophages, whose oxidative and inflammasome-driven response builds the coal macule: a pigmented, dust-laden macrophage collection with reticulin and collagen centred on the respiratory bronchiole, accompanied by focal emphysema. Macules aggregate into radiographically visible micronodules and nodules (simple CWP) and, with sufficient cumulative or silica-rich dust burden, coalesce into conglomerate masses one centimetre or larger \u2014 progressive massive fibrosis (PMF, complicated CWP), which can continue to progress after exposure ceases and ends in restrictive or mixed respiratory failure, pulmonary hypertension, and cor pulmonale. Early disease is typically asymptomatic and is detected only by radiographic surveillance. After decades of decline following the 1969 US Federal Coal Mine Health and Safety Act, CWP has resurged since the late 1990s, concentrated in central Appalachia, and contemporary severe cases carry markedly more crystalline silica than their historical counterparts \u2014 thin-seam mining requires cutting silica-bearing rock strata. There is no curative therapy; management is supportive, lung transplantation is the only definitive intervention for end-stage disease, and prevention through dust control and surveillance is paramount.",
+    "pathophysiology": [
+      "Respirable Coal Mine Dust Deposition and Retention",
+      "Silica-Enriched Dust Burden",
+      "Alveolar Macrophage Phagocytosis of Retained Dust",
+      "Reactive Oxygen Species Generation and Oxidative Injury",
+      "Macrophage Mitochondrial Dysfunction and Defective Mitophagy",
+      "Dust-Laden Macrophage Death",
+      "Alveolar and Small-Airway Tissue Injury",
+      "NF-kappaB and NLRP3 Inflammasome Activation",
+      "Sustained Inflammatory Cell Recruitment and Amplification",
+      "Alveolar Epithelial Injury and Epithelial-Mesenchymal Transition",
+      "Fibroblast Activation and Myofibroblast Differentiation",
+      "Peribronchiolar Collagen Deposition and Coal Macule Formation",
+      "Focal Centrilobular Emphysema",
+      "Nodule Coalescence into Progressive Massive Fibrosis",
+      "Impaired Gas Exchange and Mixed Ventilatory Defect"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "neutrophil",
+      "alveolar type II epithelial cell",
+      "lung fibroblast",
+      "myofibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0000775",
+      "CL:0002063",
+      "CL:0002553",
+      "CL:0000186"
+    ],
+    "biological_processes": [
+      "phagocytosis",
+      "reactive oxygen species metabolic process",
+      "mitophagy",
+      "apoptotic process",
+      "wound healing",
+      "NLRP3 inflammasome complex assembly",
+      "positive regulation of canonical NF-kappaB signal transduction",
+      "chronic inflammatory response",
+      "leukocyte migration",
+      "epithelial to mesenchymal transition",
+      "transforming growth factor beta receptor signaling pathway",
+      "extracellular matrix organization",
+      "collagen biosynthetic process"
+    ],
+    "phenotypes": [
+      "Pulmonary nodule",
+      "Pulmonary fibrosis",
+      "Exertional dyspnea",
+      "Chronic cough",
+      "Emphysema",
+      "Restrictive ventilatory defect",
+      "Airway obstruction",
+      "Hypoxemia",
+      "Elevated pulmonary artery pressure",
+      "Cor pulmonale"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0033608",
+      "HP:0002206",
+      "HP:0002875",
+      "HP:0034315",
+      "HP:0032966",
+      "HP:0002091",
+      "HP:0006536",
+      "HP:0012418",
+      "HP:0004890",
+      "HP:0001648"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "TNF",
+      "TGFB1",
+      "H19"
+    ],
+    "treatments": [
+      "Exposure Cessation and Dust Reduction",
+      "Supportive Respiratory Care",
+      "Pulmonary Rehabilitation",
+      "Long-Term Oxygen Therapy",
+      "Lung Transplantation",
+      "Antifibrotic Therapy"
+    ],
+    "environmental": [
+      "Occupational inhalation of respirable coal mine dust",
+      "Cigarette smoking"
+    ],
+    "biochemical": [
+      "Serum Krebs von den Lungen-6 (KL-6)",
+      "Serum osteopontin",
+      "Serum syndecan-4",
+      "Serum gremlin-1"
+    ],
+    "source_file": "Coal_Workers_Pneumoconiosis.yaml",
+    "page_url": "../pages/disorders/Coal_Workers_Pneumoconiosis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 15,
+    "num_genes": 3,
+    "num_treatments": 6,
+    "causal_graph_edges": "47",
+    "causal_graph_longest_path": "14"
+  },
+  {
     "name": "Coarctation of the Aorta",
     "disease_id": "MONDO:0007345",
     "category": "Congenital",
@@ -184674,6 +184803,105 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Optic Atrophy 3",
+    "disease_id": "MONDO:0008133",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-08-29T20:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Optic atrophy 3 (OPA3), better known clinically as autosomal dominant optic atrophy and cataract (ADOAC), is a dominantly inherited mitochondrial optic neuropathy caused by heterozygous variants in OPA3, a nuclear gene encoding a small mitochondrial membrane protein. Retinal ganglion cells degenerate, producing early bilateral optic atrophy with reduced acuity and colour vision; cortical lens opacities appear in most affected individuals; and a minority develop a wider syndrome that can include sensorineural hearing loss, axonal peripheral neuropathy, gastrointestinal dysmotility and lipodystrophy.\nThe first thing to establish about this entry is which OPA3 disease it is, because the gene causes two. Heterozygous - almost always missense - variants cause this dominant optic-atrophy-plus-cataract disorder. Biallelic variants, which are enriched for loss of function, cause Costeff syndrome (3-methylglutaconic aciduria type III), a recessive infantile neuro-metabolic disease whose defining chorea and spastic paraparesis, and whose urinary organic-acid signature, are not features of this dominant disease. That is a statement about the two syndromes' defining features and not a claim that the dominant form is free of movement abnormality - extrapyramidal signs have been described in dominant families, and the notes below say what can and cannot be cited for them. The two are separate MONDO terms and separate entries; the allelic-class asymmetry has been quantified across all known OPA3 alleles and is the best current argument that the two phenotypes arise by different mechanisms rather than by dosage alone. Literature searches on \"OPA3\" return both, and reviews frequently describe them together, so any claim imported into this entry has to be traced back to a dominant pedigree.\nMechanistically OPA3 sits with OPA1, MFN2 and DNM1L in the group of dominant optic atrophies caused by mitochondrial-dynamics genes, and what the functional work shows is a fragmented network with reduced mitochondrial mass in patient fibroblasts, together with reduced steady-state levels of the mutant protein. Beyond that the account is thin: OPA3's normal molecular function is still not established, which is why the pathophysiology below stops at network morphology and retinal ganglion cell loss rather than naming a biochemical step.\nIt is a rare cause of a rare disease. OPA1 explains roughly three-quarters of dominant optic atrophy and OPA3 about one percent, and a 188-proband diagnostic series found no OPA3 defect at all. A single recurrent allele, c.313C>G p.(Gln105Glu), accounts for a large share of the reported families.",
+    "pathophysiology": [
+      "Heterozygous OPA3 Missense Variant",
+      "Reduced OPA3 Steady-State Levels and Mitochondrial Network Fragmentation",
+      "Retinal Ganglion Cell Degeneration",
+      "Lens Fibre Mitochondrial Dysfunction"
+    ],
+    "cell_types": [
+      "dermal fibroblast (patient-derived)",
+      "retinal ganglion cell",
+      "lens fiber cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000740",
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "mitochondrial fission",
+      "mitochondrion organization",
+      "neuron apoptotic process"
+    ],
+    "phenotypes": [
+      "Optic Atrophy",
+      "Cataract",
+      "Reduced Visual Acuity",
+      "Optic Disc Pallor",
+      "Colour Vision Defect",
+      "Sensorineural Hearing Impairment",
+      "Peripheral Axonal Neuropathy",
+      "Gastrointestinal Dysmotility",
+      "Autonomic Dysfunction",
+      "Recurrent Pancreatitis",
+      "Lipodystrophy"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological",
+      "Audiological",
+      "Neurological",
+      "Gastrointestinal",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000648",
+      "HP:0000518",
+      "HP:0007663",
+      "HP:0000543",
+      "HP:0000551",
+      "HP:0000407",
+      "HP:0003477",
+      "HP:0002579",
+      "HP:0012332",
+      "HP:0001733",
+      "HP:0009125"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "OPA3"
+    ],
+    "treatments": [
+      "Supportive Care and Low-Vision Rehabilitation",
+      "Cataract Extraction",
+      "Avoidance of Mitochondrial Toxins",
+      "Genetic Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Optic_Atrophy_3.yaml",
+    "page_url": "../pages/disorders/Optic_Atrophy_3.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Optic Neuritis",
     "disease_id": "MONDO:0005885",
     "category": "Neurological Disorder",
@@ -261423,17 +261651,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2535,
-  "total_subtypes": 3566,
-  "total_disorders_and_subtypes": 6101,
-  "total_unique_evidence_sources": 36231,
-  "total_unique_publications": 34099,
+  "total_disorder_pages": 2537,
+  "total_subtypes": 3569,
+  "total_disorders_and_subtypes": 6106,
+  "total_unique_evidence_sources": 36271,
+  "total_unique_publications": 34138,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 270,
-  "total_pathographs": 2530,
-  "total_unique_pathological_events": 14769,
+  "total_pathographs": 2532,
+  "total_unique_pathological_events": 14787,
   "total_modules": 167,
-  "total_research_reports": 2652,
+  "total_research_reports": 2654,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
