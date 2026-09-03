@@ -599,11 +599,17 @@ validate-groupings:
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}
 
+# Report the declared grouping-of-grouping tree plus undeclared member-set
+# containments between groupings (advisory; a containment is a lead, not a ruling)
+[group('QC')]
+grouping-nesting-audit *args="":
+    uv run python -m dismech.groupings --nesting {{args}}
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
-validate-terms-schema:
+validate-terms-schema *flags:
     @echo "Validating schema term references..."
-    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}}
+    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}} {{flags}}
 
 # OAK config for ontology adapters
 oak_config := "conf/oak_config.yaml"
@@ -1688,7 +1694,7 @@ export-cx2-all *args="":
         echo "Skipped $skipped disorder(s) with no pathograph edges"
     fi
 
-# Upload a single disorder pathograph to the NDEx test server as a public network.
+# Upload a single disorder pathograph to the NDEx test server as a private network.
 # Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
 # Examples:
 #   just upload-cx2-test kb/disorders/Stargardt_Disease.yaml
@@ -1697,7 +1703,7 @@ export-cx2-all *args="":
 upload-cx2-test file *args="":
     NDEX_HOST="${NDEX_TEST_HOST:-{{ndex_test_host}}}" uv run dismech-cx2 {{file}} --ndex-upload --ndex-replace-existing {{args}}
 
-# Upload all disorder pathographs to the NDEx test server as public networks.
+# Upload all disorder pathographs to the NDEx test server as private networks.
 # Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
 # Examples:
 #   just upload-cx2-test-all
@@ -3209,7 +3215,7 @@ cron-profile name:
 # ============== Deterministic PR auto-merge (pr-shepherd closing step) ==============
 
 # Report which open PRs the pr-shepherd auto-merge sweep would squash-merge:
-# approved, unassigned, conflict-free, green, and older than `days`.
+# approved, not human-assigned, conflict-free, green, and older than `days`.
 # Example: just auto-merge-preview 3
 [group('Auto-merge')]
 auto-merge-preview days='3':

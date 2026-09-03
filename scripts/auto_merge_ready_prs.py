@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministically squash-merge pull requests that are ready by every signal.
+"""Deterministically merge or enqueue PRs that are ready by every signal.
 
 This runs in the ``pr-shepherd`` workflow's fresh closing job, isolated from the
 LLM runner. The shepherd agent *judges* stuck PRs; this controller deliberately
@@ -10,31 +10,28 @@ A PR is merged only when ALL of these hold:
 
 - open and targeting the expected base branch (``main``); a draft is treated as
   queue metadata and promoted immediately before the final verification
-- **unassigned** — ``assignees`` is empty
+- **not human-assigned** — bot/agent assignees do not hold a PR
 - **reviewer approved** — ``reviewDecision == "APPROVED"``
 - **no conflicts** — ``mergeable == "MERGEABLE"``
 - **green** — ``mergeStateStatus == "CLEAN"`` (GitHub's configured protection
-  rules are satisfied). Because required checks are non-strict, this alone does
-  *not* prove the branch includes current main; an explicit compare does that
-  below.
+  rules are satisfied). The PR branch is not required to contain current
+  ``main``. The active merge queue tests that integration on a temporary
+  merge-group commit; if the queue is disabled, direct loose merging remains
+  intentional repository policy.
 - **tests passing** — the head commit's status-check rollup has at least one
   SUCCESS and nothing failing, cancelled, or still running. This is stricter
   than ``CLEAN``, which only accounts for *required* checks: a failing
   non-required check also blocks the merge here.
 - **older than N days** (default 3), measured from ``createdAt``
-- the required GitHub Actions-owned health check succeeded on the exact current
-  base SHA, GitHub's compare API proves that SHA is an ancestor of the PR head,
-  and the base remains current after the final PR-state read
-- the head branch is not in a separately managed ``auto/`` lane
 
 Anything else — including ``mergeable == "UNKNOWN"`` once GitHub has had its
 chance to compute mergeability — is skipped with a recorded reason. Skipping is
 always safe: the workflow runs hourly and will reconsider the PR.
 
-Escape hatch: **assign the PR to someone.** The unassigned criterion is the
-per-PR veto — an assigned PR is somebody's active work and is never merged
-here. Requesting changes also blocks the merge. Draft state deliberately does
-not: opening a PR places it in DisMech's review queue.
+Escape hatch: **assign the PR to a human.** Human assignment is the per-PR veto.
+Bot or agent assignment is routing metadata and does not hold a PR. Requesting
+changes also blocks the merge. Draft state deliberately does not: opening a PR
+places it in DisMech's review queue.
 
 Two things about "approved" that are load-bearing here:
 
@@ -69,12 +66,11 @@ optimization; two independent forces require it:
 
 The list stage therefore defers the mergeability, merge-state, and status-check
 criteria rather than rejecting on them. Immediately before merging, the
-controller checks the required status on current main, performs a final PR read,
-and proves main still has that healthy SHA. It merges at most one PR per run, so
-serialization does not depend on GitHub immediately exposing the post-merge SHA.
-GitHub can atomically pin the expected PR head but offers no expected-base field;
-strict branch protection or a merge queue is required to eliminate the final
-narrow race after the last base read.
+controller performs a final PR read and pins the merge/enqueue operation to that
+verified head SHA. It deliberately does not require the PR head to contain the
+latest ``main`` commit. The active merge queue performs current-main integration
+testing on its temporary merge-group commit. If that queue is disabled, direct
+loose merging of the verified green PR remains intentional repository policy.
 
 Usage::
 
@@ -99,17 +95,15 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from urllib.parse import quote
 
 # Fields fetched for the initial scan; a superset is re-fetched per candidate.
 # `mergeStateStatus` is deliberately NOT here — see the module docstring.
 LIST_FIELDS = (
-    "number,title,author,isDraft,createdAt,assignees,reviewDecision,"
-    "mergeable,baseRefName,headRefName,url"
+    "number,title,isDraft,createdAt,assignees,reviewDecision,mergeable,baseRefName"
 )
-# headRefOid pins the reviewed head and is compared against the exact healthy
-# current-main SHA before merge. `baseRefOid` is intentionally absent: GitHub's
-# field is the PR's associated base-ref OID, not proof that the head contains it.
+# headRefOid pins the reviewed head for the merge request. `baseRefOid` is
+# intentionally absent: GitHub's field is the PR's associated base-ref OID, not
+# proof that the head contains it, and exact-base ancestry is not a policy gate.
 VIEW_FIELDS = LIST_FIELDS + ",state,statusCheckRollup,headRefOid,mergeStateStatus"
 
 # Check conclusions that do not count as a failure. SKIPPED/NEUTRAL are how
@@ -139,17 +133,36 @@ BENIGN_MERGE_FAILURES = (
 )
 
 # Status glyphs gh prefixes to its stderr lines, stripped for readability.
-GH_STATUS_MARKERS = ("X ", "! ", "✓ ")
+GH_WARNING_MARKER = "! "
+GH_STATUS_MARKERS = ("X ", GH_WARNING_MARKER, "✓ ")
 
 MERGE_COMMENT = (
     "🐑 **PR Shepherd** (deterministic sweep) — Squash-merged: approved, "
-    "unassigned, no conflicts, all checks green, and open longer than "
+    "no human assignee, no conflicts, all checks green, and open longer than "
     "{days} days. No further action needed."
 )
 
-DEFAULT_BASE_HEALTH_CHECK = "test (3.13)"
-DEFAULT_BASE_HEALTH_APP_ID = 15368  # GitHub Actions, matching branch protection
-AUTOMATED_HEAD_PREFIX = "auto/"
+ENQUEUE_COMMENT = (
+    "🐑 **PR Shepherd** (deterministic sweep) — Added to the merge queue: "
+    "approved, no human assignee, no conflicts, all checks green, and open "
+    "longer than {days} days. GitHub will test this PR against current "
+    "`main` and merge it if that passes; if it does not, this PR stops being "
+    "eligible and needs a look."
+)
+
+# GitHub Apps cannot normally be assignees. The retired Dragon machine identity
+# is a GitHub ``User``, however, so API object type alone cannot distinguish it
+# from a person. Keep repository-owned machine identities explicit and also
+# recognize GitHub's conventional ``[bot]`` suffix.
+NON_HUMAN_ASSIGNEE_LOGINS = frozenset(
+    {
+        "ai4c-agent",
+        "ai4c-reviewer",
+        "claude",
+        "dragon-ai-agent",
+        "github-actions",
+    }
+)
 
 
 # A PR that is merely too young needs no attention — it becomes eligible on its
@@ -165,47 +178,6 @@ class Decision:
     eligible: bool
     reason: str
     code: str = ""
-
-
-@dataclass(frozen=True)
-class BaseHealth:
-    """Health of the exact current base-branch commit."""
-
-    healthy: bool
-    sha: str
-    reason: str
-
-
-def base_alignment_decision(
-    comparison: dict, healthy_base_sha: str, head_sha: str
-) -> Decision:
-    """Require GitHub's comparison to prove current base is in the PR head."""
-    expected = healthy_base_sha.strip()
-    head = head_sha.strip()
-    if not expected:
-        return Decision(False, "current healthy base SHA is missing")
-    if not head:
-        return Decision(False, "PR response returned no head SHA")
-    if not isinstance(comparison, dict):
-        return Decision(False, "GitHub comparison response was not an object")
-
-    compared_base = str((comparison.get("base_commit") or {}).get("sha") or "")
-    merge_base = str((comparison.get("merge_base_commit") or {}).get("sha") or "")
-    try:
-        behind_by = int(comparison["behind_by"])
-    except (KeyError, TypeError, ValueError):
-        return Decision(False, "GitHub comparison returned no valid behind count")
-
-    if compared_base.casefold() != expected.casefold():
-        return Decision(False, "GitHub comparison returned the wrong base commit")
-    if merge_base.casefold() != expected.casefold() or behind_by != 0:
-        return Decision(
-            False,
-            f"PR head {head[:12]} does not contain current healthy base "
-            f"{expected[:12]} (merge base {merge_base[:12] or 'missing'}, "
-            f"behind by {behind_by})",
-        )
-    return Decision(True, f"PR head contains healthy base {expected[:12]}")
 
 
 def non_negative_int(value: str) -> int:
@@ -287,6 +259,19 @@ def check_rollup_decision(rollup: list[dict] | None) -> Decision:
     return Decision(True, f"{successes} check(s) passing")
 
 
+def is_human_assignee(assignee: dict) -> bool:
+    """Return whether an assignee represents a human hold on the PR.
+
+    Missing or unfamiliar identities fail closed as human. This lets known
+    repository automation use assignment as routing metadata without allowing
+    a typo or newly introduced machine account to silently remove a hold.
+    """
+    login = str(assignee.get("login") or "").strip().casefold()
+    if not login:
+        return True
+    return not (login.endswith("[bot]") or login in NON_HUMAN_ASSIGNEE_LOGINS)
+
+
 def evaluate(
     pr: dict,
     *,
@@ -318,13 +303,14 @@ def evaluate(
         return Decision(
             False, f"base branch is {pr.get('baseRefName')!r}, not {base_branch!r}"
         )
-    head_ref = str(pr.get("headRefName") or "")
-    if head_ref.startswith(AUTOMATED_HEAD_PREFIX):
-        return Decision(False, "head branch is in separately managed lane 'auto/'")
     assignees = pr.get("assignees") or []
-    if assignees:
-        logins = ", ".join(a.get("login", "?") for a in assignees)
-        return Decision(False, f"assigned to {logins}")
+    human_logins = [
+        str(assignee.get("login") or "?")
+        for assignee in assignees
+        if is_human_assignee(assignee)
+    ]
+    if human_logins:
+        return Decision(False, f"assigned to human(s): {', '.join(human_logins)}")
     review = (pr.get("reviewDecision") or "").upper()
     if review != "APPROVED":
         return Decision(
@@ -384,114 +370,32 @@ def _gh_error(exc: subprocess.CalledProcessError) -> str:
     Take the *first* non-empty line, not the last: when ``gh pr merge`` refuses
     a merge it puts the actionable sentence first and appends ``--auto`` and
     ``--admin`` hint lines, so the last line is advice rather than a diagnosis.
+
+    Lines ``gh`` marked as warnings ("! ...") are *deprioritized* rather than
+    dropped. On a queue-required branch ``gh`` prints a warning before doing
+    its work, so reporting the literal first line would attribute every
+    failure -- whatever its real cause -- to that warning. A warning is still
+    returned when it is all stderr contains, which is better than discarding
+    the only information available.
     """
+    warnings: list[str] = []
     for line in (exc.stderr or "").splitlines():
         cleaned = line.strip()
+        is_warning = cleaned.startswith(GH_WARNING_MARKER)
         # removeprefix, not lstrip: lstrip takes a character *set*, so it would
         # eat the leading "X" and "-" of a line like "X-Ratelimit is 0".
         for marker in GH_STATUS_MARKERS:
             cleaned = cleaned.removeprefix(marker)
         cleaned = cleaned.strip()
-        if cleaned:
-            return cleaned
+        if not cleaned:
+            continue
+        if is_warning:
+            warnings.append(cleaned)
+            continue
+        return cleaned
+    if warnings:
+        return warnings[0]
     return f"gh exited {exc.returncode}"
-
-
-def main_health_decision(
-    base_sha: str,
-    check_runs: list[dict] | None,
-    required_check: str,
-    required_app_id: int = DEFAULT_BASE_HEALTH_APP_ID,
-) -> BaseHealth:
-    """Require the latest named check to pass on exactly ``base_sha``."""
-    sha = base_sha.strip()
-    if not sha:
-        return BaseHealth(False, "", "base branch returned no head SHA")
-
-    matches = [
-        run
-        for run in check_runs or []
-        if str(run.get("name") or "") == required_check
-        and str(run.get("head_sha") or "").casefold() == sha.casefold()
-        and int((run.get("app") or {}).get("id") or 0) == required_app_id
-    ]
-    if not matches:
-        return BaseHealth(
-            False,
-            sha,
-            f"{required_check!r} has not reported on current base {sha[:12]}",
-        )
-
-    # Reruns can leave more than one check with the same name on one SHA. IDs
-    # are monotonically increasing; the newest attempt is authoritative.
-    latest = max(matches, key=lambda run: int(run.get("id") or 0))
-    status = str(latest.get("status") or "").casefold()
-    conclusion = str(latest.get("conclusion") or "").casefold()
-    if status != "completed":
-        return BaseHealth(
-            False,
-            sha,
-            f"{required_check!r} on current base {sha[:12]} is {status or 'pending'}",
-        )
-    if conclusion != "success":
-        return BaseHealth(
-            False,
-            sha,
-            f"{required_check!r} on current base {sha[:12]} concluded "
-            f"{conclusion or 'without a result'}",
-        )
-    return BaseHealth(
-        True,
-        sha,
-        f"{required_check!r} passed on current base {sha[:12]}",
-    )
-
-
-def get_base_sha(repo: str, base_branch: str) -> str:
-    """Read the current head SHA of ``base_branch`` from GitHub."""
-    branch = json.loads(
-        _gh(["api", f"repos/{repo}/branches/{quote(base_branch, safe='')}"])
-    )
-    sha = str((branch.get("commit") or {}).get("sha") or "")
-    if not sha:
-        raise ValueError("base branch response returned no head SHA")
-    return sha
-
-
-def get_base_alignment(repo: str, base_sha: str, head_sha: str) -> Decision:
-    """Ask GitHub whether ``head_sha`` actually contains ``base_sha``.
-
-    ``baseRefOid`` cannot answer this: it identifies the PR's associated base
-    ref, which may be newer than the branch's real merge base. The compare API
-    returns the graph relationship for the two exact commits.
-    """
-    base = base_sha.strip()
-    head = head_sha.strip()
-    if not base or not head:
-        return base_alignment_decision({}, base, head)
-    comparison_url = (
-        f"repos/{repo}/compare/{quote(base, safe='')}...{quote(head, safe='')}"
-    )
-    comparison = json.loads(_gh(["api", comparison_url]))
-    return base_alignment_decision(comparison, base, head)
-
-
-def get_base_health(
-    repo: str,
-    base_branch: str,
-    required_check: str,
-    required_app_id: int = DEFAULT_BASE_HEALTH_APP_ID,
-) -> BaseHealth:
-    """Read the exact base head and its latest check runs from GitHub."""
-    sha = get_base_sha(repo, base_branch)
-    check_runs_url = (
-        f"repos/{repo}/commits/{sha}/check-runs?filter=latest"
-        f"&check_name={quote(required_check, safe='')}&per_page=100"
-    )
-    checks = json.loads(_gh(["api", check_runs_url]))
-    return main_health_decision(
-        sha, checks.get("check_runs"), required_check, required_app_id
-    )
 
 
 def is_benign_merge_failure(stderr: str) -> bool:
@@ -572,18 +476,131 @@ def view_pr(
     return pr
 
 
+@dataclass(frozen=True)
+class QueueState:
+    """Whether a merge queue is in force on the base branch, and who is in it.
+
+    Both answers come from one read taken **once per run**, before the
+    candidate loop: queue-required is branch state, not per-PR state, and this
+    module works hard to keep the window between the final base check and the
+    write narrow. A per-merge lookup would widen exactly that window.
+
+    ``active`` is False when the lookup fails, keeping pre-queue behavior
+    rather than silently changing how merges are issued on a bad API day. A
+    null ``mergeQueue`` node is also False, and that is what makes this track
+    the break-glass pause: disabling the ruleset nulls the node (verified
+    against a scratch branch -- active returns an ``MQ_`` id, ruleset disabled
+    returns null).
+    """
+
+    active: bool
+    queued_pr_numbers: frozenset[int]
+    # False only when the read itself failed. Without this, "no queue in
+    # force" and "could not tell" are the same value, and an inert fix is
+    # indistinguishable from the starvation bug it was meant to remove.
+    readable: bool = True
+    truncated: int = 0
+
+    def summary_line(self) -> str:
+        """One line for the run report, so inertness is visible immediately."""
+        if not self.readable:
+            return (
+                "**Merge queue:** state unavailable — falling back to direct "
+                "merge. If a queue is in force on the base branch, queued PRs "
+                "will be reselected and re-enqueued."
+            )
+        if not self.active:
+            return "**Merge queue:** not in force on the base branch."
+        line = f"**Merge queue:** active, {len(self.queued_pr_numbers)} queued."
+        if self.truncated:
+            line += (
+                f" Only the first {len(self.queued_pr_numbers)} of "
+                f"{self.truncated} entries were read, so a queued PR beyond "
+                "that may be reselected."
+            )
+        return line
+
+
+def read_queue_state(repo: str, branch: str) -> QueueState:
+    """Read the base branch's merge-queue state in a single GraphQL call."""
+    owner, _, name = repo.partition("/")
+    query = (
+        "query($owner:String!,$name:String!,$branch:String!){"
+        "repository(owner:$owner,name:$name){mergeQueue(branch:$branch){id "
+        "entries(first:100){totalCount nodes{pullRequest{number}}}}}}"
+    )
+    try:
+        payload = _gh([
+            "api", "graphql",
+            "-f", f"owner={owner}", "-f", f"name={name}",
+            "-f", f"branch={branch}", "-f", f"query={query}",
+        ])
+        data = json.loads(payload)
+    except (subprocess.CalledProcessError, OSError, ValueError) as exc:
+        print(f"WARN  could not read merge-queue state: {exc}", file=sys.stderr)
+        return QueueState(False, frozenset(), readable=False)
+    if not isinstance(data, dict):
+        print("WARN  merge-queue read returned an unexpected shape",
+              file=sys.stderr)
+        return QueueState(False, frozenset(), readable=False)
+    repository = (data.get("data") or {}).get("repository") or {}
+    queue = repository.get("mergeQueue")
+    if not queue:
+        return QueueState(False, frozenset())
+    entries = queue.get("entries") or {}
+    nodes = entries.get("nodes") or []
+    numbers = {
+        int(entry["pullRequest"]["number"])
+        for entry in nodes
+        if isinstance(entry, dict) and (entry.get("pullRequest") or {}).get("number")
+    }
+    total = entries.get("totalCount")
+    truncated = total if isinstance(total, int) and total > len(nodes) else 0
+    if truncated:
+        # Truncation is only a missed skip, never a bad merge -- but say so
+        # rather than letting the page size silently bound correctness.
+        print(
+            f"WARN  merge queue holds {total} entries; only the first "
+            f"{len(nodes)} were read, so a queued PR beyond that may be "
+            "reselected",
+            file=sys.stderr,
+        )
+    return QueueState(True, frozenset(numbers), truncated=truncated)
+
+
 def merge_pr(
     repo: str,
     number: int,
     min_age_days: int,
     head_sha: str | None,
     write_token: str,
-) -> None:
-    """Squash-merge one PR, then announce it.
+    queued: bool = False,
+) -> bool:
+    """Squash-merge one PR -- or add it to the merge queue -- then announce it.
 
-    ``--match-head-commit`` makes GitHub reject the merge if a push landed
-    after the verification read, so the commit merged is provably the commit
-    whose checks and review state were evaluated.
+    ``--match-head-commit`` makes GitHub reject the operation if a push landed
+    after the verification read, so the commit acted on is provably the commit
+    whose checks and review state were evaluated. It pins the enqueued head
+    the same way it pins a direct merge: ``gh`` assigns it to
+    ``payload.expectedHeadOid`` before the queue branch.
+
+    With ``queued`` set, the base branch requires a merge queue and this
+    **enqueues** rather than merges: the PR is tested against current ``main``
+    on a temporary branch and merged only if that passes. So a successful call
+    no longer means "merged", and the announcement says so. A PR whose own
+    required checks have not yet passed is armed for auto-merge and enters the
+    queue when they do.
+
+    The strategy flag is dropped on that path for accuracy, not necessity.
+    ``gh`` only *warns* when given one on a queue-required branch and enqueues
+    anyway with exit status 0 (the ``// only warn for now`` branch of
+    ``mergeRun`` in ``cli/cli``, checked against gh 2.96.0). Passing
+    ``--squash`` there is harmless to the merge but not to diagnosis: ``gh``
+    prints that warning first, and ``_gh_error`` reports the first stderr
+    line, so every genuine failure would be misreported as the queue warning.
+
+    Returns whether the PR was enqueued rather than merged, so callers can
+    report the operation they actually performed.
     """
     verified_head = str(head_sha or "").strip()
     if not verified_head:
@@ -592,14 +609,9 @@ def merge_pr(
     if not writer:
         raise ValueError("refusing to merge without a dedicated write token")
     merge_cmd = [
-        "pr",
-        "merge",
-        str(number),
-        "--repo",
-        repo,
-        "--squash",
-        "--match-head-commit",
-        verified_head,
+        "pr", "merge", str(number), "--repo", repo,
+        *([] if queued else ["--squash"]),
+        "--match-head-commit", verified_head,
     ]
     _gh(merge_cmd, token=writer)
 
@@ -615,16 +627,19 @@ def merge_pr(
                 "--repo",
                 repo,
                 "--body",
-                MERGE_COMMENT.format(days=min_age_days),
+                (ENQUEUE_COMMENT if queued else MERGE_COMMENT).format(
+                    days=min_age_days
+                ),
             ],
             token=writer,
         )
     except subprocess.CalledProcessError as exc:
         print(
-            f"WARN  #{number}: merged, but posting the comment failed: "
-            f"{_gh_error(exc)}",
+            f"WARN  #{number}: {'enqueued' if queued else 'merged'}, but "
+            f"posting the comment failed: {_gh_error(exc)}",
             file=sys.stderr,
         )
+    return queued
 
 
 def mark_pr_ready(repo: str, number: int, write_token: str) -> None:
@@ -649,20 +664,39 @@ def render_summary(
     failed: list[dict],
     *,
     dry_run: bool = False,
-    circuit_open: str | None = None,
+    queue_state: QueueState | None = None,
 ) -> str:
     """Render the run report.
 
     ``dry_run`` retitles the merged section: a dry run that logs "Merged 3"
     into the step summary leaves a permanent, false audit trail.
+
+    ``queue_state`` is reported unconditionally, not just when it changed the
+    outcome. A failed queue read makes this controller behave exactly as it
+    did before queue awareness -- reselecting and re-enqueueing a queued PR --
+    so "the fix is inert" must be visible in the artifact operators read,
+    rather than inferred from the absence of a skip line.
     """
     title = "## 🐑 Deterministic auto-merge sweep"
     if dry_run:
         title += " (dry run — nothing was merged)"
     lines = [title, ""]
-    if circuit_open:
-        lines.extend([f"**Main-health circuit open:** {circuit_open}", ""])
-    verb = "Would merge" if dry_run else "Merged"
+    if queue_state is not None:
+        lines.extend([queue_state.summary_line(), ""])
+    if dry_run:
+        verb = "Would merge"
+    elif merged and all(row.get("queued") for row in merged):
+        # A queued PR is not a merged one -- the queue still tests it against
+        # current main and may reject it. Claiming "Merged" here would be the
+        # same permanent false audit trail this function avoids for dry runs.
+        verb = "Added to the merge queue"
+    elif merged and any(row.get("queued") for row in merged):
+        # Defensive: the loop breaks after one action, so `merged` holds at
+        # most one row today and this cannot be reached. Kept so the function
+        # stays correct if the one-action cap is ever lifted.
+        verb = "Merged or queued"
+    else:
+        verb = "Merged"
     if merged:
         lines.append(f"**{verb} {len(merged)}:**")
         lines += [
@@ -706,24 +740,7 @@ def main(argv: list[str] | None = None) -> int:
         help="only merge PRs targeting this base branch (default: main)",
     )
     parser.add_argument(
-        "--base-health-check",
-        default=DEFAULT_BASE_HEALTH_CHECK,
-        help=(
-            "check that must pass on the exact current base SHA before every merge "
-            f"(default: {DEFAULT_BASE_HEALTH_CHECK!r})"
-        ),
-    )
-    parser.add_argument(
-        "--base-health-app-id",
-        type=int,
-        default=DEFAULT_BASE_HEALTH_APP_ID,
-        help=(
-            "GitHub App ID that must own the base health check "
-            f"(default: {DEFAULT_BASE_HEALTH_APP_ID})"
-        ),
-    )
-    parser.add_argument(
-        "--limit", type=int, default=300, help="max open PRs to scan (default: 300)"
+        "--limit", type=int, default=1000, help="max open PRs to scan (default: 1000)"
     )
     parser.add_argument(
         "--specific-pr",
@@ -791,12 +808,50 @@ def main(argv: list[str] | None = None) -> int:
         f"Scanned {len(prs)} open PR(s); {len(candidates)} passed the list-level predicate."
     )
 
+    # Once per run, before any write: is a queue in force, and who is in it?
+    #
+    # What a queued PR reports depends on its ENTRY state, and the two cases
+    # were measured separately on the live queue:
+    #
+    #   AWAITING_CHECKS -> mergeable/mergeStateStatus are UNKNOWN while the
+    #     queue builds. `evaluate` rejects that ("mergeability is unknown")
+    #     and the loop `continue`s, so the sweep already moves on. Skipping
+    #     here saves the repeated view_pr attempts and their backoff sleeps
+    #     spent waiting for an UNKNOWN that will not resolve, and reports an
+    #     accurate reason instead of a misleading mergeability one.
+    #
+    #   UNMERGEABLE -> observed on #10576 at 2026-09-02T23:37Z: entry state
+    #     UNMERGEABLE, isInMergeQueue true, yet the PR itself reported
+    #     mergeable=MERGEABLE and mergeStateStatus=CLEAN, and it stayed that
+    #     way for ~48 minutes before GitHub ejected it. THAT is the
+    #     budget-consuming case: it passes every predicate, re-enqueueing
+    #     SUCCEEDS (gh exits 0 on an already-queued PR), and the sweep spends
+    #     its one action re-announcing a PR that is already queued.
+    #
+    # So the skip is load-bearing for the second case and a cost/clarity win
+    # for the first. It also stops correct behavior resting on GitHub's
+    # undocumented UNKNOWN reporting for queued PRs.
+    queue_state = read_queue_state(args.repo, args.base_branch)
+    if queue_state.active:
+        already = [pr for pr in candidates if pr["number"] in queue_state.queued_pr_numbers]
+        for pr in already:
+            reason = "already in the merge queue"
+            print(f"SKIP  #{pr['number']}: {reason}")
+            skipped.append({"number": pr["number"], "reason": reason})
+        candidates = [
+            pr for pr in candidates if pr["number"] not in queue_state.queued_pr_numbers
+        ]
+        print(
+            f"Merge queue is in force on {args.base_branch}: "
+            f"{len(queue_state.queued_pr_numbers)} PR(s) queued, "
+            f"{len(candidates)} candidate(s) remain."
+        )
+
     # Oldest first is deterministic and honors the standing human-review window.
     candidates.sort(key=lambda pr: (_parse_ts(pr["createdAt"]), int(pr["number"])))
 
     merged: list[dict] = []
     failed: list[dict] = []
-    circuit_open: str | None = None
     for pr in candidates:
         number = pr["number"]
         try:
@@ -818,63 +873,13 @@ def main(argv: list[str] | None = None) -> int:
             skipped.append({"number": number, "reason": decision.reason})
             continue
 
-        # Check the exact current base immediately before any write. After one
-        # merge, main points at an untested commit, so the next candidate opens
-        # the circuit until that new push build succeeds.
-        try:
-            health = get_base_health(
-                args.repo,
-                args.base_branch,
-                args.base_health_check,
-                args.base_health_app_id,
-            )
-        except (subprocess.CalledProcessError, ValueError, json.JSONDecodeError) as exc:
-            detail = (
-                _gh_error(exc)
-                if isinstance(exc, subprocess.CalledProcessError)
-                else str(exc)
-            )
-            circuit_open = f"could not verify current base health: {detail}"
-            print(f"FAIL  circuit: {circuit_open}", file=sys.stderr)
-            failed.append({"number": number, "reason": circuit_open})
-            break
-        if not health.healthy:
-            circuit_open = health.reason
-            # A red, pending, or not-yet-observed base is repository state, not
-            # a controller malfunction. Keep the workflow green while making
-            # the fail-closed stop prominent in stdout and the step summary.
-            print(f"STOP  main-health circuit: {circuit_open}")
-            break
         was_draft = bool(fresh.get("isDraft"))
-        # Avoid a visible ready/draft flip for a branch that cannot pass the
-        # final ancestry guard. Non-drafts wait for the load-bearing comparison
-        # after the final PR read below.
-        if was_draft:
-            try:
-                alignment = get_base_alignment(
-                    args.repo, health.sha, str(fresh.get("headRefOid") or "")
-                )
-            except (
-                subprocess.CalledProcessError,
-                ValueError,
-                json.JSONDecodeError,
-            ) as exc:
-                detail = (
-                    _gh_error(exc)
-                    if isinstance(exc, subprocess.CalledProcessError)
-                    else str(exc)
-                )
-                reason = f"could not verify PR ancestry: {detail}"
-                print(f"SKIP  #{number}: {reason}", file=sys.stderr)
-                skipped.append({"number": number, "reason": reason})
-                continue
-            if not alignment.eligible:
-                print(f"SKIP  #{number}: {alignment.reason}")
-                skipped.append({"number": number, "reason": alignment.reason})
-                continue
 
         ready_transition_succeeded = False
         merge_completed = False
+        # Bound here, not only inside the try below: line-of-sight beats a
+        # non-local invariant for a variable read after a write has happened.
+        enqueued = False
         pr_gone = False
         try:
             if was_draft and not args.dry_run:
@@ -892,37 +897,8 @@ def main(argv: list[str] | None = None) -> int:
                     failed.append({"number": number, "reason": reason})
                     continue
 
-                # The transition took time and emitted an event. Re-establish
-                # base health before the final PR-state read.
-                try:
-                    health = get_base_health(
-                        args.repo,
-                        args.base_branch,
-                        args.base_health_check,
-                        args.base_health_app_id,
-                    )
-                except (
-                    subprocess.CalledProcessError,
-                    ValueError,
-                    json.JSONDecodeError,
-                ) as exc:
-                    detail = (
-                        _gh_error(exc)
-                        if isinstance(exc, subprocess.CalledProcessError)
-                        else str(exc)
-                    )
-                    circuit_open = f"could not re-verify current base health: {detail}"
-                    print(f"FAIL  circuit: {circuit_open}", file=sys.stderr)
-                    failed.append({"number": number, "reason": circuit_open})
-                    break
-                if not health.healthy:
-                    circuit_open = health.reason
-                    print(f"STOP  main-health circuit: {circuit_open}")
-                    break
-
-            # This is the load-bearing PR read for both drafts and non-drafts:
-            # it occurs after the successful base-health lookup and immediately
-            # before the final base-SHA comparison and head-pinned merge.
+            # This is the load-bearing PR read for both drafts and non-drafts.
+            # The write below is pinned to the head SHA returned here.
             try:
                 fresh = view_pr(
                     args.repo,
@@ -952,53 +928,6 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"SKIP  #{number}: {reason}")
                 skipped.append({"number": number, "reason": reason})
                 continue
-            try:
-                alignment = get_base_alignment(
-                    args.repo, health.sha, str(fresh.get("headRefOid") or "")
-                )
-            except (
-                subprocess.CalledProcessError,
-                ValueError,
-                json.JSONDecodeError,
-            ) as exc:
-                detail = (
-                    _gh_error(exc)
-                    if isinstance(exc, subprocess.CalledProcessError)
-                    else str(exc)
-                )
-                reason = f"could not perform final ancestry verification: {detail}"
-                print(f"SKIP  #{number}: {reason}", file=sys.stderr)
-                skipped.append({"number": number, "reason": reason})
-                continue
-            if not alignment.eligible:
-                reason = f"state changed before merge: {alignment.reason}"
-                print(f"SKIP  #{number}: {reason}")
-                skipped.append({"number": number, "reason": reason})
-                continue
-
-            # GitHub's merge API can pin the PR head but has no expected-base
-            # argument. Minimize that residual race by proving main still has
-            # the exact healthy SHA after the final PR-state read.
-            try:
-                current_base_sha = get_base_sha(args.repo, args.base_branch)
-            except (subprocess.CalledProcessError, ValueError) as exc:
-                detail = (
-                    _gh_error(exc)
-                    if isinstance(exc, subprocess.CalledProcessError)
-                    else str(exc)
-                )
-                circuit_open = f"could not perform final base verification: {detail}"
-                print(f"FAIL  circuit: {circuit_open}", file=sys.stderr)
-                failed.append({"number": number, "reason": circuit_open})
-                break
-            if current_base_sha.casefold() != health.sha.casefold():
-                circuit_open = (
-                    "base changed after its health check "
-                    f"({health.sha[:12]} -> {current_base_sha[:12]}); no merge attempted"
-                )
-                print(f"STOP  main-health circuit: {circuit_open}")
-                break
-
             if args.dry_run:
                 action = "mark ready and merge" if was_draft else "merge"
                 print(
@@ -1015,13 +944,17 @@ def main(argv: list[str] | None = None) -> int:
                 break
 
             try:
-                merge_pr(
+                enqueued = merge_pr(
                     args.repo,
                     number,
                     args.min_age_days,
                     fresh.get("headRefOid"),
                     write_token,
+                    queue_state.active,
                 )
+                # Load-bearing on the enqueue path too: it stops the `finally`
+                # block converting the PR back to draft, which would eject it
+                # from the queue it was just added to.
                 merge_completed = True
             except (subprocess.CalledProcessError, ValueError) as exc:
                 reason = (
@@ -1053,8 +986,10 @@ def main(argv: list[str] | None = None) -> int:
                     reason = f"could not restore draft state: {detail}"
                     print(f"FAIL  #{number}: {reason}", file=sys.stderr)
                     failed.append({"number": number, "reason": reason})
-        print(f"MERGED #{number}: {fresh['title']}")
-        merged.append({"number": number, "title": fresh["title"]})
+        print(f"{'QUEUED' if enqueued else 'MERGED'} #{number}: {fresh['title']}")
+        merged.append(
+            {"number": number, "title": fresh["title"], "queued": enqueued}
+        )
         # One merge per run is an explicit serialization boundary. It does not
         # rely on the branch endpoint immediately reflecting the new main SHA.
         print(
@@ -1067,7 +1002,7 @@ def main(argv: list[str] | None = None) -> int:
         skipped,
         failed,
         dry_run=args.dry_run,
-        circuit_open=circuit_open,
+        queue_state=queue_state,
     )
     print()
     print(report)
