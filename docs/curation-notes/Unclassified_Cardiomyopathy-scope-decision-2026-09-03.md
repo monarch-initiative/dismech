@@ -34,9 +34,8 @@ both of its subsets mark it as a group of disorders, inherited from the Orphanet
 classification, where "unclassified cardiomyopathy" is the residual bucket for
 forms that fit none of the morphofunctional categories.
 
-The term is also structurally uncurateable here. This term is detached from the
-hierarchy — asserted for `MONDO:0016343` specifically, which is what was
-checked, not about MONDO's obsoletion practice in general:
+The term is also structurally uncurateable here. `MONDO:0016343` is detached
+from the hierarchy:
 
 ```
 $ runoak -i sqlite:obo:mondo ancestors MONDO:0016343
@@ -103,10 +102,13 @@ category outright and put **non-dilated left ventricular cardiomyopathy
 in MONDO — it is obsolete in the clinical nosology too, which strengthens the
 decision rather than complicating it.
 
-NDLVC itself has no `kb/` entry and no stub. It appears in `kb/` only as part of
-the cohort label "DCM/NDLVC" inside evidence snippets, explanations, and
-reference titles in `Dilated_Cardiomyopathy_1FF.yaml` and
-`Hypertrophic_Cardiomyopathy_20.yaml` — never as an entity in its own right.
+NDLVC itself has no `kb/` entry and no stub. It appears in `kb/` only inside two
+other entries' evidence, `Dilated_Cardiomyopathy_1FF.yaml` and
+`Hypertrophic_Cardiomyopathy_20.yaml` — abbreviated as the cohort label
+"DCM/NDLVC" in snippets, explanations and notes, and spelled out in full in the
+reference title *Prediction and Prognostic Role of Left Ventricular Systolic
+Dysfunction in Family Screening for Dilated Cardiomyopathy and Non-Dilated Left
+Ventricular Cardiomyopathy*. Never as an entity in its own right.
 
 The blocker is upstream, though, and it needs saying before anyone files a stub:
 **MONDO has no NDLVC term.** Searching `l~non-dilated` returns nothing, and
