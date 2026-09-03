@@ -141,10 +141,12 @@ Always re-validate afterwards — `just validate-disorders` on the changed files
        crest cell on one node. Naming both is the honest answer, and the remedy
        is a note saying so.
 
-  The six current findings are all of these kinds, which is the point: the list
-  is short enough to work through, and every row is a real modeling question.
-  `Gastrointestinal_Lymphoma` is the clearest — B cell *and* intraepithelial
-  lymphocyte, because the entry covers both MALT lymphoma and EATL.
+  The seven current findings are all of these kinds, which is the point: the
+  list is short enough to work through, and every row is a real modeling
+  question. `Gastrointestinal_Lymphoma` is the clearest — B cell *and*
+  intraepithelial lymphocyte, because the entry covers both MALT lymphoma and
+  EATL. `Lung_Carcinoma` and `Non-Small_Cell_Lung_Cancer` now agree: the broad
+  pool reports the same split its own subtype entry does.
 
 `ORIGIN_WITHOUT_CELL`
 : An origin node was identified but binds no CL term. The cheapest class to fix,
@@ -225,13 +227,7 @@ claims in two slots, never mixed into one `cell_types` list.
 
 The NCIT relations live in semsql's `edge` table rather than in `statements`,
 because they are asserted through existential restrictions. `OntologyEdgeSource`
-reads both and de-duplicates. Rebuilding the cache needs the OAK-managed NCIT
-SQLite, which is downloaded on demand and never committed:
-
-```bash
-just ncit-edges-refresh
-just ncit-edges-rebuild --id NCIT:C8851
-```
+reads both and de-duplicates.
 
 ## Why not a `cell_of_origin:` slot
 

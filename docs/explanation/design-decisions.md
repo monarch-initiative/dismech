@@ -220,7 +220,7 @@ disease with genuine cell-of-origin **subtypes** (B-lymphoblastic leukemia acros
 subtypes; `GPR101-related_pituitary_adenoma_2`'s somatotroph and mammotroph) — remedy
 `has_subtypes`; (c) an origin the literature has not settled
 (`Melanoma_in_Congenital_Melanocytic_Nevus` names melanocyte and neural crest cell) —
-remedy a note. Six entries currently report it, which is short enough to work through.
+remedy a note. Seven entries currently report it, which is short enough to work through.
 A **viral** mechanism is never marked under rule 1 — HPV E6/E7 and HTLV-1 Tax leave no
 host variant for `variant_origin` to describe — and a spurious mark there is doubly
 harmful, since a recorded lesion suppresses the exposure rule that should answer for it
