@@ -32,6 +32,7 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).parent.parent
@@ -42,7 +43,7 @@ RECIPES = ("research-disorder", "research-datasets", "research-disorder-cyberian
 def _recipe_body(text: str, recipe: str) -> str:
     lines = text.split("\n")
     start = next(
-        i for i, ln in enumerate(lines) if re.match(rf"^{re.escape(recipe)}\b.*:$", ln)
+        i for i, ln in enumerate(lines) if re.match(rf"^{re.escape(recipe)}(?=[ :]).*:$", ln)
     )
     body = []
     for ln in lines[start + 1 :]:
@@ -59,7 +60,12 @@ def _justfile() -> str:
 def test_no_recipe_hardcodes_an_empty_mondo_id():
     """The regression that caused the wrong-disease report."""
     text = _justfile()
-    offenders = [r for r in RECIPES if '--var "mondo_id=" ' in _recipe_body(text, r)]
+    # Tolerate quoting style and trailing whitespace: a single-quoted or
+    # line-continued form would reintroduce the bug and pass a literal match.
+    empty_var = re.compile(
+        r"""--var\s+['\"]?mondo_id=['\"]?\s*\\?\s*$""", re.MULTILINE
+    )
+    offenders = [r for r in RECIPES if empty_var.search(_recipe_body(text, r))]
     assert not offenders, (
         f"These recipes hardcode an empty mondo_id: {offenders}. A deep-research run "
         "dispatched with a disease name and no identifier can resolve to a "
@@ -129,8 +135,17 @@ def _extract(path: Path, code: str) -> str:
     return buf.getvalue().strip()
 
 
+@pytest.mark.kb_data
 def test_extraction_matches_the_parsed_disease_term_for_every_entry():
     """Exactness, across the whole corpus rather than a sample.
+
+    Marked `kb_data`: this parses all 2,535 KB files twice - once here for the
+    expected value and once inside the shipped one-liner, which opens the path
+    itself - which is squarely the "whole-KB sweep, slow and CPU-bound" the
+    marker exists for. It runs parallel under `just test-kb` and in the nightly
+    sweep. The fast lane keeps the string assertions and the named-entry tests
+    below, which cover the same guarantees for the entries these docstrings are
+    actually about, in about two seconds.
 
     The `-A3` window was verified on four hand-picked entries and passed; all
     four happened to have no `description:` in the block, which is the only
@@ -157,38 +172,37 @@ def test_extraction_matches_the_parsed_disease_term_for_every_entry():
     )
 
 
-def test_unbound_disease_term_yields_no_mondo_id():
-    """An entry that deliberately declines to bind a term must send nothing.
+def test_named_entries_extract_correctly():
+    """The edge cases these docstrings are actually about, in the fast lane.
 
-    Both of these have an unbound top-level `disease_term`. A line window
-    returned a MONDO for each anyway -- from a "do not use this term" comment
-    and from a `skos:closeMatch` cross-reference respectively, neither of which
-    is disease identity.
+    The whole-corpus sweep is marked `kb_data` because it parses every KB file
+    twice. These five entries are the ones that have actually broken, so they
+    stay in the fast lane where a code PR pays for them:
+
+    * `Dorsalgia` binds MONDO:0000001, the root of MONDO, labelled "disease".
+      Sending it would tell a provider the disease's identifier is the root of
+      the ontology -- a wrong identity rather than a missing one, which is
+      worse in exactly the code path this plumbing exists to make trustworthy.
+    * `Acute_Post-Surgical_Pain` and `CKD-Mineral_Bone_Disorder` have unbound
+      `disease_term`s; a line window read past the block and returned a
+      commented-out term and a `skos:closeMatch` cross-reference respectively.
+    * `Marfan_Syndrome` and `Noonan_Syndrome` carry a `description:` inside the
+      block, which `grep -A3` could not see past.
     """
     code = _shipped_extraction_code()
-    for name in ("Acute_Post-Surgical_Pain", "CKD-Mineral_Bone_Disorder"):
+    expected = {
+        "Dorsalgia": "",
+        "Acute_Post-Surgical_Pain": "",
+        "CKD-Mineral_Bone_Disorder": "",
+        "Marfan_Syndrome": "MONDO:0007947",
+        "Noonan_Syndrome": "MONDO:0018997",
+    }
+    wrong = {}
+    for name, want in expected.items():
         path = KB / f"{name}.yaml"
         if not path.exists():
             continue
-        assert _extract(path, code) == "", (
-            f"{name} has an unbound disease_term but extraction returned an ID. "
-            "A cross-reference or a commented-out term is not disease identity."
-        )
-
-
-def test_the_ontology_root_is_never_sent_as_a_disease_identity():
-    """`Dorsalgia` binds MONDO:0000001 -- the root of MONDO, labelled "disease".
-
-    Extracting it would tell a provider the disease's identifier is the root of
-    the ontology: a wrong identity rather than a missing one, which is worse in
-    exactly the code path this plumbing exists to make trustworthy. Empty is
-    honest. Mirrors the guard at `src/dismech/export/mondo_emc_export.py`.
-    """
-    code = _shipped_extraction_code()
-    offenders = []
-    for path in sorted(KB.glob("*.yaml")):
-        if _extract(path, code) == "MONDO:0000001":
-            offenders.append(path.name)
-    assert not offenders, (
-        f"these entries would send MONDO:0000001 as their disease identity: {offenders}"
-    )
+        got = _extract(path, code)
+        if got != want:
+            wrong[name] = f"got {got!r}, want {want!r}"
+    assert not wrong, f"extraction is wrong for known edge cases: {wrong}"
