@@ -189,17 +189,18 @@ isolation.
    |---|---|
    | MONDO terms with >1 `exactMatch` into one checkable vocabulary | 326 |
    | **real proxy merge** (>1 target still active in source) | **300** |
-   | "fake" (extra targets obsolete) | 26 |
+   | confirmed "fake" (every extra target verified obsolete) | 4 |
+   | indeterminate (a target is absent from the local build) | 22 |
 
    Real ones by vocabulary: DOID 114, MESH 65, NCIT 45, ORDO 43, icd11f 30,
    ICD10CM 18, OMIM 8. SCTID and UMLS/MEDGEN are excluded — no local build, so
    they cannot be checked either way.
 
    `build_analyses.py` skips obsolete equivalency targets for this reason. Worth
-   being clear that **this changed none of the numbers above**: the retraction
-   counts and the 66 retracted equivalences are byte-identical with and without
-   the filter, because none of the 26 fake cases involve a dismech-grounded
-   disorder. It is correct in principle and currently only makes the run faster.
+   being clear that **this changed none of the numbers above**: none of the 26
+   non-real cases is grounded by any entry in this tree, checked directly by
+   intersecting them against the 1,776 MONDO terms the tree actually uses. The
+   filter is correct in principle and currently only makes the run faster.
 
    This is not a dismech defect at all — it is visible only because dismech
    grounds into MONDO and this analysis then follows MONDO outward. The 300-term
@@ -262,7 +263,7 @@ composition of dismech's subtype edge, the two identity mappings, and MONDO's
 `is_a` — and `ProperSubClassOf` being irreflexive. No amount of grouping surfaces
 it.
 
-Second, **uniformity**: all three causes fall out of one constraint set without
+Second, **uniformity**: all four causes fall out of one constraint set without
 anyone having anticipated them. The sibling-collision class was not something
 this analysis set out to look for; it appeared because the KB was solved per
 disorder rather than per pair. A hand-written check finds the errors you thought
@@ -362,7 +363,7 @@ neither needs a solver:
 
 - [`groupings/`](groupings/) — members of `exactMatch`-mapped `kb/groupings/`
   entries against the grouping's own MONDO term. 187/204 agree (91.7%), 2
-  `SAME_TERM`, 15 violations, **zero contradictions**. The 8 are MONDO gaps again:
+  `SAME_TERM`, 15 violations, **zero contradictions**. The 15 are MONDO gaps again:
   nephronophthisis is not under `MONDO:0005308` *ciliopathy*; *lissencephaly due
   to TUBA1A mutation* is not under `MONDO:0100153` *tubulinopathy*. Only
   `exactMatch` groupings are checked — a `broadMatch` grouping is explicitly
