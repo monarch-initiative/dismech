@@ -58961,6 +58961,122 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Chlorophacinone Poisoning",
+    "disease_id": null,
+    "category": "Environmental",
+    "parents": [],
+    "creation_date": "2026-09-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chlorophacinone poisoning is an acquired, vitamin K-antagonist coagulopathy caused by ingestion of, or other exposure to, the indanedione anticoagulant rodenticide chlorophacinone. Chlorophacinone inhibits vitamin K 2,3-epoxide reductase, so the reduced vitamin K needed as cofactor for hepatic gamma-carboxylation is not regenerated and the vitamin K-dependent coagulation factors II, VII, IX and X are secreted in an under-carboxylated, functionally inactive form. The resulting coagulopathy presents after a latent interval with mucocutaneous and internal bleeding and, because chlorophacinone accumulates in liver and is eliminated slowly, it can persist for weeks to months and rebound whenever vitamin K replacement is withdrawn.",
+    "pathophysiology": [
+      "Systemic Chlorophacinone Exposure",
+      "Vitamin K Epoxide Reductase Inhibition",
+      "Depletion of the Reduced Vitamin K Pool",
+      "Impaired Gamma-Carboxylation of Vitamin K-Dependent Clotting Factors",
+      "Functional Deficiency of Coagulation Factors II, VII, IX and X",
+      "Hepatic Accumulation and Prolonged Elimination",
+      "Prolonged Coagulopathy",
+      "Multicompartment Hemorrhage",
+      "Hypovolemic Shock and Death"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "vitamin K metabolic process",
+      "peptidyl-glutamic acid carboxylation",
+      "blood coagulation",
+      "hemostasis"
+    ],
+    "phenotypes": [
+      "Prolonged Prothrombin Time",
+      "Prolonged Activated Partial Thromboplastin Time",
+      "Reduced Factor VII Activity",
+      "Reduced Factor X Activity",
+      "Hematuria",
+      "Epistaxis",
+      "Gingival Bleeding",
+      "Widespread Bruising",
+      "Gastrointestinal Hemorrhage",
+      "Hematochezia",
+      "Intracranial Hemorrhage",
+      "Hemoperitoneum",
+      "Menorrhagia",
+      "Flank Pain",
+      "Anemia",
+      "Hypovolemic Shock",
+      "Nausea",
+      "Coma",
+      "Acute Compartment Syndrome"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Hematologic",
+      "Gastrointestinal",
+      "Neurologic",
+      "Genitourinary",
+      "Cardiovascular",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008151",
+      "HP:0003645",
+      "HP:0008169",
+      "HP:0008321",
+      "HP:0000790",
+      "HP:0000421",
+      "HP:0000225",
+      "HP:0000978",
+      "HP:0002239",
+      "HP:0002573",
+      "HP:0002170",
+      "HP:0011854",
+      "HP:0000132",
+      "HP:0030157",
+      "HP:0001903",
+      "HP:0031274",
+      "HP:0002018",
+      "HP:0001259"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "High-Dose Prolonged Vitamin K1 (Phytomenadione)",
+      "Coagulation Factor Replacement",
+      "Phenobarbital Enzyme Induction"
+    ],
+    "environmental": [
+      "Chlorophacinone rodenticide exposure"
+    ],
+    "biochemical": [
+      "Plasma chlorophacinone concentration",
+      "International normalized ratio"
+    ],
+    "source_file": "Chlorophacinone_Poisoning.yaml",
+    "page_url": "../pages/disorders/Chlorophacinone_Poisoning.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Cholangiocarcinoma",
     "disease_id": "MONDO:0019087",
     "category": "",
@@ -210015,7 +210131,8 @@ window.searchData = [
       "Riociguat"
     ],
     "environmental": [
-      "Immobilisation and surgery",
+      "Major surgery",
+      "Prolonged immobilisation",
       "Oestrogen exposure"
     ],
     "biochemical": [
@@ -210029,7 +210146,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 5,
     "num_treatments": 9,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "7"
   },
   {
@@ -261968,17 +262085,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2540,
+  "total_disorder_pages": 2541,
   "total_subtypes": 3571,
-  "total_disorders_and_subtypes": 6111,
-  "total_unique_evidence_sources": 36330,
-  "total_unique_publications": 34194,
+  "total_disorders_and_subtypes": 6112,
+  "total_unique_evidence_sources": 36354,
+  "total_unique_publications": 34218,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 270,
-  "total_pathographs": 2535,
-  "total_unique_pathological_events": 14820,
+  "total_pathographs": 2536,
+  "total_unique_pathological_events": 14829,
   "total_modules": 167,
-  "total_research_reports": 2658,
+  "total_research_reports": 2659,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
