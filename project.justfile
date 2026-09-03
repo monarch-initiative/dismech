@@ -599,6 +599,12 @@ validate-groupings:
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}
 
+# Report the declared grouping-of-grouping tree plus undeclared member-set
+# containments between groupings (advisory; a containment is a lead, not a ruling)
+[group('QC')]
+grouping-nesting-audit *args="":
+    uv run python -m dismech.groupings --nesting {{args}}
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
 validate-terms-schema:
