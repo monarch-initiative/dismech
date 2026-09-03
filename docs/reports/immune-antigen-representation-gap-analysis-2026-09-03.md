@@ -87,10 +87,10 @@ the YAML separates them. Ranking the captured `X` by how many entries use it:
 
 | Outside `treatments` (candidate autoantigens) | Inside `treatments` / `clinical_trials` (drug targets) |
 |---|---|
-| TNF (10), neutrophil cytoplasmic (10), NMDAR (9), CD20 (7), GBM (5), AChR (4), nuclear (4), **Mullerian (4)**, GM1 (3), titin (3), Sm (3), Hu (3), TPO (3), **DNase (3)** | CD20 monoclonal (26), TNF (25), CD20 (20), PD-1 (7), IL-6 (6), IgE (4), C5 (4), VEGF (4), IL-5 (4) |
+| TNF (10), neutrophil cytoplasmic (10), NMDAR (9), CD20 (7), GBM (5), AChR (4), nuclear (4), **Mullerian (4)**, AQP4 (3), GM1 (3), Sm (3), Ro (3), La (3), Hu (3), TPO (3), **DNase (3)** | CD20 monoclonal (26), TNF (25), CD20 (20), PD-1 (7), IL-6 (6), IgE (4), C5 (4), VEGF (4), IL-5 (4) |
 
 Reading down the left column: `neutrophil cytoplasmic`, `NMDAR`, `AChR`,
-`titin`, `Sm`, `Hu` and `TPO` are genuine autoantigens; `TNF` and `CD20` are
+`AQP4`, `Sm`, `Ro`, `La`, `Hu` and `TPO` are genuine autoantigens; `TNF` and `CD20` are
 therapeutic targets that leaked out of `treatments` via evidence prose;
 `DNase` is `anti-DNase B titre`, an *anti-streptococcal* serology and not a
 self-antigen at all; and `Mullerian` is anti-Müllerian hormone, which is not an
