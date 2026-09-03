@@ -1209,3 +1209,29 @@ def test_a_queued_pr_is_skipped_and_the_sweep_reaches_the_next_one(
     assert acted_on == [next_up], (
         "the queued PR must be skipped and the next candidate acted on"
     )
+
+
+def test_summary_reports_queue_state_so_an_inert_fix_is_visible():
+    """A failed queue read makes the controller behave as it did before queue
+    awareness, so it must be legible in the report rather than inferred from
+    the absence of a skip line."""
+    unreadable = auto_merge.render_summary(
+        [], [], [], queue_state=auto_merge.QueueState(False, frozenset(), readable=False)
+    )
+    assert "state unavailable" in unreadable
+
+    inactive = auto_merge.render_summary(
+        [], [], [], queue_state=auto_merge.QueueState(False, frozenset())
+    )
+    assert "not in force" in inactive
+
+    active = auto_merge.render_summary(
+        [], [], [], queue_state=auto_merge.QueueState(True, frozenset({1, 2}))
+    )
+    assert "active, 2 queued" in active
+
+    truncated = auto_merge.render_summary(
+        [], [], [],
+        queue_state=auto_merge.QueueState(True, frozenset({1}), truncated=99),
+    )
+    assert "99" in truncated and "may be reselected" in truncated

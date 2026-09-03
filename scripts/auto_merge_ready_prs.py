@@ -495,6 +495,30 @@ class QueueState:
 
     active: bool
     queued_pr_numbers: frozenset[int]
+    # False only when the read itself failed. Without this, "no queue in
+    # force" and "could not tell" are the same value, and an inert fix is
+    # indistinguishable from the starvation bug it was meant to remove.
+    readable: bool = True
+    truncated: int = 0
+
+    def summary_line(self) -> str:
+        """One line for the run report, so inertness is visible immediately."""
+        if not self.readable:
+            return (
+                "**Merge queue:** state unavailable — falling back to direct "
+                "merge. If a queue is in force on the base branch, queued PRs "
+                "will be reselected and re-enqueued."
+            )
+        if not self.active:
+            return "**Merge queue:** not in force on the base branch."
+        line = f"**Merge queue:** active, {len(self.queued_pr_numbers)} queued."
+        if self.truncated:
+            line += (
+                f" Only the first {len(self.queued_pr_numbers)} of "
+                f"{self.truncated} entries were read, so a queued PR beyond "
+                "that may be reselected."
+            )
+        return line
 
 
 def read_queue_state(repo: str, branch: str) -> QueueState:
@@ -514,9 +538,11 @@ def read_queue_state(repo: str, branch: str) -> QueueState:
         data = json.loads(payload)
     except (subprocess.CalledProcessError, OSError, ValueError) as exc:
         print(f"WARN  could not read merge-queue state: {exc}", file=sys.stderr)
-        return QueueState(False, frozenset())
+        return QueueState(False, frozenset(), readable=False)
     if not isinstance(data, dict):
-        return QueueState(False, frozenset())
+        print("WARN  merge-queue read returned an unexpected shape",
+              file=sys.stderr)
+        return QueueState(False, frozenset(), readable=False)
     repository = (data.get("data") or {}).get("repository") or {}
     queue = repository.get("mergeQueue")
     if not queue:
@@ -529,7 +555,8 @@ def read_queue_state(repo: str, branch: str) -> QueueState:
         if isinstance(entry, dict) and (entry.get("pullRequest") or {}).get("number")
     }
     total = entries.get("totalCount")
-    if isinstance(total, int) and total > len(nodes):
+    truncated = total if isinstance(total, int) and total > len(nodes) else 0
+    if truncated:
         # Truncation is only a missed skip, never a bad merge -- but say so
         # rather than letting the page size silently bound correctness.
         print(
@@ -538,7 +565,7 @@ def read_queue_state(repo: str, branch: str) -> QueueState:
             "reselected",
             file=sys.stderr,
         )
-    return QueueState(True, frozenset(numbers))
+    return QueueState(True, frozenset(numbers), truncated=truncated)
 
 
 def merge_pr(
@@ -637,16 +664,25 @@ def render_summary(
     failed: list[dict],
     *,
     dry_run: bool = False,
+    queue_state: QueueState | None = None,
 ) -> str:
     """Render the run report.
 
     ``dry_run`` retitles the merged section: a dry run that logs "Merged 3"
     into the step summary leaves a permanent, false audit trail.
+
+    ``queue_state`` is reported unconditionally, not just when it changed the
+    outcome. A failed queue read makes this controller behave exactly as it
+    did before queue awareness -- reselecting and re-enqueueing a queued PR --
+    so "the fix is inert" must be visible in the artifact operators read,
+    rather than inferred from the absence of a skip line.
     """
     title = "## 🐑 Deterministic auto-merge sweep"
     if dry_run:
         title += " (dry run — nothing was merged)"
     lines = [title, ""]
+    if queue_state is not None:
+        lines.extend([queue_state.summary_line(), ""])
     if dry_run:
         verb = "Would merge"
     elif merged and all(row.get("queued") for row in merged):
@@ -655,6 +691,9 @@ def render_summary(
         # same permanent false audit trail this function avoids for dry runs.
         verb = "Added to the merge queue"
     elif merged and any(row.get("queued") for row in merged):
+        # Defensive: the loop breaks after one action, so `merged` holds at
+        # most one row today and this cannot be reached. Kept so the function
+        # stays correct if the one-action cap is ever lifted.
         verb = "Merged or queued"
     else:
         verb = "Merged"
@@ -838,6 +877,9 @@ def main(argv: list[str] | None = None) -> int:
 
         ready_transition_succeeded = False
         merge_completed = False
+        # Bound here, not only inside the try below: line-of-sight beats a
+        # non-local invariant for a variable read after a write has happened.
+        enqueued = False
         pr_gone = False
         try:
             if was_draft and not args.dry_run:
@@ -960,6 +1002,7 @@ def main(argv: list[str] | None = None) -> int:
         skipped,
         failed,
         dry_run=args.dry_run,
+        queue_state=queue_state,
     )
     print()
     print(report)
