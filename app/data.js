@@ -79443,6 +79443,105 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Developmental and Epileptic Encephalopathy 81",
+    "disease_id": "MONDO:0032858",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Developmental and epileptic encephalopathy 81 (DEE81) is an autosomal recessive, neonatal-onset epileptic encephalopathy caused by biallelic loss-of-function variants in DMXL2. It was delineated in three unrelated families, each with an affected sibling pair, whose phenotype was Ohtahara syndrome - intractable seizures from the first day of life on a suppression-burst EEG background, with profound developmental impairment. Deafness, mild peripheral polyneuropathy and dysmorphic features accompany the epilepsy, so DEE81 is a syndromic rather than an isolated epilepsy.\nThe mechanism is not a channelopathy. DMXL2 encodes rabconnectin-3alpha, a very large scaffold that, together with WDR7 (rabconnectin-3beta) and the linker ROGDI, forms the metazoan RAVE complex - the machine that assembles the V1 and VO halves of the vacuolar H+-ATPase on a membrane. Everything downstream of that assembly step depends on it: lysosomes and endosomes cannot be acidified, synaptic vesicles cannot be loaded with neurotransmitter, and the assembled V-ATPase can no longer recruit ATG16L1 for LC3 conjugation. DEE81 is therefore an encephalopathy of failed organelle acidification, and the patient-level evidence matches: fibroblasts lacking DMXL2 protein show a disturbed endolysosomal compartment and blocked autophagic flux, and the same defect in cultured mouse hippocampal neurons costs them neurite elongation and synapses.\nThe natural history is degenerative as well as developmental. Brain MRI in the first months already shows a thin corpus callosum with hypomyelination, and follow-up imaging shows progressive brain shrinkage with leukoencephalopathy; five of the six patients of the founding cohort died within the first nine years of life, and none acquired any developmental, communicative or motor skill after birth. That combination - a prenatal developmental deficit followed by a progressive course - is what the founding report argues distinguishes this entity.\nTwo things are deliberately left open. First, which arm of the V-ATPase failure actually generates the seizures. The synaptic-vesicle route (failed vesicular acidification, so failed neurotransmitter loading) and the lysosomal-autophagy route (failed degradation, so failed neurite and synapse development, with progressive neuronal loss) are both supported at the level of cell biology, and neither has been shown to be the proximate cause of the epilepsy; the two are curated as competing hypothesis groups rather than as one asserted chain. Second, DMXL2 causes three clinically distinct human phenotypes - this recessive encephalopathy, a dominant non-syndromic deafness (DFNA71), and a polyendocrine-polyneuropathy syndrome - and no published work explains what makes one allele produce one and not another. Only DEE81 sources are cited here.",
+    "pathophysiology": [
+      "Biallelic DMXL2 Loss of Function",
+      "Failed mRAVE-Dependent V-ATPase Assembly",
+      "Defective Endolysosomal Acidification",
+      "Impaired Autophagic Degradation",
+      "Impaired Synaptic Vesicle Loading",
+      "Impaired Neurite Elongation and Synapse Formation",
+      "Impaired Prenatal Brain Development",
+      "Neuronal Hyperexcitability and Hypersynchrony",
+      "Neonatal-Onset Refractory Seizures",
+      "Developmental Encephalopathy",
+      "Progressive Brain Atrophy and Leukoencephalopathy"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "proton-transporting V-ATPase complex assembly",
+      "lysosomal lumen acidification",
+      "autophagy",
+      "synaptic vesicle lumen acidification",
+      "neuron projection morphogenesis",
+      "synapse assembly",
+      "action potential"
+    ],
+    "phenotypes": [
+      "Epileptic Encephalopathy",
+      "Seizure",
+      "Focal-Onset Seizure",
+      "EEG with Burst Suppression",
+      "Profound Global Developmental Delay",
+      "Hearing Impairment",
+      "Peripheral Neuropathy",
+      "Abnormal Facial Shape",
+      "Thin Corpus Callosum",
+      "Cerebral Hypomyelination",
+      "Cerebral Atrophy",
+      "Leukoencephalopathy"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200134",
+      "HP:0001250",
+      "HP:0007359",
+      "HP:0010851",
+      "HP:0012736",
+      "HP:0000365",
+      "HP:0009830",
+      "HP:0001999",
+      "HP:0033725",
+      "HP:0006808",
+      "HP:0002059",
+      "HP:0002352"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "DMXL2"
+    ],
+    "treatments": [
+      "Antiseizure Medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Developmental_And_Epileptic_Encephalopathy_81.yaml",
+    "page_url": "../pages/disorders/Developmental_and_Epileptic_Encephalopathy_81.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Developmental and Epileptic Encephalopathy 89",
     "disease_id": "MONDO:0030856",
     "category": "Mendelian",
@@ -81651,6 +81750,96 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Dilated Cardiomyopathy 1FF",
+    "disease_id": "MONDO:0013211",
+    "category": "Genetic",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-02T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 1FF (CMD1FF, OMIM 613286) is the autosomal dominant, TNNI3-related form of familial isolated dilated cardiomyopathy. TNNI3 encodes cardiac troponin I (cTnI), the inhibitory subunit of the sarcomeric troponin complex that holds the actin-tropomyosin thin filament in its \"off\" state until calcium binding to troponin C releases the inhibition. CMD1FF is caused by a single heterozygous TNNI3 allele \u2014 classically a missense variant that is incorporated into the troponin complex and alters thin-filament calcium regulation from within it, and in at least one studied family a truncating allele acting through haploinsufficiency.\nThe entity exists as a separate dismech entry because it contrasts on mechanism, not merely on OMIM number, with Dilated_Cardiomyopathy_2A (CMD2A, OMIM 611880), the recessive TNNI3 dilated cardiomyopathy. In CMD2A both alleles are null, no cardiac troponin I is made, and the disease is timed by the perinatal troponin I isoform switch: a well neonate decompensates within the first year with refractory heart failure. In CMD1FF a normal allele is always present and a mutant cTnI protein is present in the thin filament, so there is no null state and no isoform-switch clock. The dominant missense alleles instead alter what the troponin complex does \u2014 reconstituted mutant troponin gives lower maximum actin-tropomyosin-activated myosin ATPase rates, lower calcium sensitivity, and reduced thin-filament calcium affinity \u2014 which is the thin-filament signature shared with dominant DCM alleles in TNNT2, TPM1, TNNC1 and ACTC1, and is directionally opposite to the calcium-sensitizing TNNI3 missense alleles that cause hypertrophic (CMH7) and restrictive (RCM1) cardiomyopathy. Onset is correspondingly different: variable and incompletely penetrant rather than obligate and neonatal, though severe early-onset disease is well documented \u2014 three of the five carriers in the founding families were transplanted at ages 6, 15 and 24. Recurrence risk and cascade-screening practice differ for the same reason (50% per offspring with surveillance of first-degree relatives, versus 25% per sibship with carrier testing in CMD2A). ClinGen's Dilated Cardiomyopathy Gene Curation Expert Panel classifies the autosomal dominant TNNI3-DCM relationship as Strong, curated separately from its Strong autosomal recessive classification.",
+    "pathophysiology": [
+      "Heterozygous TNNI3 Variant Altering Cardiac Troponin I",
+      "Altered Thin-Filament Calcium Regulation",
+      "Uncoupling of Calcium Sensitivity from Troponin I Phosphorylation",
+      "Reduced Cardiomyocyte Contractility and Systolic Calcium Transient",
+      "Calcineurin-NFAT and Akt Signaling Activation",
+      "Adverse Ventricular Remodeling",
+      "Left Ventricular Dilation and Systolic Failure"
+    ],
+    "cell_types": [
+      "Cardiomyocyte",
+      "Cardiac ventricular myocyte",
+      "Cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "Sarcomere organization",
+      "Regulation of cardiac muscle contraction",
+      "Regulation of striated muscle contraction",
+      "Regulation of cardiac muscle cell contraction",
+      "Cardiac muscle cell contraction",
+      "Intracellular calcium ion homeostasis",
+      "Calcineurin-NFAT signaling cascade",
+      "Extracellular matrix organization",
+      "Cardiomyocyte apoptosis",
+      "Cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Left ventricular dilatation",
+      "Left ventricular systolic dysfunction",
+      "Reduced left ventricular ejection fraction",
+      "Congestive heart failure",
+      "Sudden cardiac death",
+      "Arrhythmia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:4000141",
+      "HP:0025169",
+      "HP:0012664",
+      "HP:0001635",
+      "HP:0001645",
+      "HP:0011675"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TNNI3 Heterozygous Function-Altering Variants"
+    ],
+    "treatments": [
+      "Guideline-Directed Heart Failure Pharmacotherapy",
+      "Heart Transplantation",
+      "Genetic Counseling and Cascade Screening"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1FF.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1FF.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Dilated Cardiomyopathy 1G",
@@ -160249,6 +160438,93 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Mendelian Susceptibility To Mycobacterial Diseases Due To Complete IL12B Deficiency",
+    "disease_id": "MONDO:0013954",
+    "category": "Mendelian",
+    "parents": [
+      "Primary immunodeficiency",
+      "Mendelian susceptibility to mycobacterial disease"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mendelian susceptibility to mycobacterial disease (MSMD) due to complete IL-12p40 deficiency is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in IL12B, the gene encoding the p40 subunit. It presents as MSMD: a selective predisposition to clinical disease caused by weakly virulent mycobacteria, in particular the Bacille Calmette-Guerin (BCG) vaccine strain and environmental non-tuberculous mycobacteria, together with non-typhoidal salmonellosis, in individuals with otherwise unremarkable routine immunological testing.\nAlmost every genetic etiology of MSMD converges on interferon gamma (IFN-gamma): each either impairs the production of the cytokine or the cellular response to it. IL-12p40 deficiency sits firmly in the production arm, and its molecular logic is the shared-subunit one. The p40 chain encoded by IL12B is not specific to interleukin-12: it pairs with p35 (IL12A) to form the IL-12p70 heterodimer and with p19 (IL23A) to form IL-23. A complete p40 defect therefore abolishes both cytokines at once. Loss of IL-12p70 removes the dominant signal that drives NK and T lymphocytes to produce IFN-gamma, so IFN-gamma-dependent activation of macrophages fails and intramacrophagic mycobacteria and Salmonella replicate unchecked. Loss of IL-23 additionally impairs the IL-23-dependent IL-17 axis, which is why a minority of patients also develop chronic mucocutaneous candidiasis.\nIt was the first human disease shown to result from a cytokine gene defect, reported by Altare and colleagues in 1998 in a child with disseminated BCG and Salmonella enteritidis infection. The largest cohort, 49 patients from 30 kindreds, established the clinical picture: childhood-onset BCG disease (disseminated or regional), recurrent non-typhoidal salmonellosis, high but incomplete clinical penetrance, and a poor prognosis with mortality approaching one third of patients. Almost all reported alleles are private founder mutations concentrated in consanguineous populations of the Middle East, North Africa, and South Asia. The condition is clinically nearly indistinguishable from IL-12 receptor beta-1 (IL-12Rbeta1) deficiency, its downstream counterpart on the same signalling axis. Because the lesion is in cytokine production rather than in the response to IFN-gamma, recombinant IFN-gamma is a mechanistically rational adjunct to antimycobacterial chemotherapy \u2014 the therapeutic dividing line within MSMD.\n",
+    "pathophysiology": [
+      "IL12B Loss of Function",
+      "Absent IL-12 and IL-23 Cytokine Production",
+      "Impaired IL-12-Dependent IFN-gamma Production",
+      "Failed IFN-gamma-Dependent Macrophage Activation",
+      "Uncontrolled Intramacrophage Replication of Weakly Virulent Mycobacteria and Salmonella",
+      "Impaired IL-23-Dependent IL-17 Immunity"
+    ],
+    "cell_types": [
+      "dendritic cell",
+      "macrophage",
+      "natural killer cell",
+      "T-helper 1 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000451",
+      "CL:0000235",
+      "CL:0000623",
+      "CL:0000545"
+    ],
+    "biological_processes": [
+      "interleukin-12 production",
+      "interleukin-23 production",
+      "type II interferon (IFN-gamma) production",
+      "macrophage activation",
+      "interleukin-17 production"
+    ],
+    "phenotypes": [
+      "Disseminated BCG disease",
+      "Non-tuberculous mycobacterial infection",
+      "Non-typhoidal salmonellosis",
+      "Chronic mucocutaneous candidiasis",
+      "Nocardiosis",
+      "Klebsiella infection",
+      "Decreased circulating interferon-gamma"
+    ],
+    "phenotype_categories": [
+      "Infectious",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0020087",
+      "HP:5210115",
+      "HP:5210093",
+      "HP:0002728",
+      "HP:0033253"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IL12B"
+    ],
+    "treatments": [
+      "Antimycobacterial Therapy",
+      "Recombinant Interferon Gamma",
+      "Avoidance of BCG Vaccination"
+    ],
+    "environmental": [
+      "Bacille Calmette-Guerin (BCG) vaccination"
+    ],
+    "biochemical": [
+      "Undetectable IL-12p40 and IL-12p70"
+    ],
+    "source_file": "Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_IL12B_Deficiency.yaml",
+    "page_url": "../pages/disorders/Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_IL12B_Deficiency.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Meniere's Disease",
     "disease_id": "MONDO:0007972",
     "category": "Complex",
@@ -161269,7 +161545,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "4"
   },
   {
@@ -260891,17 +261167,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2530,
+  "total_disorder_pages": 2533,
   "total_subtypes": 3566,
-  "total_disorders_and_subtypes": 6096,
-  "total_unique_evidence_sources": 36172,
-  "total_unique_publications": 34040,
+  "total_disorders_and_subtypes": 6099,
+  "total_unique_evidence_sources": 36191,
+  "total_unique_publications": 34059,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 268,
-  "total_pathographs": 2525,
-  "total_unique_pathological_events": 14727,
+  "total_pathographs": 2528,
+  "total_unique_pathological_events": 14745,
   "total_modules": 167,
-  "total_research_reports": 2649,
+  "total_research_reports": 2651,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
