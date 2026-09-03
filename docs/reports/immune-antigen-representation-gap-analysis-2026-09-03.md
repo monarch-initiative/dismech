@@ -21,8 +21,8 @@ just immune-antigen-audit --entry Celiac_Disease
 
 **The schema has no antigen concept.** The string `antigen` does not appear once
 in any of the 21 files under `src/dismech/schema/` (7 top-level YAML, 13 more
-under `classifications/`, and a README) — not as a class, not as a slot, not as an enum value.
-Every antigen in the knowledge base is free text.
+under `classifications/`, and a README) — not as a class, not as a slot, not
+as an enum value. Every antigen in the knowledge base is free text.
 
 The measurable consequence, stated over the denominator that can actually carry
 the answer: **only three classes own a cell-type slot** — `Pathophysiology`,
@@ -140,8 +140,9 @@ biochemical:
 This is a real improvement over a bare string, and HPO supports it further than
 the KB uses it — **33 HP terms with `antibody` in the label are already in
 `cache/hp/terms.csv`** — 26 of them of the form `... antibody positivity`,
-headed by `HP:0030057 Autoimmune antibody positivity` — covering ANA, anti-dsDNA-adjacent, ANCA/MPO/PR3, anti-Ro/SS-A,
-anti-cardiolipin, anti-β2GPI, anti-MuSK and more. Three entries use them.
+headed by `HP:0030057 Autoimmune antibody positivity` — covering ANA,
+anti-dsDNA-adjacent, ANCA/MPO/PR3, anti-Ro/SS-A, anti-cardiolipin, anti-β2GPI,
+anti-MuSK and more. Three entries use them.
 
 But note what the HP binding says: it asserts *the patient is seropositive*. It
 does not identify the antigen as a molecular entity, so it cannot be joined to
@@ -272,18 +273,34 @@ a curated identity field (`name` / `preferred_term` / `label`) or in prose:
 |---|---:|---:|---:|
 | CD4 | 952 | 226 (23.7%) | 726 |
 | CD8 | 737 | 183 (24.8%) | 554 |
-| CD27 | 245 | 12 (4.9%) | 233 |
+| CD27 † | 245 | 12 (4.9%) | 233 |
 | CD3 | 141 | 3 (2.1%) | 138 |
 | CD20 | 140 | 4 (2.9%) | 136 |
 | CD19 | 104 | 4 (3.8%) | 100 |
 
+The table stops at 100 mentions; below it the script also reports CD21 (25),
+CD38 (10), CD79a (3), CD138 (1) and CD22 (1).
+
 CD4 and CD8 are the best-represented, but only as a side effect: they ride along
-inside CL labels such as `CD8-positive, alpha-beta T cell`. CD27 is the third
-most-mentioned and sits at 4.9%, which is the same story — it appears in CL
-labels only where a term happens to be named for it. CD19, CD20 and CD3 —
+inside CL labels such as `CD8-positive, alpha-beta T cell`. CD19, CD20 and CD3 —
 the B-lineage and pan-T markers, and the ones that matter for therapy — have no
 CL term to ride on and are therefore almost entirely prose. **79 entries mention
 rituximab**; the CD20 it depletes is a sentence in a `description`, not a target.
+
+† **CD27 is in the table because it outranks the three rows below it, but it is
+not the same signal, and it should not be read as one.** 217 of its 245 mentions
+(89%) come from a single entry, `CD27-related_lymphoproliferative_and_immune_disorder`,
+which is named after the gene; the other 28 are scattered across 12 entries. And
+none of its 12 identity-field hits is a CL label — they are the disease `name`,
+its MONDO `disease_term`, a pathophysiology node name, two `diagnosis` names,
+and HGNC **gene** descriptors under `pathophysiology`, `genetic` and `diagnosis`.
+
+That makes CD27 a *different* failure mode from CD4/CD8, and a sharper one for
+this report's argument. Where CD27 is bound at all, it is bound as a gene. The
+KB can say "the CD27 gene" and it can say "a memory B cell" — it has no way to
+say that the cell displays the molecule. A lineage marker is exactly a molecule
+displayed by a cell, so the one relation that would make it queryable is the one
+missing, and binding the gene does not supply it.
 
 ## 6. Worked exemplars
 
