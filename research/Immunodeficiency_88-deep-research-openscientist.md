@@ -778,3 +778,52 @@ Checked with `linkml-reference-validator` 0.2.1.
 | Off topic | 0 |
 
 All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 29 |
+| Resolved | 27 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 2 |
+| Terms whose name was checked | 21 |
+| Terms named correctly | 8 |
+| Terms named as a **different** term | 6 |
+| Terms whose name is worth a second look | 7 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `HP:0032262` (2 mentions) - the report calls it "Clinical sign / infection"; HP calls it **Pulmonary tuberculosis**
+- `HP:0002099` (2 mentions) - the report calls it "Clinical sign"; HP calls it **Asthma**
+- `HP:0001880` (2 mentions) - the report calls it "Laboratory abnormality"; HP calls it **Increased total eosinophil count**
+- `HP:0002715` (2 mentions) - the report calls it "General"; HP calls it **Abnormality of the immune system**
+- `HP:0012384` (1 mention) - the report calls it "airway"; HP calls it **Rhinitis**
+- `HP:0002716` (1 mention) - the report calls it "Clinical sign"; HP calls it **Lymphadenopathy**
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `GO:0032609` (1 mention) - the report calls it "interferon-gamma production"; GO calls it **type II interferon production**, and lists "interferon-gamma production" among its other names
+- `GO:0006357` (1 mention) - the report calls it "regulation of transcription by RNA Pol II"; GO calls it **regulation of transcription by RNA polymerase II**
+- `CL:0000623` (1 mention) - the report calls it "NK cell"; CL calls it **natural killer cell**, and lists "NK cell" among its other names
+- `CL:0000814` (1 mention) - the report calls it "mature NK T cell / iNKT"; CL calls it **mature NK T cell**
+- `CL:0000940` (1 mention) - the report calls it "mucosal invariant T cell / MAIT"; CL calls it **mucosal-associated invariant T cell**, and lists "mucosal invariant T cell" among its other names
+- `GO:0005634` (1 mention) - the report calls it "Nucleus", "Subcellular level:** **Nucleus"; GO calls it **nucleus**, and lists "cell nucleus" among its other names
+- `NCIT:C15431` (1 mention) - the report calls it "Hematopoietic stem cell transplantation (HSCT)"; NCIT calls it **Hematopoietic Cell Transplantation**, and lists "Hematopoietic Stem Cell Transplantation" among its other names
+
+### Terms named inconsistently
+
+The report gives these identifiers more than one name of its own:
+
+- `GO:0005634` - called "Nucleus", "Subcellular level:** **Nucleus"
+
+### Prefixes with no resolver
+
+Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: `MGI`.
