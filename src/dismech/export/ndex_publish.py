@@ -109,6 +109,7 @@ def write_uuid_registry(manifest: dict[str, Any], path: Path) -> dict[str, Any]:
         if record.get("ndex_uuid")
         and record.get("status")
         not in {
+            "BLOCKED_EXPORT_DEFECT",
             "SKIPPED_EXPORT_DEFECT",
             "VERIFIED_PRIVATE",
             "VERIFIED_PUBLIC",
@@ -129,6 +130,7 @@ def write_uuid_registry(manifest: dict[str, Any], path: Path) -> dict[str, Any]:
         if record.get("ndex_uuid")
         and record.get("status")
         in {
+            "BLOCKED_EXPORT_DEFECT",
             "SKIPPED_EXPORT_DEFECT",
             "VERIFIED_PRIVATE",
             "VERIFIED_PUBLIC",
@@ -301,12 +303,18 @@ def build_release(
         network_attributes = aspects["networkAttributes"][0]
         nodes = aspects["nodes"]
         orphan_nodes = sorted(
-            str((node.get("v") or {}).get("name"))
+            str(
+                (node.get("v") or {}).get("name")
+                or f"<unnamed node {node.get('id', '?')}>"
+            )
             for node in nodes
             if (node.get("v") or {}).get("dismech_type") == "orphan"
         )
         unknown_nodes = sorted(
-            str((node.get("v") or {}).get("name"))
+            str(
+                (node.get("v") or {}).get("name")
+                or f"<unnamed node {node.get('id', '?')}>"
+            )
             for node in nodes
             if (node.get("v") or {}).get("dismech_type") == "unknown"
         )
@@ -351,6 +359,7 @@ def build_release(
                 "edge_count": len(aspects["edges"]),
                 "orphan_node_count": orphan_count,
                 "unknown_node_count": unknown_count,
+                "export_defects": record_defects,
                 "ndex_uuid": prior.get("ndex_uuid"),
                 "status": status,
             }
@@ -374,6 +383,7 @@ def build_release(
     unapproved_defects = [
         defect for defect in defects if defect not in allowed_export_defects
     ]
+    unmatched_allowed_defects = sorted(allowed_export_defects - set(defects))
     manifest = {
         "schema_version": "1.0",
         "generated_at": datetime.now(UTC).isoformat(),
@@ -383,16 +393,21 @@ def build_release(
             "disorder_count": len(records),
             "exported_count": sum(r["status"] == "EXPORTED" for r in records),
             "skipped_count": sum(r["status"].startswith("SKIPPED") for r in records),
+            "blocked_network_count": sum(
+                r["status"] == "BLOCKED_EXPORT_DEFECT" for r in records
+            ),
             "export_defect_count": len(defects),
             "quarantined_network_count": sum(
                 r["status"] == "SKIPPED_EXPORT_DEFECT" for r in records
             ),
             "unapproved_export_defect_count": len(unapproved_defects),
+            "unmatched_allowed_export_defect_count": len(unmatched_allowed_defects),
             "retired_network_count": len(retired_networks),
         },
         "export_defects": defects,
         "allowed_export_defects": approved_defects,
         "unapproved_export_defects": unapproved_defects,
+        "unmatched_allowed_export_defects": unmatched_allowed_defects,
         "retired_networks": retired_networks,
         "networks": records,
     }
@@ -444,7 +459,11 @@ def publish_release(
     unquarantined_slugs = sorted(
         record["slug"]
         for record in manifest.get("networks", [])
-        if record.get("slug") in defective_slugs
+        if (
+            bool(record.get("export_defects"))
+            if "export_defects" in record
+            else record.get("slug") in defective_slugs
+        )
         and record.get("status")
         in {"EXPORTED", "UPLOADED", "VERIFIED_PRIVATE", "VERIFIED_PUBLIC"}
     )

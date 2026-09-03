@@ -239,6 +239,13 @@ fails the release audit until the finding is reviewed explicitly. The manifest
 therefore exposes both the release exclusions and the remaining remediation
 work without placing broken networks in production.
 
+The manifest reports allowlist lines that no longer match a defect as
+`unmatched_allowed_export_defects`; remove those stale lines as the backlog is
+repaired. `BLOCKED_EXPORT_DEFECT` identifies a network with a new or changed
+finding. The manual `--allow-export-defects` CLI escape hatch suppresses that
+audit failure but still does not upload the defective network; if it already has
+an NDEx UUID, the registry preserves the mapping to the last verified network.
+
 `META` indexing covers network attributes such as disease and tissue. Select
 `ALL` only when node/gene search is intended and its resource cost has been
 agreed with NDEx operators.
