@@ -66,7 +66,8 @@ def classify(model_scale, target_scale):
 def collect(paths):
     rows = []
     for path in paths:
-        data = safe_load(open(path))
+        with open(path) as handle:
+            data = safe_load(handle)
         if not isinstance(data, dict):
             continue
         scales = {

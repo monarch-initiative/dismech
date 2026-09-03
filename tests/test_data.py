@@ -1258,7 +1258,20 @@ def test_failure_to_recapitulate_links_are_substantiated(filepath):
     )
 
 
-BIOLOGICAL_SCALES = ["MOLECULAR", "CELLULAR", "TISSUE", "ORGANISM"]
+@lru_cache(maxsize=None)
+def _enum_values(enum_name: str) -> tuple[str, ...]:
+    """Permissible values of a schema enum, in declaration order.
+
+    Derived rather than duplicated so a value added to the schema cannot leave a
+    test's copy of the list silently stale. For BiologicalScaleEnum the
+    declaration order is also the scale ladder, which the gap arithmetic below
+    depends on; `test_audit_scale_order_matches_schema` pins that.
+    """
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    enum = SchemaView(str(SCHEMA_PATH)).get_enum(enum_name)
+    assert enum is not None, f"{enum_name} missing from schema"
+    return tuple(enum.permissible_values.keys())
 
 
 @pytest.mark.kb_data
@@ -1277,7 +1290,7 @@ def test_model_scale_values_are_valid(filepath):
     errors = [
         f"{section}[{i}].modeled_mechanisms[{j}].model_scale={link['model_scale']!r}"
         for section, i, j, _model, link in _iter_mechanism_links(data)
-        if link.get("model_scale") and link["model_scale"] not in BIOLOGICAL_SCALES
+        if link.get("model_scale") and link["model_scale"] not in _enum_values("BiologicalScaleEnum")
     ]
 
     assert not errors, f"Invalid model_scale in {Path(filepath).name}: {errors}"
@@ -1313,9 +1326,10 @@ def test_upward_extrapolating_links_are_caveated(filepath):
     for section, i, j, _model, link in _iter_mechanism_links(data):
         model_scale = link.get("model_scale")
         target_scale = scales.get(link.get("target"))
-        if model_scale not in BIOLOGICAL_SCALES or target_scale not in BIOLOGICAL_SCALES:
+        scale_ladder = _enum_values("BiologicalScaleEnum")
+        if model_scale not in scale_ladder or target_scale not in scale_ladder:
             continue
-        gap = BIOLOGICAL_SCALES.index(target_scale) - BIOLOGICAL_SCALES.index(model_scale)
+        gap = scale_ladder.index(target_scale) - scale_ladder.index(model_scale)
         if gap > 0 and not (link.get("limitations") or "").strip() and not link.get("divergences"):
             errors.append(
                 f"{section}[{i}].modeled_mechanisms[{j}] "
@@ -1328,19 +1342,17 @@ def test_upward_extrapolating_links_are_caveated(filepath):
     )
 
 
-DIVERGENCE_TYPES = [
-    "BOUNDARY_OMISSION",
-    "PROXY_QUANTITY",
-    "CALIBRATION_PROVENANCE",
-    "CAUSE_UNREPRESENTED",
-    "STRUCTURAL_IDEALIZATION",
-    "TEMPORAL_SCOPE",
-    "CONTESTED_ASSUMPTION",
-    "SCALE_EXTRAPOLATION",
-    "SPECIES_MISMATCH",
-    "POPULATION_MISMATCH",
-    "OTHER",
-]
+def test_audit_scale_order_matches_schema():
+    """The audit script's SCALE_ORDER must match BiologicalScaleEnum.
+
+    `scripts/model_scale_audit.py` keeps its own ordered copy so that
+    `just model-scale-audit` does not have to load a SchemaView on every run.
+    That copy is only safe if something checks it, and this is that something --
+    both its membership and its order, since the gap arithmetic is ordinal.
+    """
+    from model_scale_audit import SCALE_ORDER
+
+    assert tuple(SCALE_ORDER) == _enum_values("BiologicalScaleEnum")
 
 
 @pytest.mark.kb_data
@@ -1364,7 +1376,7 @@ def test_model_divergences_are_typed_and_explained(filepath):
                 errors.append(f"{where} is not a mapping")
                 continue
             dtype = div.get("divergence_type")
-            if dtype not in DIVERGENCE_TYPES:
+            if dtype not in _enum_values("ModelDivergenceTypeEnum"):
                 errors.append(f"{where}.divergence_type={dtype!r} not in taxonomy")
             desc = (div.get("description") or "").strip()
             if len(desc.split()) < 8:
@@ -1406,9 +1418,10 @@ def test_scale_extrapolation_divergence_agrees_with_scales(filepath):
             continue
         model_scale = link.get("model_scale")
         target_scale = scales.get(link.get("target"))
-        if model_scale not in BIOLOGICAL_SCALES or target_scale not in BIOLOGICAL_SCALES:
+        scale_ladder = _enum_values("BiologicalScaleEnum")
+        if model_scale not in scale_ladder or target_scale not in scale_ladder:
             continue
-        gap = BIOLOGICAL_SCALES.index(target_scale) - BIOLOGICAL_SCALES.index(model_scale)
+        gap = scale_ladder.index(target_scale) - scale_ladder.index(model_scale)
         if gap <= 0:
             errors.append(
                 f"{section}[{i}].modeled_mechanisms[{j}] claims SCALE_EXTRAPOLATION "

@@ -476,7 +476,7 @@ still `PARTIALLY_RECAPITULATES`, because its caveat is pathway-activation-versus
 recombination-fidelity rather than scale. The slot is orthogonal to `relationship` and
 `fidelity`, not a restatement of them.
 
-Recorded as **proposed** in [design decision 3a](../../explanation/design-decisions.md);
+Recorded as **enacted** in [design decision 3b](../../explanation/design-decisions.md);
 it needs an issue and maintainer sign-off before it is enacted. 80.5% of the KB's 1,131
 model→mechanism links already have a scale-tagged target, so the comparison becomes
 computable across the KB as `model_scale` is populated.
@@ -497,7 +497,7 @@ The taxonomy is evidenced rather than invented: all 50 computational-model `limi
 strings in the KB were read and clustered, with the animal and NAM sets probed to see
 which kinds are shared. Full survey and the ASME V&V 40 / FDA prior art in
 [the taxonomy spec](../specs/2026-09-02-model-divergence-taxonomy.md); the decision is
-recorded as proposed in [3b](../../explanation/design-decisions.md).
+recorded as enacted in [3c](../../explanation/design-decisions.md).
 
 The single most useful value is `PROXY_QUANTITY` — a model reporting a *different
 quantity* at the *same* scale. It is what the scale comparison structurally cannot see,

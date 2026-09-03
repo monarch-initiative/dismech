@@ -12,7 +12,7 @@ observes* (`model_scale`), and *in what specific respects it falls short*
 (`divergences`) — and derives what it can rather than asking a curator to assert it.
 
 Related pages: [computational models](computational-models.md) for the `dismech-perturb`
-runner, [design decisions 3a and 3b](design-decisions.md) for the records of the two
+runner, [design decisions 3b and 3c](design-decisions.md) for the records of the two
 choices described here, and the
 [model-divergence taxonomy survey](../superpowers/specs/2026-09-02-model-divergence-taxonomy.md)
 for the evidence behind the value set.
