@@ -607,9 +607,9 @@ grouping-nesting-audit *args="":
 
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
-validate-terms-schema:
+validate-terms-schema *flags:
     @echo "Validating schema term references..."
-    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}}
+    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}} {{flags}}
 
 # OAK config for ontology adapters
 oak_config := "conf/oak_config.yaml"
