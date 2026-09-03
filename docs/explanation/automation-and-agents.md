@@ -341,9 +341,10 @@ file lists — so those validate the KB files actually entering `main`, in the
 merged context where a co-queued PR may have changed `cache/**` or
 `references_cache/**`. `tests/test_merge_group_ci.py` pins the trigger, the
 filter's event coverage and its v4.0.1 version floor, the no-suppression rule,
-and the never-forced rule for the two file-scoped steps. Enabling an actual
-queue on `main` (branch ruleset, shepherd enqueue behavior) is the remaining,
-separately gated half.
+and the never-forced rule for the two file-scoped steps. The queue ruleset is
+now active on `main` with `ALLGREEN`, five speculative build slots, and a
+one-PR merge limit. Accurate enqueue reporting and queued-PR reselection remain
+controller follow-ups in #10604.
 
 **Merge-integrity verification.** Passing tests are not evidence of correct
 history: in the April 2026 GitHub merge-queue incident (#2034), squash merges
