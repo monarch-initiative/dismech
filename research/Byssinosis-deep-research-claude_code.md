@@ -6,6 +6,7 @@ start_time: '2026-09-03T14:30:43.734129'
 end_time: '2026-09-03T14:35:18.546348'
 duration_seconds: 274.81
 template_file: templates/disease_pathophysiology_research.md
+template_sha: 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666
 template_variables:
   disease_name: Byssinosis
   mondo_id: ''
@@ -35,6 +36,39 @@ run_metadata:
   stop_reason: end_turn
   assistant_text_blocks: 1
 citation_count: 31
+reference_validation:
+  total_references: 17
+  verified: 17
+  not_found: 0
+  unverifiable: 0
+  confabulation_rate: 0.0
+  relevance_assessed: 17
+  on_topic: 12
+  validator_version: 0.2.1
+term_validation:
+  total_terms: 37
+  verified: 37
+  not_found: 0
+  obsolete: 0
+  unverifiable: 0
+  confabulation_rate: 0.0
+  labels_checked: 20
+  labels_matching: 16
+  labels_mismatched: 2
+  mislabelled_terms:
+  - term_id: MONDO:0006688
+    reported_labels:
+    - MONDO
+    - byssinosis
+    ontology_label: byssinosis
+  - term_id: CL:0000097
+    reported_labels:
+    - "Mast cells** \u2014 degranulation, histamine release"
+    ontology_label: mast cell
+  labels_variant: 2
+  needs_review: true
+  adapter: 'ols:'
+  validator_version: 0.4.5
 ---
 
 ## Question
@@ -926,3 +960,55 @@ No byssinosis-specific dedicated model-organism database (equivalent to MGI/ZFIN
 - [byssinosis — Monarch Initiative, MONDO:0006688](https://monarchinitiative.org/MONDO:0006688)
 - [2026 ICD-10-CM Diagnosis Code J66.0: Byssinosis](https://www.icd10data.com/ICD10CM/Codes/J00-J99/J60-J70/J66-/J66.0)
 - [Byssinosis — MalaCards](https://www.malacards.org/card/byssinosis)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.2.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 17 |
+| Resolved | 17 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 17 |
+| On topic | 12 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 37 |
+| Resolved | 37 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+| Terms whose name was checked | 20 |
+| Terms named correctly | 16 |
+| Terms named as a **different** term | 2 |
+| Terms whose name is worth a second look | 2 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `MONDO:0006688` (6 mentions) - the report calls it "MONDO", "byssinosis"; MONDO calls it **byssinosis**
+- `CL:0000097` (2 mentions) - the report calls it "Mast cells** — degranulation, histamine release"; CL calls it **mast cell**
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `HP:0031245` (1 mention) - the report calls it "Increased sputum production"; HP calls it **Productive cough**, and lists "Cough with mucus production" among its other names
+- `HP:0001974` (2 mentions) - the report calls it "Leukocytosis"; HP calls it **Increased total leukocyte count**, and lists "Leukocytosis" among its other names
+
+### Terms named inconsistently
+
+The report gives these identifiers more than one name of its own:
+
+- `MONDO:0006688` - called "MONDO", "byssinosis"
