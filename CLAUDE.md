@@ -828,6 +828,12 @@ a second-hit or transformation lesion is still a somatic event), or an
 asbestos, UV). The exposure rule applies **only when no lesion is recorded**:
 once the entry names the transforming event, the exposure is upstream context.
 
+A **virally driven mechanism is not a lesion**: HPV E6/E7 or HTLV-1 Tax leaves
+no host variant for `variant_origin` to describe (the same rule CLAUDE.md
+already applies to `functional_impact_category`), so those entries record the
+initiating exposure instead — and marking them `SOMATIC` breaks the derivation,
+since a recorded lesion suppresses the exposure rule.
+
 There is deliberately **no fallback chain and no role-string reading**. An
 earlier version had both, to cover entries that had not recorded their origin,
 and they mis-fired — deriving macrophage and pancreatic stellate cell as the cell

@@ -289,20 +289,39 @@ class OntologyEdgeSource(StructuredSource):
         from sqlalchemy.exc import SQLAlchemyError
 
         rows: list[tuple[str, str, None, str]] = []
-        try:
-            for chunk in _chunked(predicate_ids, _SQL_CHUNK):
-                placeholders = ",".join(f":p{i}" for i in range(len(chunk)))
-                params = {f"p{i}": pid for i, pid in enumerate(chunk)}
-                stmt = text(
-                    "SELECT subject, predicate, object FROM edge "
-                    f"WHERE predicate IN ({placeholders})"
-                )
-                for subject, predicate, obj in conn.execute(stmt, params).fetchall():
-                    if subject and obj:
-                        rows.append((str(subject), str(predicate), None, str(obj)))
-        except SQLAlchemyError as exc:
-            logger.debug("edge table unavailable or unreadable: %s", exc)
-            return []
+        for chunk in _chunked(predicate_ids, _SQL_CHUNK):
+            placeholders = ",".join(f":p{i}" for i in range(len(chunk)))
+            params = {f"p{i}": pid for i, pid in enumerate(chunk)}
+            stmt = text(
+                "SELECT subject, predicate, object FROM edge "
+                f"WHERE predicate IN ({placeholders})"
+            )
+            try:
+                fetched = conn.execute(stmt, params).fetchall()
+            except SQLAlchemyError as exc:
+                # A missing `edge` table is expected for an ontology whose
+                # relations are plain triples, and is not an error. A failure
+                # partway through is: keep what was already read and say so,
+                # rather than returning [] and making a partial read look
+                # indistinguishable from "this ontology has no edges".
+                if rows:
+                    logger.warning(
+                        "edge table read failed after %d row(s); "
+                        "returning a partial result: %s",
+                        len(rows),
+                        exc,
+                    )
+                else:
+                    logger.debug("edge table unavailable or unreadable: %s", exc)
+                return rows
+            for subject, predicate, obj in fetched:
+                # semsql keeps OWL scaffolding in blank nodes (`_:...`), which
+                # are not quotable terms.
+                if not subject or not obj:
+                    continue
+                if str(subject).startswith("_:") or str(obj).startswith("_:"):
+                    continue
+                rows.append((str(subject), str(predicate), None, str(obj)))
         return rows
 
     @staticmethod

@@ -23,7 +23,10 @@ Candidate selection, per unmarked somatic-neoplasm entry:
    Activation", "Erythroid Maturation Arrest at the Proerythroblast Stage"),
    and stamping ``variant_origin: SOMATIC`` on those asserts a lesion the node
    does not carry, even when the cell it binds happens to be the right one;
-2. the node's text does not state a germline/inherited origin (``GERMLINE_RE``);
+2. the node's text states neither a germline/inherited origin (``GERMLINE_RE``)
+   nor a viral oncoprotein mechanism (``VIRAL_RE``) -- HPV E7 inactivating pRB
+   is not a host genetic lesion, and there is no variant for ``variant_origin``
+   to describe. Those cancers derive their origin from the exposure rule;
 3. the node is neither a microenvironment node (macrophage, Treg and fibroblast
    are where the tumor lives, not where it came from) nor an acquired-resistance
    or progression node -- those carry lesion vocabulary and are real somatic
@@ -77,8 +80,11 @@ LESION_RE = re.compile(
     r"\bmutation|\bmutant|\bmutated|missense|nonsense|frameshift|\bfusion\b"
     r"|translocation|translocated|rearrangement|rearranged|amplification|amplified"
     r"|\bdeletion\b|\bduplication\b|copy[- ]number|loss of heterozygosity|\bLOH\b"
-    r"|biallelic|oncohistone|\bsomatic\b|\bacquired\b|hypermethylation"
-    r"|epigenetic silencing|promoter methylation|\bt\(\d+;\d+\)|internal tandem"
+    r"|biallelic|oncohistone|\bsomatic\b|\bacquired\b"
+    # Bare "hypermethylation" is a chromatin state that is routinely downstream
+    # of the lesion (Epithelioid_Sarcoma's H3K27 hypermethylation sits under
+    # SMARCB1 loss), so only promoter-level silencing of a gene counts.
+    r"|promoter hypermethylation|epigenetic silencing|promoter methylation|\bt\(\d+;\d+\)|internal tandem"
     r"|\bITD\b|hotspot|truncating|splice[- ]site|oncogene formation"
     # "Inactivation" and "loss" are lesion words only when they qualify a gene
     # or an allele. "TP53 Pathway Inactivation" and "Loss of p53-Dependent
@@ -88,6 +94,9 @@ LESION_RE = re.compile(
     r"|(?<!pathway )(?<!signaling )(?<!axis )inactivation\b(?! of (a |the )?(pathway|signaling|checkpoint))"
     r"|loss of function|loss[- ]of[- ]function"
     r"|(tumou?r[- ]suppressor|second[- ]hit|biallelic|allelic|homozygous|gene)\s+loss"
+    # "SMARCB1 (INI1) Loss" -- a gene symbol, optionally with a parenthetical
+    # alias, immediately before "loss".
+    r"|\b[A-Z][A-Z0-9-]{2,}\d?\b(?:\s*\([A-Z0-9/-]+\))?\s+loss\b"
     r"|\bdriver (lesion|alteration|mutation|event)|oncogenic (lesion|alteration)"
     r"|(genetic|genomic|molecular|chromosomal|cytogenetic|epigenetic[- ]regulator)"
     r"\s+(alteration|lesion|abnormalit)",
@@ -113,6 +122,19 @@ CONTEXT_NODE_RE = re.compile(
 RESISTANCE_RE = re.compile(
     r"resistan|relapse|refractory|selection pressure|escape|reactivation"
     r"|bypass|progression|metasta|transformation to|richter",
+    re.I,
+)
+
+# A viral oncoprotein inactivating a host tumor suppressor is not a host
+# genetic lesion -- there is no variant for `variant_origin` to describe. This
+# is the HTLV-1 Tax situation CLAUDE.md already rules on, and it is how four HPV
+# entries (E6/E7-mediated p53 and pRB inactivation) were wrongly marked: the
+# bare `inactivation` branch matched the *protein* being inactivated. Such
+# cancers derive their origin through the ENVIRONMENTAL_TRIGGER rule instead.
+VIRAL_RE = re.compile(
+    r"\boncoprotein|\bE6\b|\bE7\b|\bHPV\b|papillomavirus|\bEBV\b|epstein"
+    r"|\bHTLV|\bHBV\b|\bHCV\b|hepatitis [BC]\b|\bKSHV\b|\bHHV-?8\b"
+    r"|\bTax\b|viral (protein|oncogene|oncoprotein)|virus-mediated",
     re.I,
 )
 
@@ -175,6 +197,8 @@ def propose(path: Path, *, bind_single_cell: bool = False) -> tuple[list[Proposa
             continue
         if CONTEXT_NODE_RE.search(name) or RESISTANCE_RE.search(name):
             continue
+        if VIRAL_RE.search(_node_text(node)):
+            continue
         cells = [
             (cid, label)
             for cid, label in _terms(node.get("cell_types"))
@@ -225,6 +249,19 @@ def _name_line_pattern(name: str) -> re.Pattern:
     return re.compile(rf"^- name: (?:{escaped}|\"{escaped}\"|'{escaped}')\s*$", re.M)
 
 
+def _cell_block(proposal: Proposal) -> str:
+    """The `cell_types` YAML for a borrowed binding, or nothing."""
+    if not proposal.borrowed_cell:
+        return ""
+    out = "  cell_types:\n"
+    for cid, label in zip(proposal.cell_ids, proposal.cell_labels):
+        out += (
+            f"  - preferred_term: {label}\n"
+            f"    term:\n      id: {cid}\n      label: {label}\n"
+        )
+    return out
+
+
 def apply_proposal(path: Path, proposals: list[Proposal]) -> bool:
     """Insert `genetic_context.variant_origin: SOMATIC` after each node's name.
 
@@ -263,15 +300,14 @@ def apply_proposal(path: Path, proposals: list[Proposal]) -> bool:
                 return False
             insert_at = existing.end() + 1
             text = text[:insert_at] + "    variant_origin: SOMATIC\n" + text[insert_at:]
+            # ...and then fall through to the borrowed-cell write. Returning
+            # early here silently dropped it, leaving the node marked but
+            # unbound while the run still reported success.
+            text = text[: match.end() + 1] + _cell_block(proposal) + text[match.end() + 1 :]
             continue
-        insertion = "  genetic_context:\n    variant_origin: SOMATIC\n"
-        if proposal.borrowed_cell:
-            insertion += "  cell_types:\n"
-            for cid, label in zip(proposal.cell_ids, proposal.cell_labels):
-                insertion += (
-                    f"  - preferred_term: {label}\n"
-                    f"    term:\n      id: {cid}\n      label: {label}\n"
-                )
+        insertion = "  genetic_context:\n    variant_origin: SOMATIC\n" + _cell_block(
+            proposal
+        )
         text = text[: match.end() + 1] + insertion + text[match.end() + 1 :]
     path.write_text(text)
     return True

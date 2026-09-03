@@ -53,6 +53,13 @@ committed worked examples.
 `allelic_hit_role: FIRST_HIT` is worth adding on a two-hit tumor suppressor,
 where the first hit is the origin event and the second is progression.
 
+**Do not mark a virally driven mechanism.** HPV E7 inactivating pRB, or HTLV-1
+Tax activating NF-kB, is not a host genetic lesion: there is no variant for
+`variant_origin` to describe, which is the case CLAUDE.md already rules on for
+`functional_impact_category`. Those cancers record their origin through the
+exposure rule below instead, and marking them `SOMATIC` actively breaks it,
+because a recorded lesion suppresses the exposure rule.
+
 ## The two rules
 
 Both read a structured claim the entry makes. Neither reads a naming convention,
@@ -134,8 +141,10 @@ Always re-validate afterwards — `just validate-disorders` on the changed files
        crest cell on one node. Naming both is the honest answer, and the remedy
        is a note saying so.
 
-  The five current findings are all of these kinds, which is the point: the list
+  The six current findings are all of these kinds, which is the point: the list
   is short enough to work through, and every row is a real modeling question.
+  `Gastrointestinal_Lymphoma` is the clearest — B cell *and* intraepithelial
+  lymphocyte, because the entry covers both MALT lymphoma and EATL.
 
 `ORIGIN_WITHOUT_CELL`
 : An origin node was identified but binds no CL term. The cheapest class to fix,
@@ -184,6 +193,17 @@ evidence:
   evidence_source: OTHER
   snippet: "Disease_Has_Normal_Cell_Origin | NCIT:C12475 | Mature B-Lymphocyte"
   explanation: NCI Thesaurus asserts the normal cell of origin for this entity.
+```
+
+**Rebuild the cache before citing one of these rows.** The predicates are
+declared in the manifest, but no `references_cache/NCIT_*.md` in the repository
+carries them yet — generating those files needs the OAK-managed NCIT SQLite,
+which is downloaded on demand and never committed. A snippet quoted against a
+row that has not been generated fails reference validation:
+
+```bash
+just ncit-edges-refresh
+just ncit-edges-rebuild --id NCIT:C8851
 ```
 
 Two things this is **not**:

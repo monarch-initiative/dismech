@@ -314,3 +314,40 @@ def test_script_is_advisory_by_default_and_gates_only_when_asked():
         cwd=ROOT,
     )
     assert gated.returncode == 1
+
+
+def test_format_list_prints_one_line_per_entry():
+    """The docs promise a line per entry; it must actually be produced."""
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--format", "list"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    assert result.returncode == 0, result.stderr
+    lines = [
+        line
+        for line in result.stdout.splitlines()
+        if line.startswith("kb/disorders/") and "\t" in line
+    ]
+    assert len(lines) > 100
+    assert any("SOMATIC_LESION" in line for line in lines)
+
+
+def test_viral_oncoprotein_entries_derive_through_the_exposure_rule():
+    """HPV E7 inactivating pRB is not a host lesion (the HTLV-1 Tax precedent).
+
+    These four entries were wrongly marked SOMATIC by the backfill, which also
+    suppressed the exposure rule that should answer for them -- rule 1 takes
+    precedence, so a spurious mark silences rule 2.
+    """
+    for slug in (
+        "Anal_Canal_Carcinoma",
+        "Cervical_Cancer",
+        "Cervical_Squamous_Cell_Carcinoma",
+        "HPV_Positive_Head_and_Neck_Cancer",
+    ):
+        report = assess(ROOT / "kb" / "disorders" / f"{slug}.yaml")
+        assert report is not None, slug
+        assert report.rules == [RULE_TRIGGER], (slug, report.rules)
+        assert report.origin_cells, slug

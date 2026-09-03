@@ -233,10 +233,13 @@ def _downstream_targets(nodes: Iterable[dict]) -> set[str]:
 def find_origins(data: dict) -> list[OriginNode]:
     """Return the nodes this entry marks as where the disease starts.
 
-    Both rules read a structured claim, so their results are unioned rather than
-    ranked: an entry that marks a somatic lesion *and* an initiating exposure is
-    making two compatible statements about one origin. If they disagree about
-    the cell, that disagreement is the finding, not something to resolve here.
+    Strict precedence, not a union: a recorded somatic lesion suppresses the
+    exposure rule entirely. The cell of origin is the cell the transforming
+    event occurred in, so once the entry names that event the exposure is
+    upstream context -- in pancreatic ductal adenocarcinoma, chronic
+    pancreatitis really does TRIGGER the inflammation node, but that node binds
+    macrophage and pancreatic stellate cell while the disease arises in the
+    ductal cell named on the KRAS lesion.
     """
     pathophysiology = data.get("pathophysiology") or []
     nodes = [n for n in pathophysiology if isinstance(n, dict)]
@@ -454,6 +457,7 @@ def render_summary(reports: list[EntryReport], *, verbose: bool) -> None:
 
 
 def render_list(reports: list[EntryReport]) -> None:
+    """One tab-separated line per assessed entry: path, rules, findings, cells."""
     for report in reports:
         if not report.is_neoplasm or report.is_predisposition:
             continue
@@ -564,6 +568,8 @@ def main(argv: list[str] | None = None) -> int:
         render_json(reports)
     elif args.format == "list":
         render_summary(reports, verbose=True)
+        print()
+        render_list(reports)
     else:
         render_summary(reports, verbose=False)
 
