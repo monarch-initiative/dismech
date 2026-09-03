@@ -34,8 +34,9 @@ both of its subsets mark it as a group of disorders, inherited from the Orphanet
 classification, where "unclassified cardiomyopathy" is the residual bucket for
 forms that fit none of the morphofunctional categories.
 
-The term is also structurally uncurateable here. Deprecated MONDO terms are
-detached from the hierarchy:
+The term is also structurally uncurateable here. This term is detached from the
+hierarchy — asserted for `MONDO:0016343` specifically, which is what was
+checked, not about MONDO's obsoletion practice in general:
 
 ```
 $ runoak -i sqlite:obo:mondo ancestors MONDO:0016343
@@ -81,13 +82,41 @@ The historical bucket's contents are already curated individually. Checked with
 | left ventricular noncompaction | `MONDO:0018901` | `Left_Ventricular_Noncompaction.yaml` |
 | Tako-tsubo cardiomyopathy | `MONDO:0019018` | `Takotsubo_Cardiomyopathy.yaml` |
 
-The last two are the ESC "unclassified cardiomyopathies" category itself, so the
-concept's actual clinical content is covered by name. Around fifty further
-cardiomyopathy disorder entries, two groupings
-(`Familial_Dilated_Cardiomyopathy`, `Familial_Hypertrophic_Cardiomyopathy`) and
-the `cardiomyopathy_maladaptive_remodeling` module sit alongside them.
+The last two are the ESC 2008 "unclassified cardiomyopathies" category itself, so the
+concept's actual clinical content is covered by name. `kb/disorders/` holds 50
+files whose name contains "cardiomyopathy" (45 beyond the five listed above
+that carry the word; `Left_Ventricular_Noncompaction` does not), and
+alongside them sit two groupings (`Familial_Dilated_Cardiomyopathy`,
+`Familial_Hypertrophic_Cardiomyopathy`) and the
+`cardiomyopathy_maladaptive_remodeling` module.
 
-## Open gap this surfaced
+## Open gaps this surfaced
+
+Two, both flagged rather than decided.
+
+### The classification this note leans on has since moved on
+
+The ESC 2008 categories used above are what `MONDO:0016343` was built on, but
+the 2023 ESC cardiomyopathy guideline (PMID:37622657) retired the "unclassified"
+category outright and put **non-dilated left ventricular cardiomyopathy
+(NDLVC)** in its place. So the bucket this note declines is not merely obsolete
+in MONDO — it is obsolete in the clinical nosology too, which strengthens the
+decision rather than complicating it.
+
+NDLVC itself has no `kb/` entry and no stub. It appears in `kb/` only as part of
+the cohort label "DCM/NDLVC" inside evidence snippets, explanations, and
+reference titles in `Dilated_Cardiomyopathy_1FF.yaml` and
+`Hypertrophic_Cardiomyopathy_20.yaml` — never as an entity in its own right.
+
+The blocker is upstream, though, and it needs saying before anyone files a stub:
+**MONDO has no NDLVC term.** Searching `l~non-dilated` returns nothing, and
+`l~left ventricular cardiomyopathy` returns only `MONDO:7770163`
+(*arrhythmogenic left ventricular cardiomyopathy, dog*). A stub requires a
+`mondo_id` matching `^MONDO:[0-9]{7}$`, and a `disease_term` requires a term
+reachable from `MONDO:0000001`, so neither is available today. Curating NDLVC
+means requesting a MONDO term first.
+
+### The root the obsoletion points at is uncovered
 
 `MONDO:0004994` (*cardiomyopathy*) — the term MONDO tells you to consider
 instead — is **not covered** by any `kb/` entry. It is referenced only in the
