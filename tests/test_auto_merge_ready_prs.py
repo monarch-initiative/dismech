@@ -35,6 +35,8 @@ def make_pr(**overrides):
         "isDraft": False,
         "baseRefName": "main",
         "headRefName": "claude/curate-example",
+        "headRefOid": "head123",
+        "baseRefOid": "base123",
         "assignees": [],
         "reviewDecision": "APPROVED",
         "mergeable": "MERGEABLE",
@@ -66,6 +68,15 @@ def test_fully_ready_pr_is_eligible():
 def test_human_authored_pr_is_eligible():
     """Authorship is deliberately not a criterion (see the workflow step)."""
     assert decide(make_pr(headRefName="ci/some-fix")).eligible
+
+
+def test_weekly_compliance_pr_uses_the_common_controller():
+    pr = make_pr(
+        headRefName="weekly-compliance-2026-08",
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+    )
+    assert decide(pr).eligible
 
 
 def test_skipped_and_neutral_checks_do_not_block():
@@ -124,9 +135,8 @@ def test_typename_wins_over_shape():
     "overrides,expected",
     [
         ({"state": "CLOSED"}, "not open"),
-        ({"isDraft": True}, "draft"),
         ({"baseRefName": "some-feature"}, "base branch"),
-        ({"assignees": [{"login": "cmungall"}]}, "assigned to cmungall"),
+        ({"assignees": [{"login": "cmungall"}]}, "assigned to human(s): cmungall"),
         ({"reviewDecision": "CHANGES_REQUESTED"}, "not approved"),
         ({"reviewDecision": "REVIEW_REQUIRED"}, "not approved"),
         ({"reviewDecision": None}, "not approved"),
@@ -144,6 +154,52 @@ def test_blocking_criteria(overrides, expected):
     assert expected in decision.reason
 
 
+def test_draft_is_included_by_repository_policy():
+    pr = make_pr(isDraft=True, mergeStateStatus="DRAFT")
+    assert decide(pr).eligible
+
+
+def test_draft_can_be_rejected_during_post_transition_verification():
+    decision = decide(make_pr(isDraft=True), include_drafts=False)
+    assert not decision.eligible
+    assert decision.reason == "draft"
+
+
+def test_draft_blocked_merge_state_is_accepted_only_for_preflight():
+    pr = make_pr(isDraft=True, mergeStateStatus="BLOCKED")
+    assert decide(pr).eligible
+    assert not decide(pr, include_drafts=False).eligible
+
+
+def test_auto_lane_pr_uses_the_common_controller():
+    assert decide(make_pr(headRefName="auto/generate-pages")).eligible
+
+
+@pytest.mark.parametrize(
+    "login",
+    ["dragon-ai-agent", "github-actions[bot]", "ai4c-agent", "AI4C-AGENT[bot]"],
+)
+def test_machine_assignee_does_not_hold_pr(login):
+    assert decide(make_pr(assignees=[{"login": login}])).eligible
+
+
+def test_machine_and_human_assignee_still_holds_pr():
+    decision = decide(
+        make_pr(
+            assignees=[
+                {"login": "dragon-ai-agent"},
+                {"login": "cmungall"},
+            ]
+        )
+    )
+    assert not decision.eligible
+    assert decision.reason == "assigned to human(s): cmungall"
+
+
+def test_missing_assignee_login_fails_closed_as_human():
+    assert not decide(make_pr(assignees=[{}])).eligible
+
+
 def test_pr_younger_than_three_days_is_skipped():
     pr = make_pr(
         createdAt=(NOW - timedelta(days=2, hours=23)).isoformat().replace("+00:00", "Z")
@@ -158,7 +214,6 @@ def test_pr_younger_than_three_days_is_skipped():
 def test_only_the_age_criterion_is_tagged_too_young():
     """Guards the report filter: nothing else may be silently suppressed."""
     for overrides in (
-        {"isDraft": True},
         {"assignees": [{"login": "cmungall"}]},
         {"reviewDecision": "CHANGES_REQUESTED"},
         {"mergeable": "CONFLICTING"},
@@ -189,6 +244,24 @@ def test_non_negative_int_rejects_negatives(value):
     loudly rather than widen the merge criteria."""
     with pytest.raises(argparse.ArgumentTypeError, match="zero or positive"):
         auto_merge.non_negative_int(value)
+
+
+def test_default_scan_limit_covers_the_large_backlog(monkeypatch, tmp_path):
+    calls = []
+
+    def fake_gh(args, *, token=None):
+        calls.append(args)
+        if args[:2] == ["pr", "list"]:
+            return "[]"
+        return ""
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    code = auto_merge.main(
+        ["--repo", "o/r", "--dry-run", "--summary-file", str(tmp_path / "s.md")]
+    )
+    assert code == 0
+    list_call = next(call for call in calls if call[:2] == ["pr", "list"])
+    assert list_call[list_call.index("--limit") + 1] == "1000"
 
 
 @pytest.mark.parametrize("value", ["", "three", "3.5", "1e3"])
@@ -294,7 +367,6 @@ def test_list_stage_still_rejects_known_conflicts():
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"isDraft": True},
         {"assignees": [{"login": "cmungall"}]},
         {"reviewDecision": "CHANGES_REQUESTED"},
         {"baseRefName": "some-feature"},
@@ -340,6 +412,27 @@ def test_real_gh_refusal_reports_the_diagnosis_not_the_hint():
 def test_gh_error_strips_status_markers():
     exc = subprocess.CalledProcessError(1, "gh", stderr="! something happened\n")
     assert auto_merge._gh_error(exc) == "something happened"
+
+
+def test_discovery_subprocesses_cannot_inherit_the_writer_token(monkeypatch):
+    environments = []
+
+    class Result:
+        stdout = ""
+
+    def fake_run(*args, **kwargs):
+        environments.append(kwargs["env"])
+        return Result()
+
+    monkeypatch.setenv("GH_TOKEN", "reader")
+    monkeypatch.setenv("GH_MERGE_TOKEN", "writer")
+    monkeypatch.setattr(auto_merge.subprocess, "run", fake_run)
+    auto_merge._gh(["pr", "list"])
+    auto_merge._gh(["pr", "merge"], token="writer")
+    assert environments[0]["GH_TOKEN"] == "reader"
+    assert "GH_MERGE_TOKEN" not in environments[0]
+    assert environments[1]["GH_TOKEN"] == "writer"
+    assert "GH_MERGE_TOKEN" not in environments[1]
 
 
 def test_gh_error_strips_a_prefix_not_a_character_set():
@@ -394,23 +487,35 @@ def test_real_errors_are_not_benign(message):
 # --- end-to-end main() ----------------------------------------------------
 
 
-def _run_main(monkeypatch, tmp_path, *, view, extra_args=()):
+def _run_main(
+    monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None
+):
     """Drive main() against a stubbed gh, returning (exit code, gh calls)."""
-    listed = [
-        make_pr(number=42, mergeable="MERGEABLE"),
-    ]
+    if listed is None:
+        listed = [make_pr(number=42, mergeable="MERGEABLE")]
+    views = view if isinstance(view, list) else [view]
+    view_index = 0
     calls = []
 
-    def fake_gh(args):
+    def fake_gh(args, *, token=None):
+        nonlocal view_index
         calls.append(args)
         if args[:2] == ["pr", "list"]:
             return json.dumps(listed)
         if args[:2] == ["pr", "view"]:
-            return json.dumps(view)
+            payload = views[min(view_index, len(views) - 1)]
+            view_index += 1
+            return json.dumps(payload)
+        if args[:2] == ["api", "graphql"]:
+            # No queue by default, so existing tests keep the direct-merge path.
+            return queue_payload or json.dumps(
+                {"data": {"repository": {"mergeQueue": None}}}
+            )
         return ""
 
     monkeypatch.setattr(auto_merge, "_gh", fake_gh)
     monkeypatch.setattr(auto_merge.time, "sleep", lambda _: None)
+    monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
     code = auto_merge.main(
         [
             "--repo",
@@ -430,6 +535,44 @@ def test_main_merges_a_fully_ready_pr(monkeypatch, tmp_path):
     assert code == 0
     assert len(merges) == 1
     assert "cafe1234" in merges[0]
+
+
+def test_specific_pr_never_falls_back_to_a_global_scan(monkeypatch, tmp_path):
+    target = make_pr(number=99, headRefOid="head99")
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=target,
+        listed=[make_pr(number=42)],
+        extra_args=["--specific-pr", "99"],
+    )
+    assert code == 0
+    assert not [call for call in calls if call[:2] == ["pr", "list"]]
+    merges = [call for call in calls if call[:2] == ["pr", "merge"]]
+    assert len(merges) == 1
+    assert merges[0][2] == "99"
+
+
+def test_specific_pr_reports_why_an_unapproved_target_was_skipped(
+    monkeypatch, tmp_path
+):
+    target = make_pr(
+        number=99,
+        headRefOid="head99",
+        reviewDecision="REVIEW_REQUIRED",
+    )
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=target,
+        listed=[make_pr(number=42)],
+        extra_args=["--specific-pr", "99"],
+    )
+    assert code == 0
+    assert not [call for call in calls if call[:2] == ["pr", "list"]]
+    assert not [call for call in calls if call[:2] == ["pr", "merge"]]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "#99 — review decision is review_required, not approved" in summary
 
 
 def test_main_does_not_merge_when_only_the_per_pr_view_disqualifies(
@@ -456,12 +599,258 @@ def test_main_does_not_merge_when_checks_fail(monkeypatch, tmp_path):
     assert not [c for c in calls if c[:2] == ["pr", "merge"]]
 
 
+def test_final_pr_read_catches_a_hold_added_after_health(monkeypatch, tmp_path):
+    before = make_pr(number=42, headRefOid="cafe1234")
+    after = make_pr(
+        number=42,
+        headRefOid="cafe1234",
+        assignees=[{"login": "cmungall"}],
+    )
+    code, calls = _run_main(monkeypatch, tmp_path, view=[before, after])
+    assert code == 0
+    assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 2
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+
+
 def test_main_dry_run_merges_nothing(monkeypatch, tmp_path):
     view = make_pr(number=42, headRefOid="cafe1234")
     code, calls = _run_main(monkeypatch, tmp_path, view=view, extra_args=["--dry-run"])
     assert code == 0
     assert not [c for c in calls if c[:2] == ["pr", "merge"]]
     assert "Would merge 1" in (tmp_path / "summary.md").read_text()
+
+
+def test_main_dry_run_reports_only_the_one_merge_a_real_run_would_attempt(
+    monkeypatch, tmp_path
+):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    view = make_pr(number=41, headRefOid="head41")
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=view,
+        listed=listed,
+        extra_args=["--dry-run"],
+    )
+    assert code == 0
+    assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 2
+    summary = (tmp_path / "summary.md").read_text()
+    assert "Would merge 1" in summary
+    assert "#41" in summary
+    assert "#42" not in summary
+
+
+def test_main_promotes_reverifies_and_merges_an_approved_draft(monkeypatch, tmp_path):
+    listed = [
+        make_pr(
+            number=42,
+            isDraft=True,
+            mergeable="MERGEABLE",
+            mergeStateStatus="DRAFT",
+        )
+    ]
+    before = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+    )
+    after = make_pr(number=42, isDraft=False, headRefOid="cafe1234")
+    code, calls = _run_main(monkeypatch, tmp_path, view=[before, after], listed=listed)
+    assert code == 0
+    ready_calls = [c for c in calls if c[:2] == ["pr", "ready"]]
+    assert len(ready_calls) == 1
+    assert "--undo" not in ready_calls[0]
+    assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 2
+    assert len([c for c in calls if c[:2] == ["pr", "merge"]]) == 1
+
+
+def test_main_retries_a_stale_draft_read_after_marking_ready(monkeypatch, tmp_path):
+    listed = [
+        make_pr(
+            number=42,
+            isDraft=True,
+            mergeable="MERGEABLE",
+            mergeStateStatus="DRAFT",
+        )
+    ]
+    before = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+    )
+    lagging = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+    )
+    after = make_pr(number=42, isDraft=False, headRefOid="cafe1234")
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=[before, lagging, after],
+        listed=listed,
+    )
+    assert code == 0
+    ready_calls = [c for c in calls if c[:2] == ["pr", "ready"]]
+    assert len(ready_calls) == 1
+    assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 3
+    assert len([c for c in calls if c[:2] == ["pr", "merge"]]) == 1
+
+
+def test_draft_dry_run_reports_transition_without_mutating(monkeypatch, tmp_path):
+    draft = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+    )
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=draft,
+        listed=[draft],
+        extra_args=["--dry-run"],
+    )
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "ready"]]
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+    assert "mark ready and merge" in (tmp_path / "summary.md").read_text().lower()
+
+
+def test_failed_post_ready_guard_restores_draft(monkeypatch, tmp_path):
+    listed = [
+        make_pr(
+            number=42,
+            isDraft=True,
+            mergeable="MERGEABLE",
+            mergeStateStatus="DRAFT",
+        )
+    ]
+    before = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+    )
+    after = make_pr(
+        number=42,
+        isDraft=False,
+        assignees=[{"login": "cmungall"}],
+        headRefOid="cafe1234",
+    )
+    code, calls = _run_main(monkeypatch, tmp_path, view=[before, after], listed=listed)
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+    ready_calls = [c for c in calls if c[:2] == ["pr", "ready"]]
+    assert len(ready_calls) == 2
+    assert "--undo" in ready_calls[-1]
+
+
+def _run_draft_controller(
+    monkeypatch,
+    tmp_path,
+    *,
+    final=None,
+    ready_error=None,
+    merge_error=None,
+):
+    """Exercise draft transitions with policy reads stubbed above the gh layer."""
+    initial = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+    )
+    final = final or make_pr(number=42, isDraft=False, headRefOid="cafe1234")
+    views = iter([initial, final])
+    calls = []
+
+    monkeypatch.setattr(auto_merge, "list_open_prs", lambda *_: [initial])
+    monkeypatch.setattr(auto_merge, "view_pr", lambda *_, **__: next(views))
+
+    def mark_ready(*_):
+        calls.append("ready")
+        if ready_error:
+            raise ready_error
+
+    def mark_draft(*_):
+        calls.append("draft")
+
+    def merge(*_):
+        calls.append("merge")
+        if merge_error:
+            raise merge_error
+
+    monkeypatch.setattr(auto_merge, "mark_pr_ready", mark_ready)
+    monkeypatch.setattr(auto_merge, "mark_pr_draft", mark_draft)
+    monkeypatch.setattr(auto_merge, "merge_pr", merge)
+    monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
+    code = auto_merge.main(
+        ["--repo", "o/r", "--summary-file", str(tmp_path / "draft-summary.md")]
+    )
+    return code, calls
+
+
+def test_failed_ready_transition_does_not_arm_rollback(monkeypatch, tmp_path):
+    error = subprocess.CalledProcessError(1, "gh", stderr="transition rejected")
+    code, calls = _run_draft_controller(monkeypatch, tmp_path, ready_error=error)
+    assert code == 1
+    assert calls == ["ready"]
+
+
+@pytest.mark.parametrize(
+    "message,expect_rollback",
+    [
+        ("HTTP 403: Resource not accessible by integration", True),
+        ("Head branch was modified", True),
+        ("No commits between main and branch", True),
+        ("Pull request #42 is already merged", False),
+        ("Pull request is closed", False),
+    ],
+)
+def test_post_ready_merge_failures_restore_draft_unless_pr_is_gone(
+    monkeypatch, tmp_path, message, expect_rollback
+):
+    error = subprocess.CalledProcessError(1, "gh", stderr=message)
+    code, calls = _run_draft_controller(monkeypatch, tmp_path, merge_error=error)
+    assert ("draft" in calls) is expect_rollback
+    assert code == (1 if message.startswith("HTTP 403") else 0)
+
+
+def test_ready_transition_still_draft_after_retry_budget_is_rolled_back(
+    monkeypatch, tmp_path
+):
+    still_draft = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+    )
+    code, calls = _run_draft_controller(monkeypatch, tmp_path, final=still_draft)
+    assert code == 0
+    assert calls == ["ready", "draft"]
+
+
+def test_behind_draft_is_promoted_and_merged(monkeypatch, tmp_path):
+    behind = make_pr(
+        number=42,
+        isDraft=True,
+        mergeStateStatus="DRAFT",
+        headRefOid="cafe1234",
+        baseRefOid="base123",
+    )
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=[behind, make_pr(number=42, headRefOid="cafe1234")],
+        listed=[behind],
+    )
+    assert code == 0
+    assert [call for call in calls if call[:2] == ["pr", "ready"]]
+    assert [call for call in calls if call[:2] == ["pr", "merge"]]
 
 
 def test_main_list_call_does_not_request_merge_state_status(monkeypatch, tmp_path):
@@ -477,7 +866,7 @@ def test_main_list_call_does_not_request_merge_state_status(monkeypatch, tmp_pat
 def test_main_reports_a_race_as_skipped_not_failed(monkeypatch, tmp_path):
     """A benign race must not turn the six-times-daily workflow red."""
 
-    def fake_gh(args):
+    def fake_gh(args, *, token=None):
         if args[:2] == ["pr", "list"]:
             return json.dumps([make_pr(number=42)])
         if args[:2] == ["pr", "view"]:
@@ -487,6 +876,7 @@ def test_main_reports_a_race_as_skipped_not_failed(monkeypatch, tmp_path):
         return ""
 
     monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
     code = auto_merge.main(["--repo", "o/r", "--summary-file", str(tmp_path / "s.md")])
     summary = (tmp_path / "s.md").read_text()
     assert code == 0
@@ -497,7 +887,7 @@ def test_main_reports_a_race_as_skipped_not_failed(monkeypatch, tmp_path):
 
 
 def test_main_exits_nonzero_on_a_genuine_merge_error(monkeypatch, tmp_path):
-    def fake_gh(args):
+    def fake_gh(args, *, token=None):
         if args[:2] == ["pr", "list"]:
             return json.dumps([make_pr(number=42)])
         if args[:2] == ["pr", "view"]:
@@ -509,9 +899,32 @@ def test_main_exits_nonzero_on_a_genuine_merge_error(monkeypatch, tmp_path):
         return ""
 
     monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
     code = auto_merge.main(["--repo", "o/r", "--summary-file", str(tmp_path / "s.md")])
     assert code == 1
     assert "Failed to merge 1" in (tmp_path / "s.md").read_text()
+
+
+def test_execute_merges_at_most_one(monkeypatch, tmp_path):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    calls = []
+
+    def fake_gh(args, *, token=None):
+        calls.append(args)
+        if args[:2] == ["pr", "list"]:
+            return json.dumps(listed)
+        if args[:2] == ["pr", "view"]:
+            number = int(args[2])
+            return json.dumps(make_pr(number=number, headRefOid=f"head{number}"))
+        return ""
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
+    code = auto_merge.main(["--repo", "o/r", "--summary-file", str(tmp_path / "s.md")])
+    assert code == 0
+    merges = [c for c in calls if c[:2] == ["pr", "merge"]]
+    assert len(merges) == 1
+    assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 2
 
 
 # --- reporting ------------------------------------------------------------
@@ -592,6 +1005,19 @@ def test_view_pr_also_waits_on_merge_state_status(monkeypatch):
     assert len(calls) == 2
 
 
+def test_view_pr_can_wait_for_a_ready_transition_to_be_observable(monkeypatch):
+    calls = _stub_views(
+        monkeypatch,
+        [
+            {"isDraft": True, "mergeable": "MERGEABLE", "mergeStateStatus": "DRAFT"},
+            {"isDraft": False, "mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN"},
+        ],
+    )
+    pr = auto_merge.view_pr("o/r", 7, expected_draft=False)
+    assert not pr["isDraft"]
+    assert len(calls) == 2
+
+
 def test_view_pr_gives_up_after_the_attempt_budget(monkeypatch):
     calls = _stub_views(monkeypatch, [{"mergeable": "UNKNOWN"}])
     pr = auto_merge.view_pr("o/r", 7, attempts=3)
@@ -607,40 +1033,125 @@ def test_merge_pins_the_verified_head_commit(monkeypatch):
     """A push landing between verification and merge must abort the merge, not
     silently merge an unreviewed commit."""
     calls = []
-    monkeypatch.setattr(auto_merge, "_gh", lambda args: calls.append(args) or "")
-    auto_merge.merge_pr("o/r", 7, 3, "deadbeef")
-    merge_cmd = calls[0]
+    monkeypatch.setattr(
+        auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
+    )
+    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token", False)
+    merge_cmd, token = calls[0]
     assert "--squash" in merge_cmd
     assert merge_cmd[merge_cmd.index("--match-head-commit") + 1] == "deadbeef"
+    assert token == "writer-token"
 
 
-def test_merge_omits_the_pin_when_the_sha_is_unavailable(monkeypatch):
+def test_merge_drops_the_strategy_flag_when_a_queue_is_in_force(monkeypatch):
+    """gh only warns on a strategy flag here, but that warning would become
+    the reported cause of every real failure, so drop it. The head pin must
+    survive: it becomes the enqueue mutation's expectedHeadOid."""
     calls = []
-    monkeypatch.setattr(auto_merge, "_gh", lambda args: calls.append(args) or "")
-    auto_merge.merge_pr("o/r", 7, 3, None)
-    assert "--match-head-commit" not in calls[0]
+    monkeypatch.setattr(
+        auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
+    )
+    auto_merge.merge_pr("o/r", 7, 3, "deadbeef", "writer-token", True)
+    merge_cmd, _token = calls[0]
+    assert "--squash" not in merge_cmd
+    assert merge_cmd[merge_cmd.index("--match-head-commit") + 1] == "deadbeef"
+    body = " ".join(calls[1][0])
+    assert "merge queue" in body
+    assert "Squash-merged" not in body
+    assert "No further action needed" not in body
+
+
+def test_queue_state_reports_active_queue_and_its_members(monkeypatch):
+    payload = (
+        '{"data":{"repository":{"mergeQueue":{"id":"MQ_x","entries":'
+        '{"nodes":[{"pullRequest":{"number":11}},{"pullRequest":{"number":22}}]}}}}}'
+    )
+    monkeypatch.setattr(auto_merge, "_gh", lambda args, token=None: payload)
+    state = auto_merge.read_queue_state("o/r", "main")
+    assert state.active is True
+    assert state.queued_pr_numbers == frozenset({11, 22})
+
+
+def test_queue_state_is_inactive_when_the_queue_is_paused(monkeypatch):
+    """Disabling the ruleset nulls the node; that is the break-glass signal."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda args, token=None: '{"data":{"repository":{"mergeQueue":null}}}',
+    )
+    state = auto_merge.read_queue_state("o/r", "main")
+    assert state.active is False
+    assert state.queued_pr_numbers == frozenset()
+
+
+def test_queue_state_failure_keeps_pre_queue_behavior(monkeypatch):
+    def boom(args, token=None):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
+
+    monkeypatch.setattr(auto_merge, "_gh", boom)
+    assert auto_merge.read_queue_state("o/r", "main").active is False
+
+
+def test_gh_error_skips_the_queue_warning_line():
+    """gh prints its queue warning first; it is not the cause of the failure."""
+    exc = subprocess.CalledProcessError(
+        1, ["gh"],
+        stderr=(
+            "! The merge strategy for main is set by the merge queue\n"
+            "X Pull request #7 is not mergeable: the base branch was modified\n"
+        ),
+    )
+    assert "base branch was modified" in auto_merge._gh_error(exc)
+    assert "merge strategy" not in auto_merge._gh_error(exc)
+
+
+def test_summary_does_not_claim_a_queued_pr_was_merged():
+    body = auto_merge.render_summary(
+        [{"number": 7, "title": "t", "queued": True}], [], [], dry_run=False
+    )
+    assert "Added to the merge queue" in body
+    assert "**Merged 1:**" not in body
+
+
+def test_merge_fails_closed_when_the_sha_is_unavailable(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
+    )
+    with pytest.raises(ValueError, match="without a verified head"):
+        auto_merge.merge_pr("o/r", 7, 3, None, "writer-token")
+    assert calls == []
+
+
+def test_merge_requires_a_dedicated_write_token(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        auto_merge, "_gh", lambda args, token=None: calls.append((args, token)) or ""
+    )
+    with pytest.raises(ValueError, match="dedicated write token"):
+        auto_merge.merge_pr("o/r", 7, 3, "abc123", "")
+    assert calls == []
 
 
 def test_comment_failure_does_not_mask_a_successful_merge(monkeypatch):
     """The merge already succeeded; a failed courtesy comment must not be
     reported as a failed merge (which would also invite a retry)."""
 
-    def fake_gh(args):
+    def fake_gh(args, *, token=None):
         if args[1] == "comment":
             raise subprocess.CalledProcessError(1, "gh", stderr="rate limited")
         return ""
 
     monkeypatch.setattr(auto_merge, "_gh", fake_gh)
-    auto_merge.merge_pr("o/r", 7, 3, "abc123")  # must not raise
+    auto_merge.merge_pr("o/r", 7, 3, "abc123", "writer-token")  # must not raise
 
 
 def test_merge_failure_still_propagates(monkeypatch):
-    def fake_gh(args):
+    def fake_gh(args, *, token=None):
         raise subprocess.CalledProcessError(1, "gh", stderr="not mergeable")
 
     monkeypatch.setattr(auto_merge, "_gh", fake_gh)
     with pytest.raises(subprocess.CalledProcessError):
-        auto_merge.merge_pr("o/r", 7, 3, "abc123")
+        auto_merge.merge_pr("o/r", 7, 3, "abc123", "writer-token")
 
 
 def test_gh_error_condenses_stderr():
@@ -651,3 +1162,76 @@ def test_gh_error_condenses_stderr():
     assert auto_merge._gh_error(subprocess.CalledProcessError(1, "gh", stderr="")) == (
         "gh exited 1"
     )
+
+
+def test_gh_error_still_reports_a_warning_when_it_is_all_there_is():
+    exc = subprocess.CalledProcessError(1, "gh", stderr="! something happened\n")
+    assert auto_merge._gh_error(exc) == "something happened"
+
+
+def test_a_queued_pr_is_skipped_and_the_sweep_reaches_the_next_one(
+    monkeypatch, tmp_path
+):
+    """The queued PR here is stubbed CLEAN/MERGEABLE, which is the state
+    measured on #10576 at 2026-09-02T23:37Z while its entry was UNMERGEABLE:
+    it passes every predicate, and re-enqueueing SUCCEEDS (gh exits 0 on an
+    already-queued PR), so without this skip the sweep spends its one action
+    re-announcing a PR that is already queued.
+
+    An AWAITING_CHECKS entry reports UNKNOWN instead and is already rejected
+    by `evaluate` with a `continue`, so for that state the skip buys a cheaper
+    path and an accurate reason rather than different behavior."""
+    queued, next_up = 11, 22
+    listed = [
+        make_pr(number=queued, mergeable="MERGEABLE"),
+        make_pr(number=next_up, mergeable="MERGEABLE"),
+    ]
+    acted_on = []
+    monkeypatch.setattr(
+        auto_merge, "merge_pr",
+        lambda repo, number, days, head, token, q=False: acted_on.append(number)
+        or bool(q),
+    )
+    queue_payload = json.dumps(
+        {"data": {"repository": {"mergeQueue": {
+            "id": "MQ_x",
+            "entries": {"nodes": [{"pullRequest": {"number": queued}}]},
+        }}}}
+    )
+    code, _calls = _run_main(
+        monkeypatch, tmp_path,
+        view=[make_pr(number=queued, mergeable="MERGEABLE"),
+              make_pr(number=next_up, mergeable="MERGEABLE")],
+        listed=listed,
+        queue_payload=queue_payload,
+    )
+    assert code == 0
+    assert acted_on == [next_up], (
+        "the queued PR must be skipped and the next candidate acted on"
+    )
+
+
+def test_summary_reports_queue_state_so_an_inert_fix_is_visible():
+    """A failed queue read makes the controller behave as it did before queue
+    awareness, so it must be legible in the report rather than inferred from
+    the absence of a skip line."""
+    unreadable = auto_merge.render_summary(
+        [], [], [], queue_state=auto_merge.QueueState(False, frozenset(), readable=False)
+    )
+    assert "state unavailable" in unreadable
+
+    inactive = auto_merge.render_summary(
+        [], [], [], queue_state=auto_merge.QueueState(False, frozenset())
+    )
+    assert "not in force" in inactive
+
+    active = auto_merge.render_summary(
+        [], [], [], queue_state=auto_merge.QueueState(True, frozenset({1, 2}))
+    )
+    assert "active, 2 queued" in active
+
+    truncated = auto_merge.render_summary(
+        [], [], [],
+        queue_state=auto_merge.QueueState(True, frozenset({1}), truncated=99),
+    )
+    assert "99" in truncated and "may be reselected" in truncated

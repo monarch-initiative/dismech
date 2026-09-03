@@ -27,6 +27,8 @@ Claude Code skills are available in `.claude/skills/`:
 
 - **dismech-terms**: Use when selecting, validating, or repairing ontology bindings and term caches.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **review-hypothesis-exploration**: Use when assessing or reconciling a
+  provider hypothesis report, including its datasets, analyses, and artifacts.
 
 ## Key Commands
 
@@ -75,8 +77,10 @@ just count-verified-snippets kb/disorders/Asthma.yaml
 # batched pass (slow — run once at the end, not per edit). This is what CI runs.
 just validate-disorders kb/disorders/Asthma.yaml kb/disorders/Cholera.yaml
 
-# Reference validation for a single file (also slow; permits full-text matches)
-just validate-references kb/disorders/Asthma.yaml
+# Reference validation for a single KB entry (also slow; permits full-text matches).
+# "kb" distinguishes it from `just validate-research-reference <report.md>`, which
+# checks a deep-research report's citations instead (#8841)
+just validate-kb-references kb/disorders/Asthma.yaml
 
 # List all available commands
 just --list
@@ -321,6 +325,104 @@ Rules:
   These are generated, not "manually touched"; regenerate them via their script
   rather than hand-editing, and leave them in place.
 
+**Which prompt produced a report.** A report records `template_file:` as a bare
+path, so the file behind it changes while the reference does not. New reports are
+stamped with a `template_sha` (the template's git blob hash) by the research
+recipes; older ones are resolved from `start_time` against the template's commit
+history, so committed reports were deliberately **not** backfilled.
+
+```bash
+just template-version-audit                          # census across research/
+just template-version-audit --stale-only --format list
+git log --find-object=<sha> -- templates/            # what that hash was
+```
+
+`stamped` (recorded by the generator) and `inferred` (reconstructed from
+timestamps) are different claims — do not report an inferred answer as a recorded
+one. `undetermined` is not `stale`. Staleness is reported, never gated: every
+report predating a prompt edit is superseded by construction, so a gate would go
+red for the whole corpus on every edit. See
+[`docs/deep-research-template-versioning.md`](docs/deep-research-template-versioning.md)
+and issue #10183.
+
+### Hypothesis Provider Data and Analysis Artifacts
+
+A hypothesis exploration under
+`kb/hypotheses/<Disease>/<hypothesis_id>/` is a research **run**, not just a
+Markdown report. When it names datasets or claims computations, its assessment
+must inventory `data_sources` and `analyses`; see
+`docs/hypothesis-report-assessments.md` and use the
+`review-hypothesis-exploration` skill.
+
+- Distinguish `ACCESSED`, `SEARCHED_NO_RESULT`, `CITED_NOT_ACCESSED`, and
+  `UNVERIFIABLE`. A future analysis proposal is not data access. `ACCESSED` and
+  `SEARCHED_NO_RESULT` require a committed, sanitized input/query-response or
+  search-log artifact; prose alone is not an access record.
+- Verify supported accessions with `just verify-datasets --accession <CURIE>`,
+  then separately check disease/entity, organism, tissue, cohort, assay, and
+  comparison relevance. Resolution alone does not establish relevance.
+- Trace each computed claim from input data source through method, versioned
+  software, material parameters, code/environment, and output artifact. Use
+  `SUCCEEDED` only for a reproducible, artifact-backed run; otherwise record
+  `PARTIAL`, `FAILED`, `SKIPPED`, or `REPORTED_ONLY` honestly.
+- Tool failure and fallback are provenance. If a scientific package, database,
+  or data lake is unavailable, record the failure and any fallback; never
+  silently relabel literature synthesis or model knowledge as provider analysis.
+- Reconciliation follows data lineage as well as claim lineage. Shared input,
+  code, seed-derived results, or prior-provider output is not independent
+  replication. `PROVIDER_ANALYSIS` records that a report attributes a claim to a
+  linked analysis; it may describe `REPORTED_ONLY` lineage, but that remains
+  unverified execution and is not independent computational support. Failed or
+  skipped analyses cannot originate a provider position.
+
+Provider bundles normally use `<provider>_artifacts/` beside the report. Commit
+manifests, code/queries/configuration, environment specifications, sanitized
+logs, and small derived tables/figures needed to inspect the result. Never commit
+large recoverable raw downloads, provider data lakes, controlled or patient-level
+data, secrets, credentials, or signed URLs. Keep those external (for example a
+Biomni lake under `~/.biomni-lake`) and record a stable accession/URI, version,
+retrieval date, and checksum where available.
+
+Biomni execution is opt-in because it runs model-generated code locally and can
+initialize a large data lake. Repository-supported deep-research entry points
+require `DISMECH_ENABLE_BIOMNI=1`; without it they also remove Biomni from
+automatic provider fallback. The hypothesis runner's dry-run command inspection
+remains available. Do not bypass this policy by invoking
+`deep-research-client` directly.
+
+After opt-in, the hypothesis deep-research runner defaults Biomni's persistent
+workspace to `$BIOMNI_DATA_PATH` when set, otherwise `~/.biomni-lake`; an
+explicit `--param path=...` wins. It also passes `skip_data_lake=false` unless
+explicitly overridden. The current full academic lake occupies roughly 14 GiB
+on disk, so check disk headroom before first use. The lake accelerates Biomni's
+built-in resources but does not imply that an arbitrary external study is
+present: required inputs still need an accession-level preflight and manifest.
+
+Artifact path fields name files that are actually committed inside the
+hypothesis directory. Record an external, local-only, missing, or not-produced
+artifact in the data source `notes` or analysis `status_reason`/`limitations`;
+never put a nonexistent or machine-specific absolute path in an artifact slot.
+Stage provider artifacts selectively after inspecting them.
+
+Computational bundles use a canonical `MANIFEST.yaml` (`schema_version: '1.0'`)
+with status/fallback/direct-execution flags, checksummed inputs and outputs, and
+clean-replay results. Gate them before promotion with
+`just validate-hypothesis-analysis-run <report> <artifact_dir>` and separately
+replay saved code in a clean output directory; the gate never executes generated
+code, although it does require and checksum replay copies for every tabular
+result. An assessment that declares structured artifacts must set
+`artifact_root: ../<provider>_artifacts`, and its code/environment/output roles
+must be distinct non-empty files below that root. The execution-gated dataset
+template requires an exact analysis status marker; marker-free fallback is an
+invalid run. On overwrite, the runner quarantines existing provider artifacts
+before launch so a new report cannot validate against stale files.
+
+An assessor correction after the provider response does not retroactively make
+the corrected bytes a provider success. Record the precise correction and
+before/after hashes, replay it, classify the provider analysis as at most
+`PARTIAL` until provider rerun/attestation, and leave the old report-manifest
+binding stale rather than manually rebinding it.
+
 ### Dataset Curation (`datasets:` records)
 
 Dataset accessions are the one identifier class with no validator in the core
@@ -421,22 +523,133 @@ schema shape, the trigger→consequence node chain, the treatment
 + MPATH entity + UBERON site; SNOMED as guide-only). See also the primer
 `docs/primers/modules-and-conformance.md`.
 
-**Discovering modules:**
-
-`kb/modules/` is the source of truth; do not maintain a static module catalog here.
-Probe the directory directly for the current set and inspect likely matches before
-creating a new module:
+**Discovering modules:** the set of modules changes constantly, so this file
+deliberately does **not** carry a hand-maintained list — it drifted behind
+`kb/modules/` and is not scalable. List the directory, or use the recipe that
+prints each module's description plus its node chain (the `module#Node Name`
+strings you need for `conforms_to`):
 
 ```bash
-rg --files kb/modules -g "*.yaml" | sort
-rg -il "<mechanism term>" kb/modules
-rg -n "^(name|description|category):" kb/modules/*.yaml
-sed -n "1,40p" kb/modules/fibrotic_response.yaml
+just list-modules            # all modules, clipped, with conformance targets
+just list-modules inflamm    # filter: prints description AND notes in full
+ls kb/modules/               # bare names only
+
+# Probing module contents directly (complements the recipe above)
+rg -il "<mechanism term>" kb/modules          # which module already covers this?
 rg -n "conforms_to:.*fibrotic_response#" kb/disorders kb/comorbidities kb/modules
 ```
 
-The `fibrotic_response` header is a compact example of module metadata; inspect
-its full YAML or another relevant peer for the actual node and edge pattern.
+Inspect likely matches before creating a new module — a mechanism is often
+already covered by a module under a name you did not guess.
+
+A module's own `description` is the authoritative statement of its scope,
+complementarity with sibling modules, worked conformers, and key conformance
+target. Read it before conforming to it, and keep it current when you change the
+module — that description is now the *only* place that information lives.
+
+**Module collections:** records in `kb/module_collections/` organize modules
+into a published framework or another explicit navigational family. They
+validate against `ModuleCollection`, not `Disease`, and use module filename
+stems (without node anchors) as members. A collection is not a mechanism,
+does not replace the module directory as the complete registry, and does not
+assert disease membership. One module may belong to several collections.
+
+Thematic families to be aware of when picking a conformance target (find their
+members with `just list-modules`, do not assume this list is exhaustive):
+
+- **Hallmarks of cancer** (Hanahan & Weinberg, PMID:21376230) — a coherent set
+  covering the hallmark capabilities and enabling characteristics. A neoplastic
+  entry may declare `conforms_to` against several in parallel, one per capability
+  it manifests, substituting tumor-type-specific drivers. Flagship multi-hallmark
+  conformers: Hepatocellular_Carcinoma, Non-Small_Cell_Lung_Cancer,
+  Glioblastoma_IDH_Wildtype, Pancreatic_Ductal_Adenocarcinoma.
+- **Hallmarks of aging** (Lopez-Otin et al.) — the senescence, telomere,
+  proteostasis, autophagy, nutrient-sensing, epigenetic, mitochondrial,
+  stem-cell, dysbiosis, and inflammaging modules. Most carry a `biochemical:`
+  biomarker block with `BiomarkerReadout` links (`grep -l '^biochemical:'
+  kb/modules/*.yaml` for the current set); `cellular_senescence` and `inflammaging`
+  are the pattern to copy. **Before adding a composite marker
+  here** — an epigenetic clock, a multi-analyte panel, a frailty index — read the
+  decision register entry *Computed indices and composite endpoints in aging biology*
+  (`docs/explanation/design-decisions.md` §12). dismech has no class for a value
+  computed over other measurements, the question is undecided, and the interim
+  conventions (bind the assay, carry the index identity in `preferred_term`) are
+  recorded there rather than being rederived per module. NCIT has no term for an
+  epigenetic clock or biological age; do not bind one to `NCIT:C17961` or
+  `NCIT:C16269`. Background: [biomarkers-of-aging gap analysis](docs/reports/biomarkers-of-aging-gap-analysis-2026-08-31.md).
+- **Treatment toxicity / "side effect as mechanism"** — adverse-drug-reaction
+  pathophysiology recurring across culprit drugs, so a drug-toxicity entry can
+  conform rather than re-derive the chain. Note that several general mechanism
+  modules already double as toxicity targets without a separate "side effect"
+  class (`peripheral_axonal_degeneration` for chemotherapy-induced peripheral
+  neuropathy, `cardiomyopathy_maladaptive_remodeling` for anthracycline
+  cardiotoxicity). `cardiac_ion_channel_repolarization` is **not** one of them,
+  despite drug-induced long QT being a real entity: that module scopes itself to
+  inherited arrhythmia syndromes *in structurally normal hearts*, its notes list
+  only heritable syndromes, and its sole mention of acquired repolarization
+  change sits inside a quoted snippet. An acquired drug-induced long-QT module
+  would be a new module, not a second use of that one.
+- **Antimicrobial drug mechanisms** — antibacterial target modules (cell wall,
+  ribosome, topoisomerase, RNA polymerase, folate), antifungal and antiviral
+  counterparts, plus pharmacokinetic *gating* modules such as
+  `intracellular_pathogen_persistence`. A disease usually conforms to a gating
+  module **and** a target module. See `projects/ANTIMICROBIAL.md`.
+- **"Disease-like phenotypes"** — final-common-pathway modules for phenotypes
+  that are themselves diseases, carrying both an HP and a MONDO identifier
+  (osteoporosis, glaucoma, cataract, epilepsy, nephrotic syndrome, …). Each is a
+  recurrent downstream convergence point across many disorders.
+- **Serial homology** — bundled multi-element malformations from one lesion in a
+  serially reused developmental program (limb/digit, pharyngeal arch, axial
+  segmentation).
+- **Xogenesis** — pathological-structure formation (granuloma, thrombus,
+  atheroma, amyloid deposit), using the OGMS + MPATH + UBERON anchor convention
+  described in the `create-module` skill.
+
+**Module categories (`module_categories`):**
+
+A module may be tagged with the areas of study it is relevant to, using the
+enum-backed `module_categories` slot (`ModuleCategoryEnum`: `TOXICOLOGY`,
+`PHARMACOLOGY`, `ONCOLOGY`, `INFECTIOUS_DISEASE`, `IMMUNOLOGY`, `NEUROSCIENCE`,
+`DEVELOPMENTAL_BIOLOGY`, `METABOLISM`, `AGING`). Each value asserts *"this
+module is relevant to this area of study"* and renders as a coloured pill on the
+module index card and at the top of the module page, with the enum's own
+`description` as the hover text.
+
+```yaml
+name: Parkinsonism Dopaminergic Degeneration Module
+category: Module
+module_categories:
+- TOXICOLOGY
+- NEUROSCIENCE
+```
+
+- **It is a browsing aid, not a mechanistic claim.** The pill says a toxicologist
+  would find this module relevant; it does not assert that the module's diseases
+  are toxic in origin, and it is not a classification of conforming disorders
+  (those use `classifications`).
+- **Multivalued and non-exclusive.** A drug-toxicity module is both `TOXICOLOGY`
+  and `PHARMACOLOGY`; an antiviral drug-target module is both `PHARMACOLOGY` and
+  `INFECTIOUS_DISEASE`. Tag every area that genuinely applies.
+- **Leaving a module untagged is a legitimate outcome.** The starter vocabulary
+  is a set of disciplines, not a partition of the corpus — the cardiovascular,
+  dermatology, renal, GI and ophthalmology modules currently carry no category
+  because no value fits, and a wrong pill is worse than no pill. Add a value to
+  the enum rather than stretching an existing one.
+- **The vocabulary and its prose live only in the schema.** Labels come from each
+  permissible value's `title`, hover text from its `description`; pill colours are
+  generated from the value's position in the enum (golden-angle hues at fixed
+  saturation/lightness), so adding a category is a schema edit alone — no colour
+  to choose and no renderer change. Appending a value leaves existing hues
+  untouched; reordering or removing one reshuffles them.
+- **That holds up to 13 categories.** The golden-angle walk keeps a minimum
+  separation of ~20° through the 13th value and drops to ~12° at the 14th, where
+  `test_every_category_gets_a_visually_distinct_hue` goes red. That test is the
+  tripwire, not a nuisance: at 14 the palette needs a real decision (a second
+  visual dimension, or grouping categories into families), and the enum has
+  outgrown "just append a value".
+- The slot lives on the `Disease` class because modules validate against it. It is
+  intended for `kb/modules/` entries; disorder entries use the separate free-text
+  `categories` slot for nosological grouping, which is unrelated.
 
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
@@ -497,6 +710,61 @@ Use this when there is no individual item to name, including a knowledge gap
 attached to an intentionally empty section. A bare section name such as
 `clinical_burden` is not valid entity-reference syntax.
 
+### Pathograph Targets Are Bare Names, Not Entity References
+
+**The causal graph does not use the `<kind>#<name>` grammar.** This is the one
+place the two conventions sit next to each other, and mixing them up is silent.
+`dismech.graph` builds edges by matching a `target` string *verbatim* against
+another item's `name` — there is no resolution step, no prefix handling, and no
+error when it fails to match:
+
+| Slot | Target form |
+|---|---|
+| `pathophysiology[].downstream[].target` | **bare name** |
+| `phenotypes[].sequelae[].target` | **bare name** |
+| `phenotypes[].reports_on[].target` | **bare name** |
+| `treatments[].target_mechanisms[].target` | **bare name** |
+| `environmental[].influences_mechanisms[].target` | **bare name** |
+| `attaches_to`, `would_support`, `would_refute` | `<kind>#<name>` |
+| `discussions[].proposed_experiments[].{perturbations,readouts}[].target` | `<kind>#<name>` |
+
+```yaml
+pathophysiology:
+- name: Failure of Primary Hemostatic Plug Formation
+  downstream:
+  - target: Bleeding tendency          # correct — bare name
+  # - target: phenotypes#Bleeding tendency   # WRONG — draws a phantom node
+```
+
+Writing `phenotypes#Bleeding tendency` there is not a validation error, a term
+error, or a rendering error. The entry validates and the page builds.
+
+**The symptom is not a missing arrow, so do not go looking for one.** The edge is
+still appended, so the edge count never moves. The unresolved target lands in
+`orphan_targets`, and the renderer draws it as a *phantom duplicate node* — red
+fill, dashed red border, labelled with the literal `phenotypes#Bleeding tendency`
+string — while the real `Bleeding tendency` node drops out of the graph entirely.
+So the chain is fragmented and carries a bogus node. Issue #10112 found 175 such
+targets across 32 entries; one was left with 0 of 7 phenotypes connected.
+
+The mirror-image failure is a **rename**: change a node's `name` and every bare
+target pointing at it dangles, just as silently (#9697). Search the file for the
+old name before committing a rename.
+
+```bash
+just check-causal-targets                              # gate (runs in `just qc`)
+just check-causal-targets kb/disorders/MyDisease.yaml
+just list-causal-targets                               # full census, exit 0
+```
+
+The pre-existing dangling backlog is grandfathered in
+`tests/causal_target_baseline.txt`; new breakage fails. Only ever shrink that
+file. A **self-referential** target (a node listed as its own downstream) is
+reported but never gated: every committed case is a pathophysiology node and a
+phenotype sharing one name, which the flat node namespace collapses into a
+single node — a graph-model bug (#9896), not a curation error, and the edges
+carry their own evidence.
+
 ### Cancer Entry Granularity
 
 Somatic cancer entries follow the **granularity ladder** ratified in design
@@ -519,8 +787,9 @@ creating any new cancer/neoplasm entry. The short version:
 - **Stage is never an entry.** Metastatic/advanced disease is `stages:` on the
   parent plus `conforms_to` on the `invasion_and_metastasis` module — do not
   create `Metastatic_X` entries.
-- **Pathways/hallmarks are never entries** — they live in `kb/modules/` and
-  mechanism groupings.
+- **Pathways/hallmarks are never disease entries** — mechanisms live in
+  `kb/modules/`; named multi-module frameworks live in
+  `kb/module_collections/`.
 - **Germline predisposition syndromes** (Li-Fraumeni, Lynch) follow the plain
   Mendelian lump/split rules; keep them separate from the somatic cancer
   entries they predispose to.
@@ -528,8 +797,11 @@ creating any new cancer/neoplasm entry. The short version:
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
-modules, or groupings. They validate against `Grouping`, not `Disease`, and list
-members explicitly rather than recreating an ontology hierarchy.
+named disease subtypes, or nested disease groupings. They validate against
+`Grouping`, not `Disease`, and list members explicitly rather than recreating an
+ontology hierarchy. Modules may occur in grouping criteria and differentiating
+mechanisms, but are never grouping members; organize modules with a
+`ModuleCollection` instead.
 
 Use the `curate-grouping` skill when creating, editing, reviewing, or auditing a
 grouping. It covers membership logic, criteria semantics, ontology closure,
@@ -540,7 +812,31 @@ rg --files kb/groupings -g "*.yaml" | sort
 sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
+just grouping-nesting-audit          # declared tree + undeclared containments
 ```
+
+**Nesting is declared, never inferred.** A grouping sits below another only
+when the parent lists it as a `member_type: GROUPING` member, and that is the
+only thing the index page's tree draws. Most groupings are deliberate
+cross-cuts (a shared organelle, gene family, or phenotype axis) that nest in
+nothing — 78 of the 100 are standalone — so the tree shows the nested trees
+first and folds the standalone groupings into one collapsed list. A disease
+held through a nested grouping *is* a member of the parent: the evaluator
+reports it as `(via <nested grouping>)`, the parent page's coverage table marks
+it `nested via …` and counts it toward coverage, and `test_valid_grouping_files`
+still evaluates it against the parent's criteria. When you nest a grouping,
+replace the direct rows it covers rather than duplicating them (the
+`Lysosomal_Storage_Disorders` review removed exactly such a redundancy), folding
+their differentiating mechanisms into the GROUPING row if they would otherwise
+be lost.
+
+`just grouping-nesting-audit` prints the declared forest and, next to it, the
+**undeclared containments** — pairs where every expanded disease member of one
+grouping is a member of another that does not list it. That is a lead, not a
+ruling: `Primary_Microcephaly_Spectrum` sits entirely inside `Centrosomopathies`,
+and the latter's rationale says the two cut the same diseases along different
+axes on purpose. Read both rationales before declaring the edge. The index page
+carries the same list as an advisory panel.
 
 ### Pathophysiology Biological Scale Tag
 
@@ -857,11 +1153,49 @@ All evidence must have PMID references and support classification:
 ```yaml
 evidence:
   - reference: PMID:12345678
-    supports: SUPPORT  # or REFUTE, PARTIAL, NO_EVIDENCE, WRONG_STATEMENT
+    supports: SUPPORT  # or REFUTE, NO_EVIDENCE
+    directness: DIRECT  # optional: or INDIRECT, UNKNOWN
     evidence_source: HUMAN_CLINICAL  # or MODEL_ORGANISM, IN_VITRO, COMPUTATIONAL
     snippet: "Quoted text from the paper"
     explanation: "Why this evidence supports/refutes the claim"
 ```
+
+#### `supports` is direction; `directness` is a separate axis
+
+`supports` records **which way** the cited evidence cuts, and nothing else:
+
+- `SUPPORT` — the evidence supports the claim
+- `REFUTE` — the evidence contradicts the claim
+- `NO_EVIDENCE` — the cited reference does not bear on the claim at all
+
+`directness` (optional) records **how directly** the quoted text bears on the
+claim. It is *not* a strength or quality grade — an `INDIRECT` quote may come
+from a large controlled trial, and a `DIRECT` one from a single case report:
+
+- `DIRECT` — the quoted text asserts the claim itself
+- `INDIRECT` — the quote asserts something from which the claim follows by an
+  inference step: a therapeutic response cited as validation of the mechanism it
+  targets, or a result from an inverted or non-human model system
+- `UNKNOWN` — not yet assessed
+
+**Leave `directness` off unless you have actually assessed it.** Absent means
+nobody has judged it, which is the honest state of most of the KB. Do not fill
+it in to look complete.
+
+**`PARTIAL` and `WRONG_STATEMENT` were removed** (issue #7439). If you are
+tempted to reach for the old `PARTIAL`, one of these is what you mean:
+
+| You want to say | Use |
+|---|---|
+| supports the claim, but through an inference step | `SUPPORT` + `directness: INDIRECT` |
+| right mechanism, inverted or non-human model system | `SUPPORT` + `directness: INDIRECT` |
+| supports one part of the claim, contradicts another | **two items** — a `SUPPORT` and a `REFUTE`, each quoting the sentence that carries it |
+| true and worth citing, but not about this claim | `NO_EVIDENCE` |
+| an earlier version of this entry's text was wrong | fix the text; record the correction in a `history/` record |
+
+The third row is the one to watch. A single evidence item making two opposite
+claims is the same defect as one item mixing two `evidence_source` values, and
+has the same remedy: split it.
 
 **IMPORTANT**: The `evidence_source` field classifies **the type of evidence presented in the cited publication**, NOT how the curation was performed. Even if an AI agent is curating the entry, `evidence_source` describes what kind of study the paper reports (human clinical trial, animal model, cell culture, computational simulation, etc.).
 
@@ -989,6 +1323,46 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `skos:exactMatch` or `skos:narrowMatch`; `broadMatch`, `closeMatch`, and
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
+
+### Terms Inside `qualifiers` Are Not Covered by `validate-terms`
+
+**`linkml-term-validator` does not look inside `qualifiers`.** It validates slots
+whose range is bound to an ontology-backed dynamic enum; `Qualifier.predicate`
+and `Qualifier.value` are plain `Descriptor`s with no such binding, so their
+`term:` blocks are invisible to it. A fabricated label there passes
+`just validate-terms` outright — verified by putting
+`label: Totally Bogus Fabricated Label` on one and watching it report
+"✅ Validation passed" (#10197).
+
+That blind spot had already admitted 32 wrong bindings across 10 entries — 31
+CURIE corrections plus one where the code was right and only the label wrong — all
+plausible-looking codes naming the wrong concept:
+
+| Curated as | `NCIT` code actually means |
+|---|---|
+| vancomycin | Azacitidine (an antineoplastic) |
+| Broad Spectrum Antibiotic | Arthritis |
+| Tooth Extraction | Breast Extraskeletal Osteosarcoma |
+| Tracheostomy | Ambulation Difficulty |
+| Budesonide | Panobinostat |
+| fidaxomicin | Cellular Changes Resembling Foveolar Epithelium Cells |
+
+```bash
+just check-qualifier-terms          # gate (offline, in `just qc`)
+just list-qualifier-terms           # census, including what nothing can check
+just check-qualifier-terms-online   # also resolve uncached CURIEs via OAK
+```
+
+The gate is offline and cache-first, so it only sees CURIEs already cached from
+elsewhere in the KB. **Run `just check-qualifier-terms-online` after adding a
+qualifier term** — a qualifier-only CURIE is never cached by anything else, so
+the offline gate has no opinion on it. `RO` and `PR` (109 terms) have no adapter
+in `conf/oak_config.yaml` and cannot be validated by any current tooling; the
+census reports them separately.
+
+Given all this, prefer a dedicated slot over `qualifiers` wherever one exists —
+see the next section, and note that `therapeutic_agent` already covers most of
+what these qualifier pairs were expressing.
 
 ### Descriptor Qualifier Slots
 
@@ -1140,6 +1514,66 @@ Use OAK to search for terms:
 ```bash
 uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 ```
+
+**Devices are not clinical actions, and NCIT has terms for both.** `TreatmentTerm` is
+rooted at `NCIT:C25218` (Clinical Intervention or Procedure), so a term naming the
+*equipment* cannot be the `term:` of a `TreatmentTerm`, no matter how exactly it matches
+the treatment's name. The worked case is cochlear implantation: `NCIT:C157820` "Cochlear
+Implant" is the obvious term, is defined as "a two part electronic device...", and has
+**no** `C25218` ancestor. Bind the clinical action instead — `NCIT:C15329` (Surgical
+Procedure) for the implantation itself — and carry the specificity in `preferred_term`
+(`cochlear device implantation`). This is the case the
+[Ontology Term Contract](#ontology-term-contract) covers — `preferred_term` may be more
+specific than the best available ontology term — and it generalizes: hearing aids,
+pumps, stents, and shunts all have NCIT device terms that cannot sit in that slot.
+
+**Better still, keep the device term queryable.** `preferred_term` is free text, so
+binding the action alone throws the device concept away. Attach it as a `qualifiers`
+predicate-value pair instead — `NCIT:C16830` (Medical Device) as the predicate,
+the device term as the value — which validates today and leaves `NCIT:C157820`
+searchable. `qualifiers` is deprecated for the common clinical qualifiers that have
+dedicated slots (see [Descriptor Qualifier Slots](#descriptor-qualifier-slots)), but a
+device attached to an action is exactly the predicate-value pattern that section
+reserves it for, so this use is the carve-out and not a regression:
+
+```yaml
+  treatment_term:
+    preferred_term: cochlear device implantation
+    term:
+      id: NCIT:C15329
+      label: Surgical Procedure
+    qualifiers:
+    - predicate:
+        preferred_term: medical device
+        term:
+          id: NCIT:C16830
+          label: Medical Device
+      value:
+        preferred_term: cochlear implant
+        term:
+          id: NCIT:C157820
+          label: Cochlear Implant
+```
+
+Worked examples: `Labyrinthitis`, `Otofacial_Neurodevelopmental_Syndrome`,
+`Autosomal_Recessive_Nonsyndromic_Hearing_Loss_104`,
+`Jervell_and_Lange-Nielsen_Syndrome_1`.
+
+Two things follow that are easy to get wrong:
+
+- **When the binding is broader than the treatment, `preferred_term` must not echo the
+  ontology label.** A treatment named `Cochlear Implantation and Auditory Rehabilitation`
+  bound to `NCIT:C15315` whose `preferred_term` is just `Rehabilitation` has thrown away
+  every bit of information the binding lost. This is *not* a rule against ever matching
+  the label: where the term already says what the treatment is, echoing it is correct
+  and is what `dismech-terms` recommends (`preferred_term: Pharmacotherapy` against
+  `NCIT:C15986` is right). The test is whether the label is narrower than, or as narrow
+  as, the treatment being described.
+- **A divergent binding is not automatically drift.** A treatment that bundles
+  amplification *or* implantation *with* rehabilitation is genuinely a rehabilitation
+  intervention, and one whose disease has no reported surgical case should not assert
+  a surgical term. Check what the treatment actually is before normalizing it to the
+  majority binding, and record the reason in `notes` when you leave one alone.
 
 #### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
 
@@ -1767,6 +2201,8 @@ just check-snippet-grading
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
+just check-causal-targets kb/disorders/MyDisease.yaml
+just check-qualifier-terms kb/disorders/MyDisease.yaml
 just check-source-defect-claims  # report-only
 ```
 
@@ -1774,8 +2210,9 @@ They catch folded-scalar word corruption, non-propositional short snippets,
 paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
-references, and prose claims about defective sources that the cache
-contradicts. The first four use baselines; do not update a baseline to admit a
+references, broken bare-name pathograph targets, and prose claims about
+defective sources that the cache contradicts. The first four use baselines, as
+does `check-causal-targets`; do not update a baseline to admit a
 defect introduced by the current change. `check-environmental-evidence` had one
 too, until the #8296 backlog reached zero and it became a hard gate -- an
 exposure that genuinely cannot be cited now carries a `review_notes:` waiver
@@ -1810,8 +2247,12 @@ quote is the defect. Note it is keyed on the **quoted sentence**, not the PMID �
 one paper legitimately carries several values across different sentences, which
 is what "If a paper mixes sources, split evidence items" above already asks for.
 `supports` is deliberately *not* gated: it is claim-relative, so the same
-sentence correctly reads `SUPPORT` for one claim and `PARTIAL` for another
-(`just list-snippet-grading --fields all` shows those as a triage view).
+sentence correctly reads `SUPPORT` for one claim and `REFUTE` for another
+(`just list-snippet-grading --fields all` shows those as a triage view). Note
+this is now a much weaker effect than it used to be — retiring `PARTIAL` cut
+`supports` divergences from 8,285 to 353, against 715 for `evidence_source`, so
+most of that signal was the value's ambiguity rather than claim-relativity.
+Gating `supports` is worth revisiting.
 
 **Why the entity-ref check is a CI step and not just a test.** The same rules
 run in `test_entity_ref_foreign_keys`, but CI selects pytest by changed path,
@@ -1886,6 +2327,47 @@ curation, and the two usually differ — one carries `notes`, the other cited
 `evidence`. Fold them into the single block at the canonical position and keep
 both sets of values, then re-read the surviving prose: an `explanation` arguing
 for the narrower choice will contradict the merged result and needs trimming.
+
+## Retired Enum Values (dismech#10061)
+
+The sibling of the duplicate-key problem above, with the same merge-shaped
+cause. When a schema change **narrows** an enum, every PR already in flight
+carries values that were legal when written and are illegal on merge. Nothing
+either side runs can see it: the narrowing PR does not contain the curation
+files, and the curation PRs do not contain the narrowed enum. Only the merge
+result holds both.
+
+That is exactly how #10003 played out. It retired `supports: PARTIAL` and
+migrated every occurrence on its own base; ~15 open curation PRs then landed
+more. Nine invalid values reached `main` within 90 seconds of the merge, and
+100 within a day.
+
+```bash
+just check-enum-values                              # whole KB (~21s, offline)
+just check-enum-values kb/disorders/Asthma.yaml     # specific files
+```
+
+It runs in `just qc` and as an **ungated, whole-KB** CI step, for the same
+reason `check-duplicate-keys` is. The path-gated `just test-kb` sweep cannot
+cover it: that filter fires on schema changes, and the PRs that carry the stale
+value touch no schema.
+
+**Scope, and what it deliberately skips.** It checks one constraint — is this
+value permissible in this slot's enum — not conformance, which is what keeps it
+cheap enough to run everywhere. Dynamic (`reachable_from`) ontology enums are
+`linkml-term-validator`'s job and are skipped; so is any slot name that is
+enum-bound in one class and free text in another (`severity`), since flagging
+those would flag correct prose. `kb/hypotheses/` is checked against
+`hypothesis_assessment.yaml` / `hypothesis_reconciliation.yaml` rather than
+`dismech.yaml` — running the wrong schema there reports five legal values as
+errors.
+
+**When you narrow an enum, the values are only half the job.** #10003 migrated
+11,804 `PARTIAL` items to `SUPPORT` and left every `explanation` that argued for
+the retired grade in place, so ~3,600 evidence items still say "Marked PARTIAL
+because…" above a value the schema no longer has. Prose that names a retired
+value is not caught by any gate. Budget for it, or record it in a worklist the
+way #10003 did.
 
 ## Structured-Database Reference Sources
 
@@ -2103,6 +2585,36 @@ no drift has occurred, run `just structured-rebuild-orphanet` locally and
 check `git diff references_cache/ORPHA_*.md`. (A CI workflow that does this
 automatically is a worthwhile follow-up but does not yet exist.)
 
+**When a refresh fails on a checksum mismatch, repin — don't hand-edit.**
+
+These manifests pin a sha256 against an **unversioned** upstream URL:
+`https://www.orphadata.com/data/xml/en_product1.xml` is always the *current*
+Orphanet release, not a versioned artifact. So the pin is guaranteed to stop
+matching the next time upstream publishes, and the refresh hard-fails until
+somebody re-pins it. That is ordinary release drift, not a corrupt download —
+and it recurred four times in one week (#9687, #9897, #10150 for Orphadata,
+#10081 for ClinGen) because the only recovery was a manual download-and-edit.
+
+```bash
+just refresh-orphadata            # strict: fails on drift, naming the remedy
+just refresh-orphadata --repin    # accept the new release, rewrite the manifest
+just clingen-refresh --repin
+```
+
+`--repin` downloads, records the new sha256, size and `snapshot_date` in the
+manifest, and stops — leaving a diff of exactly those lines for you to review.
+It is never implicit: the default still refuses, because a source changing under
+a curator is precisely what the pin exists to catch. After repinning, rebuild the
+cache and review that diff too:
+
+```bash
+just refresh-orphadata --repin && just structured-rebuild-orphanet
+git diff data/orphadata/MANIFEST.yaml references_cache/ORPHA_*.md
+```
+
+Commit the manifest bump together with the cache diff it produced, so the change
+in pinned release and the change in cached content are reviewable as one unit.
+
 **Adding a new structured source:**
 
 The framework is in `src/dismech/structured_sources/`. To add a new source
@@ -2140,7 +2652,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 
 | Path | Commit? | Reason |
 |------|---------|--------|
-| `kb/disorders/*.yaml`, `kb/modules/*.yaml` | YES | Core content |
+| `kb/disorders/*.yaml`, `kb/modules/*.yaml`, `kb/module_collections/*.yaml` | YES | Core content |
 | `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
@@ -2267,12 +2779,14 @@ had approved three other PRs, and acting on it removed a blocking review.
 
 ### Deterministic auto-merge of ready PRs
 
-The `pr-shepherd` workflow ends with a **deterministic** sweep
+The `pr-shepherd` workflow has a separate, fresh-runner **deterministic** sweep
 (`scripts/auto_merge_ready_prs.py`) that squash-merges any open PR — **by any
 author, human or agent** — once it is simultaneously:
 
-- reviewer **approved**, and **not** a draft
-- **unassigned** (no assignees)
+- reviewer **approved**; draft status is ignored as a lifecycle signal (an
+  otherwise eligible draft is marked ready immediately before final verification)
+- **not assigned to a human** (known bot/agent assignees are routing metadata,
+  not a hold)
 - **conflict-free** (`mergeable == MERGEABLE`)
 - **green** (`mergeStateStatus == CLEAN` *and* a status-check rollup with at
   least one success and nothing failing, cancelled, or still running)
@@ -2284,8 +2798,13 @@ author, human or agent** — once it is simultaneously:
 
 Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
 outcome is reproducible from the API response alone. This is separate from the
-LLM agent step earlier in the same workflow, whose guardrails still forbid it
-from *editing* human-authored PRs — the sweep only merges already-approved work.
+LLM agent job in the same workflow, whose guardrails still forbid it from
+*editing* human-authored PRs. The jobs never share a runner, and the controller
+mints a separate write token that is not exposed to the LLM runner. The LLM's
+own App token still has contents-write capability for branch repair, so its
+no-merge rule is prompt-enforced rather than a GitHub permission boundary;
+enforcing that boundary requires a separate identity, broker, or ruleset. The
+sweep itself only merges already-approved work.
 
 **"Approved" here usually means an agent approved it.** `claude-code-review.yml`
 has the `ai4c-reviewer` GitHub App submit `gh pr review --approve`, so for
@@ -2300,9 +2819,24 @@ shepherd's own agent step — can never be swept up on the strength of that olde
 review. If that protection setting is ever turned off, the sweep needs an explicit
 "approving review's commit == head SHA" check added.
 
-**To stop a PR being auto-merged, assign it to someone.** An assigned PR is
-treated as somebody's active work and is never swept. Converting to draft or
-leaving a CHANGES_REQUESTED review also blocks it.
+**To stop a PR being auto-merged, assign it to a human or leave a
+CHANGES_REQUESTED review.** A human-assigned PR is treated as somebody's active
+work and is never swept; bot or agent assignment is not a hold. Draft status is
+not a hold: anything opened as a PR is in the review queue. The controller marks
+an eligible draft ready, re-reads every guard, and restores draft state if that
+merge attempt aborts.
+
+Each run acts on at most one PR. Immediately before it does, the controller
+re-reads every PR guard and pins the merge request to that verified head SHA.
+It deliberately does not require that head to contain the latest `main` commit:
+loose branch protection permits an already-green PR to merge, while a required
+merge queue tests the latest-main combination on a temporary merge-group commit.
+Branch-freshness updates are therefore not part of deterministic eligibility.
+
+Do not enable GitHub auto-merge on ordinary PRs outside this controller: it is a
+separate server-side path that bypasses the controller's age and assignment
+guards. The deterministic sweep covers every branch lane, including `auto/`;
+owning workflows may still request a merge earlier under their own policy.
 
 Preview what the next sweep would do (read-only):
 
