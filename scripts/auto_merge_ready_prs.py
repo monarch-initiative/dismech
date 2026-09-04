@@ -619,6 +619,100 @@ def read_queue_state(repo: str, branch: str) -> QueueState:
     return QueueState(True, frozenset(numbers), truncated=truncated)
 
 
+# A PR that fails the queue twice running, with no push in between, has had
+# the same build repeated on the same content. One failure is not evidence of
+# guilt (see EjectionMemory); two, unchanged, is enough to stop retrying.
+EJECTION_STRIKE_LIMIT = 2
+
+
+@dataclass(frozen=True)
+class EjectionMemory:
+    """Whether prior queue ejections should stop this PR re-entering now.
+
+    The merge queue ejects a PR when the group containing it fails, but that
+    ejection is invisible to eligibility: the PR stays open and approved, so
+    the next sweep re-enqueues it, it fails again, and the cycle repeats. PR
+    #9852 did exactly that three times in fifteen hours, and because the queue
+    builds speculatively each cycle also failed every stack behind it -- about
+    three hours of queue throughput and a dozen builds (#10988).
+
+    An ejection does NOT imply the PR is at fault, so this deliberately does
+    not judge a single one. Three causes were observed in one 24-hour window:
+    the PR's own content failing (#9852), a PR *ahead* of it poisoning the
+    speculative stack (#9996 and five others behind #10142), and a third-party
+    outage (#10677/#10700/#10727, EBI read timeouts the validator itself calls
+    "not a data error"). Blocking on one ejection would mostly block innocents.
+
+    What distinguishes them is repetition against unchanged content. Collateral
+    and infrastructure failures do not reproduce once the queue has moved on;
+    a defect in the PR itself does. So the rule counts ``failed_checks``
+    ejections that happened *after* the head commit was last written: reaching
+    ``EJECTION_STRIKE_LIMIT`` holds the PR back, and any push resets the count
+    to zero because the content under test has changed.
+
+    Note ``RemovedFromMergeQueueEvent.beforeCommit`` is NOT the base-branch tip
+    -- it is the queue's own temporary merge commit, and compares as diverged
+    from ``main`` -- so it cannot be used to detect base movement. Verified
+    against the #9852 events on 2026-09-04.
+    """
+
+    blocked: bool
+    strikes: int = 0
+    reason: str = ""
+
+
+def ejection_memory(repo: str, number: int) -> EjectionMemory:
+    """Count unchanged-content queue failures for one PR."""
+    owner, _, name = repo.partition("/")
+    query = (
+        "query($owner:String!,$name:String!,$number:Int!){"
+        "repository(owner:$owner,name:$name){"
+        "pullRequest(number:$number){"
+        "commits(last:1){nodes{commit{committedDate}}} "
+        "timelineItems(last:20,itemTypes:[REMOVED_FROM_MERGE_QUEUE_EVENT])"
+        "{nodes{... on RemovedFromMergeQueueEvent{createdAt reason}}}}}}"
+    )
+    try:
+        payload = _gh([
+            "api", "graphql",
+            "-f", f"owner={owner}", "-f", f"name={name}",
+            "-F", f"number={number}", "-f", f"query={query}",
+        ])
+        data = json.loads(payload)
+    except (subprocess.CalledProcessError, OSError, ValueError) as exc:
+        # Fail open: a lookup failure must not hold back a ready PR.
+        print(f"WARN  #{number}: could not read ejection history: {exc}",
+              file=sys.stderr)
+        return EjectionMemory(False)
+    if not isinstance(data, dict):
+        return EjectionMemory(False)
+    pr = ((data.get("data") or {}).get("repository") or {}).get("pullRequest") or {}
+    commits = ((pr.get("commits") or {}).get("nodes")) or []
+    head_written = ""
+    if commits and isinstance(commits[0], dict):
+        head_written = str((commits[0].get("commit") or {}).get("committedDate") or "")
+    nodes = ((pr.get("timelineItems") or {}).get("nodes")) or []
+    strikes = 0
+    latest = ""
+    for node in nodes:
+        if not isinstance(node, dict) or node.get("reason") != "failed_checks":
+            continue
+        when = str(node.get("createdAt") or "")
+        # ISO-8601 UTC strings from GitHub compare correctly as text.
+        if head_written and when <= head_written:
+            continue  # predates the current content; a push has since reset it
+        strikes += 1
+        latest = max(latest, when)
+    if strikes < EJECTION_STRIKE_LIMIT:
+        return EjectionMemory(False, strikes)
+    return EjectionMemory(
+        True,
+        strikes,
+        f"failed the merge queue {strikes} times since its head commit was "
+        f"last written (most recently {latest}); push a fix to retry",
+    )
+
+
 def merge_pr(
     repo: str,
     number: int,
@@ -1020,6 +1114,13 @@ def main(argv: list[str] | None = None) -> int:
                 reason = f"state changed {phase}: {decision.reason}"
                 print(f"SKIP  #{number}: {reason}")
                 skipped.append({"number": number, "reason": reason})
+                continue
+            # Only checked for a PR about to be acted on, so this costs one
+            # extra read per run rather than one per candidate.
+            memory = ejection_memory(args.repo, number)
+            if memory.blocked:
+                print(f"SKIP  #{number}: {memory.reason}")
+                skipped.append({"number": number, "reason": memory.reason})
                 continue
             if args.dry_run:
                 if queue_state.active:

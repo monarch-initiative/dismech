@@ -1438,3 +1438,82 @@ def test_summary_reports_queue_state_so_an_inert_fix_is_visible():
         queue_state=auto_merge.QueueState(True, frozenset({1}), truncated=99),
     )
     assert "99" in truncated and "may be reselected" in truncated
+
+
+def _ejection_payload(head_written, events):
+    return json.dumps({"data": {"repository": {"pullRequest": {
+        "commits": {"nodes": [{"commit": {"committedDate": head_written}}]},
+        "timelineItems": {"nodes": events},
+    }}}})
+
+
+def test_one_ejection_does_not_block(monkeypatch):
+    """A single failure is not evidence of guilt: it may be collateral damage
+    from a PR ahead in the speculative stack, or a third-party outage."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [{"createdAt": "2026-09-04T13:00:00Z", "reason": "failed_checks"}],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is False
+    assert memory.strikes == 1
+
+
+def test_repeated_ejection_on_unchanged_content_blocks(monkeypatch):
+    """Collateral and infrastructure failures do not reproduce once the queue
+    has moved on; a defect in the PR itself does."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is True
+    assert "push a fix to retry" in memory.reason
+
+
+def test_a_push_resets_the_strike_count(monkeypatch):
+    """The content under test changed, so prior failures say nothing about it."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-04T20:00:00Z",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_non_failure_removals_are_not_strikes(monkeypatch):
+    """A manual dequeue or a merge_conflict removal is not a failed build."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "merge_conflict"},
+                {"createdAt": "2026-09-04T16:57:00Z", "reason": "manual"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_ejection_lookup_failure_fails_open(monkeypatch):
+    """A lookup failure must not hold back an otherwise ready PR."""
+    def boom(args, token=None):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
+
+    monkeypatch.setattr(auto_merge, "_gh", boom)
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
