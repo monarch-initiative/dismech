@@ -4,7 +4,7 @@ import glob
 import sys
 import warnings
 from collections import Counter
-from functools import lru_cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 import pytest
@@ -30,6 +30,7 @@ SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "dismech.yaml"
 KB_DIR = ROOT_DIR / "kb" / "disorders"
 COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
 MODULES_DIR = ROOT_DIR / "kb" / "modules"
+MODULE_COLLECTIONS_DIR = ROOT_DIR / "kb" / "module_collections"
 GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
 SYNTHESIS_SCHEMA_PATH = (
     ROOT_DIR / "src" / "dismech" / "schema" / "research_synthesis.yaml"
@@ -50,6 +51,7 @@ DISORDER_FILES = [
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
 MODULE_FILES = glob.glob(str(MODULES_DIR / "*.yaml"))
+MODULE_COLLECTION_FILES = glob.glob(str(MODULE_COLLECTIONS_DIR / "*.yaml"))
 # Every KB entry kind whose pathophysiology nodes may carry `conforms_to`.
 # Groupings are excluded: they reference modules through criteria `module:`
 # slots (checked by test_grouping_module_references), not `conforms_to`.
@@ -255,6 +257,19 @@ def test_valid_comorbidity_files(filepath, validator):
         data = safe_load(f)
 
     report = validator.validate(data, target_class="ComorbidityAssociation")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODULE_COLLECTION_FILES)
+def test_valid_module_collection_files(filepath, validator):
+    """Module collections validate independently from diseases and groupings."""
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    report = validator.validate(data, target_class="ModuleCollection")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
 
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
@@ -1232,14 +1247,190 @@ def test_failure_to_recapitulate_links_are_substantiated(filepath):
         if link.get("relationship") != "FAILS_TO_RECAPITULATE":
             continue
         where = f"{section}[{i}].modeled_mechanisms[{j}]"
-        if not (link.get("limitations") or "").strip():
-            errors.append(f"{where} missing limitations")
+        if not (link.get("limitations") or "").strip() and not link.get("divergences"):
+            errors.append(f"{where} missing limitations (or a typed divergence)")
         if not link.get("evidence"):
             errors.append(f"{where} missing evidence")
 
     assert not errors, (
         f"Unsubstantiated FAILS_TO_RECAPITULATE links in "
         f"{Path(filepath).name}: {errors}"
+    )
+
+
+@cache
+def _enum_values(enum_name: str) -> tuple[str, ...]:
+    """Permissible values of a schema enum, in declaration order.
+
+    Derived rather than duplicated so a value added to the schema cannot leave a
+    test's copy of the list silently stale. For BiologicalScaleEnum the
+    declaration order is also the scale ladder, which the gap arithmetic below
+    depends on; `test_audit_scale_order_matches_schema` pins that.
+    """
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    enum = SchemaView(str(SCHEMA_PATH)).get_enum(enum_name)
+    assert enum is not None, f"{enum_name} missing from schema"
+    return tuple(enum.permissible_values.keys())
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_model_scale_values_are_valid(filepath):
+    """`model_scale` must be a BiologicalScaleEnum value.
+
+    linkml-validate enforces this too; the point of restating it here is that
+    the audit and the test below both index into the ordered scale list, and an
+    out-of-vocabulary value would silently classify as UNDETERMINED rather than
+    failing.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = [
+        f"{section}[{i}].modeled_mechanisms[{j}].model_scale={link['model_scale']!r}"
+        for section, i, j, _model, link in _iter_mechanism_links(data)
+        if link.get("model_scale") and link["model_scale"] not in _enum_values("BiologicalScaleEnum")
+    ]
+
+    assert not errors, f"Invalid model_scale in {Path(filepath).name}: {errors}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_upward_extrapolating_links_are_caveated(filepath):
+    """A model below its target's scale is extrapolating and must say so.
+
+    When `model_scale` sits below the target node's `biological_scale`, the
+    model cannot observe the outcome it is cited for -- a signalling network
+    linked to a tissue-level node infers that outcome rather than measuring it.
+    That is the same class of claim as FAILS_TO_RECAPITULATE above: it needs the
+    caveat spelled out in `limitations`, not left to the reader.
+
+    Only fires when both scales are present, so it never blocks incremental
+    curation -- both slots are optional and most links carry neither. The
+    reverse direction is deliberately not checked: a model *above* its target's
+    scale contains that scale (a whole animal can report a molecular readout)
+    and needs no caveat on that account.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    scales = {
+        n.get("name"): n.get("biological_scale")
+        for n in (data.get("pathophysiology") or [])
+        if isinstance(n, dict)
+    }
+
+    errors = []
+    for section, i, j, _model, link in _iter_mechanism_links(data):
+        model_scale = link.get("model_scale")
+        target_scale = scales.get(link.get("target"))
+        scale_ladder = _enum_values("BiologicalScaleEnum")
+        if model_scale not in scale_ladder or target_scale not in scale_ladder:
+            continue
+        gap = scale_ladder.index(target_scale) - scale_ladder.index(model_scale)
+        if gap > 0 and not (link.get("limitations") or "").strip() and not link.get("divergences"):
+            errors.append(
+                f"{section}[{i}].modeled_mechanisms[{j}] "
+                f"({model_scale} model -> {target_scale} target, gap +{gap}) "
+                f"missing limitations (or a typed divergence)"
+            )
+
+    assert not errors, (
+        f"Uncaveated upward extrapolation in {Path(filepath).name}: {errors}"
+    )
+
+
+def test_audit_scale_order_matches_schema():
+    """The audit script's SCALE_ORDER must match BiologicalScaleEnum.
+
+    `scripts/model_scale_audit.py` keeps its own ordered copy so that
+    `just model-scale-audit` does not have to load a SchemaView on every run.
+    That copy is only safe if something checks it, and this is that something --
+    both its membership and its order, since the gap arithmetic is ordinal.
+    """
+    from model_scale_audit import SCALE_ORDER
+
+    assert tuple(SCALE_ORDER) == _enum_values("BiologicalScaleEnum")
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_model_divergences_are_typed_and_explained(filepath):
+    """A divergence needs both a taxonomy value and a real explanation.
+
+    The type alone is never the argument -- BOUNDARY_OMISSION says a component is
+    missing, not which one or why it matters for this link -- so `description` is
+    required by the schema and checked here for substance rather than a
+    restatement of the enum value.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = []
+    for section, i, j, _model, link in _iter_mechanism_links(data):
+        for k, div in enumerate(link.get("divergences") or []):
+            where = f"{section}[{i}].modeled_mechanisms[{j}].divergences[{k}]"
+            if not isinstance(div, dict):
+                errors.append(f"{where} is not a mapping")
+                continue
+            dtype = div.get("divergence_type")
+            if dtype not in _enum_values("ModelDivergenceTypeEnum"):
+                errors.append(f"{where}.divergence_type={dtype!r} not in taxonomy")
+            desc = (div.get("description") or "").strip()
+            if len(desc.split()) < 8:
+                errors.append(f"{where}.description too thin to be an explanation")
+            if dtype and desc.upper().replace(" ", "_").startswith(str(dtype)):
+                errors.append(f"{where}.description merely restates the type")
+
+    assert not errors, f"Malformed model divergences in {Path(filepath).name}: {errors}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_scale_extrapolation_divergence_agrees_with_scales(filepath):
+    """A SCALE_EXTRAPOLATION claim must not contradict the scale slots.
+
+    `model_scale` and the target's `biological_scale` already decide whether the
+    model sits below its target. Asserting the divergence while those two slots
+    say otherwise is a curation error in one place or the other, and it is
+    exactly the kind of drift a derived-not-stored design exists to catch.
+    Silent when either scale is absent.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    scales = {
+        n.get("name"): n.get("biological_scale")
+        for n in (data.get("pathophysiology") or [])
+        if isinstance(n, dict)
+    }
+
+    errors = []
+    for section, i, j, _model, link in _iter_mechanism_links(data):
+        kinds = [
+            d.get("divergence_type")
+            for d in (link.get("divergences") or [])
+            if isinstance(d, dict)
+        ]
+        if "SCALE_EXTRAPOLATION" not in kinds:
+            continue
+        model_scale = link.get("model_scale")
+        target_scale = scales.get(link.get("target"))
+        scale_ladder = _enum_values("BiologicalScaleEnum")
+        if model_scale not in scale_ladder or target_scale not in scale_ladder:
+            continue
+        gap = scale_ladder.index(target_scale) - scale_ladder.index(model_scale)
+        if gap <= 0:
+            errors.append(
+                f"{section}[{i}].modeled_mechanisms[{j}] claims SCALE_EXTRAPOLATION "
+                f"but {model_scale} model vs {target_scale} target is not an "
+                f"upward gap"
+            )
+
+    assert not errors, (
+        f"Contradicted SCALE_EXTRAPOLATION in {Path(filepath).name}: {errors}"
     )
 
 
@@ -1731,12 +1922,11 @@ def test_hypothesis_reconciliation_links_lineage_and_quotes(filepath):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_member_foreign_keys(filepath):
-    """Each grouping member must resolve to a real Disease, module, or grouping."""
+    """Each grouping member must resolve to a real Disease or grouping."""
     with open(filepath) as f:
         data = safe_load(f)
 
     disease_names = _disease_names()
-    module_stems = _module_stems()
     grouping_names = _grouping_names()
 
     errors = []
@@ -1749,9 +1939,6 @@ def test_grouping_member_foreign_keys(filepath):
             # SUBTYPE members still name their parent Disease entry.
             if ref not in disease_names:
                 errors.append(f"members[{i}].member={ref!r} (type {mtype})")
-        elif mtype == "MODULE":
-            if _module_stem(ref) not in module_stems:
-                errors.append(f"members[{i}].member={ref!r} (type MODULE)")
         elif mtype == "GROUPING" and ref not in grouping_names:
             errors.append(f"members[{i}].member={ref!r} (type GROUPING)")
 
@@ -1840,6 +2027,20 @@ def test_grouping_unique_names():
             seen.setdefault(name, []).append(Path(fp).name)
     dupes = {k: v for k, v in seen.items() if len(v) > 1}
     assert not dupes, f"Duplicate grouping names: {dupes}"
+
+
+@pytest.mark.kb_data
+def test_module_collection_references_resolve():
+    """Collection module and child-collection foreign keys must resolve."""
+    from dismech.module_collections import (
+        load_module_collections,
+        module_collection_reference_errors,
+    )
+
+    collections = load_module_collections(MODULE_COLLECTIONS_DIR)
+    module_stems = {Path(path).stem for path in MODULE_FILES}
+    errors = module_collection_reference_errors(collections, module_stems)
+    assert not errors, "Module collection reference errors:\n" + "\n".join(errors)
 
 
 @pytest.mark.kb_data
@@ -1985,7 +2186,6 @@ def test_grouping_overlap_expands_nested_grouping_members():
             "members": [
                 {"member": "A", "member_type": "DISEASE"},
                 {"member": "Child", "member_type": "GROUPING"},
-                {"member": "mechanism_module", "member_type": "MODULE"},
             ],
         },
     }
@@ -2094,4 +2294,60 @@ def test_dataset_accession_prefix_and_shape(filepath):
     assert not errors, (
         f"{Path(filepath).name} has malformed dataset accessions:\n"
         + "\n".join(f"  - {e}" for e in errors)
+    )
+
+
+# The frozen shared dataset-verification blob. Kept in git only because ~200 open
+# PRs still carry edits to it; deleting it now would conflict with all of them.
+# Nothing may read or write it: dataset verification moved to per-record files
+# under references_cache/, which two PRs can add to without colliding.
+FROZEN_DATASET_CACHE = "cache/dataset_accessions.json"
+
+
+def test_no_automation_touches_the_frozen_dataset_cache():
+    """No script, module, test, workflow, or recipe may read or write the blob.
+
+    The old ``cache/dataset_accessions`` JSON was rewritten in full by every run
+    of the dataset verifier -- including a run over a single disorder file -- so
+    every curation PR that touched a ``datasets:`` block churned the same
+    1.8 MB file. With 919 ``geo:`` keys sorted into one contiguous block, two
+    PRs adding neighbouring accessions landed inside each other's diff context
+    and conflicted.
+
+    Verification now goes through ``references_cache/<PREFIX>_<ID>.md``: one
+    file per dataset, added not modified, which is the same shape the repo
+    already uses for PMIDs. This test keeps the old path from creeping back in.
+    Documentation may still name the file -- that is how curators learn not to
+    touch it -- so only code and automation are scanned.
+    """
+    scanned = [
+        *ROOT_DIR.glob("src/**/*.py"),
+        *ROOT_DIR.glob("scripts/**/*.py"),
+        *ROOT_DIR.glob("scripts/**/*.sh"),
+        *ROOT_DIR.glob("tests/**/*.py"),
+        *ROOT_DIR.glob(".github/workflows/*.yaml"),
+        *ROOT_DIR.glob(".github/workflows/*.yml"),
+        ROOT_DIR / "justfile",
+        ROOT_DIR / "project.justfile",
+        ROOT_DIR / "ai.just",
+    ]
+    offenders = []
+    for path in scanned:
+        # This file names the path in FROZEN_DATASET_CACHE, so it must exclude
+        # itself; that exclusion is the only guard, which is why the constant
+        # above is a plain literal rather than a concatenation.
+        if not path.is_file() or path.resolve() == Path(__file__).resolve():
+            continue
+        try:
+            text = path.read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if FROZEN_DATASET_CACHE in text:
+            offenders.append(str(path.relative_to(ROOT_DIR)))
+
+    assert not offenders, (
+        f"{FROZEN_DATASET_CACHE} is frozen and must not be read or written.\n"
+        "Cache dataset records per-record under references_cache/ instead "
+        "(see scripts/verify_dataset_accessions.py).\nFound in:\n"
+        + "\n".join(f"  - {o}" for o in offenders)
     )
