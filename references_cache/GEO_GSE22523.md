@@ -1,0 +1,12 @@
+---
+reference_id: GEO:GSE22523
+title: Analysis of vitamin D response element binding protein target genes reveals a role for vitamin D in osteoblast mTOR signaling
+content_type: summary
+full_text_attempted: true
+---
+
+# Analysis of vitamin D response element binding protein target genes reveals a role for vitamin D in osteoblast mTOR signaling
+
+## Content
+
+Heterogeneous nuclear ribonucleoprotein (hnRNP) C1/C2 plays a pivotal role in vitamin D receptor (VDR) signaling by acting as a vitamin D response element (VDRE)-binding protein (VDRE-BP). Transcriptional regulation by active 1,25-dihydroxyvitamin D3 (1,25(OH)2D3) involves occupancy of VDRE by VDRE-BP or 1,25(OH)2D3 bound-VDR. This relationship is disrupted by over-expression of VDRE-BP and can cause a form of human hereditary vitamin D-resistant rickets (HVDRR). DNA array analyses using B-cells from an HVDRR patient and matched control defined a sub-cluster of genes where 1,25(OH)2D3-regulated transcription was abrogated by over-expression of VDRE-BP. Amongst these, the DNA-damage-inducible transcript 4 (DDIT4), an inhibitor of mammalian target of rapamycin (mTOR) signaling, was also induced by 1,25(OH)2D3 in human osteoblasts. Chromatin immunoprecipitation using 1,25(OH)2D3-treated osteoblasts confirmed that liganded VDR and VDRE-BP compete for binding to the proximal promoter of the DDIT4 gene in a similar fashion to other known 1,25(OH)2D3-target genes. Treatment of osteoblasts with 1,25(OH)2D3 induced DDIT4 expression and suppressed phosphorylated S6K1T389 protein (a downstream target of mTOR). The functional importance of this for 1,25(OH)2D3 responses in osteoblasts was underlined by the fact that siRNA knockdown of DDIT4 expression suppressed antiproliferative and cell growth responses to 1,25(OH)2D3. These data confirm that VDRE-BP is required for normal 1,25(OH)2D3-mediated transcription and cell function in osteoblasts. Conversely over-expression of VDRE-BP exerts a dominant-negative effect on transcription of 1,25(OH)2D3-target genes. Characterization of VDRE-BP action in 1,25(OH)2D3-treated osteoblasts highlights an entirely novel role for vitamin D as a regulator of mTOR – a known ‘master regulator’ of cell function.
