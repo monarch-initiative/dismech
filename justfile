@@ -123,6 +123,51 @@ validate-hypothesis-assessment file:
   uv run linkml-validate --schema src/dismech/schema/hypothesis_assessment.yaml --target-class HypothesisAssessment {{file}}
   uv run python -m dismech.hypothesis_assessment {{file}}
 
+# Validate every provider-by-assessor hypothesis report review sidecar.
+[group('data validation')]
+validate-hypothesis-assessment-all:
+  #!/usr/bin/env bash
+  set -e
+  files=()
+  while IFS= read -r file; do
+    files+=("$file")
+  done < <(find kb/hypotheses -type f -path '*/assessments/*-assessment-by-*.yaml' | sort)
+  if [ ${#files[@]} -eq 0 ]; then
+    echo "No hypothesis assessment YAML files found."
+    exit 0
+  fi
+  printf 'Validating %s hypothesis assessment file(s).\n' "${#files[@]}"
+  uv run linkml-validate --schema src/dismech/schema/hypothesis_assessment.yaml --target-class HypothesisAssessment "${files[@]}"
+  uv run python -m dismech.hypothesis_assessment "${files[@]}"
+
+# Validate the authoritative reconciliation of assessed provider reports.
+[group('data validation')]
+validate-hypothesis-reconciliation file:
+  uv run linkml-validate --schema src/dismech/schema/hypothesis_reconciliation.yaml --target-class HypothesisReconciliation {{file}}
+  uv run python -m dismech.hypothesis_reconciliation {{file}}
+
+# Validate every hypothesis-local cross-provider reconciliation.
+[group('data validation')]
+validate-hypothesis-reconciliation-all:
+  #!/usr/bin/env bash
+  set -e
+  files=()
+  while IFS= read -r file; do
+    files+=("$file")
+  done < <(find kb/hypotheses -type f -name reconciliation.yaml | sort)
+  if [ ${#files[@]} -eq 0 ]; then
+    echo "No hypothesis reconciliation YAML files found."
+    exit 0
+  fi
+  printf 'Validating %s hypothesis reconciliation file(s).\n' "${#files[@]}"
+  uv run linkml-validate --schema src/dismech/schema/hypothesis_reconciliation.yaml --target-class HypothesisReconciliation "${files[@]}"
+  uv run python -m dismech.hypothesis_reconciliation "${files[@]}"
+
+# Hard-gate a canonical computational hypothesis-analysis run bundle.
+[group('data validation')]
+validate-hypothesis-analysis-run report artifact_dir:
+  uv run python -m dismech.hypothesis_analysis_run "$1" "$2"
+
 # LinkML valid/invalid example round-trip tests.
 [group('model development')]
 test-examples: _test-examples

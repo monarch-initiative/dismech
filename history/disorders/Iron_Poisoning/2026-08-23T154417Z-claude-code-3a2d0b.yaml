@@ -1,0 +1,77 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Iron_Poisoning
+  path: kb/disorders/Iron_Poisoning.yaml
+session:
+  id: 2026-08-23T154417Z-claude-code-3a2d0b
+  timestamp: '2026-08-23T15:44:17Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/9310
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - pathophysiology
+  - treatments
+  - environmental
+  - evidence
+  summary: 'Fix: apply four unlanded review fixes claimed in the prior record'
+  details: |
+    Correction round after the ai4c-reviewer CHANGES_REQUESTED review on PR #9310.
+
+    The reviewer was right, and the earlier history record for this entry
+    (2026-08-23T135637Z-claude-code-93ec2f.yaml) overstates what actually landed.
+    That record is left unaltered because history is append-only; this record is the
+    correction.
+
+    What went wrong: the red-team fixes were applied as batched Python
+    search-and-replace scripts that assert every hunk before writing the file at the
+    end. Two of those batches raised AssertionError on a later hunk, so NOTHING from
+    those batches was written - including the earlier hunks that had matched fine.
+    On each failure the script was re-run containing only the hunk that had failed,
+    silently dropping the rest. The result was that four fixes described in the
+    earlier history record and in the PR body were never in the file:
+
+    - the Oral Deferiprone target_mechanisms edge was still aimed at
+      "Non-Transferrin-Bound Iron in Plasma" while its only evidence (PMID:10674529)
+      is gastrointestinal-tract histology, which cannot support a plasma claim
+    - the "which is the dose-response signature expected if ingestion is what
+      triggers the disease" overreach was still on the PMID:15939855 environmental
+      evidence item, describing a before-and-after packaging study as a dose-response
+      design
+    - the exposure-level notes recording the packaging counter-evidence were absent
+    - DOI:10.1177/0009922819901010 (severe exposures kept declining after the 2003
+      withdrawal of the packaging mandate) was fetched but never cited
+
+    A fifth, not raised by the reviewer, was found by the same audit: the whole bowel
+    irrigation description still read "activated charcoal does not adsorb iron",
+    which did not match the wording of the PMID:1754488 sentence that supports it.
+
+    All five are now applied and individually verified in the file. The fix script
+    was restructured to assert every hunk first and write only if all of them match,
+    so a partial failure can no longer look like success.
+
+    Verification of the one reference the tooling cannot check: DOI: is in
+    skip_prefixes, so the new DOI:10.1177/0009922819901010 snippet is not
+    snippet-checked by linkml-reference-validator. It was confirmed by hand to be an
+    exact substring of references_cache/DOI_10.1177_0009922819901010.md, and its
+    reference_title matches the cached title exactly.
+
+    Validation after the fixes: just validate passes (schema: no issues; terms:
+    passed). just validate-disorders reports 106/107 snippets verified with 1 skipped
+    by prefix (the DOI above). All six ratchet gates and check-not4curation pass.
+
+    Process note for future sessions: a batched edit script that writes once at the
+    end must assert all hunks before writing, and a claimed fix must be grepped back
+    out of the file before it is reported as done. Reporting a fix on the strength of
+    having written the edit, rather than on the strength of reading it back, is what
+    produced this correction.

@@ -24,6 +24,9 @@ prefixes:
   linkml:
     prefix_prefix: linkml
     prefix_reference: https://w3id.org/linkml/
+  dcterms:
+    prefix_prefix: dcterms
+    prefix_reference: http://purl.org/dc/terms/
   dismech:
     prefix_prefix: dismech
     prefix_reference: https://w3id.org/monarch-initiative/dismech/
@@ -84,6 +87,9 @@ prefixes:
   skos:
     prefix_prefix: skos
     prefix_reference: http://www.w3.org/2004/02/skos/core#
+  sepio:
+    prefix_prefix: sepio
+    prefix_reference: https://w3id.org/sepio-model/
   xsd:
     prefix_prefix: xsd
     prefix_reference: http://www.w3.org/2001/XMLSchema#
@@ -490,35 +496,75 @@ enums:
   EvidenceItemSupportEnum:
     name: EvidenceItemSupportEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/EvidenceItemSupportEnum
-    description: The level of support for an evidence item
+    description: Which way the cited evidence cuts relative to the claim. This is
+      direction only. How *directly* the quote bears on the claim is a separate axis
+      -- see DirectnessEnum and the `directness` slot -- and how strong the evidence
+      is has no slot at all (see design decisions section 12).
+    comments:
+    - 'SUPPORT and REFUTE map onto the SEPIO `directionOfEvidenceProvided` values
+      `supports` and `disputes`. NO_EVIDENCE is a dismech extension: SEPIO''s third
+      value, `neutral`, means the evidence bears on the claim without favouring either
+      side, whereas NO_EVIDENCE means it does not bear on the claim at all. The exporter
+      must not silently equate them.'
+    - 'PARTIAL and WRONG_STATEMENT were removed in the issue #7439 narrowing. PARTIAL
+      conflated four distinct things -- indirect support, an inverted model system,
+      an item that supported one claim while contradicting another, and simple irrelevance
+      -- and became SUPPORT (with `directness` left unset), a split pair of items,
+      or NO_EVIDENCE. WRONG_STATEMENT had a single use recording that an earlier entry
+      text was inaccurate, which is provenance for a history/ record rather than evidence
+      direction.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     permissible_values:
-      WRONG_STATEMENT:
-        text: WRONG_STATEMENT
-        description: The annotated claim contains a demonstrable factual error (e.g.,
-          an incorrect statistic or assertion); the cited evidence documents the correct
-          information. Use this when the claim is outright wrong, not merely contested.
-          If the cited reference simply does not mention the claim, use NO_EVIDENCE
-          instead. If the reference contradicts the claim but does not prove it factually
-          wrong, use REFUTE.
-        title: Wrong statement
       SUPPORT:
         text: SUPPORT
-        description: The cited evidence directly supports the claim
+        description: The cited evidence supports the claim
         title: Supports
+        exact_mappings:
+        - sepio:supports
       REFUTE:
         text: REFUTE
-        description: The cited evidence directly contradicts the claim
+        description: The cited evidence contradicts the claim
         title: Refutes
+        exact_mappings:
+        - sepio:disputes
       NO_EVIDENCE:
         text: NO_EVIDENCE
         description: The cited reference does not contain evidence relevant to the
           claim
         title: No evidence
-      PARTIAL:
-        text: PARTIAL
-        description: The cited evidence partially or indirectly supports the claim
-        title: Partially supports
+  DirectnessEnum:
+    name: DirectnessEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/DirectnessEnum
+    description: How directly the quoted evidence bears on the claim it is attached
+      to. The evidential counterpart of CausalLinkTypeEnum, which records the same
+      notion of directness for a causal edge.
+    comments:
+    - This is not a strength or quality grade. An indirect quote may come from a large,
+      well-controlled study, and a direct one from a single case report. Directness
+      is judgeable from the snippet and the claim alone, which is why it is a curated
+      slot where strength is not.
+    - Deliberately has no PARTIAL value. "Supports part of the claim and contradicts
+      another part" is not a point on a directness scale -- it is one evidence item
+      making two claims, and the fix is to split it into a SUPPORT item and a REFUTE
+      item, each quoting the sentence that carries it. That is the same remedy CLAUDE.md
+      already prescribes for a paper that mixes evidence_source values.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      DIRECT:
+        text: DIRECT
+        description: The quoted text asserts the claim itself
+        title: Direct
+      INDIRECT:
+        text: INDIRECT
+        description: The quoted text asserts something from which the claim follows
+          by an inference step -- for example a therapeutic response cited as validation
+          of the mechanism it targets, or a result from an inverted or non-human model
+          system.
+        title: Indirect
+      UNKNOWN:
+        text: UNKNOWN
+        description: Directness has not yet been assessed
+        title: Unknown
   EvidenceSourceEnum:
     name: EvidenceSourceEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/EvidenceSourceEnum
@@ -2316,6 +2362,130 @@ enums:
         description: Correspondence to the human mechanism has not been established.
           Prefer this over guessing a tier.
         title: Unknown
+  ModelDivergenceTypeEnum:
+    name: ModelDivergenceTypeEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelDivergenceTypeEnum
+    description: Typed kind of departure between a model and the mechanism node it
+      is linked to. Values were fixed by reading all 50 computational-model `limitations`
+      strings in the KB and clustering them, with the animal and NAM sets probed to
+      establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md.
+      A single link usually carries more than one, which is why `divergences` is multivalued.
+      The set is deliberately computational-model-first; extending it to animal models
+      would add supraphysiological expression and incomplete phenotype, each already
+      evidenced in that set.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    see_also:
+    - PMID:32993675
+    permissible_values:
+      BOUNDARY_OMISSION:
+        text: BOUNDARY_OMISSION
+        description: A component, cell type, compartment, or process the mechanism
+          requires lies outside the model boundary. The commonest kind. Contrast PROXY_QUANTITY,
+          where the thing is in the model but stands in for something else.
+        title: Boundary omission
+      PROXY_QUANTITY:
+        text: PROXY_QUANTITY
+        description: The model's variable is a stand-in of a different quantity from
+          the one the mechanism node describes -- transcriptional regulation of dopamine
+          synthesis for striatal dopamine concentration, an imaging signal for the
+          tissue property it correlates with. Can occur at the same biological scale,
+          so it is not recoverable from `model_scale`.
+        title: Proxy quantity
+      CALIBRATION_PROVENANCE:
+        text: CALIBRATION_PROVENANCE
+        description: Parameters, training data, or validation derive from a system,
+          cohort, or measurement type that does not match the claim -- fitted to cultured
+          epithelia, parameterized from mouse fibroblasts, validated against aggregate
+          rather than individual outcomes.
+        title: Calibration provenance
+      CAUSE_UNREPRESENTED:
+        text: CAUSE_UNREPRESENTED
+        description: The disease lesion is not encoded; the mechanism is imposed phenomenologically
+          instead of arising from the allele, exposure, or perturbation that causes
+          it. Also covers a perturbation that cannot be applied in isolation.
+        title: Cause unrepresented
+      STRUCTURAL_IDEALIZATION:
+        text: STRUCTURAL_IDEALIZATION
+        description: Geometry, topology, or spatial organisation is idealized rather
+          than anatomically or patient-derived -- a symmetric airway tree, a one-dimensional
+          strand standing for a reconstructed outflow tract, spatially uniform fields.
+        title: Structural idealization
+      TEMPORAL_SCOPE:
+        text: TEMPORAL_SCOPE
+        description: 'The model''s time horizon or dynamic resolution does not match
+          the mechanism''s: an acute-injury window standing for chronic progression,
+          or a parameter-free qualitative model that reaches reachability but not
+          magnitude or timing.'
+        title: Temporal scope
+      CONTESTED_ASSUMPTION:
+        text: CONTESTED_ASSUMPTION
+        description: The model encodes a mechanistic assumption that independent or
+          later evidence disputes, or that rests on a structure not experimentally
+          known. Distinct from the other kinds in that the model may be internally
+          sound and still wrong about the biology.
+        title: Contested assumption
+      SCALE_EXTRAPOLATION:
+        text: SCALE_EXTRAPOLATION
+        description: The model observes below the biological scale of the node it
+          is cited for and infers the higher-scale outcome. Derivable from `model_scale`
+          versus the target's `biological_scale`; record it explicitly when the curator
+          wants to state why it matters here.
+        title: Scale extrapolation
+      SPECIES_MISMATCH:
+        text: SPECIES_MISMATCH
+        description: The model, or the data behind it, derives from a non-human system.
+          Marginal among computational models and dominant among animal models, where
+          it is the principal translational caveat.
+        title: Species mismatch
+      POPULATION_MISMATCH:
+        text: POPULATION_MISMATCH
+        description: The modelled cohort, subtype, or indication is not the one this
+          entry describes -- a generic model standing for a genotype-defined disorder,
+          or a cohort that mixes in cases outside the entry's molecular criteria.
+        title: Population mismatch
+      OTHER:
+        text: OTHER
+        description: A divergence that does not fit the values above. Requires a `description`
+          that states the kind plainly, and is a signal the taxonomy may need a value.
+        title: Other
+  ModelDivergenceMaterialityEnum:
+    name: ModelDivergenceMaterialityEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelDivergenceMaterialityEnum
+    description: Whether a specific divergence bears on the specific claim its link
+      makes. This is what separates a caveat that undermines the claim from one that
+      is real but beside the point, and it is deliberately per-divergence where `fidelity`
+      is per-link. Recording it is what could eventually let `fidelity` be derived
+      rather than authored. The per-divergence framing mirrors the risk-informed grading
+      in ASME V&V 40 and the FDA credibility guidance, where how much credibility
+      evidence a model needs is set by its influence on the decision and the consequence
+      of that decision being wrong, rather than by a single global quality score.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    see_also:
+    - https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices
+    - https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions
+    permissible_values:
+      INVALIDATING:
+        text: INVALIDATING
+        description: The claim should not be transferred to human disease on this
+          model alone. Usually pairs with PARTIALLY_RECAPITULATE or FAILS_TO_RECAPITULATE
+          and a low fidelity tier.
+        title: Invalidating
+      QUALIFYING:
+        text: QUALIFYING
+        description: The claim holds, but in a narrower form than the link's `description`
+          would suggest on its own. The commonest value.
+        title: Qualifying
+      IMMATERIAL:
+        text: IMMATERIAL
+        description: A real divergence that does not bear on this particular claim.
+          Worth recording precisely because it stops a reader inferring that a known
+          limitation of the model undermines this use of it.
+        title: Immaterial
+      UNKNOWN:
+        text: UNKNOWN
+        description: Bearing on the claim has not been assessed. Prefer this over
+          guessing.
+        title: Unknown
   ModelReadoutDirectionEnum:
     name: ModelReadoutDirectionEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ModelReadoutDirectionEnum
@@ -3505,12 +3675,110 @@ enums:
       SUBTYPE:
         text: SUBTYPE
         description: A named subtype within a Disease entry.
-      MODULE:
-        text: MODULE
-        description: A mechanism module in kb/modules/.
       GROUPING:
         text: GROUPING
         description: Another Grouping (nested grouping).
+  ModuleCollectionTypeEnum:
+    name: ModuleCollectionTypeEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModuleCollectionTypeEnum
+    description: The organizing principle for a curated collection of mechanism modules.
+      Collections are navigation and framework records, not mechanism modules themselves
+      and not disease groupings.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      PUBLISHED_FRAMEWORK:
+        text: PUBLISHED_FRAMEWORK
+        description: A named framework or model defined in the scientific literature,
+          such as the Hallmarks of Aging.
+        title: Published framework
+      MECHANISTIC_FAMILY:
+        text: MECHANISTIC_FAMILY
+        description: Modules sharing a broad mechanistic pattern or process family.
+        title: Mechanistic family
+      BIOLOGICAL_SYSTEM:
+        text: BIOLOGICAL_SYSTEM
+        description: Modules organized by the biological system or compartment involved.
+        title: Biological system
+      PATHOLOGICAL_OUTCOME:
+        text: PATHOLOGICAL_OUTCOME
+        description: Modules organized by a shared class of pathological outcome.
+        title: Pathological outcome
+      THERAPEUTIC_STRATEGY:
+        text: THERAPEUTIC_STRATEGY
+        description: Modules organized by a shared intervention or therapeutic strategy.
+        title: Therapeutic strategy
+      OTHER:
+        text: OTHER
+        description: A module-collection basis not covered by the other values.
+        title: Other
+  ModuleCategoryEnum:
+    name: ModuleCategoryEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModuleCategoryEnum
+    description: "Areas of study a mechanism module is relevant to. A category asserts\
+      \ \"this module is relevant to this area of study\" \u2014 it is a discovery\
+      \ and browsing aid, not a mechanistic claim and not a classification of the\
+      \ diseases that conform to the module. Multivalued and deliberately non-exclusive:\
+      \ a drug-toxicity module is both TOXICOLOGY and PHARMACOLOGY, and an antiviral\
+      \ drug-target module is both PHARMACOLOGY and INFECTIOUS_DISEASE. Applied through\
+      \ the `module_categories` slot, which is intended for entries under `kb/modules/`."
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      TOXICOLOGY:
+        text: TOXICOLOGY
+        description: "Injury caused by exposure to a xenobiotic \u2014 environmental\
+          \ toxicants, poisons, occupational and dietary exposures, and adverse drug\
+          \ reactions modelled as mechanism rather than as an outcome. Includes drug-toxicity\
+          \ modules and any module whose trigger arm carries a toxicant or drug exposure."
+        title: Toxicology
+      PHARMACOLOGY:
+        text: PHARMACOLOGY
+        description: 'Drug mechanism of action and therapeutic targeting: modules
+          built around a molecular drug target, a therapeutic modality, or an acquired-resistance
+          pathway that gates drug choice. Typically carries the target_mechanisms
+          drug pattern.'
+        title: Pharmacology
+      ONCOLOGY:
+        text: ONCOLOGY
+        description: "Tumor biology and cancer therapeutics \u2014 the hallmark-of-cancer\
+          \ capability modules, tumor-microenvironment mechanisms, and cancer-specific\
+          \ therapeutic vulnerabilities and resistance patterns."
+        title: Oncology
+      INFECTIOUS_DISEASE:
+        text: INFECTIOUS_DISEASE
+        description: 'Host-pathogen mechanism and antimicrobial therapy: pathogen
+          entry, replication, persistence and immune evasion, together with the antibacterial,
+          antifungal, and antiviral drug-target modules.'
+        title: Infectious disease
+      IMMUNOLOGY:
+        text: IMMUNOLOGY
+        description: "Immune-mediated mechanism \u2014 innate and adaptive immune\
+          \ activation, autoimmunity, hypersensitivity, chronic inflammation, and\
+          \ the immune contribution to tissue injury and repair."
+        title: Immunology
+      NEUROSCIENCE:
+        text: NEUROSCIENCE
+        description: 'Nervous-system mechanism across the central, peripheral, and
+          sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability,
+          neurodevelopmental patterning of the brain, and neural waste clearance.'
+        title: Neuroscience
+      DEVELOPMENTAL_BIOLOGY:
+        text: DEVELOPMENTAL_BIOLOGY
+        description: "Morphogenesis and embryonic patterning \u2014 signalling gradients,\
+          \ segmentation, cell-fate specification, and migration defects whose lesion\
+          \ acts during development rather than in mature tissue."
+        title: Developmental biology
+      METABOLISM:
+        text: METABOLISM
+        description: 'Intermediary metabolism, bioenergetics, and cellular quality
+          control of metabolic substrate: inborn errors of metabolism, mitochondrial
+          and lysosomal function, nutrient sensing, and storage or intoxication phenotypes.'
+        title: Metabolism
+      AGING:
+        text: AGING
+        description: "Geroscience mechanism \u2014 the hallmarks of aging and the\
+          \ age-associated processes (senescence, telomere attrition, stem-cell exhaustion,\
+          \ proteostasis and genome-maintenance decline) that drive late-onset disease."
+        title: Aging
   ReferenceTagEnum:
     name: ReferenceTagEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ReferenceTagEnum
@@ -3556,8 +3824,28 @@ enums:
   ICDOMorphologyEnum:
     name: ICDOMorphologyEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ICDOMorphologyEnum
-    description: ICD-O morphology axis classification for cancer subtypes. Values
-      link to NCI Thesaurus for formal definitions.
+    description: "ICD-O morphology axis classification for cancer subtypes. Values\
+      \ link to NCI Thesaurus for formal definitions.\nThis is a coarse histogenetic\
+      \ vocabulary, not a slot for four-digit ICD-O codes. Two rules govern it.\n\
+      Granularity (the lump/split rule): a value names a morphology *family*, not\
+      \ an individual tumour entity. A family earns its own value when the knowledge\
+      \ base holds neoplastic entries that no existing value can hold correctly, and\
+      \ when it is a top-level morphology group in ICD-O / the WHO classification.\
+      \ A sub-family is split out of its parent only when it dominates curation practice\
+      \ \u2014 which is why ``Adenocarcinoma`` and ``Squamous Cell Carcinoma`` sit\
+      \ beside ``Carcinoma``, and ``Multiple Myeloma`` beside ``Plasma Cell Neoplasm``,\
+      \ while single entities (glomus tumour, chordoma, GIST) are held by their family\
+      \ rather than given a value of their own.\nBehaviour: this axis names the morphology\
+      \ family, and most values are behaviour-neutral \u2014 ``Nerve Sheath Neoplasm``\
+      \ and ``Pericytic Neoplasm`` cover benign and malignant members alike. Where\
+      \ ICD-O itself splits a family on behaviour, the values follow it (``Adenoma``\
+      \ vs ``Adenocarcinoma``). Do not read malignancy into a value that does not\
+      \ assert it. A first-class behaviour slot (the ICD-O ``/0``-``/3`` digit) and\
+      \ a place for the four-digit code itself remain open on monarch-initiative/dismech#7548.\n\
+      When no value fits, omit ``icdo_morphology`` and record why in the entry's ``notes``\
+      \ or a ``CURATION_TODO`` discussion. There is deliberately no ``Other`` value:\
+      \ the omissions are the signal that tells us which family to add next, and this\
+      \ expansion was driven by exactly those notes."
     from_schema: https://w3id.org/monarch-initiative/dismech/classifications/icdo_morphology
     permissible_values:
       Carcinoma:
@@ -3629,6 +3917,95 @@ enums:
         meaning: NCIT:C3264
         exact_mappings:
         - MONDO:0005564
+      Adenoma:
+        text: Adenoma
+        description: Benign neoplasm of glandular epithelium; the benign counterpart
+          of Adenocarcinoma
+        meaning: NCIT:C2855
+        exact_mappings:
+        - MONDO:0004972
+        - ICDO:8140/0
+      Trophoblastic Tumor:
+        text: Trophoblastic Tumor
+        description: Neoplasm of trophoblastic cells, gestational or non-gestational
+        meaning: NCIT:C3422
+        exact_mappings:
+        - MONDO:0002872
+      Mesothelial Neoplasm:
+        text: Mesothelial Neoplasm
+        description: Neoplasm arising from the mesothelium lining the pleura, peritoneum,
+          pericardium or tunica vaginalis
+        meaning: NCIT:C3786
+        exact_mappings:
+        - MONDO:0006856
+      Pericytic Neoplasm:
+        text: Pericytic Neoplasm
+        description: Mesenchymal neoplasm arising from the perivascular (pericytic)
+          cells of connective and soft tissue
+        meaning: NCIT:C6528
+        exact_mappings:
+        - MONDO:0002604
+      Nerve Sheath Neoplasm:
+        text: Nerve Sheath Neoplasm
+        description: Neoplasm arising from the cells of the peripheral nerve sheath
+        meaning: NCIT:C4972
+        exact_mappings:
+        - MONDO:0002547
+      Meningioma:
+        text: Meningioma
+        description: Neoplasm of meningothelial (arachnoidal) cells
+        meaning: NCIT:C3230
+        exact_mappings:
+        - MONDO:0016642
+        - ICDO:9530/0
+      Germ Cell Tumor:
+        text: Germ Cell Tumor
+        description: Gonadal or extragonadal neoplasm originating from germ cells
+        meaning: NCIT:C3708
+        exact_mappings:
+        - MONDO:0005040
+      Sex Cord-Stromal Tumor:
+        text: Sex Cord-Stromal Tumor
+        description: Neoplasm of the gonadal sex cord and stromal cells (granulosa,
+          Sertoli, Leydig, fibroblast)
+        meaning: NCIT:C3794
+        exact_mappings:
+        - MONDO:0006055
+        - ICDO:8590/1
+      Neuroendocrine Neoplasm:
+        text: Neuroendocrine Neoplasm
+        description: Neoplasm of cells showing neuroendocrine differentiation
+        meaning: NCIT:C3809
+        exact_mappings:
+        - MONDO:0019496
+      Plasma Cell Neoplasm:
+        text: Plasma Cell Neoplasm
+        description: Clonal proliferation of immunoglobulin-secreting plasma cells
+        meaning: NCIT:C4665
+        exact_mappings:
+        - MONDO:0004959
+      Myeloproliferative Neoplasm:
+        text: Myeloproliferative Neoplasm
+        description: Clonal myeloid neoplasm with effective but excessive production
+          of one or more mature blood cell lineages
+        meaning: NCIT:C4345
+        exact_mappings:
+        - MONDO:0020076
+        - ICDO:9960/3
+      Myelodysplastic Syndrome:
+        text: Myelodysplastic Syndrome
+        description: Clonal myeloid neoplasm characterised by dysplasia and ineffective
+          haematopoiesis
+        meaning: NCIT:C3247
+        exact_mappings:
+        - MONDO:0018881
+        - ICDO:9989/3
+      Histiocytic and Dendritic Cell Neoplasm:
+        text: Histiocytic and Dendritic Cell Neoplasm
+        description: Neoplasm of histiocytes and accessory/dendritic cells
+        meaning: NCIT:C9294
+        exact_mappings:
+        - MONDO:0006247
   HarrisonsChapterEnum:
     name: HarrisonsChapterEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/HarrisonsChapterEnum
@@ -4844,7 +5221,11 @@ enums:
         description: "Group 9 (2023 revision): Pseudoachondroplasia and the multiple\
           \ epiphyseal dysplasias. COMP, MATN3, and type IX collagen (COL9A1/2/3)\
           \ disorders \u2014 pseudoachondroplasia, dominant multiple epiphyseal dysplasia,\
-          \ recessive Stickler syndrome. Was group 10 in the 2019 revision."
+          \ recessive Stickler syndrome. Also holds Lowry-Wood syndrome, NOS 09-0110\
+          \ \"Multiple epiphyseal dysplasia with microcephaly and nystagmus (Lowry-Wood\
+          \ syndrome), RNU4ATAC-related\" (OMIM 226960), which the 2023 revision moved\
+          \ here from the primordial dwarfism and slender bones group \u2014 see that\
+          \ group's description. Was group 10 in the 2019 revision."
         structured_aliases:
         - literal_form: Multiple epiphyseal dysplasia and pseudoachondroplasia group
           predicate:
@@ -4882,9 +5263,21 @@ enums:
       spondylometaphyseal_dysplasias:
         text: spondylometaphyseal_dysplasias
         description: "Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD).\
-          \ Combined vertebral and metaphyseal involvement \u2014 spondyloenchondrodysplasia\
-          \ (ACP5), odontochondrodysplasia (TRIP11), SMD corner-fracture/Sutcliffe\
-          \ type (FN1), SMD with cone-rod dystrophy (PCYT1A)."
+          \ Combined vertebral and metaphyseal involvement. The group has exactly\
+          \ six members, NOS 12-0010 to 12-0060 \u2014 spondyloenchondrodysplasia\
+          \ with immune dysregulation (ACP5), odontochondrodysplasia (TRIP11), SMD\
+          \ Sutcliffe or 'corner fracture' type (FN1), SMD with cone-rod dystrophy\
+          \ (PCYT1A), SMD with corneal dystrophy (PLCB3), and chondrodysplasia-pseudohermaphroditism\
+          \ / Nivelon-Nivelon-Mabille syndrome (HHAT).\nFour disorders carrying an\
+          \ SMD name are deliberately placed elsewhere, and the group's own \"see\
+          \ also\" note lists all four: SMD Kozlowski (TRPV4, group 10), severe SMD\
+          \ Sedaghatian type (GPX4, group 14), and axial SMD in its CFAP410-related\
+          \ and NEK1-related forms (group 10, skeletal ciliopathies). TRIP11 additionally\
+          \ spans two groups by severity \u2014 odontochondrodysplasia here, achondrogenesis\
+          \ type 1A in group 14 \u2014 and MIM 184255 is gene-split between NOS 12-0030\
+          \ (FN1) and NOS 02-0050 (COL2A1), with the row note \"Some cases are linked\
+          \ to COL2A1 but not the original family\". A radiographic SMD label is therefore\
+          \ a poor predictor of group-12 membership; check Table 1."
       spondylo_epi_metaphyseal_dysplasias:
         text: spondylo_epi_metaphyseal_dysplasias
         description: "Group 13 (2023 revision): Spondyloepi(meta)physeal dysplasias\
@@ -5011,18 +5404,34 @@ enums:
           source: PMID:31633310
       primordial_dwarfism_and_slender_bones:
         text: primordial_dwarfism_and_slender_bones
-        description: "Group 21 (2023 revision): Primordial dwarfism and slender bones\
-          \ group. Severe pre- and postnatal growth restriction with gracile tubular\
-          \ bones \u2014 3-M syndrome (CUL7, OBSL1, CCDC8), microcephalic osteodysplastic\
-          \ primordial dwarfism (RNU4ATAC, PCNT2, and the ATR/RBBP8/CEP152/DNA2/TRAIP/CENPE\
-          \ group), Roifman and Lowry-Wood syndromes, Sanjad-Sakati (TBCE) and Kenny-Caffey/osteocraniostenosis\
-          \ (FAM111A) syndromes, IMAGe syndrome, Hallermann-Streiff and Saul-Wilson\
-          \ syndromes, and the ear-patella-primordial short stature (Meier-Gorlin)\
-          \ syndrome across its pre-replication-complex genes (ORC1, ORC4, ORC6, CDT1,\
-          \ CDC6, GMNN, CDC45, MCM3/5/7, GINS2) \u2014 which belongs here and NOT\
-          \ in group 37, patellar dysostoses, despite the \"ear-patella\" in its name.\
-          \ Renamed in the 2019 revision from \"Slender bone dysplasia group\". Was\
-          \ group 19 in the 2019 revision."
+        description: 'Group 21 (2023 revision): Primordial dwarfism and slender bone
+          dysplasias. Severe pre- and postnatal growth restriction with gracile tubular
+          bones. Thirty-five rows, NOS 21-0010 through NOS 21-0350: 3-M syndrome (CUL7,
+          OBSL1, CCDC8); Sanjad-Sakati syndrome (TBCE); dominant Kenny-Caffey syndrome
+          and osteocraniostenosis (both FAM111A); Hallermann-Streiff syndrome; microcephalic
+          osteodysplastic primordial dwarfism across RNU4ATAC, PCNT, ATR, RBBP8, CEP152,
+          DNA2, TRAIP, NSMCE2, CENPE, CRIPT, XRCC4 and DONSON; Roifman syndrome (RNU4ATAC);
+          IMAGe syndrome (CDKN1C) and IMAGe/FILS syndrome (POLE); Saul-Wilson syndrome
+          (COG4); the SCUBE3 short stature-facial dysmorphism-skeletal and dental
+          anomalies syndrome; and the ear-patella-primordial short stature (Meier-Gorlin)
+          syndrome across its pre-replication-complex genes (ORC1, ORC4, ORC6, CDT1,
+          CDC6, GMNN, CDC45, MCM3/5/7, GINS2) - which belongs here and NOT in group
+          37, patellar dysostoses, despite the "ear-patella" in its name. Two consequences
+          of the 2023 dyadic renaming are easy to miss here. First, Seckel syndrome
+          does not appear in the table under that name: its six rows were rewritten
+          as "Microcephalic osteodysplastic primordial dwarfism, <GENE>-related" and
+          are identifiable only by gene and OMIM number - ATR (210600, SCKL1), RBBP8
+          (606744, SCKL2), CEP152 (613823, SCKL5), DNA2 (615807, SCKL8), TRAIP (616777,
+          SCKL9) and NSMCE2 (617253, SCKL10). Searching the table for "Seckel" therefore
+          returns nothing, which is a naming artefact and not an exclusion; the same
+          applies to the XRCC4 row (616541), which is the entity published as short
+          stature, microcephaly and endocrine dysfunction (SSMED). Second, Lowry-Wood
+          syndrome is no longer in this group: the 2019 revision listed it here, and
+          the 2023 revision moved it to group 9 as NOS 09-0110 "Multiple epiphyseal
+          dysplasia with microcephaly and nystagmus (Lowry-Wood syndrome), RNU4ATAC-related"
+          (OMIM 226960), so RNU4ATAC spans two groups and gene identity does not settle
+          placement for its three phenotypes. Renamed in the 2019 revision from "Slender
+          bone dysplasia group". Was group 19 in the 2019 revision.'
         structured_aliases:
         - literal_form: Primordial dwarfism and slender bones group
           predicate:
@@ -7517,7 +7926,7 @@ slots:
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:name
     identifier: true
-    owner: Grouping
+    owner: ModuleCollection
     domain_of:
     - ExperimentalModel
     - Experiment
@@ -7557,6 +7966,7 @@ slots:
     - CriteriaSet
     - ComorbidityAssociation
     - Grouping
+    - ModuleCollection
     range: string
     required: true
   display_name:
@@ -7567,11 +7977,12 @@ slots:
       absent, renderers should fall back to name.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:display_name
-    owner: GroupingMember
+    owner: ModuleCollection
     domain_of:
     - Subtype
     - Grouping
     - GroupingMember
+    - ModuleCollection
     range: string
   slug:
     name: slug
@@ -7589,7 +8000,7 @@ slots:
     definition_uri: https://w3id.org/monarch-initiative/dismech/description
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:description
-    owner: DifferentiatingMechanism
+    owner: ModuleCollectionMember
     domain_of:
     - Descriptor
     - DietaryModification
@@ -7608,6 +8019,7 @@ slots:
     - CausalEdge
     - TreatmentMechanismTarget
     - EnvironmentalMechanismTarget
+    - ModelDivergence
     - ModelMechanismLink
     - BiomarkerReadout
     - PhenotypeReadout
@@ -7645,6 +8057,8 @@ slots:
     - GroupingCriteria
     - LogicalCriterion
     - DifferentiatingMechanism
+    - ModuleCollection
+    - ModuleCollectionMember
     range: string
   preferred_term:
     name: preferred_term
@@ -7880,7 +8294,7 @@ slots:
     definition_uri: https://w3id.org/monarch-initiative/dismech/evidence
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:evidence
-    owner: DifferentiatingMechanism
+    owner: ModuleCollectionMember
     domain_of:
     - PhenotypeContext
     - Dataset
@@ -7896,6 +8310,7 @@ slots:
     - CausalEdge
     - TreatmentMechanismTarget
     - EnvironmentalMechanismTarget
+    - ModelDivergence
     - ModelMechanismLink
     - BiomarkerReadout
     - PhenotypeReadout
@@ -7939,6 +8354,8 @@ slots:
     - GroupingCriteria
     - GroupingMember
     - DifferentiatingMechanism
+    - ModuleCollection
+    - ModuleCollectionMember
     range: EvidenceItem
     recommended: true
     multivalued: true
@@ -8021,14 +8438,34 @@ slots:
   supports:
     name: supports
     definition_uri: https://w3id.org/monarch-initiative/dismech/supports
+    description: Which way the cited evidence cuts relative to the claim. Direction
+      only -- use `directness` for how directly the quote bears on it.
+    comments:
+    - Maps to EvidenceLine.directionOfEvidenceProvided in the draft SEPIO LinkML model.
+      The NO_EVIDENCE value has no SEPIO counterpart; see EvidenceItemSupportEnum.
     examples:
     - value: SUPPORT
     from_schema: https://w3id.org/monarch-initiative/dismech
+    exact_mappings:
+    - sepio:directionOfEvidenceProvided
     slot_uri: dismech:supports
     owner: EvidenceItem
     domain_of:
     - EvidenceItem
     range: EvidenceItemSupportEnum
+  directness:
+    name: directness
+    definition_uri: https://w3id.org/monarch-initiative/dismech/directness
+    description: 'How directly the quoted text bears on the claim. Optional: absent
+      means no one has assessed it, which is the state of most of the knowledge base.'
+    examples:
+    - value: DIRECT
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:directness
+    owner: EvidenceItem
+    domain_of:
+    - EvidenceItem
+    range: DirectnessEnum
   evidence_source:
     name: evidence_source
     definition_uri: https://w3id.org/monarch-initiative/dismech/evidence_source
@@ -8062,7 +8499,25 @@ slots:
   reference_title:
     name: reference_title
     definition_uri: https://w3id.org/monarch-initiative/dismech/reference_title
+    implements:
+    - dcterms:title
     description: The title of the referenced publication
+    comments:
+    - "`dcterms:title` is what makes this slot machine-checked: linkml-reference-validator\
+      \ compares a declared title against the fetched publication and errors on a\
+      \ mismatch, and its TitleURIs matches only \"dcterms:title\" / \"dc/terms/title\"\
+      . `linkml:title` does NOT work \u2014 that is why the annotation on the shared\
+      \ `title` slot is inert, and why PublicationReference.title is detected only\
+      \ via lrv's exact-name fallback FallbackSlotNames.TITLE = (\"title\",)."
+    - "\"Checked\" means checked for the prefixes lrv actually fetches. Prefixes in\
+      \ `skip_prefixes` (conf/reference_validator_config.yaml), notably `DOI:`, are\
+      \ never fetched and so are exempt \u2014 a DOI title that drifts from its source\
+      \ is still not caught by this."
+    - 'Enabling this required a data fix first, not a tooling change: 6,125 titles
+      across 408 files disagreed with their cached publication and were re-synced
+      from cache by scripts/normalize_reference_titles.py. Run that script if this
+      check starts failing in bulk; a single failure is far more likely to be a genuinely
+      wrong citation, which is the point.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:reference_title
     owner: EvidenceItem
@@ -8159,6 +8614,21 @@ slots:
     implements:
     - linkml:title
     description: Title of the publication
+    comments:
+    - "The `linkml:title` annotation is INERT for linkml-reference-validator detection\
+      \ \u2014 lrv's TitleURIs matches only \"dcterms:title\" / \"dc/terms/title\"\
+      . Where this slot IS title-checked (on PublicationReference) that happens via\
+      \ lrv's exact-name fallback FallbackSlotNames.TITLE = (\"title\",), not via\
+      \ this annotation. Kept because it is a reasonable semantic mapping, and noted\
+      \ here for the same reason the EvidenceItem `reference_title` comment exists:\
+      \ an annotation that looks like it enables a check, but does not, misleads readers.\
+      \ The title-normalization work that this deferral pointed at has now happened\
+      \ (EvidenceItem.reference_title carries `dcterms:title` and is checked), but\
+      \ this slot is still NOT retargeted: it is shared by PublicationReference, Dataset\
+      \ and TrackedIssue, so swapping the URI would newly expose Dataset.title and\
+      \ TrackedIssue.title to lrv detection. PublicationReference.title loses nothing\
+      \ by waiting \u2014 it is already checked via the exact-name fallback. Retarget\
+      \ only alongside a check of what the other two classes would then be asserting."
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:title
     owner: TrackedIssue
@@ -8460,7 +8930,7 @@ slots:
         to others.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:notes
-    owner: DifferentiatingMechanism
+    owner: ModuleCollectionMember
     domain_of:
     - GeneticContext
     - OnsetDescriptor
@@ -8515,6 +8985,8 @@ slots:
     - GroupingCriteria
     - GroupingMember
     - DifferentiatingMechanism
+    - ModuleCollection
+    - ModuleCollectionMember
     range: string
   duration_days:
     name: duration_days
@@ -8937,9 +9409,10 @@ slots:
     description: The HPO mode of inheritance term for this inheritance pattern
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:inheritance_term
-    owner: Inheritance
+    owner: LogicalCriterion
     domain_of:
     - Inheritance
+    - LogicalCriterion
     range: InheritanceDescriptor
     inlined: true
     inlined_as_list: true
@@ -10115,6 +10588,24 @@ slots:
     - Disease
     range: string
     multivalued: true
+  module_categories:
+    name: module_categories
+    definition_uri: https://w3id.org/monarch-initiative/dismech/module_categories
+    description: Areas of study this mechanism module is relevant to, drawn from ModuleCategoryEnum.
+      Each value asserts "this module is relevant to this area of study" and is rendered
+      as a labelled pill on the module index and module detail pages, so the categories
+      are a browsing and discovery aid rather than a mechanistic assertion. Intended
+      for entries under `kb/modules/`, which validate against the Disease class; disorder
+      entries use the free-text `categories` slot for nosological grouping instead.
+    examples:
+    - value: TOXICOLOGY
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:module_categories
+    owner: Disease
+    domain_of:
+    - Disease
+    range: ModuleCategoryEnum
+    multivalued: true
   infectious_agent:
     name: infectious_agent
     definition_uri: https://w3id.org/monarch-initiative/dismech/infectious_agent
@@ -10778,9 +11269,12 @@ slots:
     description: 'Multivalued list of entity references pointing at the disease nodes,
       gaps, phenotypes, or other objects this item is about. Uses a hash-anchor grammar
       consistent with `conforms_to`: `[<file>:]<kind>#<name>`. Examples: `pathophysiology#Amyloid
-      Plaque Formation`, `phenotype#Memory Loss`, `Liver_Cirrhosis:pathophysiology#Hepatic
-      Stellate Cell Activation`. Range is `string` for now; a custom EntityRef type
-      with parser support can be introduced later without breaking existing data.'
+      Plaque Formation`, `phenotypes#Memory Loss`, `Liver_Cirrhosis:pathophysiology#Hepatic
+      Stellate Cell Activation`. `<kind>` is the schema slot name of the section referred
+      to; the older singular spellings (`phenotype#`, `treatment#`, ...) still resolve,
+      but curated content is written in the slot-name form. Range is `string` for
+      now; a custom EntityRef type with parser support can be introduced later without
+      breaking existing data.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:attaches_to
     owner: Discussion
@@ -10884,8 +11378,10 @@ slots:
   would_support:
     name: would_support
     definition_uri: https://w3id.org/monarch-initiative/dismech/would_support
-    description: Entity references that would be supported if the experiment meets
-      its decision criterion. Uses the same hash-anchor grammar as `attaches_to`.
+    description: 'Entity references that would be supported if the experiment meets
+      its decision criterion. Uses the same hash-anchor grammar as `attaches_to`,
+      and every value must use it: this slot names *what the result bears on*, not
+      what the result would be. For a prose statement of the outcome itself, use `supporting_outcome`.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:would_support
     owner: Experiment
@@ -10897,9 +11393,44 @@ slots:
     name: would_refute
     definition_uri: https://w3id.org/monarch-initiative/dismech/would_refute
     description: Entity references that would be weakened or refuted if the experiment
-      meets a contrary result. Uses the same hash-anchor grammar as `attaches_to`.
+      meets a contrary result. Uses the same hash-anchor grammar as `attaches_to`,
+      and every value must use it. For a prose statement of the outcome itself, use
+      `refuting_outcome`.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:would_refute
+    owner: Experiment
+    domain_of:
+    - Experiment
+    range: string
+    multivalued: true
+  supporting_outcome:
+    name: supporting_outcome
+    definition_uri: https://w3id.org/monarch-initiative/dismech/supporting_outcome
+    description: 'Prose statement of an experimental result that would support the
+      attached claim -- what would be observed, not which node it bears on. The supporting
+      arm of `decision_criterion`, which is single-valued and so cannot express a
+      support/refute pair.
+
+      Distinct from `would_support`, which takes entity references. A curator writing
+      "Increased progenitor apoptosis in patient organoids would establish that the
+      mouse mechanism operates in human cells" is stating an outcome and belongs here;
+      one writing `pathophysiology#Motor Neuron Degeneration` is naming a node and
+      belongs in `would_support`.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:supporting_outcome
+    owner: Experiment
+    domain_of:
+    - Experiment
+    range: string
+    multivalued: true
+  refuting_outcome:
+    name: refuting_outcome
+    definition_uri: https://w3id.org/monarch-initiative/dismech/refuting_outcome
+    description: Prose statement of an experimental result that would weaken or refute
+      the attached claim. The refuting arm of `decision_criterion`; the counterpart
+      of `supporting_outcome`, and distinct from `would_refute` in the same way.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:refuting_outcome
     owner: Experiment
     domain_of:
     - Experiment
@@ -11066,6 +11597,82 @@ slots:
     domain_of:
     - ModelMechanismLink
     range: string
+  model_scale:
+    name: model_scale
+    definition_uri: https://w3id.org/monarch-initiative/dismech/model_scale
+    description: "Biological scale at which this model actually represents or measures\
+      \ the linked target \u2014 molecular, cellular, tissue/organ, or organism. Records\
+      \ what the model *observes*, which is not always the scale of the mechanism\
+      \ it is cited for: a signalling-network model whose output node is named for\
+      \ a tissue-level outcome still observes only molecular state. Compared against\
+      \ the target node's own `biological_scale`, this makes the scale gap computable\
+      \ rather than leaving it buried in `limitations` prose. Reuses BiologicalScaleEnum\
+      \ so the two are directly comparable."
+    examples:
+    - value: MOLECULAR
+      description: "A Boolean signalling network linked to an ORGANISM-scale node\
+        \ \u2014 the model observes molecular state and infers the organism-scale\
+        \ outcome."
+    - value: ORGANISM
+      description: "A whole-animal model linked to a MOLECULAR node \u2014 the model\
+        \ contains the target scale, so no extrapolation is involved."
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:model_scale
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    range: BiologicalScaleEnum
+  divergences:
+    name: divergences
+    definition_uri: https://w3id.org/monarch-initiative/dismech/divergences
+    description: 'Typed, individually explained ways in which this model departs from
+      the mechanism it is linked to. The structured counterpart of the free-text `limitations`
+      summary: each entry names a kind from a fixed taxonomy, says in the curator''s
+      own words why that kind of gap applies *here*, and optionally records whether
+      it bears on this link''s claim. Multivalued because a real caveat is usually
+      several kinds at once.'
+    comments:
+    - Complements `relationship` and `fidelity` rather than replacing them -- those
+      say what the model does and how well, this says in what specific respects it
+      falls short
+    - A SCALE_EXTRAPOLATION divergence should agree with the `model_scale` comparison;
+      `just model-scale-audit` cross-checks the two
+    - This slot is the structured form of rule 4 of the ten rules of credible practice
+      in healthcare modeling ("list limitations explicitly"); typing the list rather
+      than writing it as prose is the only change dismech makes to that rule.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    see_also:
+    - PMID:32993675
+    slot_uri: dismech:divergences
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    range: ModelDivergence
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  divergence_type:
+    name: divergence_type
+    definition_uri: https://w3id.org/monarch-initiative/dismech/divergence_type
+    description: Kind of departure between the model and the mechanism it is linked
+      to
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:divergence_type
+    owner: ModelDivergence
+    domain_of:
+    - ModelDivergence
+    range: ModelDivergenceTypeEnum
+  materiality:
+    name: materiality
+    definition_uri: https://w3id.org/monarch-initiative/dismech/materiality
+    description: Whether this specific divergence bears on the specific claim the
+      link makes. Per-divergence, where `fidelity` is per-link.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:materiality
+    owner: ModelDivergence
+    domain_of:
+    - ModelDivergence
+    range: ModelDivergenceMaterialityEnum
   influences_mechanisms:
     name: influences_mechanisms
     definition_uri: https://w3id.org/monarch-initiative/dismech/influences_mechanisms
@@ -11471,11 +12078,12 @@ slots:
       first created (e.g., 2025-06-12T20:16:27Z)
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:creation_date
-    owner: Grouping
+    owner: ModuleCollection
     domain_of:
     - Disease
     - ComorbidityAssociation
     - Grouping
+    - ModuleCollection
     range: string
     recommended: true
     pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$
@@ -13113,10 +13721,11 @@ slots:
       and by differentiating mechanisms.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:module
-    owner: DifferentiatingMechanism
+    owner: ModuleCollectionMember
     domain_of:
     - LogicalCriterion
     - DifferentiatingMechanism
+    - ModuleCollectionMember
     range: string
   negated:
     name: negated
@@ -13147,8 +13756,7 @@ slots:
     name: member
     definition_uri: https://w3id.org/monarch-initiative/dismech/member
     description: Foreign key to the grouped entity. For member_type DISEASE this is
-      the Disease entry's `name`; for MODULE it is the module filename stem; for GROUPING
-      it is another grouping's `name`.
+      the Disease entry's `name`; for GROUPING it is another grouping's `name`.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:member
     owner: GroupingMember
@@ -13180,6 +13788,55 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  collection_type:
+    name: collection_type
+    definition_uri: https://w3id.org/monarch-initiative/dismech/collection_type
+    description: The organizing principle represented by a ModuleCollection.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:collection_type
+    owner: ModuleCollection
+    domain_of:
+    - ModuleCollection
+    range: ModuleCollectionTypeEnum
+  module_members:
+    name: module_members
+    definition_uri: https://w3id.org/monarch-initiative/dismech/module_members
+    description: The mechanism modules explicitly included in this collection. Module
+      filename stems are used as foreign keys.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:module_members
+    owner: ModuleCollection
+    domain_of:
+    - ModuleCollection
+    range: ModuleCollectionMember
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  framework_terms:
+    name: framework_terms
+    definition_uri: https://w3id.org/monarch-initiative/dismech/framework_terms
+    description: One or more labels used by the source framework for the concept represented
+      by this module. Multivalued because one module may intentionally combine closely
+      coupled framework concepts.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:framework_terms
+    owner: ModuleCollectionMember
+    domain_of:
+    - ModuleCollectionMember
+    range: string
+    multivalued: true
+  child_collections:
+    name: child_collections
+    definition_uri: https://w3id.org/monarch-initiative/dismech/child_collections
+    description: Names of more specific ModuleCollection records nested under this
+      collection.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:child_collections
+    owner: ModuleCollection
+    domain_of:
+    - ModuleCollection
+    range: string
+    multivalued: true
   geneSetAssociation__gene_set:
     name: geneSetAssociation__gene_set
     description: Structured-source id of the gene set, e.g. MYGENESET:KEGG_ASTHMA.
@@ -14664,6 +15321,63 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  ModelDivergence_divergence_type:
+    name: ModelDivergence_divergence_type
+    definition_uri: https://w3id.org/monarch-initiative/dismech/divergence_type
+    description: Kind of departure between the model and the mechanism it is linked
+      to
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: divergence_type
+    domain: ModelDivergence
+    slot_uri: dismech:divergence_type
+    alias: divergence_type
+    owner: ModelDivergence
+    domain_of:
+    - ModelDivergence
+    is_usage_slot: true
+    usage_slot_name: divergence_type
+    range: ModelDivergenceTypeEnum
+    required: true
+  ModelDivergence_description:
+    name: ModelDivergence_description
+    definition_uri: https://w3id.org/monarch-initiative/dismech/description
+    description: Why this kind of divergence applies to this link, in specific terms
+      -- which component is outside the boundary, which quantity is standing in for
+      which, which cohort the calibration came from. Never a restatement of the enum
+      value.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: description
+    domain: ModelDivergence
+    slot_uri: dismech:description
+    alias: description
+    owner: ModelDivergence
+    domain_of:
+    - ModelDivergence
+    is_usage_slot: true
+    usage_slot_name: description
+    range: string
+    required: true
+  ModelDivergence_evidence:
+    name: ModelDivergence_evidence
+    definition_uri: https://w3id.org/monarch-initiative/dismech/evidence
+    description: Optional citation for the divergence itself, when it is a published
+      finding rather than a reading of the model's own scope -- a later study displacing
+      an assumption the model encodes, for instance.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: evidence
+    domain: ModelDivergence
+    slot_uri: dismech:evidence
+    alias: evidence
+    owner: ModelDivergence
+    domain_of:
+    - ModelDivergence
+    is_usage_slot: true
+    usage_slot_name: evidence
+    range: EvidenceItem
+    recommended: true
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   ModelMechanismLink_target:
     name: ModelMechanismLink_target
     definition_uri: https://w3id.org/monarch-initiative/dismech/target
@@ -15532,6 +16246,42 @@ slots:
     usage_slot_name: reference
     range: PMID
     required: true
+  PublicationReference_title:
+    name: PublicationReference_title
+    definition_uri: https://w3id.org/monarch-initiative/dismech/title
+    implements:
+    - linkml:title
+    description: 'Title of the referenced publication. Recommended so that linkml-data-qc
+      scores its absence, matching the `recommended: true` already carried by the
+      EvidenceItem `reference_title` twin. Set here via slot_usage rather than on
+      the shared `title` slot, which is also used by Dataset and TrackedIssue.'
+    comments:
+    - "The `linkml:title` annotation is INERT for linkml-reference-validator detection\
+      \ \u2014 lrv's TitleURIs matches only \"dcterms:title\" / \"dc/terms/title\"\
+      . Where this slot IS title-checked (on PublicationReference) that happens via\
+      \ lrv's exact-name fallback FallbackSlotNames.TITLE = (\"title\",), not via\
+      \ this annotation. Kept because it is a reasonable semantic mapping, and noted\
+      \ here for the same reason the EvidenceItem `reference_title` comment exists:\
+      \ an annotation that looks like it enables a check, but does not, misleads readers.\
+      \ The title-normalization work that this deferral pointed at has now happened\
+      \ (EvidenceItem.reference_title carries `dcterms:title` and is checked), but\
+      \ this slot is still NOT retargeted: it is shared by PublicationReference, Dataset\
+      \ and TrackedIssue, so swapping the URI would newly expose Dataset.title and\
+      \ TrackedIssue.title to lrv detection. PublicationReference.title loses nothing\
+      \ by waiting \u2014 it is already checked via the exact-name fallback. Retarget\
+      \ only alongside a check of what the other two classes would then be asserting."
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: title
+    domain: PublicationReference
+    slot_uri: dismech:title
+    alias: title
+    owner: PublicationReference
+    domain_of:
+    - PublicationReference
+    is_usage_slot: true
+    usage_slot_name: title
+    range: string
+    recommended: true
   ExternalAssertion_source:
     name: ExternalAssertion_source
     definition_uri: https://w3id.org/monarch-initiative/dismech/source
@@ -15586,6 +16336,21 @@ slots:
     implements:
     - linkml:title
     description: Short human-readable title of the tracked issue.
+    comments:
+    - "The `linkml:title` annotation is INERT for linkml-reference-validator detection\
+      \ \u2014 lrv's TitleURIs matches only \"dcterms:title\" / \"dc/terms/title\"\
+      . Where this slot IS title-checked (on PublicationReference) that happens via\
+      \ lrv's exact-name fallback FallbackSlotNames.TITLE = (\"title\",), not via\
+      \ this annotation. Kept because it is a reasonable semantic mapping, and noted\
+      \ here for the same reason the EvidenceItem `reference_title` comment exists:\
+      \ an annotation that looks like it enables a check, but does not, misleads readers.\
+      \ The title-normalization work that this deferral pointed at has now happened\
+      \ (EvidenceItem.reference_title carries `dcterms:title` and is checked), but\
+      \ this slot is still NOT retargeted: it is shared by PublicationReference, Dataset\
+      \ and TrackedIssue, so swapping the URI would newly expose Dataset.title and\
+      \ TrackedIssue.title to lrv detection. PublicationReference.title loses nothing\
+      \ by waiting \u2014 it is already checked via the exact-name fallback. Retarget\
+      \ only alongside a check of what the other two classes would then be asserting."
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: title
     domain: TrackedIssue
@@ -16842,8 +17607,7 @@ slots:
     name: GroupingMember_member
     definition_uri: https://w3id.org/monarch-initiative/dismech/member
     description: Foreign key to the grouped entity. For member_type DISEASE this is
-      the Disease entry's `name`; for MODULE it is the module filename stem; for GROUPING
-      it is another grouping's `name`.
+      the Disease entry's `name`; for GROUPING it is another grouping's `name`.
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: member
     domain: GroupingMember
@@ -16885,6 +17649,96 @@ slots:
     - DifferentiatingMechanism
     is_usage_slot: true
     usage_slot_name: description
+    range: string
+    required: true
+  ModuleCollection_name:
+    name: ModuleCollection_name
+    definition_uri: https://w3id.org/monarch-initiative/dismech/name
+    description: Preferred collection name (unique; serves as an FK target).
+    examples:
+    - value: Adolescent Nephronophthisis
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: name
+    domain: ModuleCollection
+    slot_uri: dismech:name
+    identifier: true
+    alias: name
+    owner: ModuleCollection
+    domain_of:
+    - ModuleCollection
+    is_usage_slot: true
+    usage_slot_name: name
+    range: string
+    required: true
+  ModuleCollection_creation_date:
+    name: ModuleCollection_creation_date
+    definition_uri: https://w3id.org/monarch-initiative/dismech/creation_date
+    description: Timestamp for initial creation of this module collection. Keep this
+      stable after first set.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: creation_date
+    domain: ModuleCollection
+    slot_uri: dismech:creation_date
+    alias: creation_date
+    owner: ModuleCollection
+    domain_of:
+    - ModuleCollection
+    is_usage_slot: true
+    usage_slot_name: creation_date
+    range: string
+    recommended: true
+    pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$
+  ModuleCollection_collection_type:
+    name: ModuleCollection_collection_type
+    definition_uri: https://w3id.org/monarch-initiative/dismech/collection_type
+    description: The organizing principle represented by a ModuleCollection.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: collection_type
+    domain: ModuleCollection
+    slot_uri: dismech:collection_type
+    alias: collection_type
+    owner: ModuleCollection
+    domain_of:
+    - ModuleCollection
+    is_usage_slot: true
+    usage_slot_name: collection_type
+    range: ModuleCollectionTypeEnum
+    required: true
+  ModuleCollection_module_members:
+    name: ModuleCollection_module_members
+    definition_uri: https://w3id.org/monarch-initiative/dismech/module_members
+    description: The mechanism modules explicitly included in this collection. Module
+      filename stems are used as foreign keys.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: module_members
+    domain: ModuleCollection
+    slot_uri: dismech:module_members
+    alias: module_members
+    owner: ModuleCollection
+    domain_of:
+    - ModuleCollection
+    is_usage_slot: true
+    usage_slot_name: module_members
+    range: ModuleCollectionMember
+    required: true
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  ModuleCollectionMember_module:
+    name: ModuleCollectionMember_module
+    definition_uri: https://w3id.org/monarch-initiative/dismech/module
+    description: Foreign key to a mechanism module filename stem in kb/modules/. Node
+      anchors are not used for collection membership.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: module
+    domain: ModuleCollectionMember
+    slot_uri: dismech:module
+    alias: module
+    owner: ModuleCollectionMember
+    domain_of:
+    - ModuleCollectionMember
+    is_usage_slot: true
+    usage_slot_name: module
     range: string
     required: true
 classes:
@@ -18048,6 +18902,8 @@ classes:
     - decision_criterion
     - would_support
     - would_refute
+    - supporting_outcome
+    - refuting_outcome
     - protocol_reference
     - datasets
     - Experiment_evidence
@@ -18397,6 +19253,7 @@ classes:
     - reference
     - reference_title
     - supports
+    - directness
     - evidence_source
     - snippet
     - explanation
@@ -18492,6 +19349,48 @@ classes:
         name: evidence
         description: Evidence that this exposure acts on this specific mechanism
     class_uri: dismech:EnvironmentalMechanismTarget
+  ModelDivergence:
+    name: ModelDivergence
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelDivergence
+    description: One typed way in which a model departs from the mechanism node it
+      is linked to, with the curator's explanation of why that gap applies to this
+      particular claim.
+    comments:
+    - 'The point of the type is queryability -- "which models are limited by calibration
+      provenance rather than by species" is not answerable against a prose `limitations`
+      string. The point of the required `description` is that the type alone is never
+      the argument: BOUNDARY_OMISSION says a component is missing, not which one or
+      why it matters here.'
+    - Orthogonal to `relationship` and `fidelity`. A link can be RECAPITULATES with
+      several QUALIFYING divergences, or PARTIALLY_RECAPITULATES for a reason that
+      is not a divergence in this taxonomy at all.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    see_also:
+    - PMID:32993675
+    - https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices
+    - https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions
+    slots:
+    - ModelDivergence_divergence_type
+    - ModelDivergence_description
+    - materiality
+    - ModelDivergence_evidence
+    slot_usage:
+      divergence_type:
+        name: divergence_type
+        required: true
+      description:
+        name: description
+        description: Why this kind of divergence applies to this link, in specific
+          terms -- which component is outside the boundary, which quantity is standing
+          in for which, which cohort the calibration came from. Never a restatement
+          of the enum value.
+        required: true
+      evidence:
+        name: evidence
+        description: Optional citation for the divergence itself, when it is a published
+          finding rather than a reading of the model's own scope -- a later study
+          displacing an assumption the model encodes, for instance.
+    class_uri: dismech:ModelDivergence
   ModelMechanismLink:
     name: ModelMechanismLink
     definition_uri: https://w3id.org/monarch-initiative/dismech/ModelMechanismLink
@@ -18508,7 +19407,25 @@ classes:
     - A FAILS_TO_RECAPITULATE link is a substantive negative claim and should carry
       both `limitations` and `evidence`; it usually pairs with a HUMAN_MODEL_MISMATCH
       discussion.
+    - 'A link is a *context-of-use* statement in the sense of the model-credibility
+      literature: it asserts that this model is informative for this specific mechanism,
+      which is a narrower and more checkable claim than "this model is good". `divergences`
+      is the corresponding applicability analysis. The framing is borrowed from ASME
+      V&V 40 and the FDA credibility guidance (both written for medical-device submissions)
+      and from the healthcare-wide ten rules of credible practice, whose rule 1 is
+      "define context clearly" and rule 4 "list limitations explicitly".'
+    - "`model_scale` records the scale the model observes, against which the target\
+      \ node's own `biological_scale` can be compared. The comparison is directional\
+      \ and the two directions mean different things: a model BELOW its target's scale\
+      \ is extrapolating upward \u2014 it cannot observe the outcome it is cited for\
+      \ \u2014 whereas a model ABOVE its target's scale contains that scale and is\
+      \ normally unremarkable (a whole animal can report a molecular readout). Do\
+      \ not store the comparison; derive it."
     from_schema: https://w3id.org/monarch-initiative/dismech
+    see_also:
+    - PMID:32993675
+    - https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices
+    - https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions
     slots:
     - ModelMechanismLink_target
     - ModelMechanismLink_relationship
@@ -18516,6 +19433,8 @@ classes:
     - ModelMechanismLink_readouts
     - fidelity
     - limitations
+    - model_scale
+    - divergences
     - ModelMechanismLink_evidence
     slot_usage:
       target:
@@ -18951,7 +19870,7 @@ classes:
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - PublicationReference_reference
-    - title
+    - PublicationReference_title
     - found_in
     - tags
     - findings
@@ -18960,6 +19879,13 @@ classes:
         name: reference
         identifier: true
         required: true
+      title:
+        name: title
+        description: 'Title of the referenced publication. Recommended so that linkml-data-qc
+          scores its absence, matching the `recommended: true` already carried by
+          the EvidenceItem `reference_title` twin. Set here via slot_usage rather
+          than on the shared `title` slot, which is also used by Dataset and TrackedIssue.'
+        recommended: true
     class_uri: dismech:PublicationReference
   ExternalAssertion:
     name: ExternalAssertion
@@ -19375,6 +20301,7 @@ classes:
     - environmental
     - treatments
     - categories
+    - module_categories
     - infectious_agent
     - agent_life_cycle
     - transmission
@@ -20639,6 +21566,7 @@ classes:
     - negated
     - phenotype_term
     - min_frequency
+    - inheritance_term
     - gene
     - biological_processes
     - module
@@ -20688,9 +21616,63 @@ classes:
         description: Human-readable statement of the differentiating mechanism.
         required: true
     class_uri: dismech:DifferentiatingMechanism
+  ModuleCollection:
+    name: ModuleCollection
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModuleCollection
+    description: A curated navigation or framework record that organizes mechanism
+      modules. A ModuleCollection is not itself a mechanism and does not assert disease
+      membership. It points down to module filename stems, may nest more specific
+      collections, and may cite the publication that defines the framework.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - ModuleCollection_name
+    - display_name
+    - ModuleCollection_creation_date
+    - description
+    - ModuleCollection_collection_type
+    - ModuleCollection_module_members
+    - child_collections
+    - evidence
+    - notes
+    slot_usage:
+      name:
+        name: name
+        description: Preferred collection name (unique; serves as an FK target).
+        required: true
+      creation_date:
+        name: creation_date
+        description: Timestamp for initial creation of this module collection. Keep
+          this stable after first set.
+        recommended: true
+      collection_type:
+        name: collection_type
+        required: true
+      module_members:
+        name: module_members
+        required: true
+    class_uri: dismech:ModuleCollection
+  ModuleCollectionMember:
+    name: ModuleCollectionMember
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModuleCollectionMember
+    description: A mechanism module included in a ModuleCollection, with optional
+      labels and explanation specific to the source framework.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - ModuleCollectionMember_module
+    - framework_terms
+    - description
+    - evidence
+    - notes
+    slot_usage:
+      module:
+        name: module
+        description: Foreign key to a mechanism module filename stem in kb/modules/.
+          Node anchors are not used for collection membership.
+        required: true
+    class_uri: dismech:ModuleCollectionMember
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 280541
+source_file_size: 308914
 generation_date: '2025-01-01T00:00:00'
 
