@@ -33,6 +33,16 @@ on:
         required: false
         default: "3"
         type: string
+      max_enqueue_per_run:
+        description: >-
+          Queue-mode enqueue-attempt budget. Lower this to reduce one run's
+          API load; direct-merge mode ignores it.
+        default: "50"
+        type: choice
+        options:
+          - "10"
+          - "25"
+          - "50"
       model:
         description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
         required: false
@@ -353,6 +363,7 @@ jobs:
     env:
       DRY_RUN: ${{ inputs.dry_run || false }}
       MIN_AGE_DAYS: ${{ inputs.min_age_days || '3' }}
+      MAX_ENQUEUE_PER_RUN: ${{ inputs.max_enqueue_per_run || '50' }}
       SPECIFIC_PR: ${{ inputs.pr_number || '' }}
 
     steps:
@@ -381,7 +392,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - name: Merge at most one ready PR (deterministic)
+      - name: Process ready PRs (deterministic)
         env:
           # The fixed controller receives the writer, but strips it from every
           # discovery subprocess. Only mark-ready, merge, rollback, and the
@@ -393,6 +404,7 @@ jobs:
           args=(
             --repo "$GITHUB_REPOSITORY"
             --min-age-days "$MIN_AGE_DAYS"
+            --max-enqueue-per-run "$MAX_ENQUEUE_PER_RUN"
           )
           if [ "$DRY_RUN" = "true" ]; then
             args+=(--dry-run)

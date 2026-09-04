@@ -46,7 +46,7 @@ def test_merge_controller_has_a_fresh_trusted_runner_and_scoped_writer():
     token = step(merge_job, "Generate scoped merge token")
     assert token["with"]["permission-contents"] == "write"
     assert token["with"]["permission-pull-requests"] == "write"
-    controller = step(merge_job, "Merge at most one ready PR (deterministic)")
+    controller = step(merge_job, "Process ready PRs (deterministic)")
     assert controller["env"]["GH_TOKEN"] == "${{ github.token }}"
     assert controller["env"]["GH_MERGE_TOKEN"] == (
         "${{ steps.ai4c-token-merge.outputs.token }}"
@@ -56,6 +56,10 @@ def test_merge_controller_has_a_fresh_trusted_runner_and_scoped_writer():
     assert "--base-health-app-id" not in controller["run"]
     assert 'args+=(--specific-pr "$SPECIFIC_PR")' in controller["run"]
     assert merge_job["env"]["SPECIFIC_PR"] == "${{ inputs.pr_number || '' }}"
+    assert merge_job["env"]["MAX_ENQUEUE_PER_RUN"] == (
+        "${{ inputs.max_enqueue_per_run || '50' }}"
+    )
+    assert '--max-enqueue-per-run "$MAX_ENQUEUE_PER_RUN"' in controller["run"]
     assert "python scripts/auto_merge_ready_prs.py" in controller["run"]
     assert "uv run" not in controller["run"]
     setup_python = step(merge_job, "Set up Python")
