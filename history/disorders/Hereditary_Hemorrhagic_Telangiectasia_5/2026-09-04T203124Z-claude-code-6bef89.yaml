@@ -1,0 +1,51 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Hereditary_Hemorrhagic_Telangiectasia_5
+  path: kb/disorders/Hereditary_Hemorrhagic_Telangiectasia_5.yaml
+session:
+  id: 2026-09-04T203124Z-claude-code-6bef89
+  timestamp: '2026-09-04T20:31:24Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/10352
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - evidence
+  summary: 'Converge PMID_32894695 reference cache with PR #10351 to clear a merge-queue
+    collision'
+  details: |
+    Infrastructure-only change; no KB content, evidence item, snippet, ontology term or claim was touched.
+
+    PROBLEM. PR #10352 was swept into the GitHub merge queue twice (2026-09-04 11:43Z and 16:28Z) and ejected both times. The first ejection was reported as reason MERGE_CONFLICT at 15:20Z; the second produced no delivered webhook, and was inferred from the queue running eight newer PRs (#10430, #10443, #10448, #10449, #10450, #10455, #10465, #10486) while this PR, enqueued earlier, was absent from the active test batch. Merge queues are FIFO by enqueue time, so a PR enqueued at 16:28Z should have been tested before PRs enqueued after 19:00Z.
+
+    The conflict was never against main. 52b4604848025a6b9a16605160ad712f85acc872 exited 0 throughout, and PR #10351 had not landed. GitHub's merge queue tests each PR against main PLUS every PR ahead of it in the queue, and #10351 ('Add Hereditary Hemorrhagic Telangiectasia Type 1') was repeatedly ahead. The collision was therefore speculative but recurring, and would have recurred on every cycle while both PRs sat in the queue together.
+
+    DIAGNOSIS. Both PRs edit kb/disorders/Hereditary_Hemorrhagic_Telangiectasia.yaml, which was the obvious suspect and was NOT the problem: that file auto-merges cleanly, because #10351 edits the HHT1 subtype record and this PR edits the GDF2 subtype record, in different hunks. The actual conflict was an add/add on references_cache/PMID_32894695.md. Both PRs independently fetched the Second International HHT Guidelines during their deep-research runs and got different results: this PR's copy was content_type full_text_html retrieved via openalex (156 lines), #10351's is abstract_only (89 lines). Two other reference caches shared between the PRs, PMID_35226946.md and PMID_41610956.md, are byte-identical and never conflicted.
+
+    This was diagnosed pre-emptively at 14:44Z by fetching pull/10351/head and building the stacked merge (main + #10351 + this branch) in a scratch worktree, before the second ejection occurred.
+
+    RESOLUTION AND THE OPTION REJECTED. Deleting the cache file from this PR was the first candidate and was rejected on inspection: scripts/qc_deep_research.py counts cited references lacking a cache file, and the committed OpenScientist report cites PMID:32894695 among its 18 references, so deletion would degrade this report's deep-research citation coverage and risk the strict variant. The file is needed; only its content was contested.
+
+    The change adopted is to replace this PR's copy with #10351's byte-identical copy. Identical content cannot produce an add/add conflict in either merge order, and #10351's copy is the only side of the collision this PR controls. Verified safe before acting: PMID:32894695 is cited by NO file under kb/ anywhere - not by this entry, not by #10351's entry, not by anything on main - so no snippet in the knowledge base depends on the full text. It is one of the cached-but-uncited parent-disease HHT references that the reviewer and I had already agreed to leave uncited, because this entry deliberately does not import parent-disease content. The full text remains regenerable with Fetching reference: PMID:32894695
+    Fetching PMID:32894695...
+    Successfully cached PMID:32894695
+      Title: Second International Guidelines for the Diagnosis and Management of Hereditary Hemorrhagic Telangiectasia.
+      Authors: Faughnan ME, Mager JJ, Hetts SW
+      Content type: full_text_html
+      Content length: 5875 characters should anything ever cite it.
+
+    Direction matters and was considered. An earlier note in this session recorded that if a REAL main-level conflict appeared, it should be resolved toward the FULL-TEXT copy, since full text is a superset and cannot break another entry's snippets. That guidance was for resolving a conflict after #10351 landed. It does not apply here: this change is not a conflict resolution but a pre-emptive convergence, and the only copy this PR can converge on is the other PR's. Since nothing anywhere cites the reference, the downgrade costs nothing.
+
+    VERIFICATION. The exact stack that caused both ejections was rebuilt after the change - origin/main, then PR #10351, then this branch's new commit 44143016d - and merges with no conflicts. On that stacked result: just validate-disorders passes with 172/172 snippets verified across both changed files, unchanged from before; check-duplicate-keys clean across 4,286 YAML files; check-enum-values clean across 2,976 KB files; check-entity-refs clean across 2,895 KB files.
+
+    COST. The push dismisses the standing approval, because main is protected with dismiss_stale_reviews. That was accepted deliberately: the PR had been ejected twice and was not going to merge in its previous state, so the approval was not buying anything. A re-review is needed.
