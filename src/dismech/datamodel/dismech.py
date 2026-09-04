@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-09-04T14:22:38
+# Generation date: 2026-09-04T14:45:56
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -2298,6 +2298,45 @@ class EnvironmentalMechanismTarget(YAMLRoot):
 
 
 @dataclass(repr=False)
+class ModelDivergence(YAMLRoot):
+    """
+    One typed way in which a model departs from the mechanism node it is linked to, with the curator's explanation of
+    why that gap applies to this particular claim.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModelDivergence"]
+    class_class_curie: ClassVar[str] = "dismech:ModelDivergence"
+    class_name: ClassVar[str] = "ModelDivergence"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModelDivergence
+
+    divergence_type: Union[str, "ModelDivergenceTypeEnum"] = None
+    description: str = None
+    materiality: Optional[Union[str, "ModelDivergenceMaterialityEnum"]] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.divergence_type):
+            self.MissingRequiredField("divergence_type")
+        if not isinstance(self.divergence_type, ModelDivergenceTypeEnum):
+            self.divergence_type = ModelDivergenceTypeEnum(self.divergence_type)
+
+        if self._is_empty(self.description):
+            self.MissingRequiredField("description")
+        if not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.materiality is not None and not isinstance(self.materiality, ModelDivergenceMaterialityEnum):
+            self.materiality = ModelDivergenceMaterialityEnum(self.materiality)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class ModelMechanismLink(YAMLRoot):
     """
     Links an experimental (NAM), animal, or computational model to a specific pathophysiology mechanism node,
@@ -2317,6 +2356,8 @@ class ModelMechanismLink(YAMLRoot):
     readouts: Optional[Union[dict[Union[str, ExperimentalReadoutName], Union[dict, ExperimentalReadout]], list[Union[dict, ExperimentalReadout]]]] = empty_dict()
     fidelity: Optional[Union[str, "ModelFidelityEnum"]] = None
     limitations: Optional[str] = None
+    model_scale: Optional[Union[str, "BiologicalScaleEnum"]] = None
+    divergences: Optional[Union[Union[dict, ModelDivergence], list[Union[dict, ModelDivergence]]]] = empty_list()
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -2338,6 +2379,11 @@ class ModelMechanismLink(YAMLRoot):
 
         if self.limitations is not None and not isinstance(self.limitations, str):
             self.limitations = str(self.limitations)
+
+        if self.model_scale is not None and not isinstance(self.model_scale, BiologicalScaleEnum):
+            self.model_scale = BiologicalScaleEnum(self.model_scale)
+
+        self._normalize_inlined_as_list(slot_name="divergences", slot_type=ModelDivergence, key_name="divergence_type", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -7009,9 +7055,10 @@ class RateDenominatorEnum(EnumDefinitionImpl):
     deliberately NO fallback — a published "annual incidence per 100,000" is usually computed against a mid-year
     population (POPULATION_PER_YEAR) but person-year denominators are standard in cohort studies, and the two are not
     interchangeable unless the population is stable. Neither choice is right often enough to assume, and the wrong one
-    would silently assert a dimension for all 138 existing ANNUAL_INCIDENCE records, none of which were migrated with
-    denominator information. Treat an incidence record with no `rate_denominator` as undetermined and set the slot
-    explicitly.
+    would silently assert a dimension for every legacy incidence record, none of which were migrated with denominator
+    information. Treat an incidence record with no `rate_denominator` as undetermined, and set the slot explicitly on
+    any incidence record you write. (Counts as of the decision are in design-decisions §8; they are deliberately not
+    repeated here, since a schema description outlives any KB snapshot.)
     """
     POPULATION = PermissibleValue(
         text="POPULATION",
@@ -7032,7 +7079,7 @@ class RateDenominatorEnum(EnumDefinitionImpl):
 
     _defn = EnumDefinition(
         name="RateDenominatorEnum",
-        description="""What a Prevalence record's rate is a rate *of* — the denominator its numerator is divided by. Together with `measure_type` this pins the dimension of `rate_per_100000`, which is otherwise ambiguous: a point prevalence of 5.0 is a dimensionless proportion of a population, while an annual incidence of 5.0 is 5 per 100,000 per year (dimension time^-1). Records that omit the slot fall back to the denominator implied by `measure_type`: POPULATION for the prevalence measures and for CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE. ANNUAL_INCIDENCE has deliberately NO fallback — a published \"annual incidence per 100,000\" is usually computed against a mid-year population (POPULATION_PER_YEAR) but person-year denominators are standard in cohort studies, and the two are not interchangeable unless the population is stable. Neither choice is right often enough to assume, and the wrong one would silently assert a dimension for all 138 existing ANNUAL_INCIDENCE records, none of which were migrated with denominator information. Treat an incidence record with no `rate_denominator` as undetermined and set the slot explicitly.""",
+        description="""What a Prevalence record's rate is a rate *of* — the denominator its numerator is divided by. Together with `measure_type` this pins the dimension of `rate_per_100000`, which is otherwise ambiguous: a point prevalence of 5.0 is a dimensionless proportion of a population, while an annual incidence of 5.0 is 5 per 100,000 per year (dimension time^-1). Records that omit the slot fall back to the denominator implied by `measure_type`: POPULATION for the prevalence measures and for CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE. ANNUAL_INCIDENCE has deliberately NO fallback — a published \"annual incidence per 100,000\" is usually computed against a mid-year population (POPULATION_PER_YEAR) but person-year denominators are standard in cohort studies, and the two are not interchangeable unless the population is stable. Neither choice is right often enough to assume, and the wrong one would silently assert a dimension for every legacy incidence record, none of which were migrated with denominator information. Treat an incidence record with no `rate_denominator` as undetermined, and set the slot explicitly on any incidence record you write. (Counts as of the decision are in design-decisions §8; they are deliberately not repeated here, since a schema description outlives any KB snapshot.)""",
     )
 
 class ClinicalSignificanceEnum(EnumDefinitionImpl):
@@ -8428,6 +8475,96 @@ class ModelFidelityEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="ModelFidelityEnum",
         description="""Curator assessment of how faithfully a model captures the linked human mechanism. Deliberately coarse: this is a translational-validity caveat, not a metric. Pair with `limitations` for the specific caveat.""",
+    )
+
+class ModelDivergenceTypeEnum(EnumDefinitionImpl):
+    """
+    Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all
+    50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to
+    establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single
+    link usually carries more than one, which is why `divergences` is multivalued. The set is deliberately
+    computational-model-first; extending it to animal models would add supraphysiological expression and incomplete
+    phenotype, each already evidenced in that set.
+    """
+    BOUNDARY_OMISSION = PermissibleValue(
+        text="BOUNDARY_OMISSION",
+        title="Boundary omission",
+        description="""A component, cell type, compartment, or process the mechanism requires lies outside the model boundary. The commonest kind. Contrast PROXY_QUANTITY, where the thing is in the model but stands in for something else.""")
+    PROXY_QUANTITY = PermissibleValue(
+        text="PROXY_QUANTITY",
+        title="Proxy quantity",
+        description="""The model's variable is a stand-in of a different quantity from the one the mechanism node describes -- transcriptional regulation of dopamine synthesis for striatal dopamine concentration, an imaging signal for the tissue property it correlates with. Can occur at the same biological scale, so it is not recoverable from `model_scale`.""")
+    CALIBRATION_PROVENANCE = PermissibleValue(
+        text="CALIBRATION_PROVENANCE",
+        title="Calibration provenance",
+        description="""Parameters, training data, or validation derive from a system, cohort, or measurement type that does not match the claim -- fitted to cultured epithelia, parameterized from mouse fibroblasts, validated against aggregate rather than individual outcomes.""")
+    CAUSE_UNREPRESENTED = PermissibleValue(
+        text="CAUSE_UNREPRESENTED",
+        title="Cause unrepresented",
+        description="""The disease lesion is not encoded; the mechanism is imposed phenomenologically instead of arising from the allele, exposure, or perturbation that causes it. Also covers a perturbation that cannot be applied in isolation.""")
+    STRUCTURAL_IDEALIZATION = PermissibleValue(
+        text="STRUCTURAL_IDEALIZATION",
+        title="Structural idealization",
+        description="""Geometry, topology, or spatial organisation is idealized rather than anatomically or patient-derived -- a symmetric airway tree, a one-dimensional strand standing for a reconstructed outflow tract, spatially uniform fields.""")
+    TEMPORAL_SCOPE = PermissibleValue(
+        text="TEMPORAL_SCOPE",
+        title="Temporal scope",
+        description="""The model's time horizon or dynamic resolution does not match the mechanism's: an acute-injury window standing for chronic progression, or a parameter-free qualitative model that reaches reachability but not magnitude or timing.""")
+    CONTESTED_ASSUMPTION = PermissibleValue(
+        text="CONTESTED_ASSUMPTION",
+        title="Contested assumption",
+        description="""The model encodes a mechanistic assumption that independent or later evidence disputes, or that rests on a structure not experimentally known. Distinct from the other kinds in that the model may be internally sound and still wrong about the biology.""")
+    SCALE_EXTRAPOLATION = PermissibleValue(
+        text="SCALE_EXTRAPOLATION",
+        title="Scale extrapolation",
+        description="""The model observes below the biological scale of the node it is cited for and infers the higher-scale outcome. Derivable from `model_scale` versus the target's `biological_scale`; record it explicitly when the curator wants to state why it matters here.""")
+    SPECIES_MISMATCH = PermissibleValue(
+        text="SPECIES_MISMATCH",
+        title="Species mismatch",
+        description="""The model, or the data behind it, derives from a non-human system. Marginal among computational models and dominant among animal models, where it is the principal translational caveat.""")
+    POPULATION_MISMATCH = PermissibleValue(
+        text="POPULATION_MISMATCH",
+        title="Population mismatch",
+        description="""The modelled cohort, subtype, or indication is not the one this entry describes -- a generic model standing for a genotype-defined disorder, or a cohort that mixes in cases outside the entry's molecular criteria.""")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        title="Other",
+        description="""A divergence that does not fit the values above. Requires a `description` that states the kind plainly, and is a signal the taxonomy may need a value.""")
+
+    _defn = EnumDefinition(
+        name="ModelDivergenceTypeEnum",
+        description="""Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all 50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single link usually carries more than one, which is why `divergences` is multivalued. The set is deliberately computational-model-first; extending it to animal models would add supraphysiological expression and incomplete phenotype, each already evidenced in that set.""",
+    )
+
+class ModelDivergenceMaterialityEnum(EnumDefinitionImpl):
+    """
+    Whether a specific divergence bears on the specific claim its link makes. This is what separates a caveat that
+    undermines the claim from one that is real but beside the point, and it is deliberately per-divergence where
+    `fidelity` is per-link. Recording it is what could eventually let `fidelity` be derived rather than authored. The
+    per-divergence framing mirrors the risk-informed grading in ASME V&V 40 and the FDA credibility guidance, where
+    how much credibility evidence a model needs is set by its influence on the decision and the consequence of that
+    decision being wrong, rather than by a single global quality score.
+    """
+    INVALIDATING = PermissibleValue(
+        text="INVALIDATING",
+        title="Invalidating",
+        description="""The claim should not be transferred to human disease on this model alone. Usually pairs with PARTIALLY_RECAPITULATE or FAILS_TO_RECAPITULATE and a low fidelity tier.""")
+    QUALIFYING = PermissibleValue(
+        text="QUALIFYING",
+        title="Qualifying",
+        description="""The claim holds, but in a narrower form than the link's `description` would suggest on its own. The commonest value.""")
+    IMMATERIAL = PermissibleValue(
+        text="IMMATERIAL",
+        title="Immaterial",
+        description="""A real divergence that does not bear on this particular claim. Worth recording precisely because it stops a reader inferring that a known limitation of the model undermines this use of it.""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="Bearing on the claim has not been assessed. Prefer this over guessing.")
+
+    _defn = EnumDefinition(
+        name="ModelDivergenceMaterialityEnum",
+        description="""Whether a specific divergence bears on the specific claim its link makes. This is what separates a caveat that undermines the claim from one that is real but beside the point, and it is deliberately per-divergence where `fidelity` is per-link. Recording it is what could eventually let `fidelity` be derived rather than authored. The per-divergence framing mirrors the risk-informed grading in ASME V&V 40 and the FDA credibility guidance, where how much credibility evidence a model needs is set by its influence on the decision and the consequence of that decision being wrong, rather than by a single global quality score.""",
     )
 
 class ModelReadoutDirectionEnum(EnumDefinitionImpl):
@@ -10098,7 +10235,7 @@ class IUISCategoryEnum(EnumDefinitionImpl):
         setattr(cls, "bone marrow failure",
             PermissibleValue(
                 text="bone marrow failure",
-                description="Table 9 - Bone marrow failure syndromes (Fanconi, DKC, SDS, DBA)"))
+                description="""Table 9 - Bone marrow failure syndromes (Fanconi anemia, dyskeratosis congenita, MIRAGE, Coats plus)"""))
         setattr(cls, "phenocopy of IEI",
             PermissibleValue(
                 text="phenocopy of IEI",
@@ -13027,6 +13164,18 @@ slots.fidelity = Slot(uri=DISMECH.fidelity, name="fidelity", curie=DISMECH.curie
 slots.limitations = Slot(uri=DISMECH.limitations, name="limitations", curie=DISMECH.curie('limitations'),
                    model_uri=DISMECH.limitations, domain=None, range=Optional[str])
 
+slots.model_scale = Slot(uri=DISMECH.model_scale, name="model_scale", curie=DISMECH.curie('model_scale'),
+                   model_uri=DISMECH.model_scale, domain=None, range=Optional[Union[str, "BiologicalScaleEnum"]])
+
+slots.divergences = Slot(uri=DISMECH.divergences, name="divergences", curie=DISMECH.curie('divergences'),
+                   model_uri=DISMECH.divergences, domain=None, range=Optional[Union[Union[dict, ModelDivergence], list[Union[dict, ModelDivergence]]]])
+
+slots.divergence_type = Slot(uri=DISMECH.divergence_type, name="divergence_type", curie=DISMECH.curie('divergence_type'),
+                   model_uri=DISMECH.divergence_type, domain=None, range=Optional[Union[str, "ModelDivergenceTypeEnum"]])
+
+slots.materiality = Slot(uri=DISMECH.materiality, name="materiality", curie=DISMECH.curie('materiality'),
+                   model_uri=DISMECH.materiality, domain=None, range=Optional[Union[str, "ModelDivergenceMaterialityEnum"]])
+
 slots.influences_mechanisms = Slot(uri=DISMECH.influences_mechanisms, name="influences_mechanisms", curie=DISMECH.curie('influences_mechanisms'),
                    model_uri=DISMECH.influences_mechanisms, domain=None, range=Optional[Union[Union[dict, EnvironmentalMechanismTarget], list[Union[dict, EnvironmentalMechanismTarget]]]])
 
@@ -13778,6 +13927,15 @@ slots.EnvironmentalMechanismTarget_causal_link_type = Slot(uri=DISMECH.causal_li
 
 slots.EnvironmentalMechanismTarget_evidence = Slot(uri=DISMECH.evidence, name="EnvironmentalMechanismTarget_evidence", curie=DISMECH.curie('evidence'),
                    model_uri=DISMECH.EnvironmentalMechanismTarget_evidence, domain=EnvironmentalMechanismTarget, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.ModelDivergence_divergence_type = Slot(uri=DISMECH.divergence_type, name="ModelDivergence_divergence_type", curie=DISMECH.curie('divergence_type'),
+                   model_uri=DISMECH.ModelDivergence_divergence_type, domain=ModelDivergence, range=Union[str, "ModelDivergenceTypeEnum"])
+
+slots.ModelDivergence_description = Slot(uri=DISMECH.description, name="ModelDivergence_description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.ModelDivergence_description, domain=ModelDivergence, range=str)
+
+slots.ModelDivergence_evidence = Slot(uri=DISMECH.evidence, name="ModelDivergence_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.ModelDivergence_evidence, domain=ModelDivergence, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
 
 slots.ModelMechanismLink_target = Slot(uri=DISMECH.target, name="ModelMechanismLink_target", curie=DISMECH.curie('target'),
                    model_uri=DISMECH.ModelMechanismLink_target, domain=ModelMechanismLink, range=str)
