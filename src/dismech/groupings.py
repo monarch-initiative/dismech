@@ -35,6 +35,14 @@ This module provides two tiers of tooling:
 3. **Overlap reporting** (:func:`compute_grouping_overlaps`) — all-vs-all
    comparison of grouping disease-member sets, expanding nested ``GROUPING``
    members to concrete disease entries.
+
+4. **Nesting reporting** (:func:`compute_nesting_report`) — the declared
+   grouping-of-grouping forest (``member_type: GROUPING`` members) next to the
+   *undeclared* containments: pairs where every expanded disease member of one
+   grouping is also a member of another that does not list it as nested. A
+   containment is a lead, not a ruling — two groupings can deliberately cut the
+   same diseases along different axes (a shared organelle versus a shared
+   malformation), and the report says so rather than gating.
 """
 
 from __future__ import annotations
@@ -466,8 +474,12 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
         # reasonable place to make one and must not be silently ignored.
         it = node.get("inheritance_term")
         if isinstance(it, dict):
-            iterm = it.get("term") or {}
-            ihp = iterm.get("id") if isinstance(iterm, dict) else None
+            inheritance_term = it.get("term") or {}
+            ihp = (
+                inheritance_term.get("id")
+                if isinstance(inheritance_term, dict)
+                else None
+            )
             if isinstance(ihp, str) and ihp.startswith("HP:"):
                 facts.inheritance_ids.add(ihp)
 
@@ -665,18 +677,87 @@ class MemberEvaluation:
     semantics: str | None
     result: Satisfaction
     leaves: list[tuple[str, Satisfaction]]  # (leaf description, result)
+    #: Name of the nested ``member_type: GROUPING`` member through which this
+    #: disease belongs to the grouping; ``None`` for a directly listed member.
+    via: str | None = None
+
+
+def _default_groupings_by_name() -> dict[str, dict]:
+    return load_groupings_by_name(sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml"))))
+
+
+def iter_disease_targets(
+    grouping: dict,
+    groupings_by_name: dict[str, dict] | None = None,
+    *,
+    _stack: tuple[str, ...] = (),
+) -> Iterable[tuple[str, str, str | None]]:
+    """Yield ``(disease_name, member_type, via)`` for every disease a grouping
+    holds, directly or through nested ``GROUPING`` members.
+
+    ``via`` names the *immediate* nested grouping the disease is reached
+    through (``None`` for a direct member), so a parent page can say "member
+    via Mucopolysaccharidoses" rather than "not listed". A disease reachable
+    more than once is yielded once, direct membership winning. Nesting cycles
+    are cut rather than raised: the tree renderer flags them.
+    """
+    name = str(grouping.get("name") or "<anonymous>")
+    members = grouping.get("members", []) or []
+    nested_refs = [
+        str(m.get("member"))
+        for m in members
+        if m.get("member") and m.get("member_type") == "GROUPING"
+    ]
+    if nested_refs and groupings_by_name is None:
+        groupings_by_name = _default_groupings_by_name()
+
+    seen: set[str] = set()
+    for member in members:
+        ref = member.get("member")
+        mtype = member.get("member_type", "DISEASE")
+        if ref and mtype in ("DISEASE", "SUBTYPE") and ref not in seen:
+            seen.add(ref)
+            yield ref, mtype, None
+    for ref in nested_refs:
+        nested = (groupings_by_name or {}).get(ref)
+        if nested is None or ref in _stack or ref == name:
+            continue
+        for disease, mtype, _via in iter_disease_targets(
+            nested, groupings_by_name, _stack=(*_stack, name)
+        ):
+            if disease not in seen:
+                seen.add(disease)
+                yield disease, mtype, ref
+
+
+def nested_disease_members(
+    grouping: dict, groupings_by_name: dict[str, dict] | None = None
+) -> dict[str, str]:
+    """Map each disease reached only through a nested grouping to that
+    grouping's name (the ``via`` of :func:`iter_disease_targets`)."""
+    return {
+        disease: via
+        for disease, _mtype, via in iter_disease_targets(grouping, groupings_by_name)
+        if via is not None
+    }
 
 
 def evaluate_grouping(
-    grouping: dict, index: dict[str, DiseaseFacts]
+    grouping: dict,
+    index: dict[str, DiseaseFacts],
+    groupings_by_name: dict[str, dict] | None = None,
 ) -> list[MemberEvaluation]:
     """Evaluate each NECESSARY / N&S criteria block against each member.
 
     Returns one MemberEvaluation per (member, criteria block). SUFFICIENT-only
-    blocks are skipped here (they constrain non-members, not members).
+    blocks are skipped here (they constrain non-members, not members). A
+    disease held through a nested ``GROUPING`` member is a member too — "every
+    member of G satisfies C" binds it just as much — so it is evaluated with
+    ``via`` set to the nested grouping it arrived through.
     """
     evaluations: list[MemberEvaluation] = []
     criteria_blocks = grouping.get("membership_criteria", []) or []
+    targets = list(iter_disease_targets(grouping, groupings_by_name))
     for ci, criteria in enumerate(criteria_blocks):
         semantics = criteria.get("criteria_semantics")
         if semantics == "SUFFICIENT":
@@ -684,10 +765,8 @@ def evaluate_grouping(
         logic = criteria.get("logic")
         if logic is None:
             continue
-        for member in grouping.get("members", []) or []:
-            mtype = member.get("member_type", "DISEASE")
-            ref = member.get("member")
-            if mtype not in ("DISEASE", "SUBTYPE") or ref not in index:
+        for ref, mtype, via in targets:
+            if ref not in index:
                 continue
             facts = index[ref]
             leaves = [
@@ -706,6 +785,7 @@ def evaluate_grouping(
                     semantics=semantics,
                     result=_eval_node(logic, facts),
                     leaves=leaves,
+                    via=via,
                 )
             )
     return evaluations
@@ -800,7 +880,7 @@ def grouping_disease_members(
 
     Nested `member_type: GROUPING` references are expanded by default so the
     result is the set of concrete DisMech disease entries represented by the
-    grouping. `MODULE` members are not disease entries and are omitted.
+    grouping.
     """
     if isinstance(grouping, str):
         name = grouping
@@ -871,6 +951,217 @@ def compute_grouping_overlaps(
 
 
 # --------------------------------------------------------------------------- #
+# Grouping nesting (grouping-of-grouping) reporting
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class NestingCandidate:
+    """A ``child`` grouping whose expanded disease members (mostly) sit inside
+    ``parent``'s, without ``parent`` listing ``child`` as a nested grouping."""
+
+    parent: str
+    child: str
+    parent_count: int
+    child_count: int
+    shared_members: tuple[str, ...]
+    missing_members: tuple[str, ...]  # child members the parent does not hold
+    equal_sets: bool = False
+
+    @property
+    def fraction(self) -> float:
+        return len(self.shared_members) / self.child_count if self.child_count else 0.0
+
+    @property
+    def is_containment(self) -> bool:
+        return not self.missing_members
+
+
+@dataclass(frozen=True)
+class NestingReport:
+    """Declared nesting forest plus undeclared containment candidates."""
+
+    children_by_parent: dict[str, tuple[str, ...]]
+    parents_by_child: dict[str, tuple[str, ...]]
+    containments: tuple[NestingCandidate, ...]
+    near_containments: tuple[NestingCandidate, ...]
+    standalone: tuple[str, ...]
+    unresolved: tuple[tuple[str, str], ...]  # (parent, dangling GROUPING ref)
+
+    @property
+    def edge_count(self) -> int:
+        return sum(len(c) for c in self.children_by_parent.values())
+
+
+def expanded_disease_members(name: str, groupings_by_name: dict[str, dict]) -> set[str]:
+    """Disease members of a grouping expanded through nesting, cycle-tolerant.
+
+    :func:`grouping_disease_members` raises on a nesting cycle; a report that
+    exists to show curators the nesting must survive one and let the tree flag
+    it, so this walks :func:`iter_disease_targets`, which cuts cycles instead.
+    """
+    return {
+        disease
+        for disease, _mtype, _via in iter_disease_targets(
+            groupings_by_name[name], groupings_by_name
+        )
+    }
+
+
+def declared_nestings(
+    groupings_by_name: dict[str, dict],
+) -> tuple[dict[str, tuple[str, ...]], tuple[tuple[str, str], ...]]:
+    """Return ``{parent: (child, ...)}`` for every ``member_type: GROUPING``
+    member that resolves, plus the ``(parent, ref)`` pairs that do not."""
+    children: dict[str, tuple[str, ...]] = {}
+    unresolved: list[tuple[str, str]] = []
+    for parent in sorted(groupings_by_name, key=str.casefold):
+        refs: list[str] = []
+        for member in groupings_by_name[parent].get("members", []) or []:
+            if member.get("member_type") != "GROUPING" or not member.get("member"):
+                continue
+            ref = str(member["member"])
+            if ref in groupings_by_name:
+                refs.append(ref)
+            else:
+                unresolved.append((parent, ref))
+        if refs:
+            children[parent] = tuple(sorted(refs, key=str.casefold))
+    return children, tuple(unresolved)
+
+
+def compute_nesting_report(
+    groupings_by_name: dict[str, dict],
+    *,
+    threshold: float = 0.5,
+) -> NestingReport:
+    """Compare every grouping's expanded disease-member set with every other.
+
+    A pair ``(parent, child)`` is a **containment** when every disease the
+    child holds is also held by the parent and the parent does not already
+    declare the child as a nested grouping; a **near-containment** when at
+    least ``threshold`` of them are. Two groupings with identical member sets
+    are reported once, as ``equal_sets``, in name order — neither is obviously
+    the parent. Member sets are expanded through declared nesting, so a
+    grouping already reached via a nested member is not re-reported against
+    its grandparent unless the grandparent lists it directly.
+    """
+    children_by_parent, unresolved = declared_nestings(groupings_by_name)
+    declared = {
+        (parent, child) for parent, kids in children_by_parent.items() for child in kids
+    }
+    parents_by_child: dict[str, list[str]] = {}
+    for parent, kids in children_by_parent.items():
+        for child in kids:
+            parents_by_child.setdefault(child, []).append(parent)
+
+    names = sorted(groupings_by_name, key=str.casefold)
+    member_sets = {
+        name: expanded_disease_members(name, groupings_by_name) for name in names
+    }
+
+    containments: list[NestingCandidate] = []
+    near: list[NestingCandidate] = []
+    for parent in names:
+        parent_set = member_sets[parent]
+        for child in names:
+            if child == parent or (parent, child) in declared:
+                continue
+            child_set = member_sets[child]
+            if not child_set or not parent_set:
+                continue
+            shared = child_set & parent_set
+            if not shared:
+                continue
+            equal = child_set == parent_set
+            if equal and child.casefold() < parent.casefold():
+                continue  # reported once, from the other direction
+            if len(parent_set) < len(child_set):
+                continue  # the smaller set cannot be the parent
+            candidate = NestingCandidate(
+                parent=parent,
+                child=child,
+                parent_count=len(parent_set),
+                child_count=len(child_set),
+                shared_members=tuple(sorted(shared)),
+                missing_members=tuple(sorted(child_set - parent_set)),
+                equal_sets=equal,
+            )
+            if candidate.is_containment:
+                containments.append(candidate)
+            elif candidate.fraction >= threshold:
+                near.append(candidate)
+
+    connected = set(children_by_parent) | set(parents_by_child)
+    return NestingReport(
+        children_by_parent=children_by_parent,
+        parents_by_child={
+            child: tuple(sorted(parents, key=str.casefold))
+            for child, parents in sorted(parents_by_child.items())
+        },
+        containments=tuple(containments),
+        near_containments=tuple(
+            sorted(
+                near,
+                key=lambda c: (-c.fraction, c.parent.casefold(), c.child.casefold()),
+            )
+        ),
+        standalone=tuple(name for name in names if name not in connected),
+        unresolved=unresolved,
+    )
+
+
+def _report_nesting(paths: list[str], threshold: float) -> int:
+    groupings_by_name, selected_names = _load_groupings_for_report(paths)
+    report = compute_nesting_report(groupings_by_name, threshold=threshold)
+    selected = set(selected_names)
+
+    def wanted(*names: str) -> bool:
+        return not paths or any(n in selected for n in names)
+
+    print(
+        f"Declared nesting: {len(report.children_by_parent)} parent grouping(s), "
+        f"{report.edge_count} nested relation(s), "
+        f"{len(report.parents_by_child)} nested grouping(s)"
+    )
+    for parent, kids in report.children_by_parent.items():
+        if not wanted(parent, *kids):
+            continue
+        print(f"  {parent}")
+        for child in kids:
+            size = len(expanded_disease_members(child, groupings_by_name))
+            print(f"    - {child} ({size})")
+    for parent, ref in report.unresolved:
+        if wanted(parent):
+            print(f"  ! {parent}: GROUPING member {ref!r} does not resolve")
+
+    shown = [c for c in report.containments if wanted(c.parent, c.child)]
+    print(
+        f"\nUndeclared containment ({len(shown)}): every expanded disease member of "
+        "the first grouping is also a member of the second, which does not list "
+        "it as a nested grouping. A lead, not a ruling — read both rationales."
+    )
+    for c in shown:
+        rel = "=" if c.equal_sets else "⊆"
+        print(f"  {c.child} ({c.child_count}) {rel} {c.parent} ({c.parent_count})")
+
+    shown = [c for c in report.near_containments if wanted(c.parent, c.child)]
+    print(f"\nNear-containment (>= {threshold:.0%} of the smaller set): {len(shown)}")
+    for c in shown:
+        missing = ", ".join(c.missing_members)
+        print(
+            f"  {c.fraction:.0%} {c.child} ({c.child_count}) in {c.parent} "
+            f"({c.parent_count}); not in parent: {missing}"
+        )
+
+    standalone = [n for n in report.standalone if wanted(n)]
+    print(f"\nStandalone (neither a parent nor nested): {len(standalone)}")
+    for name in standalone:
+        print(f"  {name}")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 
@@ -933,6 +1224,7 @@ def _report_overlaps(paths: list[str], show_zero_overlaps: bool) -> int:
 
 def _report(paths: list[str], strict: bool) -> int:
     index = load_disease_index()
+    groupings_by_name, _selected = _load_groupings_for_report(paths)
     exit_code = 0
     for path in paths:
         with open(path) as f:
@@ -971,10 +1263,11 @@ def _report(paths: list[str], strict: bool) -> int:
                 print(f"    ~ {a}")
 
         # Tier 2: advisory membership audit.
-        for ev in evaluate_grouping(grouping, index):
+        for ev in evaluate_grouping(grouping, index, groupings_by_name):
+            via = f" (via {ev.via})" if ev.via else ""
             print(
                 f"  [criteria {ev.criteria_index} {ev.semantics or '-'}] "
-                f"{ev.member}: {ev.result.value}"
+                f"{ev.member}{via}: {ev.result.value}"
             )
             for desc, res in ev.leaves:
                 if res is not Satisfaction.SATISFIED:
@@ -982,7 +1275,7 @@ def _report(paths: list[str], strict: bool) -> int:
             if strict and ev.result is Satisfaction.NOT_SATISFIED:
                 exit_code = 1
 
-        candidates = find_candidate_members(grouping, index)
+        candidates = find_candidate_members(grouping, index, groupings_by_name)
         if candidates:
             print("  candidate members (satisfy sufficient criteria, not listed):")
             for c in candidates:
@@ -1018,6 +1311,23 @@ def main(argv: list[str] | None = None) -> int:
         help="With --overlaps, include disjoint pairs in the report.",
     )
     parser.add_argument(
+        "--nesting",
+        action="store_true",
+        help=(
+            "Report the declared grouping-of-grouping forest and the undeclared "
+            "containments between grouping disease-member sets (advisory)."
+        ),
+    )
+    parser.add_argument(
+        "--nesting-threshold",
+        type=float,
+        default=0.5,
+        help=(
+            "With --nesting, also list pairs where at least this fraction of the "
+            "smaller grouping's members sit inside the larger one (default 0.5)."
+        ),
+    )
+    parser.add_argument(
         "--no-closure",
         action="store_true",
         help=(
@@ -1029,6 +1339,8 @@ def main(argv: list[str] | None = None) -> int:
     set_closure_enabled(not args.no_closure)
     if args.overlaps:
         return _report_overlaps(args.paths, args.show_zero_overlaps)
+    if args.nesting:
+        return _report_nesting(args.paths, args.nesting_threshold)
 
     paths = args.paths or sorted(glob.glob(str(GROUPINGS_DIR / "*.yaml")))
     if not paths:

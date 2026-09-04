@@ -149,6 +149,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                               'prefix_reference': 'https://www.ncbi.nlm.nih.gov/clinvar/variation/'},
                   'dbgap': {'prefix_prefix': 'dbgap',
                             'prefix_reference': 'https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id='},
+                  'dcterms': {'prefix_prefix': 'dcterms',
+                              'prefix_reference': 'http://purl.org/dc/terms/'},
                   'dismech': {'prefix_prefix': 'dismech',
                               'prefix_reference': 'https://w3id.org/monarch-initiative/dismech/'},
                   'ega': {'prefix_prefix': 'ega',
@@ -1201,7 +1203,8 @@ class ISDSNosologyGroupEnum(str, Enum):
     """
     spondylometaphyseal_dysplasias = "spondylometaphyseal_dysplasias"
     """
-    Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD). Combined vertebral and metaphyseal involvement — spondyloenchondrodysplasia (ACP5), odontochondrodysplasia (TRIP11), SMD corner-fracture/Sutcliffe type (FN1), SMD with cone-rod dystrophy (PCYT1A).
+    Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD). Combined vertebral and metaphyseal involvement. The group has exactly six members, NOS 12-0010 to 12-0060 — spondyloenchondrodysplasia with immune dysregulation (ACP5), odontochondrodysplasia (TRIP11), SMD Sutcliffe or 'corner fracture' type (FN1), SMD with cone-rod dystrophy (PCYT1A), SMD with corneal dystrophy (PLCB3), and chondrodysplasia-pseudohermaphroditism / Nivelon-Nivelon-Mabille syndrome (HHAT).
+    Four disorders carrying an SMD name are deliberately placed elsewhere, and the group's own "see also" note lists all four: SMD Kozlowski (TRPV4, group 10), severe SMD Sedaghatian type (GPX4, group 14), and axial SMD in its CFAP410-related and NEK1-related forms (group 10, skeletal ciliopathies). TRIP11 additionally spans two groups by severity — odontochondrodysplasia here, achondrogenesis type 1A in group 14 — and MIM 184255 is gene-split between NOS 12-0030 (FN1) and NOS 02-0050 (COL2A1), with the row note "Some cases are linked to COL2A1 but not the original family". A radiographic SMD label is therefore a poor predictor of group-12 membership; check Table 1.
     """
     spondylo_epi_metaphyseal_dysplasias = "spondylo_epi_metaphyseal_dysplasias"
     """
@@ -5530,13 +5533,81 @@ class GroupingMemberTypeEnum(str, Enum):
     """
     A named subtype within a Disease entry.
     """
-    MODULE = "MODULE"
-    """
-    A mechanism module in kb/modules/.
-    """
     GROUPING = "GROUPING"
     """
     Another Grouping (nested grouping).
+    """
+
+
+class ModuleCollectionTypeEnum(str, Enum):
+    """
+    The organizing principle for a curated collection of mechanism modules. Collections are navigation and framework records, not mechanism modules themselves and not disease groupings.
+    """
+    Published_framework = "PUBLISHED_FRAMEWORK"
+    """
+    A named framework or model defined in the scientific literature, such as the Hallmarks of Aging.
+    """
+    Mechanistic_family = "MECHANISTIC_FAMILY"
+    """
+    Modules sharing a broad mechanistic pattern or process family.
+    """
+    Biological_system = "BIOLOGICAL_SYSTEM"
+    """
+    Modules organized by the biological system or compartment involved.
+    """
+    Pathological_outcome = "PATHOLOGICAL_OUTCOME"
+    """
+    Modules organized by a shared class of pathological outcome.
+    """
+    Therapeutic_strategy = "THERAPEUTIC_STRATEGY"
+    """
+    Modules organized by a shared intervention or therapeutic strategy.
+    """
+    Other = "OTHER"
+    """
+    A module-collection basis not covered by the other values.
+    """
+
+
+class ModuleCategoryEnum(str, Enum):
+    """
+    Areas of study a mechanism module is relevant to. A category asserts "this module is relevant to this area of study" — it is a discovery and browsing aid, not a mechanistic claim and not a classification of the diseases that conform to the module. Multivalued and deliberately non-exclusive: a drug-toxicity module is both TOXICOLOGY and PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY and INFECTIOUS_DISEASE. Applied through the `module_categories` slot, which is intended for entries under `kb/modules/`.
+    """
+    Toxicology = "TOXICOLOGY"
+    """
+    Injury caused by exposure to a xenobiotic — environmental toxicants, poisons, occupational and dietary exposures, and adverse drug reactions modelled as mechanism rather than as an outcome. Includes drug-toxicity modules and any module whose trigger arm carries a toxicant or drug exposure.
+    """
+    Pharmacology = "PHARMACOLOGY"
+    """
+    Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern.
+    """
+    Oncology = "ONCOLOGY"
+    """
+    Tumor biology and cancer therapeutics — the hallmark-of-cancer capability modules, tumor-microenvironment mechanisms, and cancer-specific therapeutic vulnerabilities and resistance patterns.
+    """
+    Infectious_disease = "INFECTIOUS_DISEASE"
+    """
+    Host-pathogen mechanism and antimicrobial therapy: pathogen entry, replication, persistence and immune evasion, together with the antibacterial, antifungal, and antiviral drug-target modules.
+    """
+    Immunology = "IMMUNOLOGY"
+    """
+    Immune-mediated mechanism — innate and adaptive immune activation, autoimmunity, hypersensitivity, chronic inflammation, and the immune contribution to tissue injury and repair.
+    """
+    Neuroscience = "NEUROSCIENCE"
+    """
+    Nervous-system mechanism across the central, peripheral, and sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability, neurodevelopmental patterning of the brain, and neural waste clearance.
+    """
+    Developmental_biology = "DEVELOPMENTAL_BIOLOGY"
+    """
+    Morphogenesis and embryonic patterning — signalling gradients, segmentation, cell-fate specification, and migration defects whose lesion acts during development rather than in mature tissue.
+    """
+    Metabolism = "METABOLISM"
+    """
+    Intermediary metabolism, bioenergetics, and cellular quality control of metabolic substrate: inborn errors of metabolism, mitochondrial and lysosomal function, nutrient sensing, and storage or intoxication phenotypes.
+    """
+    Aging = "AGING"
+    """
+    Geroscience mechanism — the hallmarks of aging and the age-associated processes (senescence, telomere attrition, stem-cell exhaustion, proteostasis and genome-maintenance decline) that drive late-onset disease.
     """
 
 
@@ -5676,7 +5747,9 @@ class Descriptor(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'TermMapping',
@@ -5785,7 +5858,9 @@ class DietaryModification(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
 
 
 class CellTypeDescriptor(Descriptor):
@@ -5854,7 +5929,9 @@ class CellTypeDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional Cell Ontology term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -5949,7 +6026,9 @@ class BiologicalProcessDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional GO biological process term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6044,7 +6123,9 @@ class MolecularFunctionDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional GO molecular function term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6139,7 +6220,9 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional UBERON anatomical entity term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6234,7 +6317,9 @@ class ChemicalEntityDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional CHEBI chemical entity term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6329,7 +6414,9 @@ class GeneDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional gene database term reference (e.g., HGNC)""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6424,7 +6511,9 @@ class CellularComponentDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional GO cellular component term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6519,7 +6608,9 @@ class ProteinComplexDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional GO protein complex term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6627,7 +6718,9 @@ class AssayDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional OBI assay term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6721,7 +6814,9 @@ class TriggerDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional ontology term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6815,7 +6910,9 @@ class DiseaseDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional MONDO disease term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -6910,7 +7007,9 @@ class SubtypeDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""MONDO or NCIT term reference for a subtype/facet value""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -7004,7 +7103,9 @@ class BiomarkerDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""NCIT biomarker term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -7098,7 +7199,9 @@ class GeneProductDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""NCIT gene product term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -7201,7 +7304,9 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""NCIT or HP histopathology finding term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -7300,7 +7405,9 @@ class ImagingFindingDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""NCIT imaging-finding or HP phenotype term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'RECOMMENDED',
@@ -7410,7 +7517,9 @@ class LifeCycleStageDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""OPL life cycle stage term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -7504,7 +7613,9 @@ class PhenotypeDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional HP phenotype term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -7599,7 +7710,9 @@ class InheritanceDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional HPO mode of inheritance term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -7738,7 +7851,9 @@ class TreatmentDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional NCIT treatment term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -7832,7 +7947,9 @@ class RegimenDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional NCIT regimen term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -7931,7 +8048,9 @@ class ExposureDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional ECTO/XCO exposure term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -8028,7 +8147,9 @@ class EnvironmentDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional ENVO environment term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -8127,7 +8248,9 @@ class FoodDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional FOODON or CHEBI dietary entity term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -8221,7 +8344,9 @@ class OrganismDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""NCBITaxon term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -8314,7 +8439,9 @@ class HostDescriptor(OrganismDescriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""NCBITaxon term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
@@ -8405,7 +8532,9 @@ class SampleTypeDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'TermMapping',
@@ -8512,7 +8641,9 @@ class GeneticContext(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
                        'PhenotypeContext',
@@ -8565,7 +8696,9 @@ class GeneticContext(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -8632,7 +8765,9 @@ class OnsetDescriptor(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -8719,7 +8854,9 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence supporting the frequency, severity, or onset claims made in this specific context. Distinct from the D2P evidence on the parent Phenotype.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
@@ -8778,7 +8915,9 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     genetic_context: Optional[GeneticContext] = Field(default=None, description="""The genetic context under which this qualification applies. May specify genes, mutation types, zygosity, complementation groups, or complex genotypes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext', 'Pathophysiology']} })
     sex: Optional[SexEnum] = Field(default=None, description="""Sex-specific stratum, if applicable""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext', 'Demographics']} })
@@ -8832,10 +8971,16 @@ class Dataset(ConfiguredBaseModel):
                       'via this annotation. Kept because it is a reasonable semantic '
                       'mapping, and noted here for the same reason the EvidenceItem '
                       '`reference_title` comment exists: an annotation that looks like '
-                      'it enables a check, but does not, misleads readers. Retargeting '
-                      'it to `dcterms:title` is deliberately left to the title '
-                      'normalization work, since that would also newly expose '
-                      'Dataset.title and TrackedIssue.title to detection.'],
+                      'it enables a check, but does not, misleads readers. The '
+                      'title-normalization work that this deferral pointed at has now '
+                      'happened (EvidenceItem.reference_title carries `dcterms:title` '
+                      'and is checked), but this slot is still NOT retargeted: it is '
+                      'shared by PublicationReference, Dataset and TrackedIssue, so '
+                      'swapping the URI would newly expose Dataset.title and '
+                      'TrackedIssue.title to lrv detection. PublicationReference.title '
+                      'loses nothing by waiting — it is already checked via the '
+                      'exact-name fallback. Retarget only alongside a check of what '
+                      'the other two classes would then be asserting.'],
          'domain_of': ['Dataset', 'PublicationReference', 'TrackedIssue'],
          'implements': ['linkml:title']} })
     description: Optional[str] = Field(default=None, description="""A description of the dataset. This may typically be redundant with the `title` slot, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the title slot.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
@@ -8892,7 +9037,9 @@ class Dataset(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     organism: Optional[OrganismDescriptor] = Field(default=None, description="""The organism from which samples were derived""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'ExperimentalModel']} })
     data_type: Optional[DatasetTypeEnum] = Field(default=None, description="""The type of omics or other data in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
@@ -8973,7 +9120,9 @@ class Dataset(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -9027,7 +9176,9 @@ class Dataset(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -9086,7 +9237,8 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -9142,7 +9294,9 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     experimental_model_type: Optional[ExperimentalModelTypeEnum] = Field(default=None, description="""Broad category for an experimental model system""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel']} })
     namo_type: Optional[str] = Field(default=None, description="""Optional mapping to the corresponding NAMO class, such as `namo:Organoid` or `namo:OrganOnChip`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel']} })
     organism: Optional[OrganismDescriptor] = Field(default=None, description="""The organism from which samples were derived""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'ExperimentalModel']} })
@@ -9227,7 +9381,9 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -9281,7 +9437,9 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -9368,7 +9526,8 @@ class Experiment(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -9424,7 +9583,9 @@ class Experiment(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     experiment_type: Optional[Descriptor] = Field(default=None, description="""Ontology-backed descriptor for the overall experiment or study design. Prefer OBI terms when available; assay-level details should go in the `assays` slot.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
     model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
     perturbations: Optional[list[ExperimentalPerturbation]] = Field(default=None, description="""Interventions or manipulations applied in the experiment. These may target disease pathograph nodes, genes, chemical entities, treatments, exposures, triggers, or biological processes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl', 'ComputationalModel']} })
@@ -9506,7 +9667,9 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -9560,7 +9723,9 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -9616,7 +9781,8 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -9672,7 +9838,9 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     target: str = Field(default=..., description="""Entity reference for the pathograph node, phenotype, gene, or other modeled object being perturbed. Uses the same hash-anchor grammar as `attaches_to` when pointing into a disease entry.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'CausalEdge',
@@ -9765,7 +9933,9 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -9819,7 +9989,9 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -9904,7 +10076,8 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -9960,7 +10133,9 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     target: str = Field(default=..., description="""Entity reference for the pathograph node, phenotype, or other modeled object that this readout measures or adjudicates.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'CausalEdge',
@@ -10053,7 +10228,9 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -10107,7 +10284,9 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -10159,7 +10338,8 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -10215,7 +10395,9 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
     perturbations: Optional[list[ExperimentalPerturbation]] = Field(default=None, description="""Gene knockouts, reaction deletions, or parameter changes modeling the disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl', 'ComputationalModel']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
@@ -10274,7 +10456,9 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -10328,7 +10512,9 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -10422,7 +10608,8 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, description="""Brief summary or key details of the clinical trial""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -10478,7 +10665,9 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     phase: Optional[ClinicalTrialPhaseEnum] = Field(default=None, description="""Trial phase. Enum-bound: use PHASE_I, PHASE_II, PHASE_III, PHASE_IV, or NOT_APPLICABLE, not the prose spellings (\"Phase III\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial', 'ProgressionInfo'],
          'examples': [{'value': 'PHASE_III'}, {'value': 'NOT_APPLICABLE'}],
@@ -10545,7 +10734,9 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     target_phenotypes: Optional[list[PhenotypeDescriptor]] = Field(default=None, description="""Phenotypes that this treatment or trial addresses or targets""", json_schema_extra = { "linkml_meta": {'comments': ["Should reference phenotype names defined in the same disease's "
                       'phenotypes list',
@@ -10608,7 +10799,9 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
@@ -10675,7 +10868,8 @@ class ComputationalModel(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -10731,7 +10925,9 @@ class ComputationalModel(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     model_type: Optional[ComputationalModelTypeEnum] = Field(default=None, description="""Type of computational model""", json_schema_extra = { "linkml_meta": {'domain_of': ['ComputationalModel']} })
     repository_url: Optional[str] = Field(default=None, description="""URL to model repository (GitHub, BiGG, VMH, BioModels)""", json_schema_extra = { "linkml_meta": {'domain_of': ['ComputationalModel']} })
     model_id: Optional[str] = Field(default=None, description="""Identifier within the repository (e.g., Recon3D, BIOMD0000000123)""", json_schema_extra = { "linkml_meta": {'domain_of': ['ComputationalModel']} })
@@ -10814,7 +11010,9 @@ class ComputationalModel(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -10868,7 +11066,9 @@ class ComputationalModel(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -10925,7 +11125,8 @@ class ModelVariable(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     dataset_identifier: Optional[str] = Field(default=None, description="""Native identifier for this variable in the source dataset or model (e.g., SBML species ID, database column name, COBRA reaction ID). When the parent context already specifies the dataset (e.g., a ComputationalModel with model_id), this field gives the local name within that dataset.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModelVariable'],
          'examples': [{'value': 'ECCPhos'}, {'value': 'Qbone'}]} })
@@ -10983,7 +11184,9 @@ class ModelVariable(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     unit: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ModelVariable',
                        'ReferenceRangeBand',
                        'ReferenceRange',
@@ -11042,7 +11245,9 @@ class ModelVariable(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -11100,7 +11305,8 @@ class SeverityTier(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
 
 
@@ -11181,7 +11387,9 @@ class ModelVariableDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Ontology term reference (LOINC code, CHEBI term, HP term, etc.)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'TermMapping',
@@ -11273,7 +11481,8 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, description="""Clinical or mechanistic overlaps, shared presentations, and diagnostic considerations with the focal disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -11329,7 +11538,9 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     phenotypes: Optional[list[Phenotype]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis', 'Disease', 'ComorbidityAssociation']} })
     distinguishing_features: Optional[list[str]] = Field(default=None, description="""Key clinical, laboratory, imaging, or epidemiological features that help differentiate this condition from the focal disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
@@ -11388,7 +11599,9 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, description="""Additional clinical notes or management considerations""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11442,7 +11655,9 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis', 'Disease', 'GroupingMember']} })
@@ -11489,9 +11704,10 @@ class Subtype(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember']} })
+    display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember', 'ModuleCollection']} })
     subtype_term: Optional[SubtypeDescriptor] = Field(default=None, description="""The ontology term grounding this subtype or cancer facet value. Prefer MONDO when available; use NCIT for oncology-specific subtype refinement when needed.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
     mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings for this disease or subtype (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Disease', 'Grouping']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
@@ -11548,7 +11764,9 @@ class Subtype(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -11605,7 +11823,9 @@ class Subtype(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
@@ -11642,34 +11862,27 @@ class EvidenceItem(ConfiguredBaseModel):
     reference: Optional[str] = Field(default=None, description="""The authoritative reference (publication) for this evidence item""", json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem', 'PublicationReference', 'MappingConsistency'],
          'examples': [{'value': 'PMID:35533128'}],
          'implements': ['linkml:authoritative_reference']} })
-    reference_title: Optional[str] = Field(default=None, description="""The title of the referenced publication""", json_schema_extra = { "linkml_meta": {'comments': ['NOT machine-checked today, and deliberately so for now. '
-                      'linkml-reference-validator already compares a declared title '
-                      'against the fetched publication and errors on a mismatch, and '
-                      'it WOULD cover this slot with `implements: - dcterms:title` '
-                      '(plus a `dcterms` prefix) — no upstream change is required. '
-                      "`linkml:title` does NOT work: lrv's TitleURIs matches only "
-                      '"dcterms:title" / "dc/terms/title", so the annotation carried '
-                      'by the shared `title` slot is inert, and '
+    reference_title: Optional[str] = Field(default=None, description="""The title of the referenced publication""", json_schema_extra = { "linkml_meta": {'comments': ['`dcterms:title` is what makes this slot machine-checked: '
+                      'linkml-reference-validator compares a declared title against '
+                      'the fetched publication and errors on a mismatch, and its '
+                      'TitleURIs matches only "dcterms:title" / "dc/terms/title". '
+                      '`linkml:title` does NOT work — that is why the annotation on '
+                      'the shared `title` slot is inert, and why '
                       "PublicationReference.title is detected only via lrv's "
-                      'exact-name fallback FallbackSlotNames.TITLE = ("title",). Note '
-                      'that "checked" means checked for the prefixes lrv actually '
-                      'fetches: prefixes in `skip_prefixes` '
+                      'exact-name fallback FallbackSlotNames.TITLE = ("title",).',
+                      '"Checked" means checked for the prefixes lrv actually fetches. '
+                      'Prefixes in `skip_prefixes` '
                       '(conf/reference_validator_config.yaml), notably `DOI:`, are '
-                      'never fetched and so are exempt. That is why ~34 disease-level '
-                      'titles can differ from their cache on a green main without '
-                      'contradicting this — all of them are DOI.',
-                      'Turning it on is blocked on data, not on tooling: 6,211 of '
-                      '141,830 existing titles (4.4%) currently differ from their '
-                      "cached publication under lrv's own normalize_text, so enabling "
-                      'the check today would fail reference validation across a large '
-                      'share of the KB. The differences are cosmetic in the cases '
-                      'sampled — leftover Crossref markup (`<scp><i>ECHS1</i></scp>`), '
-                      'the curator suffix `(Orphanet structured-database record)`, and '
-                      'unicode (`Guillain-Barre` vs `Guillain-Barre` with en-dash and '
-                      'accent). Normalize those first, then add the annotation. Until '
-                      'then the reviewer checklist in the dismech-pr-review skill is '
-                      'the control.'],
+                      'never fetched and so are exempt — a DOI title that drifts from '
+                      'its source is still not caught by this.',
+                      'Enabling this required a data fix first, not a tooling change: '
+                      '6,125 titles across 408 files disagreed with their cached '
+                      'publication and were re-synced from cache by '
+                      'scripts/normalize_reference_titles.py. Run that script if this '
+                      'check starts failing in bulk; a single failure is far more '
+                      'likely to be a genuinely wrong citation, which is the point.'],
          'domain_of': ['EvidenceItem'],
+         'implements': ['dcterms:title'],
          'recommended': True} })
     supports: Optional[EvidenceItemSupportEnum] = Field(default=None, description="""Which way the cited evidence cuts relative to the claim. Direction only -- use `directness` for how directly the quote bears on it.""", json_schema_extra = { "linkml_meta": {'comments': ['Maps to EvidenceLine.directionOfEvidenceProvided in the draft '
                       'SEPIO LinkML model. The NO_EVIDENCE value has no SEPIO '
@@ -11784,7 +11997,9 @@ class CausalEdge(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence that supports this specific edge (not just the parent node-level claim)""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -11841,7 +12056,9 @@ class CausalEdge(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     hypothesis_groups: Optional[list[str]] = Field(default=None, description="""One or more hypothesis IDs used to group edges within alternative or superimposed models""", json_schema_extra = { "linkml_meta": {'domain_of': ['CausalEdge']} })
     causal_link_type: Optional[CausalLinkTypeEnum] = Field(default=None, description="""Encodes directness and whether omitted intermediates are known versus unknown""", json_schema_extra = { "linkml_meta": {'domain_of': ['CausalEdge', 'EnvironmentalMechanismTarget']} })
@@ -11934,7 +12151,9 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence that this treatment targets this specific mechanism""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -11991,7 +12210,9 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -12094,7 +12315,9 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence that this exposure acts on this specific mechanism""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -12151,7 +12374,9 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -12275,7 +12500,9 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     readouts: Optional[list[ExperimentalReadout]] = Field(default=None, description="""Outcome measures through which this model reports on the linked mechanism, each optionally grounded to an OBI assay, an HP phenotype, a biomarker, or a GO process, with a measured direction and its own evidence. Each readout's own `target` is required and must repeat the link's `target`, so a readout stays self-describing when lifted out of its link by the graph and KGX exporters.""", json_schema_extra = { "linkml_meta": {'comments': ['Target names should match pathophysiology or phenotype entry '
                       'names in the same disease file',
                       'Readout links are observational/associative, not causal '
@@ -12342,7 +12569,9 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -12471,7 +12700,9 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence supporting this biomarker-to-pathograph-node readout link""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -12528,7 +12759,9 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -12649,7 +12882,9 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence supporting this phenotype-to-pathograph-node readout link""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -12706,7 +12941,9 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -12812,7 +13049,8 @@ class ReferenceRangeBand(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     lower_bound: Optional[float] = Field(default=None, description="""Inclusive lower bound of this band's value interval. Omit for an open-below band (the lowest tier).""", json_schema_extra = { "linkml_meta": {'domain_of': ['ReferenceRangeBand', 'ReferenceRange']} })
     upper_bound: Optional[float] = Field(default=None, description="""Exclusive upper bound of this band's value interval, so adjacent bands sharing a boundary value partition cleanly (a result exactly at the boundary falls in the next band, whose inclusive lower_bound equals it). Omit for an open-above band (the highest tier).""", json_schema_extra = { "linkml_meta": {'domain_of': ['ReferenceRangeBand', 'ReferenceRange']} })
@@ -12992,7 +13230,9 @@ class ReferenceRange(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, description="""Free-text provenance or caveats that are not a citable reference (e.g., a lab-manual interval such as \"Tietz Clinical Guide 4th ed.\" or an assay-dependence note).""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -13046,7 +13286,9 @@ class ReferenceRange(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -13186,7 +13428,9 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -13240,7 +13484,9 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -13292,7 +13538,8 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -13348,7 +13595,9 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
     source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
     source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
@@ -13408,7 +13657,9 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -13474,7 +13725,9 @@ class ProteinStructure(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     resolution_angstrom: Optional[float] = Field(default=None, description="""Structure resolution in angstroms (for experimental structures)""", json_schema_extra = { "linkml_meta": {'domain_of': ['ProteinStructure']} })
     method: Optional[str] = Field(default=None, description="""Experimental method (X-ray, cryo-EM, NMR) or prediction method (AlphaFold)""", json_schema_extra = { "linkml_meta": {'domain_of': ['ProteinStructure', 'AssociationSignal', 'GOEnrichment']} })
     ligand: Optional[str] = Field(default=None, description="""Name of bound drug/ligand if this is a co-crystal structure""", json_schema_extra = { "linkml_meta": {'domain_of': ['ProteinStructure']} })
@@ -13517,10 +13770,16 @@ class PublicationReference(ConfiguredBaseModel):
                       'via this annotation. Kept because it is a reasonable semantic '
                       'mapping, and noted here for the same reason the EvidenceItem '
                       '`reference_title` comment exists: an annotation that looks like '
-                      'it enables a check, but does not, misleads readers. Retargeting '
-                      'it to `dcterms:title` is deliberately left to the title '
-                      'normalization work, since that would also newly expose '
-                      'Dataset.title and TrackedIssue.title to detection.'],
+                      'it enables a check, but does not, misleads readers. The '
+                      'title-normalization work that this deferral pointed at has now '
+                      'happened (EvidenceItem.reference_title carries `dcterms:title` '
+                      'and is checked), but this slot is still NOT retargeted: it is '
+                      'shared by PublicationReference, Dataset and TrackedIssue, so '
+                      'swapping the URI would newly expose Dataset.title and '
+                      'TrackedIssue.title to lrv detection. PublicationReference.title '
+                      'loses nothing by waiting — it is already checked via the '
+                      'exact-name fallback. Retarget only alongside a check of what '
+                      'the other two classes would then be asserting.'],
          'domain_of': ['Dataset', 'PublicationReference', 'TrackedIssue'],
          'implements': ['linkml:title'],
          'recommended': True} })
@@ -13578,7 +13837,8 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     source: str = Field(default=..., description="""Source dataset or provenance label""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion', 'AssociationSignal']} })
     assertion_type: Optional[str] = Field(default=None, description="""Type/category of the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion']} })
@@ -13638,7 +13898,9 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -13695,7 +13957,9 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -13749,7 +14013,9 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -13775,10 +14041,16 @@ class TrackedIssue(ConfiguredBaseModel):
                       'via this annotation. Kept because it is a reasonable semantic '
                       'mapping, and noted here for the same reason the EvidenceItem '
                       '`reference_title` comment exists: an annotation that looks like '
-                      'it enables a check, but does not, misleads readers. Retargeting '
-                      'it to `dcterms:title` is deliberately left to the title '
-                      'normalization work, since that would also newly expose '
-                      'Dataset.title and TrackedIssue.title to detection.'],
+                      'it enables a check, but does not, misleads readers. The '
+                      'title-normalization work that this deferral pointed at has now '
+                      'happened (EvidenceItem.reference_title carries `dcterms:title` '
+                      'and is checked), but this slot is still NOT retargeted: it is '
+                      'shared by PublicationReference, Dataset and TrackedIssue, so '
+                      'swapping the URI would newly expose Dataset.title and '
+                      'TrackedIssue.title to lrv detection. PublicationReference.title '
+                      'loses nothing by waiting — it is already checked via the '
+                      'exact-name fallback. Retarget only alongside a check of what '
+                      'the other two classes would then be asserting.'],
          'domain_of': ['Dataset', 'PublicationReference', 'TrackedIssue'],
          'implements': ['linkml:title']} })
     tracked_issue_role: Optional[str] = Field(default=None, description="""Role this tracked issue plays relative to the dismech content it is attached to. Free-text but common values include \"ontology_term_request\", \"ontology_coverage_gap\", \"schema_followup\", \"curation_followup\", and \"external_tracker_link\".""", json_schema_extra = { "linkml_meta": {'domain_of': ['TrackedIssue'],
@@ -13837,7 +14109,9 @@ class TrackedIssue(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -13906,7 +14180,9 @@ class Finding(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -14000,7 +14276,9 @@ class Prevalence(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -14054,7 +14332,9 @@ class Prevalence(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -14131,7 +14411,9 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -14185,7 +14467,9 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -14265,7 +14549,9 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     incubation_days: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ProgressionInfo'], 'examples': [{'value': '3-14'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
@@ -14333,7 +14619,9 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     duration_days: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ProgressionInfo'], 'examples': [{'value': '2-5'}]} })
@@ -14423,7 +14711,9 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -14477,7 +14767,9 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -14523,7 +14815,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -14579,7 +14872,9 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     minimum_value: Optional[float] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
     maximum_value: Optional[float] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
     mean_range: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo']} })
@@ -14635,7 +14930,9 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     factors: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['EpidemiologyInfo'],
@@ -14703,7 +15000,9 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -14748,7 +15047,8 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -14804,7 +15104,9 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
@@ -14864,7 +15166,9 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     biological_processes: Optional[list[BiologicalProcessDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation',
                        'ExperimentalReadout',
@@ -14991,7 +15295,9 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     frequency: Optional[Union[FrequencyEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'FrequencyEnum'}, {'range': 'FrequencyQuantity'}],
@@ -15053,7 +15359,8 @@ class Phenotype(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     phenotype_term: Optional[PhenotypeDescriptor] = Field(default=None, description="""The HP term for this phenotype""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalReadout',
                        'ReferenceRangeBand',
@@ -15124,7 +15431,9 @@ class Phenotype(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     diagnostic: Optional[bool] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype', 'HistopathologyFinding', 'ImagingFinding']} })
     sequelae: Optional[list[CausalEdge]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype'],
          'examples': [{'value': '[{target: Diabetic Ketoacidosis}, {target: Chronic '
@@ -15185,7 +15494,9 @@ class Phenotype(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     context: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype',
                        'Biochemical',
@@ -15266,7 +15577,9 @@ class Phenotype(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
@@ -15337,7 +15650,8 @@ class Biochemical(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     biomarker_term: Optional[BiomarkerDescriptor] = Field(default=None, description="""Ontology term for a biomarker (from NCIT)""", json_schema_extra = { "linkml_meta": {'comments': ['Use NCIT terms for biomarkers (proteins, genes, fusion '
                       'products)',
@@ -15410,7 +15724,9 @@ class Biochemical(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     specificity: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical'], 'examples': [{'value': 'High'}]} })
     frequency: Optional[Union[FrequencyEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'FrequencyEnum'}, {'range': 'FrequencyQuantity'}],
@@ -15474,7 +15790,9 @@ class Biochemical(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     context: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype',
@@ -15586,7 +15904,8 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Flexner-Wintersteiner Rosettes'},
                       {'value': 'Spindle Cell Morphology'},
                       {'value': 'High Grade (Fuhrman Grade 3-4)'}]} })
@@ -15651,7 +15970,9 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     frequency: Optional[Union[FrequencyEnum, str]] = Field(default=None, description="""How frequently this finding is observed in the disease""", json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'FrequencyEnum'}, {'range': 'FrequencyQuantity'}],
          'domain_of': ['PhenotypeContext',
                        'Pathophysiology',
@@ -15718,7 +16039,9 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -15772,7 +16095,9 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     context: Optional[str] = Field(default=None, description="""Context in which this finding is observed (e.g., specific subtype)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype',
@@ -15875,7 +16200,8 @@ class ImagingFinding(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     modality: Optional[ImagingModalityEnum] = Field(default=None, description="""The imaging modality by which this finding is detected""", json_schema_extra = { "linkml_meta": {'domain_of': ['ImagingFinding']} })
     imaging_finding_term: Optional[ImagingFindingDescriptor] = Field(default=None, description="""Ontology term for an imaging finding (from the NCIT Imaging Finding branch or HP)""", json_schema_extra = { "linkml_meta": {'comments': ['Use NCIT Imaging Finding terms (C176708 / C199145) or HP '
@@ -15936,7 +16262,9 @@ class ImagingFinding(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Multifocal periventricular white matter lesions on '
                                 'MRI'},
                       {'value': 'Gadolinium-enhancing lesion'},
@@ -16017,7 +16345,9 @@ class ImagingFinding(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -16071,7 +16401,9 @@ class ImagingFinding(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     context: Optional[str] = Field(default=None, description="""Context in which this finding is observed (e.g., specific subtype)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype',
@@ -16135,7 +16467,8 @@ class Genetic(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     gene_term: Optional[GeneDescriptor] = Field(default=None, description="""The HGNC term for this gene""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic']} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
@@ -16196,7 +16529,9 @@ class Genetic(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     association: Optional[str] = Field(default=None, description="""Free-text descriptor of how the gene is associated with the disease. For a controlled vocabulary, also set `relationship_type`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic'], 'examples': [{'value': 'Susceptibility'}]} })
     relationship_type: Optional[GeneDiseaseRelationshipEnum] = Field(default=None, description="""Controlled-vocabulary classification of the gene-disease relationship (e.g., causative, risk factor, modifier, somatic driver). Use this in addition to the free-text `association` slot when possible.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic'], 'examples': [{'value': 'RISK_FACTOR'}]} })
@@ -16291,7 +16626,9 @@ class Genetic(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     examples: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
@@ -16346,7 +16683,8 @@ class Environmental(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
@@ -16406,7 +16744,9 @@ class Environmental(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -16460,7 +16800,9 @@ class Environmental(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
@@ -16517,7 +16859,9 @@ class Environmental(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     chemicals: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Environmental'], 'examples': [{'value': "['Phenol']"}]} })
     synonyms: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
                        'Biochemical',
@@ -16614,10 +16958,14 @@ class Disease(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis', 'Disease', 'GroupingMember']} })
-    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this disease entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'ComorbidityAssociation', 'Grouping'],
+    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this disease entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection'],
          'recommended': True} })
     updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this disease entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'deprecated': 'True',
          'domain_of': ['Disease', 'ComorbidityAssociation'],
@@ -16676,7 +17024,9 @@ class Disease(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     references: Optional[list[PublicationReference]] = Field(default=None, description="""Top-level list of references with their key findings for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'Grouping']} })
     category: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype', 'Disease', 'AnimalModel'],
          'examples': [{'value': 'Hematologic'}]} })
@@ -16715,6 +17065,7 @@ class Disease(ConfiguredBaseModel):
     environmental: Optional[list[Environmental]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     treatments: Optional[list[Treatment]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     categories: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
+    module_categories: Optional[list[ModuleCategoryEnum]] = Field(default=None, description="""Areas of study this mechanism module is relevant to, drawn from ModuleCategoryEnum. Each value asserts \"this module is relevant to this area of study\" and is rendered as a labelled pill on the module index and module detail pages, so the categories are a browsing and discovery aid rather than a mechanistic assertion. Intended for entries under `kb/modules/`, which validate against the Disease class; disorder entries use the free-text `categories` slot for nosological grouping instead.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease'], 'examples': [{'value': 'TOXICOLOGY'}]} })
     infectious_agent: Optional[list[InfectiousAgent]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     agent_life_cycle: Optional[AgentLifeCycle] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     transmission: Optional[list[Transmission]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
@@ -16795,7 +17146,9 @@ class Disease(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
@@ -16880,7 +17233,8 @@ class Stage(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -16936,7 +17290,9 @@ class Stage(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -16993,7 +17349,9 @@ class Stage(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -17047,7 +17405,9 @@ class Stage(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     context: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype',
@@ -17140,7 +17500,9 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     life_cycle_stages: Optional[list[AgentLifeCycleStage]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AgentLifeCycle']} })
     hosts: Optional[list[HostDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'comments': ['Use NCBITaxon terms for host organisms',
                       'Use the role slot to indicate definitive, intermediate, '
@@ -17203,7 +17565,9 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -17257,7 +17621,9 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     context: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype',
@@ -17324,7 +17690,8 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     life_cycle_stage_term: Optional[LifeCycleStageDescriptor] = Field(default=None, description="""The OPL term for this agent life cycle stage""", json_schema_extra = { "linkml_meta": {'domain_of': ['AgentLifeCycleStage']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
@@ -17381,7 +17748,9 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -17438,7 +17807,9 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -17492,7 +17863,9 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     context: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype',
@@ -17618,7 +17991,9 @@ class AnimalModel(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     publication: Optional[str] = Field(default=None, description="""Primary publication describing the model, when one paper is the canonical reference for it. Per-claim citations still go in `evidence`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset',
                        'ExperimentalModel',
                        'ComputationalModel',
@@ -17692,7 +18067,9 @@ class AnimalModel(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -17746,7 +18123,9 @@ class AnimalModel(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     name: Optional[str] = Field(default=None, description="""Short stable label for the model, e.g. \"SOD1-G93A transgenic mouse\". Used as the pathograph node label and in-page anchor. Optional but recommended once `modeled_mechanisms` is populated. Defined as a class-local attribute (not the global identifier `name` slot) so it is a plain optional label: 425 of 439 existing animal models omit it, and AnimalModel is an inlined object that needs no identifier.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel',
@@ -17787,7 +18166,8 @@ class AnimalModel(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'recommended': True} })
 
 
@@ -17832,7 +18212,8 @@ class Treatment(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -17888,7 +18269,9 @@ class Treatment(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     action_category: Optional[MedicalActionCategoryEnum] = Field(default=None, description="""Optional high-level category for a clinical action in the treatments section. Use THERAPEUTIC for actions that treat, prevent, mitigate, or manage disease mechanisms or symptoms; use non-therapeutic categories for screening, diagnosis, monitoring, and counseling or informational interventions.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
     regimen_term: Optional[RegimenDescriptor] = Field(default=None, description="""The NCIT term for this treatment regimen""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
@@ -17971,7 +18354,9 @@ class Treatment(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -18025,7 +18410,9 @@ class Treatment(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     context: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Phenotype',
@@ -18115,7 +18502,8 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     infectious_agent_term: Optional[OrganismDescriptor] = Field(default=None, description="""The NCBITaxon term for this infectious agent""", json_schema_extra = { "linkml_meta": {'domain_of': ['InfectiousAgent']} })
     food_source: Optional[FoodDescriptor] = Field(default=None, description="""The FOODON or CHEBI term for a specific food, beverage, nutrient, mineral, or supplement source or vehicle relevant to an exposure""", json_schema_extra = { "linkml_meta": {'domain_of': ['Environmental', 'InfectiousAgent']} })
@@ -18175,7 +18563,9 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -18231,7 +18621,9 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     has_subtypes: Optional[list[Subtype]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'InfectiousAgent']} })
 
 
@@ -18276,7 +18668,8 @@ class Transmission(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -18332,7 +18725,9 @@ class Transmission(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -18389,7 +18784,9 @@ class Transmission(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -18443,7 +18840,9 @@ class Transmission(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     effect: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Environmental', 'Transmission'],
@@ -18491,7 +18890,8 @@ class Assay(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -18547,7 +18947,9 @@ class Assay(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
 
 
 class Diagnosis(ConfiguredBaseModel):
@@ -18591,7 +18993,8 @@ class Diagnosis(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     diagnosis_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this diagnostic procedure""", json_schema_extra = { "linkml_meta": {'comments': ['NCIT includes diagnostic procedures under Clinical Intervention '
                       'or Procedure (C25218)',
@@ -18656,7 +19059,9 @@ class Diagnosis(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -18710,7 +19115,9 @@ class Diagnosis(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     results: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Diagnosis'],
@@ -18770,7 +19177,9 @@ class Diagnosis(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
 
 
 class Inheritance(ConfiguredBaseModel):
@@ -18814,7 +19223,8 @@ class Inheritance(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     inheritance_term: Optional[InheritanceDescriptor] = Field(default=None, description="""The HPO mode of inheritance term for this inheritance pattern""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance', 'LogicalCriterion']} })
     penetrance: Optional[PenetranceEnum] = Field(default=None, description="""Penetrance classification for this inheritance pattern""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance']} })
@@ -18878,7 +19288,9 @@ class Inheritance(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -18934,7 +19346,9 @@ class Inheritance(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
 
 
 class Variant(ConfiguredBaseModel):
@@ -18981,7 +19395,8 @@ class Variant(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -19037,7 +19452,9 @@ class Variant(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'ExperimentalPerturbation',
                        'Pathophysiology',
@@ -19101,7 +19518,9 @@ class Variant(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     functional_effects: Optional[list[FunctionalEffect]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant']} })
     synonyms: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
@@ -19179,7 +19598,9 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     type: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'FunctionalEffect']} })
     regulatory_category: Optional[RegulatoryVariantCategoryEnum] = Field(default=None, description="""Functional classification of a variant's impact on gene expression, using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667) or traditional coding categories (LOF/GOF/DN).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'FunctionalEffect']} })
     regulatory_element_type: Optional[RegulatoryElementTypeEnum] = Field(default=None, description="""Type of gene regulatory element disrupted by a non-coding variant (e.g., promoter, enhancer, silencer, insulator, TAD boundary).""", json_schema_extra = { "linkml_meta": {'domain_of': ['FunctionalEffect']} })
@@ -19229,7 +19650,8 @@ class Mechanism(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -19285,7 +19707,9 @@ class Mechanism(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
 
 
 class ModelingConsideration(ConfiguredBaseModel):
@@ -19329,7 +19753,8 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -19385,7 +19810,9 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -19442,7 +19869,9 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -19508,7 +19937,9 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -19562,7 +19993,9 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -19650,7 +20083,9 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -19704,7 +20139,9 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -19792,7 +20229,9 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -19846,7 +20285,9 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -19934,7 +20375,9 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -19988,7 +20431,9 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -20076,7 +20521,9 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -20130,7 +20577,9 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -20218,7 +20667,9 @@ class IUISAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -20272,7 +20723,9 @@ class IUISAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -20360,7 +20813,9 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -20414,7 +20869,9 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -20502,7 +20959,9 @@ class ICIMDAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -20556,7 +21015,9 @@ class ICIMDAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -20644,7 +21105,9 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -20698,7 +21161,9 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -20786,7 +21251,9 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -20840,7 +21307,9 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -20928,7 +21397,9 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -20982,7 +21453,9 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -21070,7 +21543,9 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -21124,7 +21599,9 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -21212,7 +21689,9 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -21266,7 +21745,9 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -21354,7 +21835,9 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -21408,7 +21891,9 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -21496,7 +21981,9 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -21550,7 +22037,9 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -21638,7 +22127,9 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -21692,7 +22183,9 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -21780,7 +22273,9 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -21834,7 +22329,9 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -21922,7 +22419,9 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -21976,7 +22475,9 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -22064,7 +22565,9 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -22118,7 +22621,9 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -22222,7 +22727,8 @@ class Definition(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     definition_type: DefinitionTypeEnum = Field(default=..., description="""The type of definition or criteria set""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition']} })
     derivation_basis: Optional[DefinitionDerivationBasisEnum] = Field(default=None, description="""Epistemic grounding of a definition, orthogonal to definition_type: established criteria vs. a mechanistic hypothesis vs. model-system extrapolation. When MECHANISTIC_HYPOTHESIS, the definition should `attaches_to` the pathophysiology node(s)/edge(s) it is predicated on, so the hypothesis basis can be inferred from those edges' `hypothesis_groups`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition']} })
@@ -22281,7 +22787,9 @@ class Definition(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     scope: Optional[str] = Field(default=None, description="""Scope or population for which the definition applies (e.g., adults, pediatrics)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition', 'CriteriaSet']} })
     attaches_to: Optional[list[str]] = Field(default=None, description="""For a hypothesis-based definition, the pathophysiology node(s)/edge(s) this algorithm is predicated on, using the `[<file>:]<kind>#<name>` hash-anchor grammar (e.g. `pathophysiology#Fever-triggered CaV1.2 activation`). Lets the hypothesis basis be inferred from those edges' `hypothesis_groups` rather than duplicated as a standalone id.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition', 'Discussion']} })
     criteria_sets: Optional[list[CriteriaSet]] = Field(default=None, description="""Named criteria groupings within a definition""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition']} })
@@ -22343,7 +22851,9 @@ class Definition(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -22397,7 +22907,9 @@ class Definition(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -22480,7 +22992,9 @@ class AlgorithmValidationStatus(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -22529,7 +23043,8 @@ class CriteriaSet(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -22585,7 +23100,9 @@ class CriteriaSet(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     scope: Optional[str] = Field(default=None, description="""Scope or population for which the definition applies (e.g., adults, pediatrics)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition', 'CriteriaSet']} })
     minimum_required: Optional[int] = Field(default=None, description="""Minimum number of criteria required in this criteria set""", json_schema_extra = { "linkml_meta": {'domain_of': ['CriteriaSet']} })
     core_clinical_characteristics: Optional[list[CriteriaItem]] = Field(default=None, description="""Core clinical characteristics used in a criteria set""", json_schema_extra = { "linkml_meta": {'domain_of': ['CriteriaSet']} })
@@ -22650,7 +23167,9 @@ class CriteriaSet(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -22704,7 +23223,9 @@ class CriteriaSet(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -22770,7 +23291,9 @@ class CriteriaItem(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'TermMapping',
@@ -22866,7 +23389,9 @@ class TermMapping(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -22946,7 +23471,9 @@ class ICD10CMMapping(TermMapping):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -23026,7 +23553,9 @@ class ICD11FMapping(TermMapping):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -23106,7 +23635,9 @@ class MondoMapping(TermMapping):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -23186,7 +23717,9 @@ class NCITMapping(TermMapping):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -23259,7 +23792,9 @@ class MappingConsistency(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -23348,7 +23883,9 @@ class ConditionDescriptor(Descriptor):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': False} })
     term: Optional[Term] = Field(default=None, description="""Optional MONDO disease term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'OPTIONAL',
@@ -23433,9 +23970,13 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this comorbidity entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'ComorbidityAssociation', 'Grouping'],
+    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this comorbidity entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection'],
          'recommended': True} })
     updated_date: Optional[str] = Field(default=None, description="""Timestamp for the latest substantive update to this comorbidity entry. Update this whenever curated content changes.""", json_schema_extra = { "linkml_meta": {'deprecated': 'True',
          'domain_of': ['Disease', 'ComorbidityAssociation'],
@@ -23501,7 +24042,9 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
     curation_status: Optional[CurationStatusEnum] = Field(default=None, description="""Curation workflow status""", json_schema_extra = { "linkml_meta": {'domain_of': ['ComorbidityAssociation']} })
@@ -23624,7 +24167,9 @@ class AssociationSignal(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -23678,7 +24223,9 @@ class AssociationSignal(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -23762,7 +24309,9 @@ class AssociationMetric(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -23830,7 +24379,9 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -23884,7 +24435,9 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -23950,7 +24503,9 @@ class GOEnrichment(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     go_terms: Optional[list[GOEnrichmentTerm]] = Field(default=None, description="""GO term enrichment results""", json_schema_extra = { "linkml_meta": {'domain_of': ['GOEnrichment']} })
 
 
@@ -24031,7 +24586,9 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -24088,7 +24645,9 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     pathophysiology: Optional[list[Pathophysiology]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'Stage', 'ComorbidityHypothesis']} })
 
@@ -24154,7 +24713,9 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -24211,7 +24772,9 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
 
 
@@ -24288,7 +24851,9 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     applies_to_subtypes: Optional[list[str]] = Field(default=None, description="""Disease subtypes for which this hypothesis is intended to apply""", json_schema_extra = { "linkml_meta": {'domain_of': ['MechanisticHypothesis']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
@@ -24346,7 +24911,9 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -24400,7 +24967,9 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -24485,7 +25054,9 @@ class Discussion(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     posed_by: Optional[str] = Field(default=None, description="""Optional attribution for who posed a Discussion. ORCID is preferred when available (e.g., `ORCID:0000-0002-1825-0097`); a github handle or email is acceptable.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Discussion']} })
     posed_date: Optional[datetime ] = Field(default=None, description="""Date the Discussion was first posed (ISO 8601)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Discussion']} })
@@ -24543,7 +25114,9 @@ class Discussion(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -24599,7 +25172,8 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -24655,7 +25229,9 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
     source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
     source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
@@ -24715,7 +25291,9 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -24775,10 +25353,14 @@ class Grouping(ConfiguredBaseModel):
                        'Definition',
                        'CriteriaSet',
                        'ComorbidityAssociation',
-                       'Grouping'],
+                       'Grouping',
+                       'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember']} })
-    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this grouping entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'ComorbidityAssociation', 'Grouping'],
+    display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember', 'ModuleCollection']} })
+    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this grouping entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection'],
          'recommended': True} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -24834,7 +25416,9 @@ class Grouping(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     grouping_basis: Optional[list[GroupingBasisEnum]] = Field(default=None, description="""The axis or axes on which this grouping is drawn (records why the members belong together).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Grouping']} })
     grouping_rationale: Optional[str] = Field(default=None, description="""Free-text justification for the grouping boundary: why these members are grouped together and, where relevant, why they are deliberately kept as separate Disease entries rather than merged.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Grouping']} })
     membership_criteria: Optional[list[GroupingCriteria]] = Field(default=None, description="""The shared criteria a Disease must satisfy to belong to this grouping, expressed as human-readable prose plus an optional structured boolean expression. Multivalued so a grouping can carry several independent NECESSARY criteria blocks alongside an optional defining (NECESSARY_AND_SUFFICIENT) block, mirroring OWL subclass/equivalence axioms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Grouping']} })
@@ -24895,7 +25479,9 @@ class Grouping(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -24977,7 +25563,9 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     criteria_semantics: Optional[CriteriaSemanticsEnum] = Field(default=None, description="""The logical relationship between this criteria block and grouping membership (the =>/<=/<=> distinction): NECESSARY (members entail the criteria), SUFFICIENT (the criteria entail membership), or NECESSARY_AND_SUFFICIENT (the criteria define the grouping).""", json_schema_extra = { "linkml_meta": {'domain_of': ['GroupingCriteria']} })
     logic: Optional[LogicalCriterion] = Field(default=None, description="""Root of the structured (boolean/nested) membership-criteria expression for this grouping.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GroupingCriteria']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
@@ -25036,7 +25624,9 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -25090,7 +25680,9 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -25158,7 +25750,9 @@ class LogicalCriterion(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     negated: Optional[bool] = Field(default=None, description="""If true, this leaf criterion is negated (the constraint must NOT hold). An alternative to wrapping the node in a NOT operator.""", json_schema_extra = { "linkml_meta": {'domain_of': ['LogicalCriterion']} })
     phenotype_term: Optional[PhenotypeDescriptor] = Field(default=None, description="""The HP term for this phenotype""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalReadout',
                        'ReferenceRangeBand',
@@ -25181,7 +25775,9 @@ class LogicalCriterion(ConfiguredBaseModel):
                        'LogicalCriterion',
                        'DifferentiatingMechanism'],
          'examples': [{'value': '[{preferred_term: TNF-alpha Production}]'}]} })
-    module: Optional[str] = Field(default=None, description="""Reference to a mechanism module in kb/modules/ (filename stem, without .yaml, optionally with a \"#Node Name\" anchor). Used by CONFORMS_TO_MODULE criteria and by differentiating mechanisms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['LogicalCriterion', 'DifferentiatingMechanism']} })
+    module: Optional[str] = Field(default=None, description="""Reference to a mechanism module in kb/modules/ (filename stem, without .yaml, optionally with a \"#Node Name\" anchor). Used by CONFORMS_TO_MODULE criteria and by differentiating mechanisms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollectionMember']} })
     classification: Optional[str] = Field(default=None, description="""Classification scheme this subtype belongs to (e.g., 'complementation_group', 'pathway_tier', 'histological', 'molecular', 'clinical_phenotype').""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'LogicalCriterion']} })
 
 
@@ -25196,9 +25792,9 @@ class GroupingMember(ConfiguredBaseModel):
                                                        'DISEASE).',
                                         'name': 'member_type'}}})
 
-    member: str = Field(default=..., description="""Foreign key to the grouped entity. For member_type DISEASE this is the Disease entry's `name`; for MODULE it is the module filename stem; for GROUPING it is another grouping's `name`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GroupingMember']} })
+    member: str = Field(default=..., description="""Foreign key to the grouped entity. For member_type DISEASE this is the Disease entry's `name`; for GROUPING it is another grouping's `name`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GroupingMember']} })
     member_type: Optional[GroupingMemberTypeEnum] = Field(default=None, description="""The kind of entity referenced (defaults conceptually to DISEASE).""", json_schema_extra = { "linkml_meta": {'domain_of': ['GroupingMember']} })
-    display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember']} })
+    display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember', 'ModuleCollection']} })
     disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DifferentialDiagnosis', 'Disease', 'GroupingMember']} })
     differentiating_mechanisms: Optional[list[DifferentiatingMechanism]] = Field(default=None, description="""Mechanisms or features that distinguish this member from its siblings in the grouping, as prose plus optional structured descriptors.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GroupingMember']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
@@ -25257,7 +25853,9 @@ class GroupingMember(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -25311,7 +25909,9 @@ class GroupingMember(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -25380,7 +25980,9 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'LogicalCriterion',
-                       'DifferentiatingMechanism']} })
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'ExperimentalPerturbation',
                        'Pathophysiology',
@@ -25400,7 +26002,9 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'LogicalCriterion',
                        'DifferentiatingMechanism'],
          'examples': [{'value': '[{preferred_term: TNF-alpha Production}]'}]} })
-    module: Optional[str] = Field(default=None, description="""Reference to a mechanism module in kb/modules/ (filename stem, without .yaml, optionally with a \"#Node Name\" anchor). Used by CONFORMS_TO_MODULE criteria and by differentiating mechanisms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['LogicalCriterion', 'DifferentiatingMechanism']} })
+    module: Optional[str] = Field(default=None, description="""Reference to a mechanism module in kb/modules/ (filename stem, without .yaml, optionally with a \"#Node Name\" anchor). Used by CONFORMS_TO_MODULE criteria and by differentiating mechanisms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollectionMember']} })
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional, functional, or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal, gain of function, loss of function). See ModifierEnum for the boundary between the quantitative INCREASED/DECREASED values and the GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding', 'DifferentiatingMechanism']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
@@ -25458,7 +26062,9 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'Discussion',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'recommended': True} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -25512,7 +26118,459 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'Grouping',
                        'GroupingCriteria',
                        'GroupingMember',
-                       'DifferentiatingMechanism'],
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class ModuleCollection(ConfiguredBaseModel):
+    """
+    A curated navigation or framework record that organizes mechanism modules. A ModuleCollection is not itself a mechanism and does not assert disease membership. It points down to module filename stems, may nest more specific collections, and may cite the publication that defines the framework.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'collection_type': {'name': 'collection_type',
+                                            'required': True},
+                        'creation_date': {'description': 'Timestamp for initial '
+                                                         'creation of this module '
+                                                         'collection. Keep this stable '
+                                                         'after first set.',
+                                          'name': 'creation_date',
+                                          'recommended': True},
+                        'module_members': {'name': 'module_members', 'required': True},
+                        'name': {'description': 'Preferred collection name (unique; '
+                                                'serves as an FK target).',
+                                 'name': 'name',
+                                 'required': True}}})
+
+    name: str = Field(default=..., description="""Preferred collection name (unique; serves as an FK target).""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'ReferenceRangeBand',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember', 'ModuleCollection']} })
+    creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this module collection. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection'],
+         'recommended': True} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    collection_type: ModuleCollectionTypeEnum = Field(default=..., description="""The organizing principle represented by a ModuleCollection.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModuleCollection']} })
+    module_members: list[ModuleCollectionMember] = Field(default=..., description="""The mechanism modules explicitly included in this collection. Module filename stems are used as foreign keys.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModuleCollection']} })
+    child_collections: Optional[list[str]] = Field(default=None, description="""Names of more specific ModuleCollection records nested under this collection.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModuleCollection']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+    @field_validator('creation_date')
+    def pattern_creation_date(cls, v):
+        pattern=re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid creation_date format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid creation_date format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+
+class ModuleCollectionMember(ConfiguredBaseModel):
+    """
+    A mechanism module included in a ModuleCollection, with optional labels and explanation specific to the source framework.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'module': {'description': 'Foreign key to a mechanism module '
+                                                  'filename stem in kb/modules/. Node '
+                                                  'anchors are not used for collection '
+                                                  'membership.',
+                                   'name': 'module',
+                                   'required': True}}})
+
+    module: str = Field(default=..., description="""Foreign key to a mechanism module filename stem in kb/modules/. Node anchors are not used for collection membership.""", json_schema_extra = { "linkml_meta": {'domain_of': ['LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollectionMember']} })
+    framework_terms: Optional[list[str]] = Field(default=None, description="""One or more labels used by the source framework for the concept represented by this module. Multivalued because one module may intentionally combine closely coupled framework concepts.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModuleCollectionMember']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
 
@@ -25664,3 +26722,5 @@ GroupingCriteria.model_rebuild()
 LogicalCriterion.model_rebuild()
 GroupingMember.model_rebuild()
 DifferentiatingMechanism.model_rebuild()
+ModuleCollection.model_rebuild()
+ModuleCollectionMember.model_rebuild()

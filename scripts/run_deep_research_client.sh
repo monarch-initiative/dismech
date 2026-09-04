@@ -28,12 +28,33 @@
 # Keep this in sync with scripts/run_reference_validator.sh: if a patch is added
 # there that affects the fetch/read path, it applies here too (both go through
 # dismech.patch_reference_validator, so importing it is all that is required).
+#
+# This wrapper also applies dismech's opt-in policy before provider discovery:
+# Biomni is unavailable, including as an automatic fallback, unless
+# DISMECH_ENABLE_BIOMNI=1.
 
 set -euo pipefail
 
 exec uv run python -c "
+import sys
+
 import dismech.patch_reference_validator  # noqa: F401  # side-effect: applies the patches
+from dismech.deep_research_policy import (
+    BIOMNI_DISABLED_DETAIL,
+    configure_biomni_environment,
+    requests_biomni_research,
+)
+
+biomni_opted_in = configure_biomni_environment()
+if not biomni_opted_in and requests_biomni_research(sys.argv[1:]):
+    print(BIOMNI_DISABLED_DETAIL, file=sys.stderr)
+    raise SystemExit(2)
+
 from deep_research_client.cli import app
+from deep_research_client.client import REGISTRATION_GATES
+
+if not biomni_opted_in:
+    REGISTRATION_GATES['biomni'] = BIOMNI_DISABLED_DETAIL
 
 app()
 " "$@"
