@@ -9,6 +9,7 @@ modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
 history_dir := "history"
 groupings_dir := "kb/groupings"
+module_collections_dir := "kb/module_collections"
 ref_validator_config := "conf/reference_validator_config.yaml"
 mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
 # Wrapper script that patches linkml-reference-validator for network resilience
@@ -193,9 +194,17 @@ validate-schema file:
 # Example:
 #   just new-history --kind disorder --slug Asthma --event CREATE --outcome changed \
 #     --summary "Create: Asthma" --agent-tool claude-code --pr 5123 --details "..."
+#
+# Args are forwarded as real positional arguments ("$@"), NOT via `{{ARGS}}` text
+# interpolation (see `set positional-arguments` in the root justfile). This matters
+# because `--summary` and `--details` take free prose: `{{ARGS}}` pastes the raw
+# argument text into the generated shell line, so quoting is lost and the shell
+# re-splits it. That made a multi-word value ("Create: Asthma") arrive as two
+# arguments, an apostrophe ("Bell's Palsy") a fatal "unterminated quoted string",
+# and a `$VAR` or backtick in prose subject to expansion. Issues #9784, #10148, #10159.
 [group('QC')]
 new-history *ARGS:
-    uv run python scripts/new_history.py {{ARGS}}
+    uv run python scripts/new_history.py "$@"
 
 # Validate a single history record
 [group('QC')]
@@ -483,6 +492,35 @@ validate-module file:
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
+# ModuleCollection currently has no ontology-bound slots, so term validation
+# adds no coverage here; module/child foreign keys are enforced in pytest.
+# Validate a single module collection (schema + references).
+[group('QC')]
+validate-module-collection file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class ModuleCollection {{file}}
+    echo "Reference validation..."
+    just fix-references-cache "{{file}}"
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ModuleCollection --config {{ref_validator_config}}
+    echo "✓ All validations passed for {{file}}"
+
+# Validate every curated module collection.
+[group('QC')]
+validate-module-collections:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=({{module_collections_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No module collection files found in {{module_collections_dir}}"
+        exit 0
+    fi
+    for f in "${files[@]}"; do
+        just validate-module-collection "$f"
+    done
+
 # Validate a single disease grouping file (schema + terms + references)
 # Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
@@ -561,11 +599,17 @@ validate-groupings:
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}
 
+# Report the declared grouping-of-grouping tree plus undeclared member-set
+# containments between groupings (advisory; a containment is a lead, not a ruling)
+[group('QC')]
+grouping-nesting-audit *args="":
+    uv run python -m dismech.groupings --nesting {{args}}
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
-validate-terms-schema:
+validate-terms-schema *flags:
     @echo "Validating schema term references..."
-    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}}
+    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}} {{flags}}
 
 # OAK config for ontology adapters
 oak_config := "conf/oak_config.yaml"
@@ -736,7 +780,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -760,6 +804,17 @@ qc-deep-research-strict:
 [group('QC')]
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
+
+# Compare each model->mechanism link's `model_scale` against its target node's
+# `biological_scale`. Reports upward extrapolation (model below its target's
+# scale -- it cannot observe the outcome it is cited for) separately from the
+# benign reverse direction. Advisory by default; --strict exits non-zero on an
+# upward-extrapolating link carrying no `limitations`.
+#   just model-scale-audit
+#   just model-scale-audit --format list --verdict MODEL_BELOW_TARGET
+[group('QC')]
+model-scale-audit *args="":
+    uv run python scripts/model_scale_audit.py {{args}}
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -881,15 +936,32 @@ gen-priority-dashboard-all-mondo:
 sync-epic-checkboxes *args:
     uv run python scripts/sync_epic_checkboxes.py --kb-dir {{kb_dir}} {{args}}
 
-# Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
+# "kb" is in the name to keep this apart from the deep-research side (#8841):
+#   just validate-kb-references kb/disorders/Foo.yaml   # KB entry: snippet in cited paper?
+#   just validate-research-reference research/Foo-deep-research-falcon.md
+#                                                       # DR report: do its citations exist?
+# Both run linkml-reference-validator, but on different files asking different
+# questions, and a green run of one says nothing about the other -- see
+# docs/deep-research-reference-validation.md ("What this does not replace").
+# The deep-research-client subcommand the research recipes call is itself
+# named `validate-references`, which is the ambiguity the rename removes.
+#
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
 # Note: linkml-reference-validator's "Total checks: 0" counts *issues found*, not
 # checks performed (issue #7252) -- read the "Snippets checked: N/N verified"
 # line the wrapper appends for the affirmative count.
+# Note: slow (full-text download attempts); in the curation loop prefer
+# `just count-verified-snippets`, and before a PR `just validate-disorders`.
+#
+# Validate ONE KB entry's evidence snippets against the papers they cite (not a research report)
 [group('QC')]
-validate-references file:
+validate-kb-references file:
     @just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Former name of `validate-kb-references`, kept so the hundreds of history
+# records, KB notes, and older docs that name it keep resolving (#8841).
+alias validate-references := validate-kb-references
 
 # Count reference/snippet pairs and re-verify each against references_cache/,
 # without running the (network-touching) validator. Advisory only: it reports
@@ -993,6 +1065,49 @@ check-enum-values *files:
 check-entity-refs *files:
     uv run python scripts/check_entity_refs.py "$@"
 
+# Resolve every BARE-name pathograph target in kb/ (#10112, #9697). Distinct from
+# check-entity-refs: `downstream[].target`, `sequelae[].target`,
+# `reports_on[].target` and `target_mechanisms[].target` hold a plain node name
+# matched verbatim by `dismech.graph`, NOT the `<kind>#<name>` grammar. A broken
+# one is completely silent -- the entry validates and the page renders, while the
+# pathograph gains a phantom duplicate node and loses the real one. Ungated and
+# whole-KB for the same reason as the two lanes above: a rename severs edges the
+# PR never touched.
+[group('QC')]
+check-causal-targets *files:
+    uv run python scripts/check_causal_targets.py "$@"
+
+# Full census of pathograph target findings (prefixed / dangling / self), exit 0.
+[group('QC')]
+list-causal-targets *files:
+    uv run python scripts/check_causal_targets.py --report "$@"
+
+# Regenerate the grandfathered dangling-target baseline. Only ever to REMOVE
+# entries as the backlog is burned down -- never to admit a new break.
+[group('QC')]
+update-causal-target-baseline:
+    uv run python scripts/check_causal_targets.py --update-baseline
+
+# Check ontology labels on terms nested inside `qualifiers` (#10197).
+# `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;
+# `Qualifier.predicate`/`value` are plain Descriptors with no such binding, so
+# every term under `qualifiers` is invisible to it -- a fabricated label there
+# passes `just validate-terms` outright. Offline, cache-first.
+[group('QC')]
+check-qualifier-terms *files:
+    uv run python scripts/check_qualifier_terms.py "$@"
+
+# Census of qualifier-term coverage, including what nothing can validate yet.
+[group('QC')]
+list-qualifier-terms *files:
+    uv run python scripts/check_qualifier_terms.py --report "$@"
+
+# Also resolve the uncached qualifier CURIEs against OAK. Needs network; run
+# when auditing, not in CI.
+[group('QC')]
+check-qualifier-terms-online *files:
+    uv run python scripts/check_qualifier_terms.py --resolve "$@"
+
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the
 # abstract does not mention X". Every other gate here checks a SNIPPET against
@@ -1029,7 +1144,7 @@ list-source-defect-claims *files:
 check-snippet-boundaries *files:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} \
         --config {{ref_validator_config}} --check-boundaries \
-        {{ if files == "" { "kb/disorders/*.yaml kb/modules/*.yaml kb/comorbidities/*.yaml" } else { files } }}
+        {{ if files == "" { "kb/disorders/*.yaml kb/modules/*.yaml kb/module_collections/*.yaml kb/comorbidities/*.yaml" } else { files } }}
 
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
@@ -1163,10 +1278,11 @@ check-empty-snippets:
 list-empty-snippets:
     uv run python scripts/check_empty_snippets.py --all
 
-# Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
+#
+# Validate ALL KB entries' evidence snippets against the papers they cite (whole-KB `validate-kb-references`)
 [group('QC')]
-validate-references-all:
+validate-kb-references-all:
     #!/usr/bin/env bash
     set -e
     if command -v rg >/dev/null 2>&1; then
@@ -1181,6 +1297,9 @@ validate-references-all:
     just fix-references-cache "${files[@]}"
     echo "Validating references in ${#files[@]} disorder files (batched)..."
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Former name of `validate-kb-references-all` (#8841).
+alias validate-references-all := validate-kb-references-all
 
 # Fix YAML quoting issues in references cache (workaround for upstream bug).
 # With data-file arguments, only normalize caches cited by those files. Omit
@@ -1255,10 +1374,17 @@ list-modules filter="":
         nodes = [n.get("name", "?") for n in (doc.get("pathophysiology") or [])]
         desc = " ".join((doc.get("description") or "").split())
         notes = " ".join((doc.get("notes") or "").split())
-        if filt and filt not in f"{path.stem} {desc} {notes} {' '.join(nodes)}".lower():
+        cats = doc.get("module_categories") or []
+        # Categories join the filter haystack so `just list-modules toxicology`
+        # answers "which modules would a toxicologist care about?" from the
+        # console, the same question the index-page pills answer in the browser.
+        hay = f"{path.stem} {desc} {notes} {' '.join(nodes)} {' '.join(cats)}".lower()
+        if filt and filt not in hay:
             continue
         matched += 1
         print(f"\n{path.stem}")
+        if cats:
+            print("  categories: " + ", ".join(cats))
         emit("  ", desc, clip=not filt)
         if filt:
             emit("  notes: ", notes, clip=False)
@@ -1393,6 +1519,7 @@ gen-page file:
 gen-module-pages:
     uv run python -m dismech.render --module {{modules_dir}}
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
+    @echo "Generated $(ls -1 pages/module-collections/*.html 2>/dev/null | wc -l | tr -d ' ') module collection pages"
 
 # Generate a single disease grouping page
 [group('Pages')]
@@ -1578,7 +1705,7 @@ export-cx2-all *args="":
         echo "Skipped $skipped disorder(s) with no pathograph edges"
     fi
 
-# Upload a single disorder pathograph to the NDEx test server as a public network.
+# Upload a single disorder pathograph to the NDEx test server as a private network.
 # Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
 # Examples:
 #   just upload-cx2-test kb/disorders/Stargardt_Disease.yaml
@@ -1587,7 +1714,7 @@ export-cx2-all *args="":
 upload-cx2-test file *args="":
     NDEX_HOST="${NDEX_TEST_HOST:-{{ndex_test_host}}}" uv run dismech-cx2 {{file}} --ndex-upload --ndex-replace-existing {{args}}
 
-# Upload all disorder pathographs to the NDEx test server as public networks.
+# Upload all disorder pathographs to the NDEx test server as private networks.
 # Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
 # Examples:
 #   just upload-cx2-test-all
@@ -2162,7 +2289,13 @@ research-providers:
 # tree-wide run rewrites ~1400 committed files and re-resolves tens of thousands
 # of references against PubMed for reports nobody is reading today.
 #
-# Reference-check a deep-research report that already exists on disk.
+# Not to be confused with `just validate-kb-references <kb yaml>`, which checks
+# the evidence snippets *inside a KB entry* against the papers they cite. This
+# recipe checks whether a *report's* citations exist (and, where it quotes
+# them, whether the quotes hold up); it never sees the snippet a curator later
+# pastes into kb/. See docs/deep-research-reference-validation.md.
+#
+# Reference-check a deep-research report that already exists on disk (not a KB entry)
 [group('Research')]
 validate-research-reference +args:
     {{dr_client}} validate-references \
@@ -2227,6 +2360,22 @@ preflight-dr report mondo *args="":
 [group('Research')]
 research-status *args="":
     @uv run python scripts/deep_research_coverage.py status {{args}}
+
+# Tally the reference-validation results already written into research/
+# reports (the `reference_validation:` frontmatter that every research recipe
+# has emitted since deep-research-client 0.2.9, plus the body-only section a
+# retro-fitted `validate-research-reference` run leaves). Offline; reads the
+# reports, never the network. Answers "how are the DR providers doing on
+# citation hygiene?" (#8841) without re-resolving anything.
+# Examples:
+#   just dr-validation-census                       # summary + per-provider table
+#   just dr-validation-census --format tsv          # one row per validated report
+#   just dr-validation-census --needs-review        # list the reports flagged for a look
+#
+# Tally the reference-validation results recorded in research/ reports (offline)
+[group('Research')]
+dr-validation-census *args="":
+    uv run python scripts/dr_reference_validation_census.py {{args}}
 
 # Launch deep research for every disorder missing the requested provider.
 # Use provider slugs from deep-research-client, e.g. falcon or openscientist.
@@ -2396,18 +2545,18 @@ cohd-add-signal file *args="":
 
 # Refresh bulk Orphadata XML files (pinned by data/orphadata/MANIFEST.yaml)
 [group('Research')]
-refresh-orphadata:
-    uv run python -m dismech.structured_sources.cli refresh orphanet
+refresh-orphadata *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh orphanet "$@"
 
 # Refresh ClinGen Gene-Disease Validity CSV (pinned by data/clingen/MANIFEST.yaml)
 [group('Research')]
-clingen-refresh:
-    uv run python -m dismech.structured_sources.cli refresh clingen
+clingen-refresh *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh clingen "$@"
 
 # Refresh ClinGen Dosage Sensitivity TSV (pinned by data/clingen-dosage/MANIFEST.yaml)
 [group('Research')]
-clingen-dosage-refresh:
-    uv run python -m dismech.structured_sources.cli refresh clingen-dosage
+clingen-dosage-refresh *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh clingen-dosage "$@"
 
 # Refresh CIViC accepted assertion/evidence TSVs (pinned by data/civic/MANIFEST.yaml)
 [group('Research')]
@@ -3077,7 +3226,7 @@ cron-profile name:
 # ============== Deterministic PR auto-merge (pr-shepherd closing step) ==============
 
 # Report which open PRs the pr-shepherd auto-merge sweep would squash-merge:
-# approved, unassigned, conflict-free, green, and older than `days`.
+# approved, not human-assigned, conflict-free, green, and older than `days`.
 # Example: just auto-merge-preview 3
 [group('Auto-merge')]
 auto-merge-preview days='3':

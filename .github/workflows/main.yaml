@@ -7,6 +7,12 @@ on:  # yamllint disable-line rule:truthy
   push:
     branches: [main]
   pull_request:
+  # Merge-queue integration builds (#10168, #2034). The queue tests each PR on
+  # a temporary gh-readonly-queue/* branch and waits for the required
+  # `test (3.13)` check on that commit; without this trigger the check is never
+  # reported and every queued PR times out. Merge-group runs execute the full
+  # suite regardless of paths -- see "Check for changes" below.
+  merge_group:
 
 env:
   FORCE_COLOR: "1" # Make tools pretty.
@@ -57,6 +63,21 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
         run: git fetch --no-tags --force --depth=1 origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
+      # Also runs on merge_group (merge-queue integration builds, #10168):
+      # paths-filter supports that event since v4.0.1 -- `base`/`ref` default
+      # to the event's commit hashes, so the outputs describe exactly what the
+      # queued PR(s) change, and the `*_files` lists feed the changed-file KB
+      # validations below. Most gates below are nevertheless FORCED on for
+      # merge_group, deliberately: a queue build must run the full suite
+      # regardless of paths, because path filtering is why the #9538
+      # cross-file enum incompatibility was invisible until the branch was
+      # updated, and catching that class of break is what the queue is for. A
+      # merge group is a handful of runs per merge, so the wall-clock cost is
+      # bounded. (Do not downgrade this action below v4.0.1: older versions
+      # have no merge_group case and fall back to a merge-base diff against
+      # the default branch, an over-broad result that can include other PRs'
+      # changes -- upstream added the event support in dorny/paths-filter#255
+      # precisely to stop those false positives.)
       - name: Check for changes
         uses: dorny/paths-filter@v4
         id: changes
@@ -64,10 +85,19 @@ jobs:
           list-files: shell
           filters: |
             python:
+              # Globs, because the repo-wide guard in tests/test_dragon_ai_workflow.py
+              # scans every workflow and composite action, so an edit to any of them
+              # must run this lane. The individually named files below are redundant
+              # against these globs and kept deliberately: other guard tests assert
+              # those exact entries, and each records why that file needs this lane.
+              - '.github/actions/**'
+              - '.github/workflows/**'
               - '.github/actions/approve-regen-pr/action.yml'
               - '.github/cron-profiles.yaml'
+              - '.github/scripts/**'
               - '.github/workflows/claude-code-review.yml'
               - '.github/workflows/curation-scanner.yml'
+              - '.github/workflows/dragon-ai.yml'
               - '.github/workflows/generate-grouping-pages.yaml'
               - '.github/workflows/generate-pages.yaml'
               - '.github/workflows/generate-project-pages.yaml'
@@ -75,10 +105,12 @@ jobs:
               - '.github/workflows/pr-shepherd.yml'
               - '.github/workflows/reference-title-baseline.yaml'
               - '.github/workflows/title-snippet-baseline.yaml'
+              - '.github/workflows/verify-merge-integrity.yaml'
               - '.github/workflows/warm-reference-cache.yaml'
               - 'src/**'
               - 'scripts/auto_merge_ready_prs.py'
               - 'scripts/pr_shepherd_policy.py'
+              - 'scripts/verify_merge_integrity.py'
               - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
@@ -129,6 +161,7 @@ jobs:
               - 'project.justfile'
             app:
               - 'app/**'
+              - '.github/scripts/**'
               - 'tests/js/**'
               - 'package.json'
               - 'package-lock.json'
@@ -269,9 +302,30 @@ jobs:
       - name: Cache OAK ontology databases
         uses: ./.github/actions/oak-cache
 
+      # --offline on merge_group, on purpose. This step resolves the schema's
+      # dynamic-enum terms against EBI OLS, so it depends on a third-party
+      # service being reachable. On a PR that is a fair trade: the PR touched
+      # the schema or the OAK config, so the remote check is the point. On a
+      # merge group it is not -- the step is forced on for every queue build
+      # (see "Check for changes"), which made every merge depend on EBI
+      # availability, and two queue builds were ejected in four hours by read
+      # timeouts the validator itself labels "not a data error"
+      # (PRs #10677, #10700). A false ejection costs a ~45-minute build and a
+      # re-enqueue round trip.
+      #
+      # --offline validates against the committed cache/ instead, which is
+      # deterministic, needs no network, and is exactly the artifact a
+      # schema-touching PR had to update to pass its own PR run. So coverage
+      # is retained where it can differ and the network dependency is
+      # dropped where it cannot.
       - name: Validate schema term references
-        if: steps.changes.outputs.schema_terms == 'true'
-        run: just validate-terms-schema
+        if: github.event_name == 'merge_group' || steps.changes.outputs.schema_terms == 'true'
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            just validate-terms-schema --offline
+          else
+            just validate-terms-schema
+          fi
 
       - name: Lint with ruff
         run: uvx ruff check .
@@ -392,6 +446,41 @@ jobs:
       - name: Check entity references resolve
         run: uv run python scripts/check_entity_refs.py
 
+      # The bare-name counterpart of the step above, and a genuinely separate
+      # invariant. `downstream[].target`, `sequelae[].target`,
+      # `reports_on[].target` and `target_mechanisms[].target` do NOT use the
+      # `<kind>#<name>` grammar -- `dismech.graph` matches them verbatim against
+      # another item's `name`. So a break here is invisible to the entity-ref
+      # sweep AND to everything else: the entry validates, terms and snippets
+      # verify, and the page renders. The edge is still appended, so edge counts
+      # never move; the unresolved target becomes an orphan the renderer draws as
+      # a phantom duplicate node, orphaning the real node out of the graph.
+      # #10112 found 175 such targets across 32 entries, one left at 0 of 7.
+      #
+      # Ungated and whole-KB for the same reason as its neighbours: renaming a
+      # node severs the edges pointing at it, which may live in a part of the
+      # file -- or an entry -- the PR never opened. The pre-existing dangling
+      # backlog is grandfathered in tests/causal_target_baseline.txt, so this
+      # gates new breakage only.
+      - name: Check pathograph targets resolve
+        run: uv run python scripts/check_causal_targets.py
+
+      # Terms nested under `qualifiers` are a blind spot in the anti-hallucination
+      # stack. `linkml-term-validator` validates slots whose range is bound to an
+      # ontology-backed dynamic enum; `Qualifier.predicate`/`value` are plain
+      # Descriptors with no such binding, so their `term:` blocks are never looked
+      # at. Confirmed by putting "Totally Bogus Fabricated Label" on one and
+      # watching `just validate-terms` report "Validation passed" (#10197).
+      #
+      # It had already admitted a real defect: NCIT:C288 was curated as
+      # "vancomycin" when that code is Azacitidine, an antineoplastic.
+      #
+      # Offline and cache-first, so this adds no network dependency: it compares
+      # each label against the committed cache/<prefix>/terms.csv. Terms absent
+      # from the caches are reported, not gated -- see the script docstring.
+      - name: Check qualifier ontology terms
+        run: uv run python scripts/check_qualifier_terms.py
+
       # Ungated for the same reason as the entity-ref step above, and the
       # argument is if anything sharper. The contract IS covered by pytest
       # (`test_existing_repo_caches_match_frontmatter_contract`), but that lane
@@ -454,6 +543,14 @@ jobs:
       - name: Check the curation stub queue
         run: uv run dismech-stubs check
 
+      # This step and the comorbidity one below stay filter-gated rather than
+      # merge_group-forced: they consume the paths-filter's *file lists*, so
+      # forcing the gate without a list would validate nothing. On merge_group
+      # the filter computes those lists from the queue's base..head diff (the
+      # queued PRs' changes), so these validations run against exactly the KB
+      # files entering `main` -- including term/reference re-validation in the
+      # merged context, where a co-queued PR may have changed cache/** or
+      # references_cache/**.
       - name: Validate changed disorder KB files
         if: steps.changes.outputs.kb_disorders == 'true'
         run: |
@@ -467,39 +564,39 @@ jobs:
           just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
 
       - name: Validate hypothesis review artifacts
-        if: steps.changes.outputs.kb_hypotheses == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.kb_hypotheses == 'true'
         run: |
           just validate-hypothesis-assessment-all
           just validate-hypothesis-reconciliation-all
 
       - name: Validate history records
-        if: steps.changes.outputs.history == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.history == 'true'
         run: just validate-history-all
 
       - name: Set up Node.js
-        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.extension == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.app == 'true' || steps.changes.outputs.extension == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install Node.js dependencies
-        if: steps.changes.outputs.app == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.app == 'true'
         run: npm ci
 
       # The browser-extension tests are pure Node (no npm deps), so they run
       # whenever extension/ changes without needing `npm ci`.
       - name: Run browser-extension tests
-        if: steps.changes.outputs.extension == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.extension == 'true'
         run: just test-extension
 
       # CI runs narrower slices of `just test-code` so unrelated test-only
       # changes do not pay for full LinkML project generation or Node setup.
       - name: Run schema generation smoke test
-        if: steps.changes.outputs.schema_generation == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.schema_generation == 'true'
         run: just test-schema
 
       - name: Run Python code/logic tests
-        if: steps.changes.outputs.python == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.python == 'true'
         env:
           # Grandfather the snippet-length ratchet against the base branch's
           # live content, not the committed baseline snapshot (see the fetch
@@ -518,11 +615,11 @@ jobs:
         run: just test-python-code
 
       - name: Run LinkML example tests
-        if: steps.changes.outputs.examples == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.examples == 'true'
         run: just test-examples
 
       - name: Run browser search tests
-        if: steps.changes.outputs.app == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.app == 'true'
         run: just test-search
 
       # The whole-KB conformance sweep runs only when the schema itself (or the
@@ -534,5 +631,5 @@ jobs:
       # window for enum values specifically. Parallelized with xdist inside
       # `just test-kb`.
       - name: Run whole-KB schema-conformance sweep
-        if: steps.changes.outputs.schema == 'true'
+        if: github.event_name == 'merge_group' || steps.changes.outputs.schema == 'true'
         run: just test-kb
