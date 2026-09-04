@@ -145,3 +145,34 @@ def test_pr_only_steps_stay_guarded_by_event_name():
             f"step {step.get('name', '<unnamed>')!r} reads the PR number but "
             "is not guarded with github.event_name == 'pull_request'"
         )
+
+
+def test_schema_term_validation_is_offline_on_merge_group():
+    """The one forced step that reaches a third-party service must not make
+    every queue build depend on it.
+
+    Resolving the schema's dynamic-enum terms against EBI OLS is the point on
+    a PR that touched the schema or the OAK config. On a merge group the step
+    is forced on regardless of paths, which turned EBI availability into a
+    merge dependency and ejected two queue builds in four hours on read
+    timeouts the validator itself calls "not a data error" (#10677, #10700).
+    """
+    step = next(
+        s for s in workflow_steps()
+        if s.get("name") == "Validate schema term references"
+    )
+    run = str(step.get("run", ""))
+    assert "--offline" in run, (
+        "merge-group runs must validate schema terms against the committed "
+        "cache, not a remote ontology service"
+    )
+    assert MERGE_GROUP_FIRES in str(step.get("if", "")), (
+        "the step must still run on merge_group; only its network dependency "
+        "is dropped"
+    )
+    # The PR path must keep the online check, which is where it can differ.
+    online = [
+        line for line in run.splitlines()
+        if "validate-terms-schema" in line and "--offline" not in line
+    ]
+    assert online, "non-merge-group events must still validate online"
