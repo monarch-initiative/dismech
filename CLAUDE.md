@@ -1997,6 +1997,25 @@ phenotypes:
 
 **When `display_name` is set**, renderers show it instead of `name`. When absent, `name` is displayed directly.
 
+**A subtype list is a start, not an end state.** Only ~36% of declared
+subtypes are ever referenced by a `subtype:` foreign key, and about a third
+of the genes named in `has_subtypes[].genes` are not wired into the
+pathograph at all (no pathophysiology node carries the gene, and no causal
+`genetic:` entry links to one). When you declare a gene-specific subtype,
+also (a) stratify at least the subtype-divergent phenotypes/genetic rows via
+`subtype:`, and (b) make sure the gene reaches the pathograph — a `genes:`
+descriptor on the relevant pathophysiology node is enough for
+`dismech.graph` to auto-link it. Audit with:
+
+```bash
+just subtype-usage-audit                          # census + wiring summary
+just subtype-usage-audit --format list --status ABSENT
+just subtype-usage-audit kb/disorders/MyDisease.yaml --format list
+```
+
+See `docs/reports/subtype-field-usage-audit-2026-09-04.md` for the baseline
+census and the two recurring failure shapes.
+
 ### Reference Ranges and Interpretation Bands
 
 A `Biochemical` marker can carry clinical laboratory `reference_ranges`
