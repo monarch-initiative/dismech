@@ -30,7 +30,10 @@ def test_curation_pr_with_reference_cache_and_history_is_incremental():
         [
             ("M", "kb/disorders/Marfan_Syndrome.yaml"),
             ("A", "references_cache/PMID_12345678.md"),
-            ("A", "history/disorders/Marfan_Syndrome/2026-07-06T00Z-claude-code-a1.yaml"),
+            (
+                "A",
+                "history/disorders/Marfan_Syndrome/2026-07-06T00Z-claude-code-a1.yaml",
+            ),
             ("M", "cache/hp/terms.csv"),
         ]
     )
@@ -83,6 +86,12 @@ def test_comorbidity_only_is_incremental_with_no_disorder_files():
 
 def test_module_change_is_incremental():
     d = classify([("M", "kb/modules/fibrotic_response.yaml")])
+    assert d.mode == "incremental"
+    assert d.disorder_files == []
+
+
+def test_module_collection_change_is_incremental():
+    d = classify([("M", "kb/module_collections/Hallmarks_of_Aging.yaml")])
     assert d.mode == "incremental"
     assert d.disorder_files == []
 
@@ -281,7 +290,10 @@ def test_stale_page_with_equal_counts_is_drift(tmp_path):
 
 def test_content_drift_reports_both_directions(tmp_path):
     disorders_dir, pages_dir = _make_tree(
-        tmp_path, ["Asthma", "Sarcoidosis"], ["Asthma", "Sarcoidosis"], stale=["Sarcoidosis"]
+        tmp_path,
+        ["Asthma", "Sarcoidosis"],
+        ["Asthma", "Sarcoidosis"],
+        stale=["Sarcoidosis"],
     )
     stale, unrendered = detect_page_content_drift(disorders_dir, pages_dir)
     assert stale == ["Sarcoidosis.html"]
@@ -506,9 +518,7 @@ def test_report_emits_targeted_heal_and_worklist(tmp_path, monkeypatch):
     assert worklist.splitlines() == [str(disorders_dir / "Sarcoidosis.yaml")]
 
 
-def test_report_emits_full_heal_and_empty_worklist_for_a_rename(
-    tmp_path, monkeypatch
-):
+def test_report_emits_full_heal_and_empty_worklist_for_a_rename(tmp_path, monkeypatch):
     disorders_dir, pages_dir = _make_tree(tmp_path, ["New_Name"], ["Old_Name"])
     outputs, worklist = _run_report(tmp_path, monkeypatch, disorders_dir, pages_dir)
     assert outputs["drift"] == "true"
