@@ -163,6 +163,17 @@ If the claim is useful but no quotable evidence is available, move it to a
 schema and curation policy permit it, or remove the claim. Never manufacture a
 quote to preserve an evidence block.
 
+**Moving a claim to `notes` applies to your own well-established knowledge, and
+to nothing else.** It is the exact wrong move for a claim you took from a
+deep-research report and could not verify: moving that into `notes` does not
+soften it, it launders it, because `notes` is the one place no check will ever
+look. The two cases read identically in the diff and are opposite in kind.
+
+| You cannot quote it because… | Do |
+|---|---|
+| the fact is textbook and no abstract states it crisply | move it to `notes`, no evidence |
+| a DR report asserted it and the cited abstract does not contain it | **drop the claim** — it is unverified, not merely unquotable |
+
 `Total checks: 0` in reference-validator output means zero issues were counted;
 it does not mean no evidence was examined. Use the wrapper's affirmative
 `Snippets checked: N/N verified` summary to describe cache-backed coverage.
@@ -245,6 +256,60 @@ A phenotype `frequency:` value is a separate quantitative claim from the
 disease-phenotype association. Give it evidence that supports the frequency
 band or omit it. Follow `docs/frequency-evidence-guidelines.md` for acceptable
 quantitative, derived, qualitative, and clinical-estimate evidence.
+
+## The prose layer is unchecked — figures in `description` and `notes`
+
+Every anti-hallucination check dismech runs reads `evidence[].snippet`.
+`validate-references`, `count-verified-snippets`, `check_snippets_verbatim.py`,
+`check-title-snippets`, `check-snippet-length` — all of them. **A claim that
+never becomes a snippet is checked by nothing.**
+
+So this passes the entire suite:
+
+```yaml
+# Wrong: a real, topical PMID attached to a figure it does not contain
+- name: Autism Spectrum Disorder
+  description: >-
+    ...TAND collectively affects ~90% of TSC patients across the lifespan.
+  evidence:
+  - reference: PMID:27226234        # real paper, correct topic, zero percentages
+    snippet: "TSC-associated neuropsychiatric disorders, which can include..."
+```
+
+The snippet verifies. The PMID resolves. The paper is genuinely about TSC. The
+`~90%` appears nowhere in it. This is a distinct failure mode from an unresolved
+identifier or a named-entity confusion: the citation is right and the *number* is
+imported from somewhere else. It is also, empirically, the one that gets through
+— @jmcmurry ran 10 new entries whose curating agents were each explicitly warned
+about this exact risk and each adversarially reviewed for it: snippets came back
+**992/992 clean**, and unverified or source-contradicted prose claims turned up
+in **10 of 10 entries** (#7791). Two recurring generators worth naming: an author
+affiliation read as patient ancestry ("a Sydney affiliation" → "Australian
+families"), and a process claim stated as a world fact.
+
+**The rule:** a figure you cannot attach to a verbatim snippet does not belong in
+prose either. Prose is not the safe place to put a claim you could not verify —
+it is the *unprotected* place. So when screening a deep-research report, verify
+every quantitative claim you write into `description` or `notes` against the
+cached text of the reference you attribute it to, alongside the snippet and term
+checks in the workflow above.
+
+```bash
+just prose-figure-audit                        # whole KB census (~2 min, offline)
+just prose-figure-audit --dr-only --format list
+just prose-figure-audit kb/disorders/Asthma.yaml --format list
+```
+
+The audit reports percentages, `1 in N`, per-100,000 rates and `N-fold` figures
+that do not appear in the references cited *beside* them. Two things it is not:
+
+- **It is advisory, not a gate.** It is heuristic, is not in `just qc`, and is
+  not wired into CI. Derived figures are legitimate (a curator may convert
+  1-in-25,000 to 4 per 100,000; the common conversions are handled, arithmetic in
+  general is not), and not every real source is cached prose.
+- **`OK` is not verification.** Finding the number in an adjacent abstract says
+  nothing about whether it was that percentage *of that thing*. Only reading the
+  source settles it — which is exactly the point of the failure mode.
 
 ## Finding a cache file
 
