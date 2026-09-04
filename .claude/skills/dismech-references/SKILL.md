@@ -143,7 +143,7 @@ just validate-disorders \
 
 This batched command mirrors CI's schema, term, and reference checks and uses
 `--no-full-text`. It is the authoritative evidence gate for disorder files.
-Use `just validate-references <file>` only when a non-disorder target or a
+Use `just validate-kb-references <file>` only when a non-disorder target or a
 full-text-permitting diagnostic requires it.
 
 Never report a validation command as passing unless it finished and you read
@@ -211,7 +211,7 @@ snippet without replaying validation across the KB.
 them. The failure mode that exposed is specific: **correct PMID, verified
 snippet, invented title.** Each gate reads a different field — `linkml-validate`
 confirms the slot is a string, `count-verified-snippets` and
-`validate-references` check the *snippet*, `validate-terms` checks ontology
+`validate-kb-references` check the *snippet*, `validate-terms` checks ontology
 terms, and `check_title_snippets` (despite the name) asks whether a snippet
 quotes a title. None of them reads the title.
 
