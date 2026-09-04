@@ -274,15 +274,31 @@ def _wrap_xml_extractor(original):
     the article carries is appended as quotable rows. Upstream keeps ``<body>``
     paragraphs only, so a clinical report's Table 1 -- the per-patient phenotype
     grid -- never reached the cache; see :func:`_jats_tables_as_text`.
+
+    Scope: this patch covers ``XMLExtractor.extract`` only. The same
+    ``"restricted" in text.lower()`` guard also sits in
+    ``PMIDSource._fetch_pmc_xml``, which this module wraps for network retry but
+    not for this. That path is not the one supplying full text today -- the
+    ``pmc`` full-text provider is -- so it is left alone rather than patched
+    speculatively. If it ever becomes the supplying path, the bug is live there
+    and this wrapper will not catch it.
     """
 
     @wraps(original)
     def wrapper(self, data, *args, **kwargs):
         result = original(self, data, *args, **kwargs)
         text_data = data.decode("utf-8") if isinstance(data, bytes) else data
+
+        # Parsing a full article is not cheap, so only pay for it when there is
+        # something to gain: a body to recover, or a table to append.
+        needs_recovery = result is None
+        has_tables = "<table-wrap" in text_data
+        if not needs_recovery and not has_tables:
+            return result
+
         soup = BeautifulSoup(text_data, "xml")
 
-        if result is None:
+        if needs_recovery:
             body = soup.find("body")
             if body is None:
                 return None
