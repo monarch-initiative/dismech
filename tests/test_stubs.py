@@ -214,8 +214,10 @@ def _fixture_mondo_db(tmp_path):
                 "MONDO:0000004",
                 "rdfs:comment",
                 None,
-                "This term is scheduled to be merged with MONDO:0000005 other "
-                "disease ... and replaced with MONDO:0000005",
+                (
+                    "This term is scheduled to be merged with MONDO:0000005 "
+                    "other disease ... and replaced with MONDO:0000005"
+                ),
             ),
             (
                 "MONDO:0000004",
@@ -354,6 +356,55 @@ def test_term_iri_and_curie_forms_both_normalize():
         == "MONDO:0859003"
     )
     assert normalize_term(None) == ""
+
+    # `mondo_replaced_by` is pattern-constrained in the schema, so a successor
+    # outside MONDO is dropped here rather than written into a stub that then
+    # fails `just validate-stubs`.
+    for outside in ("DOID:1234", "http://example.org/whatever", "MONDO:12"):
+        assert normalize_term(outside) == "", outside
+
+
+def test_the_replacement_triple_beats_the_scheduled_merge_prose(tmp_path):
+    """A scheduled term may carry `IAO:0100001`; the triple is authoritative.
+
+    It is also the case that a term can carry several `rdfs:comment` rows, and
+    keeping only one of them can drop the scheduled-obsoletion note entirely.
+    """
+    import sqlite3
+
+    from dismech.stubs.obsolescence import load_obsolescence
+
+    path = tmp_path / "mondo.db"
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "create table statements "
+        "(subject text, predicate text, object text, value text, datatype text)"
+    )
+    conn.executemany(
+        "insert into statements (subject, predicate, object, value) values (?,?,?,?)",
+        [
+            ("MONDO:0000004", "oio:inSubset", "obo:mondo#obsoletion_candidate", None),
+            ("MONDO:0000004", "rdfs:comment", None, "An unrelated editor note."),
+            (
+                "MONDO:0000004",
+                "rdfs:comment",
+                None,
+                "... and replaced with MONDO:0000009",
+            ),
+            ("MONDO:0000004", "IAO:0100001", "MONDO:0000005", None),
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+    scheduled = load_obsolescence(path).get("MONDO:0000004")
+    assert scheduled.proposed_replacement == "MONDO:0000005", (
+        "the IAO:0100001 triple should win over the prose"
+    )
+    # Both comments survive, so the scheduled-merge note is not lost to whichever
+    # row the database happened to return last.
+    assert "unrelated editor note" in scheduled.obsoletion_note
+    assert "MONDO:0000009" in scheduled.obsoletion_note
 
 
 def test_duplicate_detection_matches_synonyms_not_acronyms():

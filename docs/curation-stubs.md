@@ -105,12 +105,20 @@ Enrichment also asks MONDO whether it has retired the stub's term, or decided
 to, and writes the answer into the file so the check that reads it needs no
 ontology:
 
+A term MONDO has already retired is no longer *scheduled* to be, so a stub
+carries one case or the other, never both. Already retired, and merged into a
+survivor:
+
 ```yaml
 mondo_obsolete: true
 mondo_replaced_by: MONDO:0859003
-mondo_obsoletion_candidate: >-
-  This term is scheduled to be merged with MONDO:0859003 PAICS deficiency ...
-  https://github.com/monarch-initiative/mondo/issues/9884
+```
+
+Scheduled but still live, carrying MONDO's own note verbatim (emitted as one
+long line — the writer does not fold):
+
+```yaml
+mondo_obsoletion_candidate: This term is scheduled to be merged with MONDO:0859003 PAICS deficiency, based on the fact that the concept of these 2 terms are the same. This ID will therefore be obsoleted and replaced with MONDO:0859003 https://github.com/monarch-initiative/mondo/issues/9884
 ```
 
 The signal this replaces was a heuristic on the label. MONDO prefixes a retired

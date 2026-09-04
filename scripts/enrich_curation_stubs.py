@@ -45,11 +45,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.stubs.obsolescence import TermStatus, read_statuses
+from dismech.stubs.obsolescence import TermStatus, default_mondo_db, read_statuses
 from dismech.stubs.seed import yaml_scalar
 from dismech.yaml_io import safe_load
 
-DEFAULT_MONDO_DB = Path.home() / ".data" / "oaklib" / "mondo.db"
+#: Resolved the way OAK resolves `sqlite:obo:mondo` — through pystow, which
+#: reads PYSTOW_HOME. Hardcoding `~/.data` meant a contributor who sets it got
+#: `just stub-obsolescence` reading the ontology while `just enrich-stubs`
+#: reported the same database missing.
+DEFAULT_MONDO_DB = default_mondo_db()
 HGNC_CACHE = ROOT / "cache" / "hgnc" / "terms.csv"
 #: Records which MONDO release the committed enrichment came from, so diff churn
 #: in `mondo_descendant_count` across machines is attributable. Mirrors
@@ -152,7 +156,7 @@ def render(parents, descendants, total, genes, status=None) -> list[str]:
         # either way.
         if status.obsolete:
             lines.append("mondo_obsolete: true")
-        if status.replaced_by:
+        if status.obsolete and status.replaced_by:
             lines.append(f"mondo_replaced_by: {status.replaced_by}")
         if status.obsoletion_candidate and status.obsoletion_note:
             lines.append(

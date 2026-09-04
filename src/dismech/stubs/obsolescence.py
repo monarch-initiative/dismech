@@ -58,6 +58,10 @@ OBSOLETION_CANDIDATE_SUBSET = "obsoletion_candidate"
 _MONDO_PREFIX = "MONDO:"
 _OBO_IRI = "http://purl.obolibrary.org/obo/"
 _VERSION_RE = re.compile(r"/releases/([0-9]{4}-[0-9]{2}-[0-9]{2})/")
+#: What `mondo_replaced_by` is allowed to be. Mirrors the slot's schema pattern,
+#: so a value that would fail `just validate-stubs` on a committed stub is
+#: dropped here instead — near its cause rather than three commands later.
+_MONDO_CURIE_RE = re.compile(r"^MONDO:[0-9]{7}$")
 #: MONDO's scheduled-merge comments name the survivor in a fixed phrasing:
 #: "...will therefore be obsoleted and replaced with MONDO:0859003".
 _PROPOSED_REPLACEMENT_RE = re.compile(r"replaced with (MONDO:[0-9]{7})")
@@ -86,9 +90,14 @@ def normalize_term(value: object) -> str:
     text = str(value or "").strip()
     if not text:
         return ""
-    if text.startswith(_OBO_IRI):
-        text = text[len(_OBO_IRI) :]
-    return text.replace("MONDO_", _MONDO_PREFIX, 1) if "MONDO_" in text else text
+    text = text.removeprefix(_OBO_IRI)
+    if "MONDO_" in text:
+        text = text.replace("MONDO_", _MONDO_PREFIX, 1)
+    # `term_replaced_by` may point outside MONDO, or at something this does not
+    # know how to spell as a CURIE. Returning "" rather than the raw value keeps
+    # a shape the `mondo_replaced_by` slot's pattern accepts, instead of writing
+    # a stub that only fails later under `just validate-stubs`.
+    return text if _MONDO_CURIE_RE.match(text) else ""
 
 
 @dataclass(frozen=True)
@@ -97,7 +106,9 @@ class TermStatus:
 
     curie: str
     obsolete: bool = False
-    #: `term_replaced_by`, once the term is actually obsolete.
+    #: `term_replaced_by`, whenever MONDO states one. Usually only on an already
+    #: obsolete term, but a scheduled one may carry it too, and the triple is
+    #: authoritative where the scheduled-merge prose is not.
     replaced_by: str | None = None
     #: True when MONDO has decided to retire the term but has not yet done so.
     obsoletion_candidate: bool = False
@@ -110,10 +121,13 @@ class TermStatus:
     def proposed_replacement(self) -> str | None:
         """The survivor named in a scheduled-merge note, when there is one.
 
-        Advisory. A note saying the term will be obsoleted with no replacement
-        yields `None`, and so does any phrasing this does not recognize — the
-        full note is always kept in `obsoletion_note`.
+        Prefers `replaced_by` when MONDO states the triple, and only falls back
+        to reading the prose. A note saying the term will be obsoleted with no
+        replacement yields `None`, and so does any phrasing this does not
+        recognize — the full note is always kept in `obsoletion_note`.
         """
+        if self.replaced_by:
+            return self.replaced_by
         match = _PROPOSED_REPLACEMENT_RE.search(self.obsoletion_note or "")
         return match.group(1) if match else None
 
@@ -220,22 +234,36 @@ def read_statuses(
         for subject, value in query(*SUBSET_PREDICATES)
         if OBSOLETION_CANDIDATE_SUBSET in value
     }
+
+    def collect(*predicates: str, subjects: list[str]) -> dict[str, list[str]]:
+        """All values per subject, not just the last.
+
+        A term can carry several `rdfs:comment` rows, and `dict()` over the
+        result would keep whichever came back last — which need not be the
+        scheduled-obsoletion note. Keeping every row means the note survives.
+        """
+        out: dict[str, list[str]] = {}
+        if not subjects:
+            return out
+        for subject, value in query(*predicates, subjects=subjects):
+            if value:
+                out.setdefault(subject, []).append(value)
+        return out
+
     scheduled = sorted(candidates - deprecated)
-    comments = dict(query("rdfs:comment", subjects=scheduled)) if scheduled else {}
-    trackers = dict(query(TRACKER_PREDICATE, subjects=scheduled)) if scheduled else {}
+    comments = collect("rdfs:comment", subjects=scheduled)
+    trackers = collect(TRACKER_PREDICATE, subjects=scheduled)
 
     statuses: dict[str, TermStatus] = {}
     for curie in sorted(deprecated | candidates):
         is_candidate = curie in candidates and curie not in deprecated
         note = None
         if is_candidate:
-            note = " ".join(
-                part for part in (comments.get(curie), trackers.get(curie)) if part
-            ).strip()
+            note = " ".join(comments.get(curie, []) + trackers.get(curie, [])).strip()
         statuses[curie] = TermStatus(
             curie=curie,
             obsolete=curie in deprecated,
-            replaced_by=replacements.get(curie) if curie in deprecated else None,
+            replaced_by=replacements.get(curie),
             obsoletion_candidate=is_candidate,
             obsoletion_note=note or None,
         )

@@ -16,13 +16,6 @@ from .claims import (
     parse_claims,
     unkeyed_claims,
 )
-from .obsolescence import (
-    ObsolescenceIndex,
-    TermStatus,
-    default_mondo_db,
-    load_obsolescence,
-    read_statuses,
-)
 from .model import (
     CoverageIndex,
     Stub,
@@ -38,28 +31,35 @@ from .model import (
     slugify_label,
     stub_filename,
 )
+from .obsolescence import (
+    ObsolescenceIndex,
+    TermStatus,
+    default_mondo_db,
+    load_obsolescence,
+    read_statuses,
+)
 
 __all__ = [
     "Claim",
     "CoverageIndex",
     "ObsolescenceIndex",
-    "TermStatus",
     "Stub",
     "StubIssue",
+    "TermStatus",
     "build_coverage_index",
-    "default_mondo_db",
-    "load_obsolescence",
-    "read_statuses",
     "check_stubs",
+    "default_mondo_db",
     "default_repo_root",
     "default_stub_dir",
     "double_claims",
     "index_claims",
     "iter_stub_files",
+    "load_obsolescence",
     "load_stub",
     "load_stubs",
     "load_stubs_reporting_errors",
     "parse_claims",
+    "read_statuses",
     "slugify_label",
     "stub_filename",
     "unkeyed_claims",
