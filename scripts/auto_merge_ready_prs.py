@@ -112,6 +112,12 @@ PASSING_CONCLUSIONS = frozenset({"SUCCESS", "SKIPPED", "NEUTRAL"})
 # Legacy commit-status states (StatusContext rollup entries).
 PASSING_STATES = frozenset({"SUCCESS", "EXPECTED", "NEUTRAL"})
 
+# Each successful enqueue creates a PR comment, and GitHub applies an
+# 80-content-creating-requests/minute secondary limit. Fifty leaves headroom
+# for other automation and keeps the controller comfortably inside its
+# 15-minute job timeout even though every candidate is re-read twice.
+DEFAULT_MAX_ENQUEUE_PER_RUN = 50
+
 # Merge failures that mean "the guards worked" rather than "something is
 # broken": the PR moved under us between verification and merge, or somebody
 # else got there first. The sweep runs hourly, so the right response
@@ -133,12 +139,21 @@ BENIGN_MERGE_FAILURES = (
 )
 
 # Status glyphs gh prefixes to its stderr lines, stripped for readability.
-GH_STATUS_MARKERS = ("X ", "! ", "✓ ")
+GH_WARNING_MARKER = "! "
+GH_STATUS_MARKERS = ("X ", GH_WARNING_MARKER, "✓ ")
 
 MERGE_COMMENT = (
     "🐑 **PR Shepherd** (deterministic sweep) — Squash-merged: approved, "
     "no human assignee, no conflicts, all checks green, and open longer than "
     "{days} days. No further action needed."
+)
+
+ENQUEUE_COMMENT = (
+    "🐑 **PR Shepherd** (deterministic sweep) — Added to the merge queue: "
+    "approved, no human assignee, no conflicts, all checks green, and open "
+    "longer than {days} days. GitHub will test this PR against current "
+    "`main` and merge it if that passes; if it does not, this PR stops being "
+    "eligible and needs a look."
 )
 
 # GitHub Apps cannot normally be assignees. The retired Dragon machine identity
@@ -361,16 +376,31 @@ def _gh_error(exc: subprocess.CalledProcessError) -> str:
     Take the *first* non-empty line, not the last: when ``gh pr merge`` refuses
     a merge it puts the actionable sentence first and appends ``--auto`` and
     ``--admin`` hint lines, so the last line is advice rather than a diagnosis.
+
+    Lines ``gh`` marked as warnings ("! ...") are *deprioritized* rather than
+    dropped. On a queue-required branch ``gh`` prints a warning before doing
+    its work, so reporting the literal first line would attribute every
+    failure -- whatever its real cause -- to that warning. A warning is still
+    returned when it is all stderr contains, which is better than discarding
+    the only information available.
     """
+    warnings: list[str] = []
     for line in (exc.stderr or "").splitlines():
         cleaned = line.strip()
+        is_warning = cleaned.startswith(GH_WARNING_MARKER)
         # removeprefix, not lstrip: lstrip takes a character *set*, so it would
         # eat the leading "X" and "-" of a line like "X-Ratelimit is 0".
         for marker in GH_STATUS_MARKERS:
             cleaned = cleaned.removeprefix(marker)
         cleaned = cleaned.strip()
-        if cleaned:
-            return cleaned
+        if not cleaned:
+            continue
+        if is_warning:
+            warnings.append(cleaned)
+            continue
+        return cleaned
+    if warnings:
+        return warnings[0]
     return f"gh exited {exc.returncode}"
 
 
@@ -452,18 +482,176 @@ def view_pr(
     return pr
 
 
+@dataclass(frozen=True)
+class QueueState:
+    """Whether a merge queue is in force on the base branch, and who is in it.
+
+    Both answers come from one read taken **once per run**, before the
+    candidate loop: queue-required is branch state, not per-PR state, and this
+    module works hard to keep the window between the final base check and the
+    write narrow. A per-merge lookup would widen exactly that window.
+
+    ``active`` is False when the lookup fails, keeping pre-queue behavior
+    rather than silently changing how merges are issued on a bad API day. A
+    null ``mergeQueue`` node is also False, and that is what makes this track
+    the break-glass pause: disabling the ruleset nulls the node (verified
+    against a scratch branch -- active returns an ``MQ_`` id, ruleset disabled
+    returns null).
+    """
+
+    active: bool
+    queued_pr_numbers: frozenset[int]
+    # False only when the read itself failed. Without this, "no queue in
+    # force" and "could not tell" are the same value, and an inert fix is
+    # indistinguishable from the starvation bug it was meant to remove.
+    readable: bool = True
+    truncated: int = 0
+
+    def summary_line(self) -> str:
+        """One line for the run report, so inertness is visible immediately."""
+        if not self.readable:
+            return (
+                "**Merge queue:** state unavailable — falling back to direct "
+                "merge. If a queue is in force on the base branch, queued PRs "
+                "will be reselected and re-enqueued."
+            )
+        if not self.active:
+            return "**Merge queue:** not in force on the base branch."
+        line = f"**Merge queue:** active, {len(self.queued_pr_numbers)} queued."
+        if self.truncated:
+            line += (
+                f" Only the first {len(self.queued_pr_numbers)} of "
+                f"{self.truncated} entries were read, so a queued PR beyond "
+                "that may be reselected."
+            )
+        return line
+
+
+def read_queue_state(repo: str, branch: str) -> QueueState:
+    """Read the base branch's complete merge queue with GraphQL pagination."""
+    owner, _, name = repo.partition("/")
+    query = (
+        "query($owner:String!,$name:String!,$branch:String!,$endCursor:String){"
+        "repository(owner:$owner,name:$name){mergeQueue(branch:$branch){id "
+        "entries(first:100,after:$endCursor){totalCount "
+        "pageInfo{hasNextPage endCursor} nodes{pullRequest{number}}}}}}"
+    )
+    try:
+        payload = _gh(
+            [
+                "api",
+                "graphql",
+                "--paginate",
+                "--slurp",
+                "-f",
+                f"owner={owner}",
+                "-f",
+                f"name={name}",
+                "-f",
+                f"branch={branch}",
+                "-f",
+                f"query={query}",
+            ]
+        )
+        data = json.loads(payload)
+    except (subprocess.CalledProcessError, OSError, ValueError) as exc:
+        print(f"WARN  could not read merge-queue state: {exc}", file=sys.stderr)
+        return QueueState(False, frozenset(), readable=False)
+    # `gh api --paginate --slurp` returns a list. Accept one object as well so
+    # callers using an older gh and focused unit-test fixtures fail safely.
+    pages = data if isinstance(data, list) else [data]
+    if not pages or not all(isinstance(page, dict) for page in pages):
+        print("WARN  merge-queue read returned an unexpected shape", file=sys.stderr)
+        return QueueState(False, frozenset(), readable=False)
+
+    numbers: set[int] = set()
+    total: int | None = None
+    nodes_read = 0
+    for index, page in enumerate(pages):
+        repository = (page.get("data") or {}).get("repository") or {}
+        if not isinstance(repository, dict):
+            print(
+                "WARN  merge-queue read returned an unexpected repository",
+                file=sys.stderr,
+            )
+            return QueueState(False, frozenset(), readable=False)
+        queue = repository.get("mergeQueue")
+        if not queue:
+            if index == 0:
+                return QueueState(False, frozenset())
+            print("WARN  merge queue disappeared during pagination", file=sys.stderr)
+            return QueueState(False, frozenset(), readable=False)
+        if not isinstance(queue, dict):
+            print(
+                "WARN  merge-queue read returned an unexpected queue", file=sys.stderr
+            )
+            return QueueState(False, frozenset(), readable=False)
+        entries = queue.get("entries") or {}
+        if not isinstance(entries, dict):
+            print("WARN  merge-queue read returned unexpected entries", file=sys.stderr)
+            return QueueState(False, frozenset(), readable=False)
+        nodes = entries.get("nodes") or []
+        if not isinstance(nodes, list):
+            print("WARN  merge-queue read returned unexpected nodes", file=sys.stderr)
+            return QueueState(False, frozenset(), readable=False)
+        nodes_read += len(nodes)
+        numbers.update(
+            int(entry["pullRequest"]["number"])
+            for entry in nodes
+            if isinstance(entry, dict)
+            and isinstance(entry.get("pullRequest"), dict)
+            and entry["pullRequest"].get("number")
+        )
+        page_total = entries.get("totalCount")
+        if isinstance(page_total, int):
+            total = page_total if total is None else max(total, page_total)
+
+    truncated = total if total is not None and total > nodes_read else 0
+    if truncated:
+        # Truncation is only a missed skip, never a bad merge -- but say so
+        # rather than letting the page size silently bound correctness.
+        print(
+            f"WARN  merge queue holds {total} entries; only the first "
+            f"{len(nodes)} were read, so a queued PR beyond that may be "
+            "reselected",
+            file=sys.stderr,
+        )
+    return QueueState(True, frozenset(numbers), truncated=truncated)
+
+
 def merge_pr(
     repo: str,
     number: int,
     min_age_days: int,
     head_sha: str | None,
     write_token: str,
-) -> None:
-    """Squash-merge one PR, then announce it.
+    queued: bool = False,
+) -> bool:
+    """Squash-merge one PR -- or add it to the merge queue -- then announce it.
 
-    ``--match-head-commit`` makes GitHub reject the merge if a push landed
-    after the verification read, so the commit merged is provably the commit
-    whose checks and review state were evaluated.
+    ``--match-head-commit`` makes GitHub reject the operation if a push landed
+    after the verification read, so the commit acted on is provably the commit
+    whose checks and review state were evaluated. It pins the enqueued head
+    the same way it pins a direct merge: ``gh`` assigns it to
+    ``payload.expectedHeadOid`` before the queue branch.
+
+    With ``queued`` set, the base branch requires a merge queue and this
+    **enqueues** rather than merges: the PR is tested against current ``main``
+    on a temporary branch and merged only if that passes. So a successful call
+    no longer means "merged", and the announcement says so. A PR whose own
+    required checks have not yet passed is armed for auto-merge and enters the
+    queue when they do.
+
+    The strategy flag is dropped on that path for accuracy, not necessity.
+    ``gh`` only *warns* when given one on a queue-required branch and enqueues
+    anyway with exit status 0 (the ``// only warn for now`` branch of
+    ``mergeRun`` in ``cli/cli``, checked against gh 2.96.0). Passing
+    ``--squash`` there is harmless to the merge but not to diagnosis: ``gh``
+    prints that warning first, and ``_gh_error`` reports the first stderr
+    line, so every genuine failure would be misreported as the queue warning.
+
+    Returns whether the PR was enqueued rather than merged, so callers can
+    report the operation they actually performed.
     """
     verified_head = str(head_sha or "").strip()
     if not verified_head:
@@ -477,7 +665,7 @@ def merge_pr(
         str(number),
         "--repo",
         repo,
-        "--squash",
+        *([] if queued else ["--squash"]),
         "--match-head-commit",
         verified_head,
     ]
@@ -495,16 +683,19 @@ def merge_pr(
                 "--repo",
                 repo,
                 "--body",
-                MERGE_COMMENT.format(days=min_age_days),
+                (ENQUEUE_COMMENT if queued else MERGE_COMMENT).format(
+                    days=min_age_days
+                ),
             ],
             token=writer,
         )
     except subprocess.CalledProcessError as exc:
         print(
-            f"WARN  #{number}: merged, but posting the comment failed: "
-            f"{_gh_error(exc)}",
+            f"WARN  #{number}: {'enqueued' if queued else 'merged'}, but "
+            f"posting the comment failed: {_gh_error(exc)}",
             file=sys.stderr,
         )
+    return queued
 
 
 def mark_pr_ready(repo: str, number: int, write_token: str) -> None:
@@ -527,32 +718,60 @@ def render_summary(
     merged: list[dict],
     skipped: list[dict],
     failed: list[dict],
+    unprocessed: list[dict] | None = None,
     *,
     dry_run: bool = False,
+    queue_state: QueueState | None = None,
 ) -> str:
     """Render the run report.
 
     ``dry_run`` retitles the merged section: a dry run that logs "Merged 3"
     into the step summary leaves a permanent, false audit trail.
+
+    ``queue_state`` is reported unconditionally, not just when it changed the
+    outcome. A failed queue read makes this controller behave exactly as it
+    did before queue awareness -- reselecting and re-enqueueing a queued PR --
+    so "the fix is inert" must be visible in the artifact operators read,
+    rather than inferred from the absence of a skip line.
     """
     title = "## 🐑 Deterministic auto-merge sweep"
     if dry_run:
-        title += " (dry run — nothing was merged)"
+        title += " (dry run — no changes made)"
     lines = [title, ""]
-    verb = "Would merge" if dry_run else "Merged"
-    if merged:
-        lines.append(f"**{verb} {len(merged)}:**")
+    if queue_state is not None:
+        lines.extend([queue_state.summary_line(), ""])
+    queued = [row for row in merged if row.get("queued")]
+    direct = [row for row in merged if not row.get("queued")]
+    sections = [
+        (
+            "Would add to the merge queue" if dry_run else "Added to the merge queue",
+            queued,
+        ),
+        ("Would merge" if dry_run else "Merged", direct),
+    ]
+    shown = False
+    for verb, rows in sections:
+        if not rows:
+            continue
+        shown = True
+        lines.append(f"**{verb} {len(rows)}:**")
         lines += [
             f"- #{row['number']} — {row['title']}"
             + (f" ({row['action']})" if row.get("action") else "")
-            for row in merged
+            for row in rows
         ]
-    else:
+        lines.append("")
+    if not shown:
+        verb = "Would merge" if dry_run else "Merged"
         lines.append(f"**{verb} 0** — nothing met every criterion.")
-    lines.append("")
+        lines.append("")
     if failed:
-        lines.append(f"**Failed to merge {len(failed)}:**")
+        lines.append(f"**Failed {len(failed)}:**")
         lines += [f"- #{r['number']} — {r['reason']}" for r in failed]
+        lines.append("")
+    if unprocessed:
+        lines.append(f"**Unprocessed candidates {len(unprocessed)}:**")
+        lines += [f"- #{r['number']} — {r['reason']}" for r in unprocessed]
         lines.append("")
     if skipped:
         lines.append(
@@ -589,6 +808,15 @@ def main(argv: list[str] | None = None) -> int:
         "--specific-pr",
         type=int,
         help="evaluate only this PR instead of scanning all open PRs",
+    )
+    parser.add_argument(
+        "--max-enqueue-per-run",
+        type=non_negative_int,
+        default=DEFAULT_MAX_ENQUEUE_PER_RUN,
+        help=(
+            "maximum enqueue attempts in one queue-mode run "
+            f"(default: {DEFAULT_MAX_ENQUEUE_PER_RUN}; ignored for dry runs)"
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -651,12 +879,73 @@ def main(argv: list[str] | None = None) -> int:
         f"Scanned {len(prs)} open PR(s); {len(candidates)} passed the list-level predicate."
     )
 
+    # Once per run, before any write: is a queue in force, and who is in it?
+    #
+    # What a queued PR reports depends on its ENTRY state, and the two cases
+    # were measured separately on the live queue:
+    #
+    #   AWAITING_CHECKS -> mergeable/mergeStateStatus are UNKNOWN while the
+    #     queue builds. `evaluate` rejects that ("mergeability is unknown")
+    #     and the loop `continue`s, so the sweep already moves on. Skipping
+    #     here saves the repeated view_pr attempts and their backoff sleeps
+    #     spent waiting for an UNKNOWN that will not resolve, and reports an
+    #     accurate reason instead of a misleading mergeability one.
+    #
+    #   UNMERGEABLE -> observed on #10576 at 2026-09-02T23:37Z: entry state
+    #     UNMERGEABLE, isInMergeQueue true, yet the PR itself reported
+    #     mergeable=MERGEABLE and mergeStateStatus=CLEAN, and it stayed that
+    #     way for ~48 minutes before GitHub ejected it. THAT is the
+    #     budget-consuming case: it passes every predicate, re-enqueueing
+    #     SUCCEEDS (gh exits 0 on an already-queued PR), and the sweep spends
+    #     its one action re-announcing a PR that is already queued.
+    #
+    # So the skip is load-bearing for the second case and a cost/clarity win
+    # for the first. It also stops correct behavior resting on GitHub's
+    # undocumented UNKNOWN reporting for queued PRs.
+    queue_state = read_queue_state(args.repo, args.base_branch)
+    if queue_state.active:
+        already = [
+            pr for pr in candidates if pr["number"] in queue_state.queued_pr_numbers
+        ]
+        for pr in already:
+            reason = "already in the merge queue"
+            print(f"SKIP  #{pr['number']}: {reason}")
+            skipped.append({"number": pr["number"], "reason": reason})
+        candidates = [
+            pr for pr in candidates if pr["number"] not in queue_state.queued_pr_numbers
+        ]
+        print(
+            f"Merge queue is in force on {args.base_branch}: "
+            f"{len(queue_state.queued_pr_numbers)} PR(s) queued, "
+            f"{len(candidates)} candidate(s) remain."
+        )
+
     # Oldest first is deterministic and honors the standing human-review window.
     candidates.sort(key=lambda pr: (_parse_ts(pr["createdAt"]), int(pr["number"])))
 
     merged: list[dict] = []
     failed: list[dict] = []
-    for pr in candidates:
+    unprocessed: list[dict] = []
+    enqueue_attempts = 0
+    for index, pr in enumerate(candidates):
+        if (
+            queue_state.active
+            and not args.dry_run
+            and enqueue_attempts >= args.max_enqueue_per_run
+        ):
+            reason = (
+                "not re-verified: enqueue-attempt budget of "
+                f"{args.max_enqueue_per_run} reached"
+            )
+            unprocessed = [
+                {"number": remaining["number"], "reason": reason}
+                for remaining in candidates[index:]
+            ]
+            print(
+                f"STOP  enqueue-attempt budget reached; "
+                f"{len(unprocessed)} candidate(s) remain unprocessed"
+            )
+            break
         number = pr["number"]
         try:
             fresh = view_pr(args.repo, number)
@@ -681,6 +970,9 @@ def main(argv: list[str] | None = None) -> int:
 
         ready_transition_succeeded = False
         merge_completed = False
+        # Bound here, not only inside the try below: line-of-sight beats a
+        # non-local invariant for a variable read after a write has happened.
+        enqueued = False
         pr_gone = False
         try:
             if was_draft and not args.dry_run:
@@ -730,28 +1022,45 @@ def main(argv: list[str] | None = None) -> int:
                 skipped.append({"number": number, "reason": reason})
                 continue
             if args.dry_run:
-                action = "mark ready and merge" if was_draft else "merge"
+                if queue_state.active:
+                    action = (
+                        "mark ready and add to the merge queue"
+                        if was_draft
+                        else "add to the merge queue"
+                    )
+                else:
+                    action = "mark ready and merge" if was_draft else "merge"
                 print(
                     f"DRY-RUN would {action} #{number}: {fresh['title']} — "
                     f"{decision.reason}"
                 )
                 merged.append(
-                    {"number": number, "title": fresh["title"], "action": action}
+                    {
+                        "number": number,
+                        "title": fresh["title"],
+                        "action": action,
+                        "queued": queue_state.active,
+                    }
                 )
-                print(
-                    "STOP  one-merge safety limit reached; remaining PRs would "
-                    "wait for the next run"
-                )
+                if queue_state.active:
+                    continue
+                print("STOP  one-merge safety limit reached")
                 break
 
             try:
-                merge_pr(
+                if queue_state.active:
+                    enqueue_attempts += 1
+                enqueued = merge_pr(
                     args.repo,
                     number,
                     args.min_age_days,
                     fresh.get("headRefOid"),
                     write_token,
+                    queue_state.active,
                 )
+                # Load-bearing on the enqueue path too: it stops the `finally`
+                # block converting the PR back to draft, which would eject it
+                # from the queue it was just added to.
                 merge_completed = True
             except (subprocess.CalledProcessError, ValueError) as exc:
                 reason = (
@@ -783,20 +1092,22 @@ def main(argv: list[str] | None = None) -> int:
                     reason = f"could not restore draft state: {detail}"
                     print(f"FAIL  #{number}: {reason}", file=sys.stderr)
                     failed.append({"number": number, "reason": reason})
-        print(f"MERGED #{number}: {fresh['title']}")
-        merged.append({"number": number, "title": fresh["title"]})
-        # One merge per run is an explicit serialization boundary. It does not
-        # rely on the branch endpoint immediately reflecting the new main SHA.
-        print(
-            "STOP  one-merge safety limit reached; remaining PRs wait for the next run"
-        )
+        print(f"{'QUEUED' if enqueued else 'MERGED'} #{number}: {fresh['title']}")
+        merged.append({"number": number, "title": fresh["title"], "queued": enqueued})
+        if queue_state.active:
+            continue
+        # Direct mode changes main immediately, so preserve its explicit
+        # serialization boundary. Queue mode delegates serialization to GitHub.
+        print("STOP  one-merge safety limit reached")
         break
 
     report = render_summary(
         merged,
         skipped,
         failed,
+        unprocessed,
         dry_run=args.dry_run,
+        queue_state=queue_state,
     )
     print()
     print(report)

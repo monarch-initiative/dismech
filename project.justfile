@@ -607,9 +607,9 @@ grouping-nesting-audit *args="":
 
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
-validate-terms-schema:
+validate-terms-schema *flags:
     @echo "Validating schema term references..."
-    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}}
+    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}} {{flags}}
 
 # OAK config for ontology adapters
 oak_config := "conf/oak_config.yaml"
@@ -804,6 +804,17 @@ qc-deep-research-strict:
 [group('QC')]
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
+
+# Compare each model->mechanism link's `model_scale` against its target node's
+# `biological_scale`. Reports upward extrapolation (model below its target's
+# scale -- it cannot observe the outcome it is cited for) separately from the
+# benign reverse direction. Advisory by default; --strict exits non-zero on an
+# upward-extrapolating link carrying no `limitations`.
+#   just model-scale-audit
+#   just model-scale-audit --format list --verdict MODEL_BELOW_TARGET
+[group('QC')]
+model-scale-audit *args="":
+    uv run python scripts/model_scale_audit.py {{args}}
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
