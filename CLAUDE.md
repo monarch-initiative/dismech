@@ -2093,10 +2093,11 @@ record should separate the four dimensions the old field conflated:
 - `rate_per_100000` (+ `rate_low` / `rate_high` for ranges) — one normalized number
   in cases per 100,000 (`% × 1000`; `per million ÷ 10`; `1 in N → 100000/N`).
 - `rate_denominator` (`RateDenominatorEnum`) — what the rate is a rate *of*:
-  `POPULATION`, `LIVE_BIRTHS`, `PERSON_YEARS`, or `POPULATION_PER_YEAR`. Optional;
-  when absent, consumers fall back to the denominator implied by `measure_type`.
-  Set it whenever the source disagrees with that default — most often for an
-  incidence reported per population per year rather than per person-year.
+  `POPULATION`, `LIVE_BIRTHS`, `PERSON_YEARS`, or `POPULATION_PER_YEAR`. Optional
+  for the prevalence measures, which fall back to `POPULATION` (`LIVE_BIRTHS` for
+  `BIRTH_PREVALENCE`). **Always set it on an `ANNUAL_INCIDENCE` record** — that
+  measure has no fallback on purpose, because per-population-per-year and
+  per-person-year are both common and not interchangeable.
 - `notes` keeps the verbatim source phrasing; `evidence` is unchanged.
 
 ```yaml

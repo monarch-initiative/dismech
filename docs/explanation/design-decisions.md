@@ -708,6 +708,14 @@ should prefer the new `rate_denominator` slot (`RateDenominatorEnum`: `POPULATIO
 `LIVE_BIRTHS`, `PERSON_YEARS`, `POPULATION_PER_YEAR`) where present, which pins the
 dimension explicitly instead of leaving it implied.
 
+`ANNUAL_INCIDENCE` deliberately has **no** implied fallback. A published "annual incidence
+per 100,000" is usually computed against a mid-year population, while person-year
+denominators are standard in cohort studies, and the two are interchangeable only when the
+population is stable. Neither is right often enough to assume, and assuming would assert a
+dimension for all 138 existing incidence records, none of which were migrated with
+denominator information. An unstated default costs a consumer one branch; a usually-wrong
+default costs it correctness.
+
 The qualitative tiers are the exception: `COMMON`, `RARE`, and `ULTRA_RARE` are each
 defined by a *prevalence* threshold and each presuppose that the source gave no numeric
 estimate. They are therefore invalid on the two measures that are definitely not
@@ -729,12 +737,25 @@ alongside a 1-in-227,571 Zhejiang birth prevalence; demoting the carrier record'
 its nearest tier (`COMMON`) would make one file assert both that the disease is common and
 that it is 1-9 per million.
 
-The magnitude reading costs one thing: a band is no longer self-describing. That cost is
-cheap to control *now* and expensive later, because at the time of this decision the
-fields had **no consumers** — no renderer, no export, no dashboard referenced
-`prevalence_class`, `rate_per_100000`, or `measure_type`. The rule is therefore a
-requirement on the first consumer rather than a migration of existing ones; #7520 (render
-structured epidemiology on disorder pages) is the issue that must honor it.
+The magnitude reading costs one thing: a band is no longer self-describing. There is
+exactly **one** consumer to hold to that rule — `src/dismech/templates/disorder.html.j2`,
+which has rendered `measure_type`, `rate_per_100000`, and `prevalence_class` on every
+disorder page since "Render nine curated sections that no page showed" (#9510). It did not
+honour the rule: it printed `1.2 per 100,000` for an annual incidence with no time
+dimension, and mapped a band to a standalone self-describing label, so a carrier-frequency
+record showed a tag reading "1–9 per 100,000" that a reader would take as disease
+prevalence. This decision fixes that template alongside the schema — the band label is now
+qualified by `measure_type` ("per year", "(carriers)") and `rate_denominator` is rendered
+rather than silently dropped.
+
+(An earlier draft of this amendment asserted the fields had *no* consumer. That was a
+stale-base error: the grep behind it predated #9510 by ~1,100 commits. Recorded here
+because the false premise was load-bearing for the decision, and the corrected fact —
+one existing consumer, already mis-rendering — argues *more* strongly against a
+157-record rewrite, not less.)
+
+#7520 (render structured epidemiology on disorder pages) remains open and covers the
+broader epidemiology sections; the prevalence part shipped ahead of it.
 
 **Accepted debt.** The slot is still named `prevalence_class` and the class is still
 `Prevalence`, so the names remain prevalence-flavored while the semantics are now
@@ -742,8 +763,12 @@ occurrence-general. Renaming would touch every KB record carrying a prevalence b
 was judged not worth the churn; the enum documentation carries the meaning instead.
 
 **Deferred to follow-ups.** (a) A QC check gating qualitative tiers to prevalence-shaped
-measure types, landing alongside the band-vs-rate check proposed in #7005 — 8 records to
-fix. (b) Backfilling the 286 records that set no `measure_type` (a further 203 are
+measure types, landing alongside the band-vs-rate check proposed in #7005 — **21**
+records to fix, not 8. The rule has two halves and only the first was counted initially:
+8 records carry a qualitative tier on `ANNUAL_INCIDENCE`/`CARRIER_FREQUENCY`, and 18 carry
+one alongside a populated numeric estimate (counting `rate_low`/`rate_high`, not just
+`rate_per_100000`), overlapping in 5. Five of the 18 are a distinct pre-existing data bug
+— `rate_per_100000: 0.0` on `CASES_IN_LITERATURE` records, where zero is not a rate. (b) Backfilling the 286 records that set no `measure_type` (a further 203 are
 `UNKNOWN`), after which the slot can become required. (c) Whether `CARRIER_FREQUENCY`
 belongs on `Prevalence` at all — it is a genotype frequency among unaffected people, and
 `GeneCaseFraction` is structurally closer; moving it would remove 41 of the flagged

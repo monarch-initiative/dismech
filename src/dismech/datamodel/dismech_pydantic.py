@@ -216,6 +216,10 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
 class ICDOMorphologyEnum(str, Enum):
     """
     ICD-O morphology axis classification for cancer subtypes. Values link to NCI Thesaurus for formal definitions.
+This is a coarse histogenetic vocabulary, not a slot for four-digit ICD-O codes. Two rules govern it.
+Granularity (the lump/split rule): a value names a morphology *family*, not an individual tumour entity. A family earns its own value when the knowledge base holds neoplastic entries that no existing value can hold correctly, and when it is a top-level morphology group in ICD-O / the WHO classification. A sub-family is split out of its parent only when it dominates curation practice — which is why ``Adenocarcinoma`` and ``Squamous Cell Carcinoma`` sit beside ``Carcinoma``, and ``Multiple Myeloma`` beside ``Plasma Cell Neoplasm``, while single entities (glomus tumour, chordoma, GIST) are held by their family rather than given a value of their own.
+Behaviour: this axis names the morphology family, and most values are behaviour-neutral — ``Nerve Sheath Neoplasm`` and ``Pericytic Neoplasm`` cover benign and malignant members alike. Where ICD-O itself splits a family on behaviour, the values follow it (``Adenoma`` vs ``Adenocarcinoma``). Do not read malignancy into a value that does not assert it. A first-class behaviour slot (the ICD-O ``/0``-``/3`` digit) and a place for the four-digit code itself remain open on monarch-initiative/dismech#7548.
+When no value fits, omit ``icdo_morphology`` and record why in the entry's ``notes`` or a ``CURATION_TODO`` discussion. There is deliberately no ``Other`` value: the omissions are the signal that tells us which family to add next, and this expansion was driven by exactly those notes.
     """
     Carcinoma = "Carcinoma"
     """
@@ -256,6 +260,58 @@ class ICDOMorphologyEnum(str, Enum):
     Embryonal_Neoplasm = "Embryonal Neoplasm"
     """
     Cancer arising from embryonic tissue
+    """
+    Adenoma = "Adenoma"
+    """
+    Benign neoplasm of glandular epithelium; the benign counterpart of Adenocarcinoma
+    """
+    Trophoblastic_Tumor = "Trophoblastic Tumor"
+    """
+    Neoplasm of trophoblastic cells, gestational or non-gestational
+    """
+    Mesothelial_Neoplasm = "Mesothelial Neoplasm"
+    """
+    Neoplasm arising from the mesothelium lining the pleura, peritoneum, pericardium or tunica vaginalis
+    """
+    Pericytic_Neoplasm = "Pericytic Neoplasm"
+    """
+    Mesenchymal neoplasm arising from the perivascular (pericytic) cells of connective and soft tissue
+    """
+    Nerve_Sheath_Neoplasm = "Nerve Sheath Neoplasm"
+    """
+    Neoplasm arising from the cells of the peripheral nerve sheath
+    """
+    Meningioma = "Meningioma"
+    """
+    Neoplasm of meningothelial (arachnoidal) cells
+    """
+    Germ_Cell_Tumor = "Germ Cell Tumor"
+    """
+    Gonadal or extragonadal neoplasm originating from germ cells
+    """
+    Sex_Cord_Stromal_Tumor = "Sex Cord-Stromal Tumor"
+    """
+    Neoplasm of the gonadal sex cord and stromal cells (granulosa, Sertoli, Leydig, fibroblast)
+    """
+    Neuroendocrine_Neoplasm = "Neuroendocrine Neoplasm"
+    """
+    Neoplasm of cells showing neuroendocrine differentiation
+    """
+    Plasma_Cell_Neoplasm = "Plasma Cell Neoplasm"
+    """
+    Clonal proliferation of immunoglobulin-secreting plasma cells
+    """
+    Myeloproliferative_Neoplasm = "Myeloproliferative Neoplasm"
+    """
+    Clonal myeloid neoplasm with effective but excessive production of one or more mature blood cell lineages
+    """
+    Myelodysplastic_Syndrome = "Myelodysplastic Syndrome"
+    """
+    Clonal myeloid neoplasm characterised by dysplasia and ineffective haematopoiesis
+    """
+    Histiocytic_and_Dendritic_Cell_Neoplasm = "Histiocytic and Dendritic Cell Neoplasm"
+    """
+    Neoplasm of histiocytes and accessory/dendritic cells
     """
 
 
@@ -3249,47 +3305,73 @@ class PrevalenceMeasureEnum(str, Enum):
 
 class PrevalenceClassEnum(str, Enum):
     """
-    Coarse, always-fillable band for disease occurrence — the population-rate analog of the HPO-style FrequencyEnum used for phenotype frequency. The numeric bands are the Orphanet prevalence classes (so the ~7% of records already quoting Orphanet map directly and the ICEES/ORPHA structured sources stay aligned); the qualitative tiers cover records that report only prose ("rare", "common") with no numeric estimate. When a numeric estimate exists, also populate rate_per_100000 (or rate_low/rate_high); the band is the queryable summary, the rate carries the precision.
+    Coarse, always-fillable band for the MAGNITUDE of a disease-occurrence rate — the population-rate analog of the HPO-style FrequencyEnum used for phenotype frequency.
+IMPORTANT: a band reports magnitude only. It does not say what is being measured; the sibling `measure_type` slot does that, and a band is meaningless without it. `BAND_1_9_PER_100000` on a POINT_PREVALENCE record means "1-9 of every 100,000 people have this disease"; the same band on an ANNUAL_INCIDENCE record means "1-9 new cases per 100,000 per year"; on a CARRIER_FREQUENCY record it describes carriers, who do not have the disease at all. Never read, compare, aggregate, or render a band without reading `measure_type` alongside it. `rate_denominator` pins the denominator explicitly and should be preferred by consumers where present.
+The five numeric bands are aligned to the Orphanet prevalence classes, so Orphanet-sourced prevalence records (and the ICEES/ORPHA structured sources) map across directly; on a non-prevalence measure the same boundaries are read purely as magnitude.
+The qualitative tiers are NOT magnitude bands. COMMON/RARE/ULTRA_RARE are each defined by a prevalence threshold and each presuppose that the source gave no numeric estimate. They are therefore INVALID on the two measures that are definitely not prevalence — ANNUAL_INCIDENCE and CARRIER_FREQUENCY — and should not sit alongside a populated `rate_per_100000`. They remain correct on the prevalence measures, on CASES_IN_LITERATURE, and on UNKNOWN, which is the ordinary prose-only case: a source that says only "rare" without naming its measure.
+When a numeric estimate exists, also populate rate_per_100000 (or rate_low/rate_high); the band is the queryable summary, the rate carries the precision.
     """
     GREATER_THAN_SIGN1_SOLIDUS_1000 = "ABOVE_1_IN_1000"
     """
-    More than 1 in 1,000 (more than 100 per 100,000). Orphanet class.
+    More than 100 per 100,000, in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet >1/1,000 prevalence class.
     """
     number_1_9_SOLIDUS_10000 = "BAND_1_5_PER_10000"
     """
-    1 to 9 per 10,000 (10-99 per 100,000). Combines the Orphanet 1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching the other per-decade bands and the _band_from_rate() boundaries.
+    10-99 per 100,000 (1-9 per 10,000), in whatever denominator `measure_type` specifies. Combines the Orphanet 1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching the other per-decade bands and the _band_from_rate() boundaries.
     """
     number_1_9_SOLIDUS_100000 = "BAND_1_9_PER_100000"
     """
-    1 to 9 per 100,000. Orphanet class.
+    1-9 per 100,000, in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet 1-9/100,000 prevalence class.
     """
     number_1_9_SOLIDUS_1000000 = "BAND_1_9_PER_1000000"
     """
-    1 to 9 per 1,000,000 (0.1-0.9 per 100,000). Orphanet class.
+    0.1-0.9 per 100,000 (1-9 per 1,000,000), in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet 1-9/1,000,000 prevalence class.
     """
     LESS_THAN_SIGN1_SOLIDUS_1000000 = "BELOW_1_IN_1000000"
     """
-    Fewer than 1 in 1,000,000 (less than 0.1 per 100,000). Orphanet class.
+    Fewer than 0.1 per 100,000 (less than 1 per 1,000,000), in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet <1/1,000,000 prevalence class.
     """
     Common = "COMMON"
     """
-    Qualitative tier for disorders described as common/endemic with no numeric estimate captured. Roughly corresponds to the >1/1,000 region but asserted only qualitatively.
+    Qualitative tier for disorders described as common/endemic with no numeric estimate captured. Roughly corresponds to the >1/1,000 region but asserted only qualitatively. Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and should not sit alongside a populated rate_per_100000.
     """
     Rare = "RARE"
     """
-    Qualitative tier for disorders described as "rare" in the source without a numeric estimate (the EU rare-disease threshold is <1 in 2,000).
+    Qualitative tier for disorders described as "rare" in the source without a numeric estimate (the EU rare-disease threshold is <1 in 2,000). Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and should not sit alongside a populated rate_per_100000.
     """
     Ultra_rare = "ULTRA_RARE"
     """
-    Qualitative tier for disorders described as ultra-rare / only a handful of reported cases, with no population rate available. Often paired with measure_type CASES_IN_LITERATURE.
+    Qualitative tier for disorders described as ultra-rare / only a handful of reported cases, with no population rate available. Often paired with measure_type CASES_IN_LITERATURE. Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and should not sit alongside a populated rate_per_100000.
     """
     Not_yet_documented = "NOT_YET_DOCUMENTED"
     """
-    Source states prevalence is not yet documented. Orphanet class.
+    Source states that the measure is not yet documented. Orphanet class; applies to whatever `measure_type` reports, not to prevalence alone.
     """
     Unknown = "UNKNOWN"
     """
-    Prevalence is unknown or not stated.
+    The magnitude is unknown or not stated for whatever `measure_type` reports.
+    """
+
+
+class RateDenominatorEnum(str, Enum):
+    """
+    What a Prevalence record's rate is a rate *of* — the denominator its numerator is divided by. Together with `measure_type` this pins the dimension of `rate_per_100000`, which is otherwise ambiguous: a point prevalence of 5.0 is a dimensionless proportion of a population, while an annual incidence of 5.0 is 5 per 100,000 per year (dimension time^-1). Records that omit the slot fall back to the denominator implied by `measure_type`: POPULATION for the prevalence measures and for CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE. ANNUAL_INCIDENCE has deliberately NO fallback — a published "annual incidence per 100,000" is usually computed against a mid-year population (POPULATION_PER_YEAR) but person-year denominators are standard in cohort studies, and the two are not interchangeable unless the population is stable. Neither choice is right often enough to assume, and the wrong one would silently assert a dimension for all 138 existing ANNUAL_INCIDENCE records, none of which were migrated with denominator information. Treat an incidence record with no `rate_denominator` as undetermined and set the slot explicitly.
+    """
+    Per_population = "POPULATION"
+    """
+    Whatever `measure_type` counts, per 100,000 people in the stated population — affected individuals for a prevalence, carriers for a carrier frequency. A dimensionless proportion; the denominator for point, period, and lifetime prevalence, and for carrier frequency.
+    """
+    Per_live_births = "LIVE_BIRTHS"
+    """
+    Whatever `measure_type` counts, per 100,000 live births (or births). A birth-cohort proportion, not a per-year rate; the denominator for birth prevalence and for predicted per-birth incidence catalogues.
+    """
+    Per_person_years = "PERSON_YEARS"
+    """
+    New cases per 100,000 person-years of observation. A true rate with dimension time^-1; never directly comparable with a prevalence proportion.
+    """
+    Per_population_per_year = "POPULATION_PER_YEAR"
+    """
+    New cases per 100,000 population per year, where the source reports an annual rate against a mid-period population rather than accumulated person-time. Distinguished from PERSON_YEARS because the two are only interchangeable when the population is stable over the interval.
     """
 
 
@@ -14209,6 +14291,7 @@ class Prevalence(ConfiguredBaseModel):
     rate_per_100000: Optional[float] = Field(default=None, description="""Normalized point estimate of occurrence expressed as cases per 100,000, for machine comparison across records. Convert from any source notation (% -> x1000; \"per million\" -> /10; \"1 in N\" -> 100000/N). Leave absent for band-only or qualitative records; use rate_low/rate_high for ranges.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence'], 'examples': [{'value': '0.82'}]} })
     rate_low: Optional[float] = Field(default=None, description="""Lower bound of the occurrence rate per 100,000 when the source gives a range or a band.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence'], 'examples': [{'value': '1.0'}]} })
     rate_high: Optional[float] = Field(default=None, description="""Upper bound of the occurrence rate per 100,000 when the source gives a range or a band.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence'], 'examples': [{'value': '9.0'}]} })
+    rate_denominator: Optional[RateDenominatorEnum] = Field(default=None, description="""What `rate_per_100000` (and rate_low/rate_high) is a rate *of*. Makes the dimension of the rate explicit so a prevalence proportion is never silently compared with an incidence rate. Optional: when absent, consumers fall back to the denominator implied by `measure_type` (see RateDenominatorEnum). Populate it whenever the source's denominator differs from that default, or whenever the record is intended for cross-record comparison.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence'], 'examples': [{'value': 'LIVE_BIRTHS'}]} })
     percentage: Optional[Union[float, int, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'float'},
                     {'range': 'integer'},
                     {'description': 'for ranges', 'range': 'string'}],
