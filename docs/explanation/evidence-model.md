@@ -40,6 +40,30 @@ Three of those fields carry the evidence *semantics*:
   describes the cited paper, *not* how the entry was curated: an AI-assisted curation of a
   mouse-knockout paper is still `MODEL_ORGANISM`.
 
+### Deciding `directness`: an inferential gap, not a small sample
+
+The test that makes `directness` decidable is **what the quote is about**, not how much of
+it there is:
+
+> Is the quoted text about the *same thing* the claim asserts, or about something
+> *adjacent*, from which the claim follows only by an inference step?
+
+`INDIRECT` is for the adjacent case. A mouse deletion quoted for a human mechanism, a
+transcript's presence quoted for a functional role, a class-level statement quoted for one
+member of the class, a management recommendation quoted as evidence that a phenotype
+occurs, co-occurrence quoted for a causal direction — in each the reader must take a step
+the quote does not take for them.
+
+**A small or uncontrolled study is not `INDIRECT`.** "An uncontrolled n-of-1 observation
+cannot establish efficacy" and "five participants cannot establish safety" are statements
+about *strength*, and the quote is squarely about the claim. Those items are already
+correctly `SUPPORT`, and the model has no strength slot on purpose — see the appraisal
+layer below, and design decisions §12. Reaching for `directness` to record a sample-size
+caveat would quietly turn it into the strength grade it was defined not to be.
+
+The two can co-occur — a single-animal study quoted for a human claim is `INDIRECT` *and*
+weak — but only the first is recordable today. The second belongs in the `explanation`.
+
 ## Two layers: grounding and appraisal
 
 It helps to read the model as two layers.
