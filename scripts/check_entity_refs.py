@@ -56,16 +56,18 @@ sys.path.insert(0, str(ROOT / "src"))
 from dismech.entity_refs import entity_ref_errors
 from dismech.yaml_io import safe_load
 
-# The KB trees whose entries carry entity references. `kb/groupings` is included
-# even though groupings use a different membership grammar: a grouping file is
-# still parsed here, and a future reference slot on one would otherwise be
-# checked by nothing. `history/` is excluded -- those records are append-only,
-# so a finding there could not be fixed in place.
+# The KB trees whose entries may carry entity references. `kb/groupings` and
+# `kb/module_collections` use their own foreign-key grammars, but are still
+# parsed here so a future entity-reference slot on either cannot become an
+# unchecked blind spot. Their disease/module membership foreign keys have
+# dedicated validators. `history/` is excluded -- those records are
+# append-only, so a finding there could not be fixed in place.
 DEFAULT_ROOTS = (
     "kb/disorders",
     "kb/modules",
     "kb/comorbidities",
     "kb/groupings",
+    "kb/module_collections",
 )
 
 # Directories under `kb/` deliberately left out of the sweep, with the reason.
