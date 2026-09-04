@@ -2294,6 +2294,14 @@ Non-negotiable rules:
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
+  list built earlier in the session goes stale the moment you add a section, and
+  pruning against it deletes a cache the entry now cites. CI does not catch this:
+  `just validate-disorders` silently network-fetches an uncached reference and
+  reports every snippet verified, so the branch only fails for someone checking
+  it out. Re-run `just count-verified-snippets` on the pushed tree afterwards,
+  and re-read `notes:` for any sentence that called a pruned reference "cached" —
+  prose describing repository state is content, and it rots.
 
 Example:
 
@@ -2865,6 +2873,39 @@ them to facilitate.
 
 Note that sometimes it will appear that a review has stalled, but in fact this is usually because
 the PR is in conflict. Actively try and manage this, resolve conflicts carefully.
+
+#### Answer a review in one push
+
+`main` has `dismiss_stale_reviews` enabled, so **every push to a PR drops its
+approval**. A follow-up commit therefore costs a full re-review cycle, whatever
+its size — a two-line typo fix and a rewritten pathophysiology section are the
+same price.
+
+So the instruction above to address even "optional" changes is about *what* to
+address. This is about *when*: **the same push as the blocking findings**, never
+a chore commit afterwards. Before pushing a review round, gather all of it —
+
+- every blocking finding;
+- every optional suggestion you intend to take;
+- the `history/` record for the round;
+- any housekeeping the round exposed (a missing `references_cache` file, deep
+  research `_artifacts/`, a stale sentence in `notes:`).
+
+If you decide *not* to take a suggestion, say so in the same reply rather than
+deferring it. A deferred item you later change your mind about costs another
+round, and so does one you promised in a comment and pushed separately.
+
+Two corollaries worth knowing:
+
+- **A round that only re-verifies still costs a cycle.** Pushing housekeeping on
+  top of an approval makes the reviewer re-run everything to confirm nothing
+  regressed. That is cheap for them and slow for you.
+- **Don't push while a review is in flight.** The running review lands on the
+  commit it checked out, so it reports on a tree that no longer exists and a
+  further round is needed anyway. Wait for the verdict, then push once.
+
+Curating five entries in PRs #10142-#10146 took four cycles that a bundled push
+would have covered.
 
 #### Never dismiss a review
 
