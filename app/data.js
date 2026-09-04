@@ -58961,6 +58961,122 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Chlorophacinone Poisoning",
+    "disease_id": null,
+    "category": "Environmental",
+    "parents": [],
+    "creation_date": "2026-09-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chlorophacinone poisoning is an acquired, vitamin K-antagonist coagulopathy caused by ingestion of, or other exposure to, the indanedione anticoagulant rodenticide chlorophacinone. Chlorophacinone inhibits vitamin K 2,3-epoxide reductase, so the reduced vitamin K needed as cofactor for hepatic gamma-carboxylation is not regenerated and the vitamin K-dependent coagulation factors II, VII, IX and X are secreted in an under-carboxylated, functionally inactive form. The resulting coagulopathy presents after a latent interval with mucocutaneous and internal bleeding and, because chlorophacinone accumulates in liver and is eliminated slowly, it can persist for weeks to months and rebound whenever vitamin K replacement is withdrawn.",
+    "pathophysiology": [
+      "Systemic Chlorophacinone Exposure",
+      "Vitamin K Epoxide Reductase Inhibition",
+      "Depletion of the Reduced Vitamin K Pool",
+      "Impaired Gamma-Carboxylation of Vitamin K-Dependent Clotting Factors",
+      "Functional Deficiency of Coagulation Factors II, VII, IX and X",
+      "Hepatic Accumulation and Prolonged Elimination",
+      "Prolonged Coagulopathy",
+      "Multicompartment Hemorrhage",
+      "Hypovolemic Shock and Death"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "vitamin K metabolic process",
+      "peptidyl-glutamic acid carboxylation",
+      "blood coagulation",
+      "hemostasis"
+    ],
+    "phenotypes": [
+      "Prolonged Prothrombin Time",
+      "Prolonged Activated Partial Thromboplastin Time",
+      "Reduced Factor VII Activity",
+      "Reduced Factor X Activity",
+      "Hematuria",
+      "Epistaxis",
+      "Gingival Bleeding",
+      "Widespread Bruising",
+      "Gastrointestinal Hemorrhage",
+      "Hematochezia",
+      "Intracranial Hemorrhage",
+      "Hemoperitoneum",
+      "Menorrhagia",
+      "Flank Pain",
+      "Anemia",
+      "Hypovolemic Shock",
+      "Nausea",
+      "Coma",
+      "Acute Compartment Syndrome"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Hematologic",
+      "Gastrointestinal",
+      "Neurologic",
+      "Genitourinary",
+      "Cardiovascular",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008151",
+      "HP:0003645",
+      "HP:0008169",
+      "HP:0008321",
+      "HP:0000790",
+      "HP:0000421",
+      "HP:0000225",
+      "HP:0000978",
+      "HP:0002239",
+      "HP:0002573",
+      "HP:0002170",
+      "HP:0011854",
+      "HP:0000132",
+      "HP:0030157",
+      "HP:0001903",
+      "HP:0031274",
+      "HP:0002018",
+      "HP:0001259"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "High-Dose Prolonged Vitamin K1 (Phytomenadione)",
+      "Coagulation Factor Replacement",
+      "Phenobarbital Enzyme Induction"
+    ],
+    "environmental": [
+      "Chlorophacinone rodenticide exposure"
+    ],
+    "biochemical": [
+      "Plasma chlorophacinone concentration",
+      "International normalized ratio"
+    ],
+    "source_file": "Chlorophacinone_Poisoning.yaml",
+    "page_url": "../pages/disorders/Chlorophacinone_Poisoning.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Cholangiocarcinoma",
     "disease_id": "MONDO:0019087",
     "category": "",
@@ -167541,6 +167657,103 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Muckle-Wells Syndrome",
+    "disease_id": "MONDO:0008633",
+    "category": "Mendelian",
+    "parents": [
+      "Autoinflammatory diseases",
+      "Cryopyrin-associated periodic syndromes"
+    ],
+    "creation_date": "2026-08-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Muckle-Wells syndrome (MWS) is a dominantly inherited autoinflammatory disorder representing the intermediate-severity phenotype of the cryopyrin-associated periodic syndrome (CAPS) spectrum, sitting between the mild familial cold autoinflammatory syndrome (FCAS) and the severe CINCA/NOMID. It is caused by heterozygous gain-of-function mutations in NLRP3 (CIAS1, encoding cryopyrin) that lower the activation threshold of the NLRP3 inflammasome, producing constitutive caspase-1 activation and excessive interleukin-1beta (IL-1beta) secretion. Clinically it is characterized by recurrent (largely non-cold-triggered) episodes of urticaria-like rash, fever, arthralgia, myalgia, conjunctivitis, and fatigue, together with progressive sensorineural hearing loss from cochlear autoinflammation. Its most serious long-term complication is AA (serum amyloid A) amyloidosis with renal involvement, driven by sustained systemic inflammation. IL-1 blockade (anakinra, canakinumab, rilonacept) is the defining, disease-modifying therapy.\n",
+    "pathophysiology": [
+      "NLRP3 gain-of-function activation",
+      "Constitutive NLRP3 inflammasome activation",
+      "Caspase-1 activation and IL-1beta overproduction",
+      "Systemic autoinflammation",
+      "Cochlear autoinflammation and hearing loss",
+      "AA (serum amyloid A) amyloidosis"
+    ],
+    "cell_types": [
+      "Monocyte",
+      "Macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "NLRP3 inflammasome complex assembly",
+      "Interleukin-1 beta production",
+      "Pyroptotic inflammatory response",
+      "Inflammatory response",
+      "Amyloid fibril formation"
+    ],
+    "phenotypes": [
+      "Urticarial rash",
+      "Recurrent fever",
+      "Arthralgia",
+      "Conjunctivitis",
+      "Myalgia",
+      "Fatigue",
+      "Sensorineural hearing loss",
+      "Renal amyloidosis",
+      "Proteinuria",
+      "Elevated C-reactive protein"
+    ],
+    "phenotype_categories": [
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001025",
+      "HP:0001954",
+      "HP:0002829",
+      "HP:0000509",
+      "HP:0003326",
+      "HP:0012378",
+      "HP:0000407",
+      "HP:0001917",
+      "HP:0000093",
+      "HP:0011227"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NLRP3"
+    ],
+    "treatments": [
+      "Anakinra",
+      "Canakinumab",
+      "Rilonacept",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum amyloid A",
+      "C-reactive protein"
+    ],
+    "source_file": "Muckle-Wells_Syndrome.yaml",
+    "page_url": "../pages/disorders/Muckle-Wells_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Mucoepidermoid Carcinoma",
     "disease_id": "MONDO:0003036",
     "category": "Cancer",
@@ -181214,6 +181427,96 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Nontuberculous Mycobacterial Lung Disease",
+    "disease_id": "MONDO:0018469",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial Infection",
+      "Lung disease"
+    ],
+    "creation_date": "2026-08-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Nontuberculous mycobacterial (NTM) lung disease is a chronic pulmonary infection caused by environmental mycobacteria other than the Mycobacterium tuberculosis complex and M. leprae, most commonly Mycobacterium avium complex (MAC), and also M. kansasii and the rapidly growing M. abscessus. NTM are ubiquitous in water and soil and are acquired by inhalation of aerosols; disease develops preferentially in hosts with structural lung disease (bronchiectasis, COPD, cystic fibrosis) or impaired immunity, and in slender postmenopausal women without recognized immunodeficiency. It presents insidiously with chronic cough, sputum, fatigue, and weight loss, and follows nodular-bronchiectatic or fibrocavitary radiographic patterns. Cure is difficult and requires prolonged multidrug macrolide-based regimens.",
+    "pathophysiology": [
+      "Environmental NTM Exposure and Aerosol Inhalation",
+      "Structural Lung Disease Predisposition",
+      "Impaired Th1 Immune Defense",
+      "Alveolar Macrophage Infection and Intracellular Persistence",
+      "Requirement for Cell-Penetrant Antimicrobial Therapy",
+      "Mycobacterial Ribosomal Translation (Macrolide Target)",
+      "Acquired Macrolide Resistance",
+      "Granulomatous Inflammation",
+      "Nodular-Bronchiectatic Disease",
+      "Fibrocavitary Disease",
+      "Progressive Respiratory Decline"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "T-helper 1 type immune response",
+      "Biological Process Involved in Interaction with Host",
+      "Response to Antibiotic",
+      "Translation",
+      "macrophage activation"
+    ],
+    "phenotypes": [
+      "Chronic cough",
+      "Increased sputum production",
+      "Hemoptysis",
+      "Dyspnea",
+      "Fatigue",
+      "Weight loss",
+      "Night sweats",
+      "Bronchiectasis",
+      "Pulmonary cavity"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0012735",
+      "HP:0033709",
+      "HP:0002105",
+      "HP:0002094",
+      "HP:0012378",
+      "HP:0001824",
+      "HP:0030166",
+      "HP:0002110",
+      "HP:0033655"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Macrolide-based multidrug regimen for MAC pulmonary disease",
+      "Rifampicin-based regimen for M. kansasii pulmonary disease",
+      "Amikacin liposome inhalation suspension for treatment-refractory MAC",
+      "Surgical resection as adjuvant therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Nontuberculous_Mycobacterial_Lung_Disease.yaml",
+    "page_url": "../pages/disorders/Nontuberculous_Mycobacterial_Lung_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Noonan Syndrome-like Disorder with Loose Anagen Hair",
     "disease_id": "MONDO:0011899",
     "category": "Genetic",
@@ -185430,7 +185733,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 6,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "5"
   },
   {
@@ -210015,7 +210318,8 @@ window.searchData = [
       "Riociguat"
     ],
     "environmental": [
-      "Immobilisation and surgery",
+      "Major surgery",
+      "Prolonged immobilisation",
       "Oestrogen exposure"
     ],
     "biochemical": [
@@ -210029,7 +210333,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 5,
     "num_treatments": 9,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "7"
   },
   {
@@ -230965,6 +231269,117 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Skraban-Deardorff Syndrome",
+    "disease_id": "MONDO:0054636",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Syndromic Intellectual Disability"
+    ],
+    "creation_date": "2026-08-27T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Skraban-Deardorff syndrome (SKDEAS; WDR26-related neurodevelopmental disorder; intellectual developmental disorder, autosomal dominant 47, OMIM 617616) is an ultra-rare autosomal dominant neurodevelopmental disorder caused by heterozygous, typically de novo, loss-of-function variants (and 1q42.12 microdeletions) in WDR26, producing WDR26 haploinsufficiency. WDR26 encodes a WD40-repeat scaffold/substrate-recognition subunit of the C-terminal to LisH (CTLH) E3 ubiquitin-ligase complex. Affected individuals show intellectual disability with delayed or absent speech, developmental delay, febrile and non-febrile seizures, a wide-based/spastic/stiff-legged gait, hypotonia, feeding difficulties, autistic-like behaviour, minor skeletal anomalies, and a recognisable facial gestalt (a prominent maxilla and upper lip revealing the upper gingiva, widely spaced teeth, and a broad nasal tip).",
+    "pathophysiology": [
+      "WDR26 Haploinsufficiency",
+      "Impaired CTLH E3 Ubiquitin Ligase Complex Function",
+      "RUNX1T1 Stabilization",
+      "Neuronal Differentiation Dysregulation",
+      "Abnormal Neurodevelopment",
+      "Abnormal Craniofacial and Skeletal Development"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein ubiquitination",
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Delayed Speech",
+      "Seizures",
+      "Abnormal Gait",
+      "Spastic Gait",
+      "Hypotonia",
+      "Autistic Behavior",
+      "Feeding Difficulties",
+      "Prominent Maxilla",
+      "Widely Spaced Teeth",
+      "Broad Nasal Tip",
+      "Anteverted Nares",
+      "Depressed Nasal Root",
+      "Abnormal Gums",
+      "Ventriculomegaly",
+      "Minor Skeletal Anomalies"
+    ],
+    "phenotype_categories": [
+      "Cognitive",
+      "Developmental",
+      "Neurological",
+      "Behavioral",
+      "Gastrointestinal",
+      "Craniofacial",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001250",
+      "HP:0002136",
+      "HP:0002064",
+      "HP:0001252",
+      "HP:0000729",
+      "HP:0011968",
+      "HP:0000326",
+      "HP:0000687",
+      "HP:0000455",
+      "HP:0000463",
+      "HP:0005280",
+      "HP:0000168",
+      "HP:0002119",
+      "HP:0011842"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "WDR26"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Physical Therapy",
+      "Speech and Language Therapy",
+      "Occupational Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Skraban-Deardorff_Syndrome.yaml",
+    "page_url": "../pages/disorders/Skraban-Deardorff_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Sly syndrome",
@@ -261968,17 +262383,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2540,
+  "total_disorder_pages": 2544,
   "total_subtypes": 3571,
-  "total_disorders_and_subtypes": 6111,
-  "total_unique_evidence_sources": 36330,
-  "total_unique_publications": 34194,
+  "total_disorders_and_subtypes": 6115,
+  "total_unique_evidence_sources": 36371,
+  "total_unique_publications": 34234,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 270,
-  "total_pathographs": 2535,
-  "total_unique_pathological_events": 14820,
+  "total_pathographs": 2539,
+  "total_unique_pathological_events": 14848,
   "total_modules": 167,
-  "total_research_reports": 2658,
+  "total_research_reports": 2659,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100

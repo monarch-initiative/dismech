@@ -896,7 +896,94 @@ the pathograph; that workaround is no longer needed (#8199).
 | `relationship` | what the model *does* to the node — `RECAPITULATES`, `PARTIALLY_RECAPITULATES`, `FAILS_TO_RECAPITULATE`, `PERTURBS`, `MEASURES`, `RESCUES` |
 | `fidelity` | how faithfully it captures the human mechanism — `HIGH` / `MODERATE` / `LOW` / `UNKNOWN` |
 | `limitations` | the specific translational caveat (species divergence, supraphysiological expression, missing compartments) |
+| `model_scale` | the biological scale the model actually **observes** (`BiologicalScaleEnum`) |
 | `readouts` | the **outcome measures** that ground the claim |
+
+**`model_scale` is what the model observes, not what it is cited for.** A model
+linked to a node is not necessarily operating at that node's scale: a Boolean
+signalling network whose output node is named "bone erosion" still observes only
+molecular or cellular state, and the tissue-level outcome is inferred. Record the
+observed scale in `model_scale`, using the same `BiologicalScaleEnum` as
+`Pathophysiology.biological_scale` so the two are directly comparable.
+
+Do **not** record the comparison — derive it with `just model-scale-audit`. The
+comparison is directional, and the directions are different claims:
+
+| Relation | Meaning |
+|---|---|
+| model scale **below** target scale | **Upward extrapolation.** The model cannot observe the outcome it is cited for; the claim is inferential. Requires `limitations` (`test_upward_extrapolating_links_are_caveated`). |
+| model scale **above** target scale | The model contains the target scale. Normally unremarkable — a whole animal can report a molecular readout. |
+| equal | No scale gap. |
+
+Both slots are optional, so a link with neither is `UNDETERMINED` rather than
+defective — that is the state of most existing links. `model_scale` is
+**orthogonal to `fidelity` and `relationship`**, not a restatement of them: a
+molecular model linked to a molecular node reports no scale gap even when it is
+a poor model for some unrelated reason. Read an aligned result as "no *scale*
+gap", never as "good model".
+
+Worked examples: the RA-FLS Boolean model (`CELLULAR`) linked to
+`Synovial Hyperplasia` (`TISSUE`) is a 1-step upward extrapolation; the type 1
+interferon Boolean model (`MOLECULAR`) linked to
+`Enhanced Viral Replication and Tissue Pathology` (`TISSUE`) is a 2-step one.
+
+**`divergences` types the caveat that `limitations` writes as prose.** `fidelity`
+compresses every translational concern into one tier, so `LOW` never says *which*
+problem it is, and a prose `limitations` string cannot answer "which models are limited
+by calibration provenance rather than by species". Each entry in `divergences` names a
+kind from `ModelDivergenceTypeEnum`, explains in the curator's own words why that kind of
+gap applies **here**, and optionally records `materiality` — whether it bears on this
+link's claim.
+
+```yaml
+  - target: Striatal Dopamine Deficiency
+    relationship: PARTIALLY_RECAPITULATES
+    fidelity: LOW
+    model_scale: MOLECULAR
+    divergences:
+    - divergence_type: PROXY_QUANTITY
+      materiality: INVALIDATING
+      description: >-
+        The model's quantity is transcriptional regulation of dopamine-synthesis
+        genes. The node's quantity is dopamine concentration in the striatum.
+    - divergence_type: BOUNDARY_OMISSION
+      materiality: QUALIFYING
+      description: >-
+        Nigrostriatal terminal loss and the presynaptic deficit are not in the model.
+```
+
+Background reading: [`docs/explanation/model-credibility.md`](docs/explanation/model-credibility.md)
+explains what a model-to-mechanism link does and does not claim, and how the design maps
+onto the ten rules of credible practice in healthcare modeling (PMID:32993675) and the
+ASME V&V 40 / FDA credibility frameworks. The taxonomy itself was fixed by reading all 50
+computational-model `limitations` strings in the KB and clustering them — see
+[`docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md`](docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md).
+Rules for using it:
+
+- **Multivalued on purpose.** A real caveat is usually several kinds at once; do not pick
+  the single "best" one.
+- **The type is never the argument.** `description` is required and must say *which*
+  component is outside the boundary, *which* quantity stands in for *which*. A description
+  that restates the enum value fails `test_model_divergences_are_typed_and_explained`.
+- **`PROXY_QUANTITY` vs `BOUNDARY_OMISSION`** is the distinction to get right. In a
+  boundary omission the thing is not in the model; in a proxy divergence it *is*, but as a
+  stand-in of a different quantity. Both can occur at the same scale, so neither follows
+  from `model_scale`.
+- **`materiality` is per-divergence**, where `fidelity` is per-link. `IMMATERIAL` is worth
+  recording — it stops a reader inferring that a known limitation of the model undermines
+  *this* use of it.
+- **A `SCALE_EXTRAPOLATION` divergence must agree with the scale slots**
+  (`test_scale_extrapolation_divergence_agrees_with_scales`, and
+  `just model-scale-audit --strict`).
+- `divergences` and `limitations` coexist: the prose slot is the summary and holds the 831
+  existing links' caveats. A typed divergence now satisfies the caveat requirement on a
+  `FAILS_TO_RECAPITULATE` or upward-extrapolating link wherever `limitations` did.
+
+Currently populated on computational models only. The taxonomy was chosen to extend to
+NAM and animal models unchanged — `BOUNDARY_OMISSION`, `PROXY_QUANTITY`,
+`CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH` all apply — and
+extending it would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and `INCOMPLETE_PHENOTYPE`,
+both already evidenced in the animal set.
 
 ```yaml
 animal_models:
@@ -2826,12 +2913,18 @@ not a hold: anything opened as a PR is in the review queue. The controller marks
 an eligible draft ready, re-reads every guard, and restores draft state if that
 merge attempt aborts.
 
-Each run acts on at most one PR. Immediately before it does, the controller
-re-reads every PR guard and pins the merge request to that verified head SHA.
-It deliberately does not require that head to contain the latest `main` commit:
-loose branch protection permits an already-green PR to merge, while a required
-merge queue tests the latest-main combination on a temporary merge-group commit.
-Branch-freshness updates are therefore not part of deterministic eligibility.
+Immediately before each action, the controller re-reads every PR guard and pins
+the merge request to that verified head SHA. When a required merge queue is
+active, a run enqueues up to 50 eligible PRs and GitHub serializes their merges;
+the limit leaves headroom under GitHub's content-creation rate limit and the
+workflow's timeout. A manual dispatch can lower that budget. Any candidates left
+by it are listed explicitly in the run summary and reconsidered on the next
+hourly run. When no queue is active, the controller directly merges at most one
+PR per run. It deliberately does not require a PR head to contain the latest
+`main` commit: the merge queue tests the latest-main combination on a temporary
+merge-group commit, while loose branch protection permits an already-green PR
+to merge. Branch-freshness updates are therefore not part of deterministic
+eligibility.
 
 Do not enable GitHub auto-merge on ordinary PRs outside this controller: it is a
 separate server-side path that bypasses the controller's age and assignment

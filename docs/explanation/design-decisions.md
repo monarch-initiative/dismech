@@ -120,7 +120,6 @@ edges with a `causal_link_type`, forming a directed graph from etiology to pheno
 This graph backs the rendered pathographs and the computational-model integration
 (see [computational models](computational-models.md)).
 
-
 ### 3a. Cancer granularity ladder (2026-08-28)
 
 **Decision.** Somatic cancer entries follow an explicit **granularity ladder**. The
@@ -173,6 +172,137 @@ previously missing parent rungs).
 Enacted at maintainer direction (@cmungall, 2026-08-28 session). **Still open:** the
 MONDO NTR list for promoted strata; creating remaining missing L2 parents (e.g.
 `Lung_Adenocarcinoma`); structural overlap annotation between non-disjoint strata.
+
+
+### 3b. Model-to-target scale gap is recorded as a fact and derived, not asserted (2026-09-02)
+
+**Status: ENACTED (2026-09-03, `@cmungall`-approved).** See
+[model credibility](model-credibility.md) for the reader-facing explanation.
+
+**Decision.** `ModelMechanismLink` carries an optional `model_scale`
+(`BiologicalScaleEnum`, the same enum as `Pathophysiology.biological_scale`) recording the
+biological scale the model **observes**. The gap between a model and the node it is cited
+for is then *derived* by comparing the two, never stored.
+
+**Problem it solves.** A model linked to a node is not necessarily operating at that
+node's scale. A Boolean signalling network whose output node is named "bone erosion"
+observes molecular or cellular state and *infers* the tissue-level outcome; a
+transcription-level model of dopamine synthesis is not a model of striatal dopamine
+concentration. Before this slot the caveat survived only as prose in `limitations` —
+unqueryable, inconsistently written, and easy to omit altogether. `fidelity` compresses
+it into a coarse tier that also absorbs species divergence, expression level, and every
+other translational concern, so a `LOW` tier does not say *which* problem it is.
+
+**Why derive rather than store.** A stored `scale_mismatch` flag would duplicate
+information already present in two slots and could drift out of sync with them. The
+comparison is cheap (`just model-scale-audit`).
+
+**Why the comparison is directional.** The two directions are different claims and must
+not be collapsed into a single "mismatch" boolean:
+
+- **Model below target** — upward extrapolation. The model cannot observe the outcome it
+  is cited for. This is the reviewable state, and `test_upward_extrapolating_links_are_caveated`
+  requires `limitations` on it, mirroring the existing
+  `FAILS_TO_RECAPITULATE`-must-be-substantiated rule.
+- **Model above target** — the model contains the target's scale and is normally
+  unremarkable: a whole animal can report a molecular readout.
+
+**Scope limits, deliberately.** `model_scale` is *orthogonal* to `fidelity` and
+`relationship`, not a replacement for either: a molecular model linked to a molecular node
+shows no scale gap even when it is a poor model for an unrelated reason (pathway
+activation standing in for recombination fidelity, say). An aligned result means "no
+*scale* gap", never "good model". Both slots are optional, so a link with neither is
+`UNDETERMINED` rather than defective — the state of most existing links.
+
+**Feasibility.** 80.5% of the KB's 1,131 model→mechanism links already have a target
+node carrying `biological_scale`, so the comparison is computable for the large majority
+as soon as `model_scale` is populated. The initial pilot covers the ten Boolean-model
+links; on those, the derived gap independently reproduced the hand-assigned `fidelity`
+tiers (every 2-step upward extrapolation was graded `LOW`, every aligned link `MODERATE`),
+which is the evidence that the slot captures something real rather than restating
+curator intuition.
+
+**Not decided here.** Whether `ExperimentalReadout` should carry its own scale, and
+whether models themselves (rather than their links) should declare a scale span for
+multiscale frameworks such as PhysiBoSS.
+
+### 3c. Model divergence is typed and explained, not compressed into a fidelity tier (2026-09-02)
+
+**Status: ENACTED (2026-09-03, `@cmungall`-approved), alongside §3b.** See
+[model credibility](model-credibility.md) for the reader-facing explanation.
+
+**Decision.** `ModelMechanismLink` carries `divergences`: a multivalued list of
+`ModelDivergence`, each naming a kind from a closed `ModelDivergenceTypeEnum`, a required
+curator `description` of why that kind applies to this link, and an optional
+`materiality` recording whether it bears on this link's claim.
+
+**Problem.** 831 of 1,131 model→mechanism links (73%) already carry a `limitations`
+string, so curators reliably *write* the caveat. What is missing is structure. `fidelity`
+compresses every translational concern into one coarse tier, so `LOW` does not say which
+problem it is; and prose cannot answer "which models are limited by calibration
+provenance rather than by species" — a question with a very different answer for
+computational models than for animal ones.
+
+**The taxonomy is evidenced, not invented.** All 50 computational-model `limitations`
+strings were read and clustered, with the animal and NAM sets keyword-probed to establish
+which kinds are shared. The modality profiles differ sharply: the animal set is dominated
+by species divergence (276 hits) and allele mismatch (123), the computational set by
+calibration provenance, absent dynamics, and proxy quantities, with species divergence
+nearly absent. Full survey:
+[model-divergence taxonomy](../superpowers/specs/2026-09-02-model-divergence-taxonomy.md).
+
+**Relation to §3b.** `model_scale` gives one machine-derivable divergence
+(`SCALE_EXTRAPOLATION`); the taxonomy gives the ones that cannot be derived. The two
+cross-check: a `SCALE_EXTRAPOLATION` divergence contradicted by the scale slots fails both
+`test_scale_extrapolation_divergence_agrees_with_scales` and
+`just model-scale-audit --strict`. The most important thing the taxonomy adds is
+`PROXY_QUANTITY` — a model reporting a *different quantity* at the *same* scale, which no
+scale comparison can see. The Fanconi anemia FA/BRCA link is the worked case: aligned on
+scale, `PARTIALLY_RECAPITULATES` because pathway activation state stands in for
+recombination fidelity.
+
+**Why per-divergence `materiality` rather than only per-link `fidelity`.** A link can
+carry several divergences of different weight, and `IMMATERIAL` is worth recording
+precisely because it stops a reader inferring that a known limitation of the model
+undermines this particular use of it. Consistent with §3b's derive-don't-store principle,
+recording materiality per divergence is what could eventually let `fidelity` be derived
+rather than authored — though that is not proposed here.
+
+**Coexistence with `limitations`, not replacement.** The prose slot holds 831 existing
+caveats and remains the summary form; a typed divergence now satisfies the caveat
+requirement wherever `limitations` did. Migrating the existing prose is a separate
+decision and is not proposed.
+
+**Scope.** Populated on computational models only (10 links, 26 divergences). The value
+set was chosen to extend to NAM and animal models unchanged; extending it would add
+`SUPRAPHYSIOLOGICAL_EXPRESSION` and `INCOMPLETE_PHENOTYPE`, each already visible in the
+animal set at 20-53 keyword hits and so evidenceable the same way.
+
+**Prior art, and the limits of the borrowing.**
+[ASME V&V 40](https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices)
+(FDA-recognized consensus standard) and the FDA's
+[Assessing the Credibility of Computational Modeling and Simulation in Medical Device
+Submissions](https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions)
+(final guidance, CDRH, 16 November 2023) anchor credibility in a stated *context of use*
+and require an *applicability analysis* — the relevance of validation evidence to that
+context. A `ModelMechanismLink` is a context-of-use statement; a typed divergence list is
+its applicability analysis. `PROXY_QUANTITY` maps to a quantity-of-interest mismatch, and
+`materiality` is the per-divergence analogue of that framework's risk grading
+(model influence × decision consequence).
+
+Both were written for regulatory submissions of physics-based device models, so only the
+*structural* ideas are borrowed — assess a model for a stated use, argue applicability
+separately from validity, grade evidence by how much the answer matters. The *procedural*
+apparatus is not imitated: no V&V plan, no uncertainty quantification, no numeric
+credibility goals, and no claim about numerical accuracy, since dismech annotates
+published models from their papers rather than building them. The domain-general check is
+[the ten rules of credible practice in healthcare modeling](https://pmc.ncbi.nlm.nih.gov/articles/PMC7526418/)
+(Erdemir et al., *J Transl Med* 2020, PMID:32993675), which reach the same conclusions
+with no device framing at all: rule 1 "define context clearly" is the link, rule 3
+"evaluate within context" is `materiality`, and rule 4 "list limitations explicitly" is
+`divergences` — typed rather than prose being the only change. All four references are
+carried in the schema itself as `see_also` on `ModelMechanismLink`, `ModelDivergence`,
+`ModelDivergenceTypeEnum` and `ModelDivergenceMaterialityEnum`.
 
 ## 4. Ontology constraints
 

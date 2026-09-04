@@ -620,7 +620,7 @@ def test_main_dry_run_merges_nothing(monkeypatch, tmp_path):
     assert "Would merge 1" in (tmp_path / "summary.md").read_text()
 
 
-def test_main_dry_run_reports_only_the_one_merge_a_real_run_would_attempt(
+def test_direct_mode_dry_run_reports_only_the_one_merge_a_real_run_would_attempt(
     monkeypatch, tmp_path
 ):
     listed = [make_pr(number=41), make_pr(number=42)]
@@ -902,7 +902,7 @@ def test_main_exits_nonzero_on_a_genuine_merge_error(monkeypatch, tmp_path):
     monkeypatch.setenv("GH_MERGE_TOKEN", "writer-token")
     code = auto_merge.main(["--repo", "o/r", "--summary-file", str(tmp_path / "s.md")])
     assert code == 1
-    assert "Failed to merge 1" in (tmp_path / "s.md").read_text()
+    assert "Failed 1" in (tmp_path / "s.md").read_text()
 
 
 def test_execute_merges_at_most_one(monkeypatch, tmp_path):
@@ -927,6 +927,142 @@ def test_execute_merges_at_most_one(monkeypatch, tmp_path):
     assert len([c for c in calls if c[:2] == ["pr", "view"]]) == 2
 
 
+def test_queue_mode_enqueues_every_candidate(monkeypatch, tmp_path):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    queue_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"totalCount": 0, "nodes": []},
+                    }
+                }
+            }
+        }
+    )
+    code, calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed, queue_payload=queue_payload
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41, 42]
+    assert "Added to the merge queue 2" in (tmp_path / "summary.md").read_text()
+
+
+def test_queue_mode_dry_run_walks_the_full_candidate_set(monkeypatch, tmp_path):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    queue_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"totalCount": 0, "nodes": []},
+                    }
+                }
+            }
+        }
+    )
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=views,
+        listed=listed,
+        extra_args=["--dry-run"],
+        queue_payload=queue_payload,
+    )
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "Would add to the merge queue 2" in summary
+    assert "#41" in summary and "#42" in summary
+    assert "Would merge 2" not in summary
+
+
+def test_queue_mode_budget_reports_unprocessed_candidates(monkeypatch, tmp_path):
+    listed = [make_pr(number=number) for number in (41, 42, 43)]
+    views = [
+        make_pr(number=number, headRefOid=f"head{number}")
+        for number in (41, 41, 42, 42)
+    ]
+    queue_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"totalCount": 0, "nodes": []},
+                    }
+                }
+            }
+        }
+    )
+    code, calls = _run_main(
+        monkeypatch,
+        tmp_path,
+        view=views,
+        listed=listed,
+        extra_args=["--max-enqueue-per-run", "2"],
+        queue_payload=queue_payload,
+    )
+    assert code == 0
+    assert [int(c[2]) for c in calls if c[:2] == ["pr", "merge"]] == [41, 42]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "Unprocessed candidates 1" in summary
+    assert "#43 — not re-verified: enqueue-attempt budget of 2 reached" in summary
+
+
+def test_queue_mode_continues_after_an_enqueue_failure(monkeypatch, tmp_path):
+    listed = [make_pr(number=41), make_pr(number=42)]
+    views = [
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=41, headRefOid="head41"),
+        make_pr(number=42, headRefOid="head42"),
+        make_pr(number=42, headRefOid="head42"),
+    ]
+    acted_on = []
+
+    def fake_merge(repo, number, days, head, token, queued=False):
+        acted_on.append(number)
+        if number == 41:
+            raise subprocess.CalledProcessError(1, "gh", stderr="HTTP 502")
+        return queued
+
+    monkeypatch.setattr(auto_merge, "merge_pr", fake_merge)
+    queue_payload = json.dumps(
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"totalCount": 0, "nodes": []},
+                    }
+                }
+            }
+        }
+    )
+    code, _calls = _run_main(
+        monkeypatch, tmp_path, view=views, listed=listed, queue_payload=queue_payload
+    )
+    assert code == 1
+    assert acted_on == [41, 42]
+    summary = (tmp_path / "summary.md").read_text()
+    assert "Added to the merge queue 1" in summary
+    assert "Failed 1" in summary
+
+
 # --- reporting ------------------------------------------------------------
 
 
@@ -939,7 +1075,7 @@ def test_summary_reports_merges_skips_and_failures():
     assert "Merged 1" in report
     assert "#1 — feat: A" in report
     assert "#2 — draft" in report
-    assert "Failed to merge 1" in report
+    assert "Failed 1" in report
 
 
 def test_summary_when_nothing_merged():
@@ -1072,10 +1208,60 @@ def test_queue_state_reports_active_queue_and_its_members(monkeypatch):
     assert state.queued_pr_numbers == frozenset({11, 22})
 
 
+def test_queue_state_collects_every_paginated_page(monkeypatch):
+    payload = json.dumps(
+        [
+            {
+                "data": {
+                    "repository": {
+                        "mergeQueue": {
+                            "id": "MQ_x",
+                            "entries": {
+                                "totalCount": 3,
+                                "pageInfo": {
+                                    "hasNextPage": True,
+                                    "endCursor": "cursor-1",
+                                },
+                                "nodes": [
+                                    {"pullRequest": {"number": 11}},
+                                    {"pullRequest": {"number": 22}},
+                                ],
+                            },
+                        }
+                    }
+                }
+            },
+            {
+                "data": {
+                    "repository": {
+                        "mergeQueue": {
+                            "id": "MQ_x",
+                            "entries": {
+                                "totalCount": 3,
+                                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                                "nodes": [{"pullRequest": {"number": 33}}],
+                            },
+                        }
+                    }
+                }
+            },
+        ]
+    )
+    calls = []
+    monkeypatch.setattr(
+        auto_merge, "_gh", lambda args, token=None: calls.append(args) or payload
+    )
+    state = auto_merge.read_queue_state("o/r", "main")
+    assert state.queued_pr_numbers == frozenset({11, 22, 33})
+    assert state.truncated == 0
+    assert "--paginate" in calls[0] and "--slurp" in calls[0]
+
+
 def test_queue_state_is_inactive_when_the_queue_is_paused(monkeypatch):
     """Disabling the ruleset nulls the node; that is the break-glass signal."""
     monkeypatch.setattr(
-        auto_merge, "_gh",
+        auto_merge,
+        "_gh",
         lambda args, token=None: '{"data":{"repository":{"mergeQueue":null}}}',
     )
     state = auto_merge.read_queue_state("o/r", "main")
@@ -1094,7 +1280,8 @@ def test_queue_state_failure_keeps_pre_queue_behavior(monkeypatch):
 def test_gh_error_skips_the_queue_warning_line():
     """gh prints its queue warning first; it is not the cause of the failure."""
     exc = subprocess.CalledProcessError(
-        1, ["gh"],
+        1,
+        ["gh"],
         stderr=(
             "! The merge strategy for main is set by the merge queue\n"
             "X Pull request #7 is not mergeable: the base branch was modified\n"
@@ -1188,20 +1375,31 @@ def test_a_queued_pr_is_skipped_and_the_sweep_reaches_the_next_one(
     ]
     acted_on = []
     monkeypatch.setattr(
-        auto_merge, "merge_pr",
-        lambda repo, number, days, head, token, q=False: acted_on.append(number)
-        or bool(q),
+        auto_merge,
+        "merge_pr",
+        lambda repo, number, days, head, token, q=False: (
+            acted_on.append(number) or bool(q)
+        ),
     )
     queue_payload = json.dumps(
-        {"data": {"repository": {"mergeQueue": {
-            "id": "MQ_x",
-            "entries": {"nodes": [{"pullRequest": {"number": queued}}]},
-        }}}}
+        {
+            "data": {
+                "repository": {
+                    "mergeQueue": {
+                        "id": "MQ_x",
+                        "entries": {"nodes": [{"pullRequest": {"number": queued}}]},
+                    }
+                }
+            }
+        }
     )
     code, _calls = _run_main(
-        monkeypatch, tmp_path,
-        view=[make_pr(number=queued, mergeable="MERGEABLE"),
-              make_pr(number=next_up, mergeable="MERGEABLE")],
+        monkeypatch,
+        tmp_path,
+        view=[
+            make_pr(number=queued, mergeable="MERGEABLE"),
+            make_pr(number=next_up, mergeable="MERGEABLE"),
+        ],
         listed=listed,
         queue_payload=queue_payload,
     )
@@ -1216,7 +1414,10 @@ def test_summary_reports_queue_state_so_an_inert_fix_is_visible():
     awareness, so it must be legible in the report rather than inferred from
     the absence of a skip line."""
     unreadable = auto_merge.render_summary(
-        [], [], [], queue_state=auto_merge.QueueState(False, frozenset(), readable=False)
+        [],
+        [],
+        [],
+        queue_state=auto_merge.QueueState(False, frozenset(), readable=False),
     )
     assert "state unavailable" in unreadable
 
@@ -1231,7 +1432,9 @@ def test_summary_reports_queue_state_so_an_inert_fix_is_visible():
     assert "active, 2 queued" in active
 
     truncated = auto_merge.render_summary(
-        [], [], [],
+        [],
+        [],
+        [],
         queue_state=auto_merge.QueueState(True, frozenset({1}), truncated=99),
     )
     assert "99" in truncated and "may be reselected" in truncated
