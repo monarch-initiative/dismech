@@ -137,3 +137,23 @@ Non-Syndromic_X-Linked_Intellectual_Disability (8).
    phenotypes/genetic rows where the literature supports them; the 58
    gene-subtyped entries with zero stratified content are the natural
    worklist.
+
+## Status update (2026-09-04, same branch)
+
+Follow-up 1 and the descriptor half of follow-up 2 were applied on this
+branch. All 41 `name_mention` cases (19 entries) received a `genes:`
+descriptor on the pathophysiology node whose name and description already
+assert that gene's mechanism, plus two adjacent cases spotted during
+review: IRAK1 in `Chromosome_Xq_Duplication` (same duplication-dosage
+pattern as its flagged neighbours) and the complex-level attachment in
+`Galloway-Mowat_Syndrome` — LAGE3/OSGEP/TP53RK/TPRKB/GON7/YRDC onto
+"KEOPS and t6A Biogenesis Deficiency", NUP107/NUP133 onto "Nuclear Pore
+Dysfunction", and WDR73 onto its named node, each per the node's own
+description. PRDM15 was deliberately left `ABSENT`: it has no mechanism
+node, so its wiring needs real curation, not a descriptor.
+
+Post-fix audit: `WIRED_DIRECT` 594 → 644, unwired backlog 327 → 277
+(`GENETIC_UNWIRED` 212, `ABSENT` 65), `name_mention` backlog 41 → 0.
+Every remaining flagged gene now needs either a curated per-gene
+mechanism node or a judgment call about a shared final-common-pathway
+node — there are no purely mechanical fixes left.
