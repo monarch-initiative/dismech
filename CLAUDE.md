@@ -2993,6 +2993,25 @@ not a hold: anything opened as a PR is in the review queue. The controller marks
 an eligible draft ready, re-reads every guard, and restores draft state if that
 merge attempt aborts.
 
+**A third hold exists and is not visible from the PR page.** The controller
+also holds a PR back once it has failed the merge queue
+`--ejection-strike-limit` times (default 2) with no push in between. This
+exists because a queue ejection is otherwise invisible to eligibility: an
+ejected PR stays open and approved, so the next sweep re-enqueues it, it fails
+again, and the cycle repeats — #9852 went round three times in fifteen hours,
+failing every speculative stack behind it each time (#10988).
+
+A single ejection is deliberately not a hold, because ejection does not imply
+fault: a PR ahead in the stack can poison it, and a third-party outage can fail
+it. What triggers the hold is repetition against unchanged content. The count
+is keyed on the head commit's `committedDate`, so rewriting the head — a push,
+amend, rebase, or merge of the base branch — resets it to zero.
+
+Unlike assignment or a CHANGES_REQUESTED review, this hold leaves no label,
+review, or assignee: its only trace is a `SKIP` line in the run summary naming
+the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
+and this paragraph are the only places it is recorded.
+
 Immediately before each action, the controller re-reads every PR guard and pins
 the merge request to that verified head SHA. When a required merge queue is
 active, a run enqueues up to 50 eligible PRs and GitHub serializes their merges;

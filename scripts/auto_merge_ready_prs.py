@@ -647,8 +647,10 @@ class EjectionMemory:
     and infrastructure failures do not reproduce once the queue has moved on;
     a defect in the PR itself does. So the rule counts ``failed_checks``
     ejections that happened *after* the head commit was last written: reaching
-    ``EJECTION_STRIKE_LIMIT`` holds the PR back, and any push resets the count
-    to zero because the content under test has changed.
+    ``strike_limit`` holds the PR back. The count is keyed on the head
+    commit's ``committedDate``: rewriting the head (a push, amend, rebase or
+    a merge of the base branch) moves that date past the earlier removals and
+    resets the count to zero, because the content under test has changed.
 
     Note ``RemovedFromMergeQueueEvent.beforeCommit`` is NOT the base-branch tip
     -- it is the queue's own temporary merge commit, and compares as diverged
@@ -661,7 +663,9 @@ class EjectionMemory:
     reason: str = ""
 
 
-def ejection_memory(repo: str, number: int) -> EjectionMemory:
+def ejection_memory(
+    repo: str, number: int, strike_limit: int = EJECTION_STRIKE_LIMIT
+) -> EjectionMemory:
     """Count unchanged-content queue failures for one PR."""
     owner, _, name = repo.partition("/")
     query = (
@@ -679,8 +683,12 @@ def ejection_memory(repo: str, number: int) -> EjectionMemory:
             "-F", f"number={number}", "-f", f"query={query}",
         ])
         data = json.loads(payload)
-    except (subprocess.CalledProcessError, OSError, ValueError) as exc:
+    except subprocess.CalledProcessError as exc:
         # Fail open: a lookup failure must not hold back a ready PR.
+        print(f"WARN  #{number}: could not read ejection history: "
+              f"{_gh_error(exc)}", file=sys.stderr)
+        return EjectionMemory(False)
+    except (OSError, ValueError) as exc:
         print(f"WARN  #{number}: could not read ejection history: {exc}",
               file=sys.stderr)
         return EjectionMemory(False)
@@ -691,6 +699,12 @@ def ejection_memory(repo: str, number: int) -> EjectionMemory:
     head_written = ""
     if commits and isinstance(commits[0], dict):
         head_written = str((commits[0].get("commit") or {}).get("committedDate") or "")
+    if not head_written:
+        # Without the head's write time a strike cannot be attributed to the
+        # current content, so fail open rather than hold on a guess.
+        print(f"WARN  #{number}: no head commit date; not applying an "
+              "ejection hold", file=sys.stderr)
+        return EjectionMemory(False)
     nodes = ((pr.get("timelineItems") or {}).get("nodes")) or []
     strikes = 0
     latest = ""
@@ -699,11 +713,11 @@ def ejection_memory(repo: str, number: int) -> EjectionMemory:
             continue
         when = str(node.get("createdAt") or "")
         # ISO-8601 UTC strings from GitHub compare correctly as text.
-        if head_written and when <= head_written:
+        if when <= head_written:
             continue  # predates the current content; a push has since reset it
         strikes += 1
         latest = max(latest, when)
-    if strikes < EJECTION_STRIKE_LIMIT:
+    if strike_limit <= 0 or strikes < strike_limit:
         return EjectionMemory(False, strikes)
     return EjectionMemory(
         True,
@@ -913,6 +927,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--ejection-strike-limit",
+        type=non_negative_int,
+        default=EJECTION_STRIKE_LIMIT,
+        help=(
+            "hold a PR after this many merge-queue failures with no push in "
+            "between (0 disables the hold)"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="report what would be merged without merging or commenting",
@@ -1060,6 +1083,18 @@ def main(argv: list[str] | None = None) -> int:
             skipped.append({"number": number, "reason": decision.reason})
             continue
 
+        # Before the draft transition, not after: a held PR that is a draft
+        # would otherwise be marked ready, skipped, and re-drafted on every
+        # run for as long as the hold lasts -- and a failing re-draft would
+        # turn the run red over a PR the sweep never intended to touch.
+        # Checked here rather than per candidate, so it costs one extra read
+        # per run.
+        memory = ejection_memory(args.repo, number, args.ejection_strike_limit)
+        if memory.blocked:
+            print(f"SKIP  #{number}: {memory.reason}")
+            skipped.append({"number": number, "reason": memory.reason})
+            continue
+
         was_draft = bool(fresh.get("isDraft"))
 
         ready_transition_succeeded = False
@@ -1114,13 +1149,6 @@ def main(argv: list[str] | None = None) -> int:
                 reason = f"state changed {phase}: {decision.reason}"
                 print(f"SKIP  #{number}: {reason}")
                 skipped.append({"number": number, "reason": reason})
-                continue
-            # Only checked for a PR about to be acted on, so this costs one
-            # extra read per run rather than one per candidate.
-            memory = ejection_memory(args.repo, number)
-            if memory.blocked:
-                print(f"SKIP  #{number}: {memory.reason}")
-                skipped.append({"number": number, "reason": memory.reason})
                 continue
             if args.dry_run:
                 if queue_state.active:

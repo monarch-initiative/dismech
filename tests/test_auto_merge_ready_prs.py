@@ -488,7 +488,8 @@ def test_real_errors_are_not_benign(message):
 
 
 def _run_main(
-    monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None
+    monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None,
+    ejection_payload=None,
 ):
     """Drive main() against a stubbed gh, returning (exit code, gh calls)."""
     if listed is None:
@@ -506,6 +507,17 @@ def _run_main(
             payload = views[min(view_index, len(views) - 1)]
             view_index += 1
             return json.dumps(payload)
+        if args[:2] == ["api", "graphql"] and any(
+            "pullRequest(number:" in a for a in args
+        ):
+            return ejection_payload or json.dumps(
+                {"data": {"repository": {"pullRequest": {
+                    "commits": {"nodes": [
+                        {"commit": {"committedDate": "2026-09-04T00:00:00Z"}}
+                    ]},
+                    "timelineItems": {"nodes": []},
+                }}}}
+            )
         if args[:2] == ["api", "graphql"]:
             # No queue by default, so existing tests keep the direct-merge path.
             return queue_payload or json.dumps(
@@ -1517,3 +1529,45 @@ def test_ejection_lookup_failure_fails_open(monkeypatch):
 
     monkeypatch.setattr(auto_merge, "_gh", boom)
     assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_main_holds_a_repeatedly_failing_pr_and_never_marks_it_ready(
+    monkeypatch, tmp_path
+):
+    """End-to-end guard for the wiring, not just the predicate.
+
+    Deleting the ejection_memory call in main() must fail a test. It must also
+    fail if the check is moved back after the draft transition: a held draft
+    would then be marked ready, skipped, and re-drafted on every run.
+    """
+    acted, drafted = [], []
+    monkeypatch.setattr(
+        auto_merge, "merge_pr",
+        lambda *a, **k: acted.append(a[1]) or False,
+    )
+    monkeypatch.setattr(
+        auto_merge, "mark_pr_ready",
+        lambda *a, **k: drafted.append(("ready", a[1])),
+    )
+    monkeypatch.setattr(
+        auto_merge, "mark_pr_draft",
+        lambda *a, **k: drafted.append(("draft", a[1])),
+    )
+    held = make_pr(number=42, mergeable="MERGEABLE")
+    held["isDraft"] = True
+    two_strikes = json.dumps({"data": {"repository": {"pullRequest": {
+        "commits": {"nodes": [{"commit": {"committedDate": "2026-09-01T00:00:00Z"}}]},
+        "timelineItems": {"nodes": [
+            {"createdAt": "2026-09-03T01:00:00Z", "reason": "failed_checks"},
+            {"createdAt": "2026-09-03T02:00:00Z", "reason": "failed_checks"},
+        ]},
+    }}}})
+    code, _calls = _run_main(
+        monkeypatch, tmp_path, view=held, listed=[held],
+        ejection_payload=two_strikes,
+    )
+    assert code == 0
+    assert acted == [], "a held PR must not be enqueued or merged"
+    assert drafted == [], (
+        "a held draft must not be marked ready (and then re-drafted) every run"
+    )
