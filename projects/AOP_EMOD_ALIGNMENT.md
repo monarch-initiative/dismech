@@ -288,7 +288,7 @@ not land on a mechanism node.
 | No taxonomic applicability | AOPs qualify Events, KERs, and whole pathways by species; dismech records species only at model level, never on a mechanism |
 | Toxicokinetics inside the causal chain | ADME sits outside an AOP by design — it determines dose at the MIE, and folding it in is what makes an AOP chemical-specific. dismech chains ADME steps and key events together with nothing marking which is which |
 | Stressor-agnostic vs disease-anchored | An AOP deliberately excludes the stressor so one pathway serves many chemicals; a dismech graph is anchored to a single disease and pulls the exposure in as a node |
-| AOP identity is provenance, not structure | A dismech module is a mechanism boundary; an AOP is a publication unit. One relationship, KER 2124, is listed in 10 AOPs, and the eight AOPs assembled under lead decompose into three disconnected components. Mapping between modules and AOPs is therefore many-to-many, and a count of AOPs is not a count of mechanisms |
+| AOP identity is provenance, not structure | A dismech module is a mechanism boundary; an AOP is a publication unit. One relationship, KER 2124, is listed in 10 AOPs — the same causal step asserted ten times over. Mapping between modules and AOPs is therefore many-to-many, and a count of AOPs is not a count of mechanisms |
 
 ### Where the toxicokinetic boundary falls, in the pilot entry
 
@@ -347,44 +347,6 @@ Villeneuve et al. 2014 state it as three of the five founding principles
 The companion best-practices paper ([PMID:25466379](https://pubmed.ncbi.nlm.nih.gov/25466379/))
 instructs authors to build on existing KE and KER descriptions rather than write redundant
 ones, which is what produces the reuse in the first place.
-
-**Two measurements run the non-correspondence in opposite directions.**
-
-*One mechanism across many AOPs.* Looking up the Key Event Relationships attached to five Key
-Events on the androgen-receptor axis returned 28 relationships. Grouped by shared Key Events
-they fall into two chains that match the biology — one androgen-signalling, one cholinergic
-that arrived with an acetylcholinesterase Event in the query set. Grouped by parent AOP
-instead, the 24-relationship androgen chain scatters across 19 AOPs, and one relationship,
-[KER 2124](https://aopwiki.org/relationships/2124) (*Decrease, AR activation* → *Altered,
-Transcription of genes by the AR*), is listed in ten of them: AOPs 305, 306, 307, 344, 345,
-477, 570, 571, 575 and 576 (checked against aopwiki.org, 2026-09-03). Those ten differ only
-in what initiates the chain and what it ends in. Reviewing by AOP would present that one edge
-ten times and would never show that the 24 are a single connected mechanism.
-
-*Several mechanisms inside one AOP set.* The mirror image is already in this repo.
-[`AOP_EMOD_ALIGNMENT/openscientist-lead-aop-network.md`](AOP_EMOD_ALIGNMENT/openscientist-lead-aop-network.md)
-reports that the eight lead AOPs share only 8 of their 35 Key Events and 4 of their 36 Key
-Event Relationships, that every instance of reuse is strictly intra-organ, and that the union
-therefore decomposes into three disconnected components: neurodevelopmental, cardiac
-contractility/electrophysiology, and AOP 560's chronotropic branch. Assembling by stressor
-does not yield one mechanism either. That report then knits the three into a single component
-by merging synonymous calcium Events and adding a consensus arrhythmia node — which is rule 3
-applied with curation, not an AOP boundary doing the work.
-
-**The caveat that makes rule 3 usable: hub Key Events.** Connected components are the right
-grouping, but a few Events sit in so many pathways that they merge everything touching them.
-The same report measures it — KE1115 *Increase, Reactive oxygen species* is the most-reused
-Key Event in AOP-Wiki at 63 AOPs, KE177 mitochondrial dysfunction at 43, KE55 cell
-injury/death at 29. On a broad query set those collapse unrelated mechanisms into one
-component; the androgen measurement came out clean because the query set was five Events on
-one axis. Knapen et al. 2018 give the published answer — "the use of filters and layers to
-tailor AOP networks to suit the needs of a given research question or application"
-([PMID:29488651](https://pubmed.ncbi.nlm.nih.gov/29488651/)) — so scope the network to the
-question first, then take components.
-
-The traversal itself does not need writing from scratch. AOP-networkFinder constructs AOP
-networks "by connecting AOPs that use the same Key Events (KEs)" and exports to Cytoscape
-([PMID:39968376](https://pubmed.ncbi.nlm.nih.gov/39968376/)).
 
 ---
 
