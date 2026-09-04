@@ -343,7 +343,7 @@ def test_oversized_jats_table_is_not_appended():
         "<article><body><sec><p>Body paragraph.</p></sec></body>"
         f"<floats-group><table-wrap><label>Table S1</label><table>{rows}</table>"
         "</table-wrap></floats-group></article>"
-    ).encode("utf-8")
+    ).encode()
 
     extracted = XMLExtractor().extract(xml)
 
