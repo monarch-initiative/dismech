@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coal Workers Pneumoconiosis · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Coal Workers Pneumoconiosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Coal Workers Pneumoconiosis</h1>
+                
+                <p class="report-subtitle">Coal Workers&#39; Pneumoconiosis: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-03</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0006654" target="_blank" rel="noopener noreferrer">MONDO:0006654</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">57 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Coal Workers' Pneumoconiosis: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Coal workers' pneumoconiosis (CWP) — colloquially "black lung disease" — is a preventable, progressive occupational interstitial lung disease caused by chronic inhalation of respirable coal mine dust, a complex heterogeneous mixture of coal, crystalline silica, and other silicate minerals (<a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7441a1.htm">CDC MMWR, 2025</a>). The disease spectrum runs from asymptomatic anthracosis/anthracofibrosis through <strong>simple CWP</strong> (discrete pulmonary nodules, typically 1–10 mm, containing coal macules and micronodules) to <strong>complicated CWP</strong>, also called <strong>progressive massive fibrosis (PMF)</strong>, defined by conglomerate fibrotic masses ≥1 cm that can progress even after dust exposure ceases and lead to end-stage restrictive/mixed lung disease and death (<a href="https://emedicine.medscape.com/article/297887-overview">Medscape/Merck Manual</a>; <a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7441a1.htm">MMWR 2025</a>).</p>
+<p><strong>Key identifiers.</strong>
+- <strong>ICD-10-CM:</strong> J60 (Coalworker's pneumoconiosis) (<a href="https://www.icd10data.com/ICD10CM/Codes/J00-J99/J60-J70/J60-/J60">ICD10Data</a>)
+- <strong>MeSH:</strong> Anthracosis / Coal Workers' Pneumoconiosis (broader term Pneumoconiosis)
+- Synonyms/alternative names: black lung disease, anthracosis, coalworker's lung, "miner's asthma" (historical), Caplan's syndrome (rheumatoid variant)
+- Explicit OMIN/Orphanet identifiers were not located in this search — CWP is fundamentally an <strong>acquired occupational disease</strong>, not a monogenic/rare disease, so it is under-indexed in classical rare-disease/Mendelian resources; the primary authoritative sources are occupational-medicine/regulatory bodies (NIOSH, MSHA, CDC) rather than OMIM/Orphanet.</p>
+<p><strong>Data provenance.</strong> Most quantitative disease burden data in the literature derives from <strong>aggregated occupational surveillance</strong> rather than individual EHR records: the NIOSH Coal Workers' Health Surveillance Program (CWHSP), federally funded Black Lung Clinics, National Coal Workers' Autopsy Study, multi-decade cohort mortality studies (e.g., the 37-year US coal miner cohort), and CDC/NCHS multiple-cause-of-death mortality files (<a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7441a1.htm">MMWR 2025</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7055360/">PMC7055360</a>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease causal factor</h3>
+<p>CWP is a purely <strong>environmental/occupational</strong> disease — there is no known single-gene causal mutation. It results from cumulative inhalation of respirable coal mine dust (particles ~0.5–5 µm) that deposit in the distal airways and alveoli.</p>
+<h3>Risk factors</h3>
+<p><strong>Environmental/occupational (primary):</strong>
+- <strong>Cumulative respirable coal mine dust exposure</strong> — dose-dependent; typically requires ≥10–20 years of underground exposure, though PMF is increasingly reported with shorter, more intense exposures in modern mining.
+- <strong>Crystalline silica content of the dust</strong> is now recognized as the dominant driver of the most severe disease. Pathology/mineralogy studies found silica-type pneumoconiosis in <strong>57% of contemporary US coal miners with PMF vs. 18% historically</strong>, reflecting thinner coal seams that require cutting through more silica-bearing rock strata (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9447385/">PMC9447385</a>).
+- Small underground mine employment, mine size, tenure, job title (roof bolters, continuous miner operators), and geographic region (central Appalachia — Kentucky, Virginia, West Virginia — accounts for <strong>86% of PMF cases</strong> in federally funded Black Lung Clinics, 2017–2023, per <a href="https://www.healio.com/news/pulmonology/20240122/progressive-massive-fibrosis-continues-to-impact-coal-miners-in-2023">Healio/Cleveland Clinic 2024</a>).
+- Smoking is not causal but compounds airflow obstruction and may synergize with dust-related fibrosis.</p>
+<p><strong>Genetic susceptibility factors</strong> (modify individual risk given equivalent dust exposure — not causal alone):
+- <strong>TNF-α promoter polymorphisms</strong>: the −238 and −308 TNFA SNPs are associated with CWP risk (OR ≈3.79 for −238); a 2024 systematic review/meta-analysis of candidate genes confirmed TNFα-308A and TNFα-238A alleles as risk factors (<a href="https://link.springer.com/article/10.1186/s12890-024-03392-0">BMC Pulm Med 2024</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/S0940299309002826">ScienceDirect</a>).
+- <strong>TGF-β1 gene variants</strong> (rs1800470/SNP2 CC — decreased risk; rs11466345/SNP5 GG — increased risk) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3596592/">PMC3596592</a>).
+- <strong>Autophagy-related gene (ATG16, ATG12, ATG5, ATG10) polymorphisms</strong> in a Chinese case-control study (705 cases/703 controls) (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378111917306650">ScienceDirect</a>).
+- <strong>SELE, MMP1/MMP2/MMP3, LRBA, SMAD4 (rs10502913), NLRP3 (rs1539019)</strong> gene polymorphisms reported in Chinese cohorts.
+- <strong>MnSOD, GSTM1, GSTT1, OGG1</strong>: one study found <em>no</em> significant genotype-frequency difference between CWP and non-CWP miners — cumulative dust dose, not these particular oxidative-defense genotypes, was the dominant determinant (<a href="https://pubmed.ncbi.nlm.nih.gov/11977425/">PubMed 11977425</a>).</p>
+<h3>Protective factors</h3>
+<ul>
+<li><strong>Long noncoding RNA H19 polymorphism</strong> (rs2067051 CT/TT genotypes) was associated with <em>decreased</em> CWP risk in a Chinese population of 703 cases/705 controls (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5036736/">PMC5036736</a>) — one of the few reported protective genetic variants.</li>
+<li>No established dietary/lifestyle protective factor is well validated in humans; vitamin D supplementation showed benefit in a mouse pneumoconiosis model (see Mechanism section) but is not clinically validated in humans.</li>
+<li>Engineering/administrative controls (respirable dust limits, wetting, ventilation, respiratory protection) are the dominant "protective" interventions — see Prevention.</li>
+</ul>
+<h3>Gene-environment interaction</h3>
+<p>The literature models CWP susceptibility as a <strong>threshold gene-by-dose interaction</strong>: genetic variants in inflammatory cytokine genes (TNF-α, TGF-β1) and autophagy/oxidative-defense pathways modulate the individual inflammatory/fibrotic response to a fixed cumulative dust dose, explaining why only a subset of similarly exposed miners develop CWP or progress to PMF (<a href="https://link.springer.com/article/10.1186/s12890-024-03392-0">BMC Pulm Med 2024</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>CWP phenotypes span symptoms, imaging signs, and — critically — a largely <strong>asymptomatic early stage</strong>, which is a defining clinical feature.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset/course</th>
+<th>Frequency</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Asymptomatic in simple CWP</td>
+<td>Sign (absence of symptom)</td>
+<td>Early/insidious</td>
+<td>Common in simple CWP</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012823" target="_blank" rel="noopener noreferrer">HP:0012823</a> (Clinical modifier)</td>
+</tr>
+<tr>
+<td>Chronic productive cough</td>
+<td>Symptom</td>
+<td>Chronic, progressive with cumulative exposure</td>
+<td>Frequent in complicated disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031246" target="_blank" rel="noopener noreferrer">HP:0031246</a> (Chronic cough)</td>
+</tr>
+<tr>
+<td>Progressive dyspnea/exertional breathlessness</td>
+<td>Symptom</td>
+<td>Progressive, worsens with PMF</td>
+<td>Frequent, especially PMF</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea)</td>
+</tr>
+<tr>
+<td>Black sputum (melanoptysis)</td>
+<td>Sign</td>
+<td>Variable</td>
+<td>Uncommon but characteristic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031248" target="_blank" rel="noopener noreferrer">HP:0031248</a> (related to sputum abnormality; no exact HPO term)</td>
+</tr>
+<tr>
+<td>Restrictive and/or obstructive pulmonary function pattern</td>
+<td>Laboratory/functional abnormality</td>
+<td>Progressive</td>
+<td>Common, more marked in PMF</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" rel="noopener noreferrer">HP:0002105</a> (Restrictive ventilatory defect) / <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" rel="noopener noreferrer">HP:0006536</a> (obstructive)</td>
+</tr>
+<tr>
+<td>Nodular opacities on chest radiograph (simple CWP)</td>
+<td>Imaging sign</td>
+<td>Progressive with cumulative dust exposure</td>
+<td>Defining feature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100750" target="_blank" rel="noopener noreferrer">HP:0100750</a> (Pulmonary nodule)</td>
+</tr>
+<tr>
+<td>Progressive massive fibrosis (conglomerate mass ≥1cm)</td>
+<td>Imaging sign / clinical severity marker</td>
+<td>Progressive, can continue after exposure ceases</td>
+<td>~1,177 new PMF cases at US federally funded clinics 2017–2023 (<a href="https://www.healio.com/news/pulmonology/20240122/progressive-massive-fibrosis-continues-to-impact-coal-miners-in-2023">Healio 2024</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" rel="noopener noreferrer">HP:0002206</a> (Pulmonary fibrosis)</td>
+</tr>
+<tr>
+<td>Emphysema (focal, around coal macules)</td>
+<td>Imaging/pathologic sign</td>
+<td>Progressive</td>
+<td>Common, especially with PMF</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" rel="noopener noreferrer">HP:0002097</a> (Emphysema)</td>
+</tr>
+<tr>
+<td>Pulmonary hypertension / cor pulmonale</td>
+<td>Clinical sign, late-stage</td>
+<td>Late, progressive</td>
+<td>Occurs in advanced/PMF disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (secondary), <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" rel="noopener noreferrer">HP:0002092</a> (Pulmonary hypertension)</td>
+</tr>
+<tr>
+<td>Hypoxemia</td>
+<td>Laboratory abnormality</td>
+<td>Progressive, more severe in PMF</td>
+<td>Common in advanced disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" rel="noopener noreferrer">HP:0012418</a> (Hypoxemia)</td>
+</tr>
+<tr>
+<td>Rheumatoid nodules with pneumoconiosis (Caplan syndrome)</td>
+<td>Sign, autoimmune overlap</td>
+<td>Can occur before, at, or up to 10 years after RA diagnosis</td>
+<td>Rare, distinct radiographic pattern first described in Welsh miners (1953)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009777" target="_blank" rel="noopener noreferrer">HP:0009777</a> (Rheumatoid nodules, if applicable)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality of life impact.</strong> Advanced/complicated CWP causes significant disability from progressive dyspnea, oxygen dependence, and functional decline; pulmonary rehabilitation is used specifically to help patients maintain activities of daily living (<a href="https://www.nationaljewish.org/conditions/coal-workers-pneumoconiosis/treatment">National Jewish Health</a>; <a href="https://www.lung.org/lung-health-diseases/lung-disease-lookup/black-lung/treating-and-managing">American Lung Association</a>).</p>
+<p><strong>Diagnostic staging system (not strictly a "phenotype" but governs how phenotype severity is graded):</strong> ILO International Classification of Radiographs of Pneumoconioses — categories 0–3, with small opacities graded p/q/r by size (p ≤1.5mm, 1.5≤q≤3mm, 3≤r≤10mm) and large opacities (A, B, C) defining PMF (<a href="https://www.cdc.gov/niosh/chestradiography/php/ilo-classification/index.html">CDC NIOSH ILO Classification</a>).</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>CWP is <strong>not a Mendelian disease</strong> — there is no single causal gene. Rather, dozens of candidate-gene association studies (predominantly in Chinese miner cohorts) have examined polymorphisms modulating individual susceptibility and severity, summarized above under Etiology. Key genes/loci with documented association evidence:</p>
+<ul>
+<li><strong>TNF (TNFA)</strong> — promoter SNPs −238, −308 (chr6) — cytokine dysregulation (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0940299309002826">ScienceDirect</a>)</li>
+<li><strong>TGFB1</strong> — rs1800470, rs11466345 — profibrotic cytokine (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3596592/">PMC3596592</a>)</li>
+<li><strong>H19</strong> (lncRNA) — rs2067051 — protective association (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5036736/">PMC5036736</a>)</li>
+<li><strong>SELE</strong> (E-selectin) — case-control association in Chinese cohort (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3774684/">PMC3774684</a>)</li>
+<li><strong>ATG5, ATG10, ATG12, ATG16</strong> — autophagy machinery genes (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0378111917306650">ScienceDirect</a>)</li>
+<li><strong>MMP1, MMP2, MMP3</strong> — matrix remodeling (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4661622/">PMC4661622</a>)</li>
+<li><strong>LRBA</strong> — immune regulatory gene (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5664639/">PMC5664639</a>)</li>
+<li><strong>SMAD4, NLRP3</strong> — TGF-β signaling / inflammasome (2022 Chinese Han study)</li>
+<li><strong>MnSOD (SOD2), GSTM1, GSTT1, OGG1</strong> — oxidative-defense genes with largely <em>null</em> findings in one cohort, where cumulative dust dose dominated over genotype (<a href="https://pubmed.ncbi.nlm.nih.gov/11977425/">PubMed 11977425</a>)</li>
+</ul>
+<p><strong>Variant classification/pathogenicity:</strong> These are common population polymorphisms (risk alleles with modest odds ratios, e.g., OR≈3.79 for TNFA-238), not ACMG-classified pathogenic Mendelian variants — CWP susceptibility genetics is analogous to complex/polygenic disease risk modeling rather than monogenic diagnosis. No GWAS Catalog hits specific to CWP were surfaced in this search; the genetic literature is dominated by candidate-gene case-control studies, largely in Han Chinese coal miner populations, which limits generalizability and independent replication.</p>
+<p><strong>Epigenetics:</strong> Not extensively characterized for CWP specifically in the sources found; DNA methylation/histone studies are more developed for silicosis and idiopathic pulmonary fibrosis broadly and were not directly surfaced here as CWP-specific.</p>
+<p><strong>Molecular profiling (proteomics/metabolomics):</strong> A 2024 study integrated <strong>proteomics and metabolomics</strong> to characterize CWP disease progression, describing a "dynamic landscape" across disease stages (<a href="https://pubs.acs.org/doi/10.1021/acs.jproteome.4c00715">J Proteome Res 2024</a>). Serum protein biomarkers <strong>osteopontin (OPN), KL-6, Syndecan-4, and Gremlin-1</strong> were validated in a 400-subject case-control study (100 healthy controls, 100 dust-exposed workers, 200 CWP patients), integrating lung-tissue transcriptomic data from CWP patients with silica-exposed alveolar-macrophage microarray data; all four markers rose sequentially with disease severity and correlated inversely with pulmonary function (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10241210/">PMC10241210</a>).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Primary environmental/occupational factor:</strong> Respirable coal mine dust (mixed coal + crystalline silica + silicate minerals), generated by cutting, drilling, blasting, and hauling operations, especially in underground mining and thin-seam extraction requiring cutting through silica-bearing rock strata (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9447385/">PMC9447385</a>).</li>
+<li><strong>Crystalline silica (quartz)</strong> is now the pivotal environmental co-exposure explaining the resurgence of severe disease; MSHA's 2024 final rule explicitly addresses "coal mine dust containing respirable crystalline silica" as the driver of CWP, PMF, and "mixed-dust pneumoconiosis" (<a href="https://www.federalregister.gov/documents/2024/04/18/2024-06920/lowering-miners-exposure-to-respirable-crystalline-silica-and-improving-respiratory-protection">Federal Register 2024-06920</a>).</li>
+<li><strong>Lifestyle factors:</strong> Cigarette smoking is not causal of CWP but is an important compounding factor for airflow obstruction and overall respiratory morbidity/mortality; smoking cessation is a core management recommendation (<a href="https://www.nationaljewish.org/conditions/coal-workers-pneumoconiosis/treatment">National Jewish Health</a>).</li>
+<li><strong>Infectious agents:</strong> Not a primary etiologic factor, but CWP patients are recommended to undergo surveillance for mycobacterial infection (e.g., tuberculosis) given impaired local lung defenses, and are recommended influenza/pneumococcal vaccination (<a href="https://www.nationaljewish.org/conditions/coal-workers-pneumoconiosis/treatment">National Jewish Health</a>). A 2025 study also examined the <strong>lung microbiota's role in coal mine dust-induced NLRP3 inflammasome upregulation and lung injury</strong> (<a href="https://www.nature.com/articles/s41598-025-06411-0">Sci Rep 2025</a>), and a separate study profiled <strong>sputum microbiota via 16S rRNA sequencing</strong> in CWP patients (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9224638/">PMC9224638</a>), suggesting dysbiosis may modulate disease processes, though this is not an infectious causal agent per se.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Inhalation of respirable coal mine dust (particles ~0.5–5 µm, mixed coal + crystalline silica)</strong> reaches and deposits in terminal bronchioles and alveoli — <em>demonstrated</em>.</li>
+<li><strong>Alveolar macrophages phagocytose the dust particles</strong> in an attempt to clear them — <em>demonstrated</em>.</li>
+<li>Phagocytosis of the poorly biodegradable, cytotoxic (especially silica-containing) particles <strong>leads to macrophage cell death, lysosomal membrane rupture, and release of intracellular lipases/proteases</strong>, causing direct cytotoxic lung tissue injury — <em>demonstrated</em> (<a href="https://emedicine.medscape.com/article/297887-overview">Medscape</a>).</li>
+<li>In parallel, dust exposure <strong>activates oxidant production (ROS/RNS) by pulmonary phagocytes</strong>, overwhelming antioxidant defenses and causing lipid peroxidation and protein nitrosation — <em>demonstrated in model systems, inferred as operative in humans</em>.</li>
+<li><strong>IGF1/IGF1R axis activation generates ROS</strong>, which drives <strong>epithelial-mesenchymal transition (EMT) in alveolar epithelial cells</strong> via <strong>AKT/GSK3β signaling</strong> — <em>demonstrated in a 2022 mechanistic mouse/cell study</em> (<a href="https://www.nature.com/articles/s41420-022-01291-z">Cell Death Discov 2022</a>).</li>
+<li>ROS and dust particles <strong>activate the NF-κB/NLRP3 inflammasome axis</strong> in macrophages and epithelial cells, driving <strong>caspase-1 activation and release of IL-1β and IL-18</strong> — <em>demonstrated in model systems</em> (<a href="https://stacks.cdc.gov/view/cdc/147727/cdc_147727_DS1.pdf">CDC/NIOSH review</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9800584/">PMC9800584</a>).</li>
+<li>This inflammatory cascade <strong>recruits polymorphonuclear leukocytes and additional macrophages</strong>, amplifying release of proinflammatory mediators (TNF-α, TGF-β1, etc.) and <strong>creating a self-sustaining chronic inflammatory microenvironment</strong> — <em>demonstrated</em>.</li>
+<li>Chronic inflammation and TGF-β/EMT signaling <strong>activate resident fibroblasts</strong>, driving <strong>collagen deposition and fibrogenesis around retained dust particles</strong>, forming the <strong>coal macule</strong> (the histopathologic hallmark lesion, containing dust-laden macrophages, reticulin, and collagen fibers) — <em>demonstrated</em>.</li>
+<li>Coal macules aggregate into discrete <strong>micronodules and nodules</strong> visible radiographically (simple CWP), often with surrounding <strong>focal emphysema</strong> from local airway/alveolar destruction — <em>demonstrated</em>.</li>
+<li>With continued or sufficiently high-silica dust burden, nodules <strong>coalesce into conglomerate fibrotic masses ≥1 cm — progressive massive fibrosis (PMF)</strong> — the complicated, severe form of disease, which can <strong>continue progressing even after exposure ceases</strong> (a distinguishing, and clinically important, feature) — <em>demonstrated</em> (<a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7441a1.htm">CDC MMWR 2025</a>).</li>
+<li>Extensive fibrosis <strong>causes restrictive (and often mixed obstructive-restrictive) pulmonary physiology, V/Q mismatch, and progressive hypoxemia</strong>, which in advanced disease <strong>leads to pulmonary hypertension and cor pulmonale</strong> — <em>demonstrated clinically</em>.</li>
+<li><strong>Branch point — autoimmune variant (Caplan syndrome):</strong> In a subset of miners who also develop rheumatoid arthritis, dust exposure appears to <strong>exacerbate production of autoantibodies (rheumatoid factor, anti-citrullinated protein antibodies/ACPAs) and immune complexes</strong>, producing a distinct pattern of well-defined peripheral rheumatoid nodules superimposed on pneumoconiosis, occurring before, at, or up to 10 years after RA onset — <em>demonstrated epidemiologically, immune mechanism partly inferred</em> (<a href="https://www.ncbi.nlm.nih.gov/books/NBK499886/">StatPearls; NCBI Bookshelf NBK499886</a>).</li>
+<li><strong>Branch point — mitochondrial/mitophagy axis:</strong> A 2026 study found that coal-silica mixed dust impairs <strong>macrophage mitochondrial function</strong>, and that <strong>pharmacological activation of mitophagy (kinetin)</strong> mitigates pulmonary fibrosis in mice, implicating <strong>mitochondrial quality control failure</strong> as an additional upstream contributor to macrophage dysfunction and fibrogenesis (<a href="https://journals.sagepub.com/doi/10.1177/15230864251411565">J Investig Med 2026</a>) — <em>demonstrated in mouse model, translational status in humans unconfirmed</em>.</li>
+</ol>
+<h3>Molecular pathways</h3>
+<ul>
+<li><strong>NF-κB / NLRP3 inflammasome axis</strong> (caspase-1, IL-1β, IL-18 release) — central proinflammatory "danger receptor" pathway for dust-induced lung disease (<a href="https://stacks.cdc.gov/view/cdc/147727/cdc_147727_DS1.pdf">CDC/NIOSH</a>).</li>
+<li><strong>IGF1/IGF1R–ROS–AKT/GSK3β–NF-κB/NLRP3</strong> signaling cascade driving EMT and fibrosis (<a href="https://www.nature.com/articles/s41420-022-01291-z">Cell Death Discov 2022</a>).</li>
+<li><strong>TGF-β1/SMAD signaling</strong> — canonical profibrotic pathway implicated both mechanistically and genetically (SMAD4 polymorphism association) (KEGG: hsa04350 TGF-beta signaling pathway).</li>
+<li>Suggested GO terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a></strong> (inflammatory response), <strong><a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" rel="noopener noreferrer">GO:0030154</a></strong> (cell differentiation, EMT-related), <strong><a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a></strong> (angiogenesis, in fibrotic remodeling), <strong><a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a></strong> (transforming growth factor beta receptor signaling pathway), <strong><a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" rel="noopener noreferrer">GO:0043123</a></strong> (positive regulation of I-kappaB kinase/NF-kappaB signaling), <strong><a href="http://purl.obolibrary.org/obo/GO_0002526" target="_blank" rel="noopener noreferrer">GO:0002526</a></strong> (acute inflammatory response), <strong><a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" rel="noopener noreferrer">GO:0072593</a></strong> (reactive oxygen species metabolic process), <strong><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a></strong> (apoptotic process, relevant to macrophage/epithelial cell death).</li>
+</ul>
+<h3>Cellular processes and cell types (CL terms)</h3>
+<ul>
+<li><strong>Alveolar macrophage</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>) — dust phagocytosis, cytokine release, cell death</li>
+<li><strong>Type II pneumocyte / alveolar epithelial cell</strong> (<a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" rel="noopener noreferrer">CL:0002063</a>) — site of EMT</li>
+<li><strong>Fibroblast</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>) — collagen deposition</li>
+<li><strong>Myofibroblast</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" rel="noopener noreferrer">CL:0000186</a>) — activated fibrogenic effector cell</li>
+<li><strong>Neutrophil</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>) — recruited inflammatory effector</li>
+<li>Processes: apoptosis (demonstrated via Bax expression studies, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1570065/">PMC1570065</a>), oxidative stress, chronic inflammation, epithelial-mesenchymal transition, fibrogenesis, mitophagy/autophagy dysregulation.</li>
+</ul>
+<h3>Molecular profiling technologies applied to CWP</h3>
+<ul>
+<li><strong>Transcriptomics:</strong> Single-timepoint and longitudinal mouse-model transcriptional profiling of coal-dust-exposed lungs showed heterogeneous transcriptional responses, partially ameliorated by vitamin D supplementation (<a href="https://link.springer.com/article/10.1186/s12989-022-00449-y">Part Fibre Toxicol 2022</a>).</li>
+<li><strong>Proteomics/Metabolomics:</strong> Integrated multi-omics analysis reveals a "dynamic landscape" of protein/metabolite changes across CWP disease stages (<a href="https://pubs.acs.org/doi/10.1021/acs.jproteome.4c00715">J Proteome Res 2024</a>).</li>
+<li><strong>Microbiome:</strong> 16S rRNA sputum sequencing and lung-microbiota studies link dysbiosis to NLRP3 activation (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9224638/">PMC9224638</a>; <a href="https://www.nature.com/articles/s41598-025-06411-0">Sci Rep 2025</a>).</li>
+<li><strong>Raman spectroscopy:</strong> Used to characterize inflammation/fibrosis directly in coal-dust-exposed lung tissue (<a href="https://peerj.com/articles/13632/">PeerJ 2022</a>).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- <strong>Primary:</strong> Lungs (parenchyma, particularly upper lobes and posterior segments where dust deposition and clearance are least efficient)
+- <strong>Secondary:</strong> Right heart (cor pulmonale from pulmonary hypertension in advanced disease); pleura (occasionally pleural involvement/thickening)
+- <strong>Body systems:</strong> Respiratory system primarily; cardiovascular system secondarily (pulmonary hypertension)</p>
+<p><strong>Tissue and cell level:</strong>
+- Alveolar epithelium, bronchiolar epithelium, pulmonary interstitium/connective tissue, alveolar macrophage population
+- Suggested UBERON terms: <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a></strong> (lung), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000115" target="_blank" rel="noopener noreferrer">UBERON:0000115</a></strong> (lung parenchyma), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a></strong> (bronchiole), <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" rel="noopener noreferrer">UBERON:0002299</a></strong> (alveolus of lung)</p>
+<p><strong>Subcellular level:</strong>
+- Macrophage lysosomes (site of dust particle processing and rupture), mitochondria (dysfunction implicated in fibrogenesis — 2026 mitophagy study), endoplasmic reticulum (stress response to oxidative injury)
+- GO Cellular Component: <strong><a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a></strong> (lysosome), <strong><a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a></strong> (mitochondrion)</p>
+<p><strong>Localization:</strong> Bilateral, typically symmetric, with a predilection for upper and posterior lung zones; PMF masses are usually bilateral and can be asymmetric in size/distribution.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> Adult-onset occupational disease; typically requires years to decades of cumulative dust exposure (classically ≥10–20 years underground), though contemporary cases with higher silica content are reported after shorter exposure durations. Onset is <strong>insidious</strong> — simple CWP is frequently asymptomatic and detected only on periodic radiographic surveillance.</p>
+<p><strong>Progression:</strong>
+- <strong>Stages:</strong> ILO Category 0 (normal) → Category 1–3 (simple CWP, increasing profusion of small opacities) → PMF/complicated CWP (Categories A, B, C based on size of large opacities) (<a href="https://www.cdc.gov/niosh/chestradiography/php/ilo-classification/index.html">CDC ILO Classification</a>).
+- <strong>Progression rate:</strong> Variable; can be slow over decades in simple CWP but PMF, once established, is characteristically <strong>relentlessly progressive and can continue to worsen even after cessation of dust exposure</strong> — a defining natural-history feature distinguishing it from many other occupational lung diseases (<a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7441a1.htm">CDC MMWR 2025</a>).
+- <strong>Disease course pattern:</strong> Chronic, progressive (not typically relapsing-remitting); duration is lifelong once established, with no spontaneous remission.</p>
+<p><strong>Critical periods/windows:</strong> Early detection via periodic radiographic surveillance (NIOSH CWHSP) is the key intervention window — Part 90 rights allow miners with radiographic evidence of pneumoconiosis to transfer to lower-dust-exposure jobs, aiming to halt progression before PMF develops (<a href="https://www.dol.gov/agencies/owcp/dcmwc">DOL Black Lung Program</a>).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong>
+- US CWP-associated death rate rose from <strong>1.1 per million (370 deaths) in 2020 to 1.4 per million (462 deaths) in 2023</strong>; overall <strong>1,754 CWP-associated deaths</strong> occurred among US residents aged ≥15 during 2020–2023, with an age-adjusted death rate of <strong>1.3 per million</strong> (<a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7441a1.htm">CDC MMWR 2025, mm7441a1</a>).
+- Increased risk observed among mining-industry and construction/extraction workers.
+- Approximately <strong>4,000 new cases occur annually in the US</strong> (roughly 4% of surveyed workers per year, historically) (<a href="https://emedicine.medscape.com/article/297887-overview">Medscape</a>).
+- <strong>1,177 new PMF cases</strong> diagnosed at federally funded Black Lung Clinics across 11 states, 2017–June 2023; <strong>86% (1,008) resided in central Appalachia</strong> (Kentucky, Virginia, West Virginia) (<a href="https://www.healio.com/news/pulmonology/20240122/progressive-massive-fibrosis-continues-to-impact-coal-miners-in-2023">Healio 2024</a>).
+- NIOSH CWHSP surveillance (2014–2019) found American Indian/Alaska Native surface coal miners with ≥10 years experience had <strong>3.0% radiographic pneumoconiosis</strong> and <strong>0.3% PMF</strong>.
+- Mortality: a <strong>37-year follow-up US coal miner cohort</strong> found excess mortality for pneumoconiosis (SMR=79.70; 95% CI 72.1–87.67), COPD (SMR=1.11; 95% CI 0.99–1.24), and lung cancer (SMR=1.08; 95% CI 1.00–1.18) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4522914/">PMC4522914</a>).
+- Mortality odds from non-malignant respiratory disease and lung cancer are <strong>highest among miners born after 1939</strong>, likely reflecting increased rates of severe pneumoconiosis in more recent cohorts (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10428099/">PMC10428099</a>).</p>
+<p><strong>Inheritance pattern:</strong> Not a Mendelian disease — no defined inheritance pattern, penetrance, expressivity, anticipation, or germline mosaicism applies. Genetic risk operates as <strong>polygenic susceptibility modifiers</strong> (see Genetic/Molecular section) acting on top of an obligate environmental exposure.</p>
+<p><strong>Population demographics:</strong>
+- Overwhelmingly affects underground coal miners (historically and currently predominantly male in the US/UK/China mining workforce).
+- Geographic concentration in coal-mining regions: central Appalachia (US), historically Wales/UK, and major coal-mining regions of China (source of most genetic-association literature).
+- Sex ratio: heavily skewed male, reflecting occupational demographics of underground coal mining.
+- Age distribution: affected individuals are typically older miners or retirees, reflecting the decades-long latency to clinically significant disease, though PMF is increasingly reported in younger miners with high-silica exposure.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/imaging tests:</strong>
+- <strong>Chest radiography with ILO Classification of Radiographs of Pneumoconioses</strong> — the standard surveillance and diagnostic tool, read by NIOSH-certified "B readers"; categorizes profusion (0–3) and opacity size (p/q/r for small, A/B/C for large/PMF) (<a href="https://www.cdc.gov/niosh/chestradiography/php/ilo-classification/index.html">CDC NIOSH</a>).
+- <strong>High-resolution CT (HRCT)</strong> — more sensitive than plain radiography for detecting parenchymal coal dust accumulation and focal emphysema, though abnormal pulmonary function may not correlate well with early HRCT findings in simple CWP (<a href="https://pubmed.ncbi.nlm.nih.gov/8404184/">PubMed 8404184</a>).
+- <strong>Quantitative CT-based imaging biomarkers</strong> (2023) — novel airway structural variables (bifurcation angle, hydraulic diameter, wall thickness, circularity) and parenchymal functional variables (emphysema, ground-glass opacity, consolidation, fibrosis, blood vessel volume) are being developed to identify CWP quantitatively (<a href="https://www.frontiersin.org/journals/physiology/articles/10.3389/fphys.2023.1288246/full">Front Physiol 2023</a>).
+- <strong>Machine learning/computer-aided diagnosis</strong> of chest X-rays is an active area of methods development (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9180284/">PMC9180284</a>).
+- <strong>Pulmonary function tests (PFTs)</strong> — spirometry, lung volumes, DLCO to characterize restrictive/obstructive/mixed physiology and functional impairment.
+- <strong>Biopsy/pathology</strong> — coal macules with dust-laden macrophages, reticulin, and collagen; used mainly in autopsy studies (National Coal Workers' Autopsy Study) or when biopsy performed for other indications, given the risk of invasive biopsy in impaired lungs.</p>
+<p><strong>Biomarkers (emerging):</strong>
+- Serum <strong>osteopontin, KL-6, Syndecan-4, Gremlin-1</strong> — validated as diagnostic biomarkers correlating with disease severity and inversely with pulmonary function in a 400-subject case-control study (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10241210/">PMC10241210</a>).
+- KL-6, surfactant protein D, MMP-2 have established diagnostic utility in the related pneumoconiosis silicosis/asbestosis literature (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5693552/">PMC5693552</a>).</p>
+<p><strong>Genetic testing:</strong> Not clinically indicated for diagnosis (CWP is diagnosed by exposure history + radiographic pattern), though candidate-gene genotyping is used in research settings to study susceptibility.</p>
+<p><strong>Clinical criteria/differential diagnosis:</strong> Diagnosis requires (1) a compatible occupational dust exposure history, (2) characteristic radiographic pattern per ILO classification, and (3) exclusion of other causes of similar radiographic findings (silicosis alone, tuberculosis, sarcoidosis, other interstitial lung diseases, metastatic disease for nodular patterns).</p>
+<p><strong>Screening:</strong> The <strong>NIOSH Coal Workers' Health Surveillance Program (CWHSP)</strong> provides no-cost periodic chest radiograph screening to underground coal miners at hire and periodically thereafter; miners found with radiographic pneumoconiosis gain <strong>Part 90 rights</strong> to transfer to lower-dust jobs without loss of pay (<a href="https://www.cdc.gov/niosh/cwhsp/about/index.html">CDC CWHSP</a>; <a href="https://www.dol.gov/agencies/owcp/dcmwc/mission">DOL</a>).</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>No cure exists.</strong> Prognosis depends heavily on stage at detection: simple CWP may remain stable or progress slowly; PMF carries a substantially worse prognosis with continued decline in lung function, disability, and premature death, and <strong>can progress even after dust exposure ceases</strong> (<a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7441a1.htm">CDC MMWR 2025</a>).</li>
+<li><strong>Mortality:</strong> Age-adjusted US CWP death rate of 1.3 per million (2020–2023), rising trend from 1.1 (2020) to 1.4 (2023) per million; excess pneumoconiosis mortality SMR of ~80 in long-term cohort follow-up (<a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7441a1.htm">MMWR 2025</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4522914/">PMC4522914</a>).</li>
+<li><strong>Comorbidity burden:</strong> Comorbidities (chronic pulmonary disease, hypertension, heart disease) increase death risk among pneumoconiosis patients by ~10%; coal miners with CWP have a significantly higher relative risk of lung carcinoma compared to the general male population, and coal mine dust exposure independently associates with increased lung cancer mortality (HR=1.70, 95% CI 1.02–2.83) (<a href="https://academic.oup.com/occmed/article-abstract/33/3/141/1378154">Occup Med</a>; cohort data above).</li>
+<li><strong>Functional/disability outcomes:</strong> Progressive restrictive/obstructive impairment, hypoxemia, need for supplemental oxygen, and eventual respiratory failure in advanced PMF.</li>
+<li><strong>Prognostic factors:</strong> Cumulative dust exposure, silica content of dust, radiographic category/PMF stage, presence of comorbid COPD or lung cancer, smoking status, and biomarker levels (OPN, KL-6, Syndecan-4, Gremlin-1 correlate with severity).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No curative therapy exists.</strong> Management is predominantly <strong>supportive</strong>:</p>
+<ul>
+<li><strong>General supportive care:</strong> Prompt treatment of respiratory infections, tuberculosis/mycobacterial surveillance, influenza and pneumococcal vaccination, smoking cessation, and regular exercise (<a href="https://www.nationaljewish.org/conditions/coal-workers-pneumoconiosis/treatment">National Jewish Health</a>). NCIT: <strong>NCIT:C15747</strong> (Supportive Care).</li>
+<li><strong>Bronchodilator/COPD-directed therapy</strong> for workers with an obstructive component. NCIT: <strong>NCIT:C15986</strong> (Pharmacotherapy).</li>
+<li><strong>Supplemental oxygen therapy</strong> for hypoxemia and/or pulmonary hypertension. NCIT: <strong>NCIT:C64582</strong> (Oxygen) as therapeutic_agent under a supportive-care/pharmacotherapy term.</li>
+<li><strong>Pulmonary rehabilitation</strong> for more severely affected workers, to maintain activities of daily living. NCIT: <strong>NCIT:C15315</strong> (Rehabilitation).</li>
+<li><strong>Antifibrotic therapy (emerging/experimental):</strong> Growing interest in <strong>pirfenidone and nintedanib</strong>, established antifibrotics in idiopathic pulmonary fibrosis, to potentially slow progression in PMF/diffuse dust fibrosis. A dedicated clinical trial, <strong>NCT04461587</strong> ("Examination of Pirfenidone (Esbriet®) Therapy in Coal Workers' Pneumoconiosis With Pulmonary Fibrosis"), was initiated to test this (<a href="https://clinicaltrials.gov/study/NCT04461587">ClinicalTrials.gov NCT04461587</a>; <a href="https://www.merckmanuals.com/professional/pulmonary-disorders/environmental-and-occupational-pulmonary-diseases/coal-worker-pneumoconiosis">Merck Manual</a>). NCIT therapeutic_agent candidates: pirfenidone, nintedanib.</li>
+<li><strong>Lung transplantation:</strong> Should be considered in patients with progressive respiratory failure; studies report <strong>no increased risk of perioperative/postoperative complications</strong> in CWP transplant recipients compared to other indications (<a href="https://pubmed.ncbi.nlm.nih.gov/22360577/">PubMed 22360577</a>). NCIT: <strong>NCIT:C15289</strong> (Organ Transplantation).</li>
+<li><strong>Surgical care:</strong> Generally limited role beyond transplantation; occasional intervention for complications (e.g., pneumothorax).</li>
+<li><strong>Autoimmune/Caplan syndrome-specific management:</strong> Standard rheumatoid arthritis therapy (DMARDs, biologics) as indicated when the autoimmune overlap phenotype is present.</li>
+</ul>
+<p><strong>Treatment strategy:</strong> Management is staged by severity — simple CWP focuses on exposure cessation/reduction and surveillance; complicated CWP/PMF adds pulmonary rehabilitation, oxygen, antifibrotic trial enrollment where eligible, and transplant evaluation in end-stage disease.</p>
+<p><strong>Treatment outcomes:</strong> No FDA-approved disease-modifying therapy currently exists specifically for CWP; the pirfenidone trial outcome data were not available in this search and should be checked directly on ClinicalTrials.gov for current status/results.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>CWP is explicitly characterized by CDC/NIOSH as a <strong>preventable</strong> disease — prevention is the dominant public-health focus.</p>
+<p><strong>Primary prevention (exposure control):</strong>
+- <strong>MSHA 2024 Final Rule — "Lowering Miners' Exposure to Respirable Crystalline Silica and Improving Respiratory Protection"</strong> (effective June 17, 2024; coal mine operator compliance required by April 14, 2025): establishes a uniform <strong>permissible exposure limit (PEL) of 50 µg/m³</strong> and <strong>action level of 25 µg/m³</strong> for respirable crystalline silica across all mine types, alongside improved respiratory protection requirements (<a href="https://www.msha.gov/final-rule-respirable-crystalline-silica-health-alert">MSHA Final Rule</a>; <a href="https://www.federalregister.gov/documents/2024/04/18/2024-06920/lowering-miners-exposure-to-respirable-crystalline-silica-and-improving-respiratory-protection">Federal Register 2024-06920</a>).
+- Engineering controls: dust suppression (water sprays), ventilation, continuous personal dust monitors, respiratory protective equipment.</p>
+<p><strong>Secondary prevention (screening/early detection):</strong>
+- <strong>NIOSH Coal Workers' Health Surveillance Program (CWHSP)</strong> — periodic, no-cost chest radiograph (and increasingly spirometry) screening for underground coal miners at hire and at defined intervals (<a href="https://www.cdc.gov/niosh/cwhsp/about/index.html">CDC CWHSP</a>).
+- <strong>Part 90 program</strong> — miners found with radiographic pneumoconiosis have a legal right to transfer to a job with dust exposure below the applicable federal standard without loss of pay/benefits, a key exposure-reduction intervention at the individual level (<a href="https://www.dol.gov/agencies/owcp/dcmwc/mission">DOL</a>).</p>
+<p><strong>Tertiary prevention:</strong> Standard pulmonary disease management (vaccination, infection surveillance, pulmonary rehabilitation, oxygen) to prevent complications in those already diagnosed (see Treatment section).</p>
+<p><strong>Public health/regulatory:</strong> The Black Lung Benefits Act of 1972 and the Federal Black Lung Program (administered by the US Department of Labor, Division of Coal Mine Workers' Compensation) provide compensation to totally disabled miners and survivors, funded via a Black Lung Disability Trust Fund financed by a coal excise tax — a policy lever that also incentivizes exposure reduction (<a href="https://www.dol.gov/agencies/owcp/dcmwc">DOL Black Lung Program</a>; <a href="https://www.congress.gov/crs-product/R45261">Congress.gov CRS R45261</a>).</p>
+<p><strong>Prophylaxis:</strong> No pharmacological prophylaxis exists; prevention is exposure-control-based.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Targeted searches did not identify well-documented <strong>naturally occurring CWP in non-human species</strong> (e.g., no OMIA entries, no veterinary case series in horses or companion animals were found in this search). CWP is fundamentally an anthropogenic occupational exposure disease tied to underground coal mining, so it lacks a natural veterinary analog in the way zoonotic or heritable diseases do. The closest comparative biology is:
+- <strong>Experimental animal models</strong> (below), which are induced, not naturally occurring.
+- The broader pneumoconiosis family does have described occupational/environmental analogs in domestic animals exposed to heavy industrial dust environments, but specific citable veterinary CWP case reports were not surfaced by this search and would need targeted follow-up in veterinary literature (e.g., OMIA, VetCompass) if required.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse models:</strong>
+- Coal dust instillation/inhalation models are used to study inflammation and fibrosis progression; one protocol uses <strong>16 mg coal dust administered to a mouse monthly</strong>, approximating a miner's 10–20 years of cumulative exposure; after 9 months of coal dust stimulation, alveolar structure and pulmonary microenvironment are destroyed with inflammatory and cell-death pathway activation, recapitulating pneumoconiosis ([search synthesis of mouse CWP model literature]).
+- Coal dust exposure triggers heterogeneous transcriptional profiles in mouse pneumoconiosis, partially ameliorated by <strong>vitamin D remedies</strong> in one 2022 study (<a href="https://link.springer.com/article/10.1186/s12989-022-00449-y">Part Fibre Toxicol 2022</a>).
+- Mouse silicosis models have been used to test <strong>N-acetylcysteine</strong> as a therapeutic antifibrotic agent (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6639458/">PMC6639458</a>).
+- Kinetin-induced <strong>mitophagy activation</strong> mitigated coal-silica mixed dust-induced pulmonary fibrosis in mice via modulation of macrophage mitochondrial function (2026) (<a href="https://journals.sagepub.com/doi/10.1177/15230864251411565">SAGE J Investig Med</a>).</p>
+<p><strong>Rat models:</strong>
+- <strong>Sprague-Dawley rats</strong> exposed via dynamic coal dust inhalation are used to study macrophage polarization and its molecular regulatory network in pulmonary inflammation/fibrosis (<a href="https://www.sciencedirect.com/science/article/abs/pii/S1043466623002971">ScienceDirect</a>).
+- Tracheal instillation methods are also used to establish CWP/silicosis models in rats.
+- Epithelial-mesenchymal transition in silicotic lung lesions has been pathologically characterized in rats (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6789520/">PMC6789520</a>).</p>
+<p><strong>Model characteristics:</strong> These induced-exposure rodent models recapitulate key histopathologic features (macrophage activation, inflammation, fibrosis, coal-macule-like lesions) and are used to dissect molecular pathways (NF-κB/NLRP3, IGF1/ROS/AKT-GSK3β, EMT, mitophagy) and test candidate therapeutics (vitamin D, N-acetylcysteine, kinetin/mitophagy activators). Limitations (translational gap to humans, compressed exposure timescales, single-dust-type exposure vs. the complex heterogeneous human coal-mine dust mixture) are implicit in the literature but not quantitatively characterized in the sources retrieved here.</p>
+<p><strong>Model databases:</strong> No CWP-specific registry was identified; standard model-organism resources (MGI, IMSR) would house genetic mouse-model information relevant to constituent pathway genes (Tnf, Tgfb1, Nlrp3, etc.) though this was not directly queried.</p>
+<hr />
+<h2>Summary of Ontology Term Suggestions</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HP (phenotypes)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea), <a href="http://purl.obolibrary.org/obo/HP_0031246" target="_blank" rel="noopener noreferrer">HP:0031246</a> (Chronic cough), <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" rel="noopener noreferrer">HP:0002206</a> (Pulmonary fibrosis), <a href="http://purl.obolibrary.org/obo/HP_0100750" target="_blank" rel="noopener noreferrer">HP:0100750</a> (Pulmonary nodule), <a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" rel="noopener noreferrer">HP:0002097</a> (Emphysema), <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" rel="noopener noreferrer">HP:0002092</a> (Pulmonary hypertension), <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" rel="noopener noreferrer">HP:0012418</a> (Hypoxemia), <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" rel="noopener noreferrer">HP:0002105</a> (Restrictive ventilatory defect)</td>
+</tr>
+<tr>
+<td>GO (biological process)</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a> (TGF-β receptor signaling), <a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" rel="noopener noreferrer">GO:0043123</a> (positive regulation of NF-κB signaling), <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" rel="noopener noreferrer">GO:0072593</a> (ROS metabolic process), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process)</td>
+</tr>
+<tr>
+<td>CL (cell types)</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a> (alveolar macrophage), <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" rel="noopener noreferrer">CL:0002063</a> (type II pneumocyte), <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast), <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" rel="noopener noreferrer">CL:0000186</a> (myofibroblast), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil)</td>
+</tr>
+<tr>
+<td>UBERON (anatomy)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> (lung), <a href="http://purl.obolibrary.org/obo/UBERON_0000115" target="_blank" rel="noopener noreferrer">UBERON:0000115</a> (lung parenchyma), <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a> (bronchiole), <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" rel="noopener noreferrer">UBERON:0002299</a> (alveolus)</td>
+</tr>
+<tr>
+<td>CHEBI (chemical)</td>
+<td>Crystalline silica/quartz, coal dust (complex mixture, not a single CHEBI-mappable entity)</td>
+</tr>
+<tr>
+<td>NCIT (treatment)</td>
+<td>NCIT:C15986 (Pharmacotherapy), NCIT:C15747 (Supportive Care), NCIT:C15315 (Rehabilitation), NCIT:C15289 (Organ Transplantation)</td>
+</tr>
+<tr>
+<td>Genes (HGNC)</td>
+<td>TNF (hgnc:11892), TGFB1 (hgnc:11766), NLRP3 (hgnc:16400), SMAD4 (hgnc:6770), SELE (hgnc:10718), H19 (hgnc:4713 — lncRNA)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.cdc.gov/mmwr/volumes/74/wr/mm7441a1.htm">Coal Workers' Pneumoconiosis–Associated Deaths — United States, 2020–2023 (MMWR)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12714179/">Coal Workers' Pneumoconiosis–Associated Deaths — United States, 2020–2023 (PMC)</a></li>
+<li><a href="https://emedicine.medscape.com/article/297887-overview">Coal Workers' Pneumoconiosis (Black Lung Disease): Background, Pathophysiology, Etiology (Medscape)</a></li>
+<li><a href="https://www.merckmanuals.com/professional/pulmonary-disorders/environmental-and-occupational-pulmonary-diseases/coal-worker-pneumoconiosis">Coal Worker Pneumoconiosis (Merck Manual)</a></li>
+<li><a href="https://www.icd10data.com/ICD10CM/Codes/J00-J99/J60-J70/J60-/J60">2026 ICD-10-CM Diagnosis Code J60</a></li>
+<li><a href="https://www.nature.com/articles/s41420-022-01291-z">Coal dust nanoparticles induced pulmonary fibrosis via NF-κB/NLRP3 pathway (Cell Death Discovery, 2022)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S1043466623002971">The role of macrophage polarization in coal dust-induced pulmonary fibrosis in rats (ScienceDirect)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9314662/">Effects of chemical composition on lung cell response to coal particles (PMC9314662)</a></li>
+<li><a href="https://www.healio.com/news/pulmonology/20240122/progressive-massive-fibrosis-continues-to-impact-coal-miners-in-2023">Progressive massive fibrosis continues to impact coal miners in 2023 (Healio)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7055360/">Current Review of Pneumoconiosis Among US Coal Miners (PMC7055360)</a></li>
+<li><a href="https://link.springer.com/article/10.1186/s12890-024-03392-0">Candidate gene polymorphisms associated with silicosis and CWP: systematic review and meta-analysis (BMC Pulm Med, 2024)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3596592/">Association of TGF-β1 gene variants with CWP risk (PMC3596592)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5036736/">Polymorphisms in lncRNA H19 (PMC5036736)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3774684/">Polymorphisms in SELE gene and risk of CWP (PMC3774684)</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0378111917306650">Polymorphisms in autophagy related genes and CWP (ScienceDirect)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4661622/">MMP1, MMP2, MMP3 gene polymorphism with CWP (PMC4661622)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5664639/">LRBA Gene Polymorphisms and Risk of CWP (PMC5664639)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11977425/">Genetic polymorphisms of MnSOD, GSTM1, GSTT1, and OGG1 in CWP (PubMed)</a></li>
+<li><a href="https://www.cdc.gov/niosh/chestradiography/php/ilo-classification/index.html">ILO Classification for B Readers (CDC/NIOSH)</a></li>
+<li><a href="https://www.frontiersin.org/journals/physiology/articles/10.3389/fphys.2023.1288246/full">Computed tomography-based imaging biomarker identifies CWP (Frontiers in Physiology, 2023)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9180284/">Computer-Aided Diagnosis of CWP Using Machine Learning (PMC9180284)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/8404184/">High-Resolution CT in Simple CWP (PubMed)</a></li>
+<li><a href="https://www.cdc.gov/niosh/cwhsp/about/index.html">Coal Workers' Health Surveillance Program (CDC/NIOSH)</a></li>
+<li><a href="https://www.nationaljewish.org/conditions/coal-workers-pneumoconiosis/treatment">Coal Worker's Pneumoconiosis/Black Lung Disease Treatment (National Jewish Health)</a></li>
+<li><a href="https://www.lung.org/lung-health-diseases/lung-disease-lookup/black-lung/treating-and-managing">Treating and Managing Coal Worker's Pneumoconiosis (American Lung Association)</a></li>
+<li><a href="https://clinicaltrials.gov/study/NCT04461587">Examination of Pirfenidone Therapy in CWP With Pulmonary Fibrosis (ClinicalTrials.gov NCT04461587)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22360577/">Lung transplantation in patients with CWP (PubMed)</a></li>
+<li><a href="https://consultqd.clevelandclinic.org/coal-workers-pneumoconiosis-forgotten-but-not-gone">Coal Workers Pneumoconiosis: Forgotten, But Not Gone (Cleveland Clinic)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK499886/">Caplan Syndrome (StatPearls, NCBI Bookshelf NBK499886)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8136599/">Caplan's Syndrome with a twist (PMC8136599)</a></li>
+<li><a href="https://stacks.cdc.gov/view/cdc/147727/cdc_147727_DS1.pdf">Molecular Activation of NLRP3 Inflammasome by Particles (CDC/NIOSH)</a></li>
+<li><a href="https://journals.sagepub.com/doi/10.1177/15230864251411565">Activation of Mitophagy by Kinetin Mitigates Coal–Silica Mixed Dust-Induced Pulmonary Fibrosis (SAGE, 2026)</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s10653-024-02114-z">Research progress on pathogenesis and prediction of pneumoconiosis (Environ Geochem Health, 2024)</a></li>
+<li><a href="https://www.nature.com/articles/s41598-025-06411-0">The role of lung microbiota in coal mine dust-induced NLRP3 inflammasome upregulation (Scientific Reports, 2025)</a></li>
+<li><a href="https://www.msha.gov/final-rule-respirable-crystalline-silica-health-alert">Final Rule: Respirable Crystalline Silica (MSHA)</a></li>
+<li><a href="https://www.federalregister.gov/documents/2024/04/18/2024-06920/lowering-miners-exposure-to-respirable-crystalline-silica-and-improving-respiratory-protection">Lowering Miners' Exposure to Respirable Crystalline Silica (Federal Register, 2024)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9447385/">Pathology and Mineralogy Demonstrate Respirable Crystalline Silica Is a Major Cause of Severe Pneumoconiosis in U.S. Coal Miners (PMC9447385)</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/full/10.1002/ajim.23330">Estimating mortality from CWP among Medicare beneficiaries (Am J Ind Med)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10428099/">Increased odds of mortality from non-malignant respiratory disease and lung cancer among US coal miners born after 1939 (PMC10428099)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4522914/">Respiratory disease mortality among US coal miners; results after 37 years of follow-up (PMC4522914)</a></li>
+<li><a href="https://academic.oup.com/occmed/article-abstract/33/3/141/1378154">Does CWP predict lung cancer? (Occupational Medicine, Oxford Academic)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10241210/">Serum Osteopontin, KL-6, and Syndecan-4 as Potential Biomarkers in CWP (PMC10241210)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5693552/">Serum KL-6, surfactant protein D, MMP-2 in asbestosis and silicosis (PMC5693552)</a></li>
+<li><a href="https://pubs.acs.org/doi/10.1021/acs.jproteome.4c00715">Proteomics and Metabolomics Analyses Reveal a Dynamic Landscape of CWP (J Proteome Res, 2024)</a></li>
+<li><a href="https://link.springer.com/article/10.1186/s12989-022-00449-y">Coal dust exposure triggers heterogeneity of transcriptional profiles in mouse pneumoconiosis and Vitamin D remedies (Particle and Fibre Toxicology, 2022)</a></li>
+<li><a href="https://peerj.com/articles/13632/">PeerJ: Inflammation and fibrosis in coal dust-exposed lung by confocal Raman spectroscopy</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6639458/">N-acetylcysteine therapeutically protects against pulmonary fibrosis in a mouse model of silicosis (PMC6639458)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6789520/">Pathological Study on EMT in Silicotic Lung Lesions in Rat (PMC6789520)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9224638/">Sputum Microbiota in Coal Workers Diagnosed with Pneumoconiosis (PMC9224638)</a></li>
+<li><a href="https://www.dol.gov/agencies/owcp/dcmwc/mission">About the Federal Black Lung Program (US DOL)</a></li>
+<li><a href="https://www.dol.gov/agencies/owcp/dcmwc">Black Lung Program (US DOL)</a></li>
+<li><a href="https://www.congress.gov/crs-product/R45261">The Black Lung Program, the Black Lung Disability Trust Fund, and the Excise Tax on Coal (Congress.gov CRS R45261)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11757636/">A comprehensive retrospect on the current perspectives and future prospects of pneumoconiosis (PMC11757636)</a></li>
+<li><a href="https://publications.ersnet.org/content/errev/31/165/210250">Understanding the pathogenesis of occupational coal and silica dust-associated lung disease (European Respiratory Review)</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>31</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0031248</code> (1 mention) - the report calls it "related to sputum abnormality; no exact HPO term"; HP calls it <strong>Palmar pruritus</strong></li>
+<li><code>HP:0009777</code> (1 mention) - the report calls it "Rheumatoid nodules, if applicable"; HP calls it <strong>Absent thumb</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0031246</code> (2 mentions) - the report calls it "Chronic cough"; HP calls it <strong>Nonproductive cough</strong>, and lists "Dry cough" among its other names</li>
+<li><code>HP:0100750</code> (2 mentions) - the report calls it "Pulmonary nodule"; HP calls it <strong>Atelectasis</strong>, and lists "Pulmonary atelectasis" among its other names</li>
+<li><code>CL:0002063</code> (2 mentions) - the report calls it "Type II pneumocyte / alveolar epithelial cell"; CL calls it <strong>pulmonary alveolar type 2 cell</strong>, and lists "type II alveolar epithelial cell" among its other names</li>
+<li><code>CL:0000186</code> (2 mentions) - the report calls it "Myofibroblast"; CL calls it <strong>myofibroblast cell</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="CNS_Vasculitis-openscientist.html">← CNS Vasculitis (OpenScientist)</a>
+                
+                
+                <a href="Coarctation_of_the_Aorta-claude_code.html">Coarctation of the Aorta (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Coal_Workers_Pneumoconiosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Coal_Workers_Pneumoconiosis-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
