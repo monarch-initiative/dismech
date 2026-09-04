@@ -554,6 +554,74 @@ means it does not bear on the claim at all. The old mapping of `NO_EVIDENCE` to 
 asserted something the curator did not and was removed; such lines now carry no
 `direction_of_evidence_provided` and retain the raw value on `dismech_supports`.
 
+### 6c. A dataset accession is a reference, cached one file per record (2026-08-27)
+
+**Decision.** A `Dataset.accession` is verified by **fetching its repository record into
+`references_cache/`**, the same mechanism that backs a PMID — not by a separate shared
+verification cache. `geo:` is migrated; the remaining prefixes follow one at a time.
+
+- `Dataset.accession` already declares `implements: linkml:authoritative_reference`. It
+  was always a reference slot; `conf/reference_validator_config.yaml` merely lists the
+  dataset prefixes under `skip_prefixes`.
+- `just verify-datasets <file>` resolves a `geo:` accession through the reference fetcher,
+  which writes `references_cache/GEO_<ID>.md` (GEO's own title and summary). **The cache
+  file is the verification** — the fetcher writes one only after the repository returned a
+  record — and it is committed with the `datasets:` block.
+- All 919 `geo:` accessions in `kb/` were backfilled, so the check is offline in CI.
+- **`geo` and `GEO` have been removed from `skip_prefixes`**, so the validator now checks
+  GEO records like any other reference — the accession must resolve, a `GEO:`-cited
+  snippet must be an exact quote from the cached summary, and `datasets[].title` must be
+  the repository's own title (a title slot adjacent to a reference field is compared with
+  the fetched record). **`datasets[].title` is the repository's title, copied exactly** —
+  the curator's summary belongs in `description`, and the title keeps the repository's
+  typos, for the same reason a snippet never corrects its source. Turning this on was a
+  curation pass, not a config change: it required fixing 32 records — 30 titles that
+  paraphrased or replaced GEO's own (of 951; now 951/951 match) and 2 evidence snippets,
+  one a reordered paraphrase of a sentence that was in the cache all along
+  (`GEO:GSE289185`) and one quoting GEO's uncached "overall design" field
+  (`GEO:GSE316127`). KB-wide, 133,610 of 138,867 snippets verify with zero GEO failures.
+- **`cache/dataset_accessions.json` is frozen.** No script, module, test, workflow, or
+  recipe reads or writes it, enforced by
+  `test_no_automation_touches_the_frozen_dataset_cache`. It remains in git only until the
+  open PRs carrying edits to it have drained.
+
+**Rationale — the storage shape, not the checking, was the defect.** The old cache was one
+sorted JSON object rewritten *in full* on every run, including a run over a single
+disorder file. So every curation PR that touched a `datasets:` block churned the same
+1.8 MB file, and with 919 `geo:` keys sorted into one contiguous region, two PRs adding
+neighbouring accessions landed inside each other's diff context and conflicted. It also
+bought nothing that justified being committed: no CI job and no test read it, unlike
+`references_cache/` and `cache/**/*.csv`, which are committed precisely because
+validation determinism requires them. Its 1,800 entries were all status `OK` (the
+negative-cache machinery held nothing), and its payload — a title — duplicated the
+`datasets[].title` already in the entry. Per-record files are add-only, so two PRs adding
+datasets touch disjoint paths.
+
+**A `datasets/` folder was considered and rejected.** As a de-duplication layer it does
+not pay: of 1,747 dataset records, 1,696 accessions are distinct and only **49 (2.9%)**
+appear in more than one entry, maximum fan-out 3 — and every one of those is a pair of
+sibling entries (`MED13`/`MED13L`, `Ehlers-Danlos`/`Hypermobile_EDS`,
+`Schwannoma`/`Schwannomatosis`), which is a lump/split question rather than a storage one.
+Inline `datasets:` records stay inline. A genuine *catalog* layer — access tier, file
+manifests, checksums, local mirror paths for a lakehouse — is a different argument and
+still open; if it is built, its home is the existing structured-source framework
+(`src/dismech/structured_sources/` + `data/<source>/MANIFEST.yaml`), which is already
+"one generated file per entity, checked into git", not a third mechanism.
+
+**Consequence for evidence.** Bulk-generated dataset records carry no `evidence:` because
+an evidence item needs an exact quote and there was nothing quotable. With the GEO summary
+cached there now is, so a dataset record *may* carry evidence quoting it and citing
+`GEO:<ID>` (worked example: `Acne_Vulgaris`). This does not license bulk evidence
+generation; the §6 exact-quote rule is unchanged.
+
+**Follow-ups.** (1) Give the remaining prefixes a fetcher, highest-volume first (`ega`
+382, `massive` 120, `metabolomics_workbench` 81, `dbgap` 71), adding each to
+`REFERENCE_CACHED_PREFIXES` and removing it from `skip_prefixes`; lrv ships a
+`BIOPROJECT` source already, and its generic `json_api` source may cover others without
+new code. Budget each migration as a backfill *plus* whatever the newly-enabled title and
+snippet checks surface — it is a curation pass, not a config edit. (2) Delete the frozen
+blob once open PRs have drained.
+
 
 ## 7. Curation process & governance
 
