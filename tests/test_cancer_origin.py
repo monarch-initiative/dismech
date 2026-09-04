@@ -295,7 +295,12 @@ def test_worked_exemplars_still_derive_their_documented_cell():
     pdac = assess(ROOT / "kb" / "disorders" / "Pancreatic_Ductal_Adenocarcinoma.yaml")
     assert pdac is not None
     assert pdac.rules == [RULE_SOMATIC]
-    assert [cid for cid, _ in pdac.origin_cells] == ["CL:0002079"]
+    # Acinar, not ductal: "ductal" is the tumour's histology, and this entry's own
+    # lineage-tracing evidence places the lesion in the acinar compartment with the
+    # ductal phenotype acquired downstream through acinar-to-ductal metaplasia.
+    # Deriving CL:0002079 here would reproduce the exact error the entry warns of.
+    assert [cid for cid, _ in pdac.origin_cells] == ["CL:0002064"]
+    assert "CL:0002079" not in {cid for cid, _ in pdac.origin_cells}
     # The stromal cells of the chronic-inflammation node must not come back.
     assert "CL:0000235" not in {cid for cid, _ in pdac.origin_cells}
 

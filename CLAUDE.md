@@ -808,10 +808,10 @@ pathophysiology:
     variant_origin: SOMATIC          # <- this makes it the origin node
     functional_impact_category: GAIN_OF_FUNCTION
   cell_types:
-  - preferred_term: pancreatic ductal cell
+  - preferred_term: pancreatic acinar cell
     term:
-      id: CL:0002079
-      label: pancreatic ductal cell
+      id: CL:0002064
+      label: pancreatic acinar cell
 ```
 
 ```bash

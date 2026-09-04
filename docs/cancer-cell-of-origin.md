@@ -40,13 +40,17 @@ pathophysiology:
       Somatic activating KRAS codon-12 mutation, the initiating lesion of the
       PanIN-to-PDAC sequence.
   cell_types:
-  - preferred_term: pancreatic ductal cell
+  - preferred_term: pancreatic acinar cell
     term:
-      id: CL:0002079
-      label: pancreatic ductal cell
+      id: CL:0002064
+      label: pancreatic acinar cell
 ```
 
-That entry now derives **pancreatic ductal cell** as its cell of origin.
+That entry now derives **pancreatic acinar cell** as its cell of origin --
+not the ductal cell its name might suggest, because *ductal* is the tumour's
+histology and the entry's own lineage-tracing evidence places the lesion in the
+acinar compartment, with the ductal phenotype acquired downstream through
+acinar-to-ductal metaplasia.
 `Pancreatic_Ductal_Adenocarcinoma` and `Chronic_Myeloid_Leukemia` are the
 committed worked examples.
 
@@ -82,7 +86,7 @@ meaning rather than confidence. The cell of origin is the cell the transforming
 event occurred in, so once the entry records that event, the exposure is upstream
 context. Pancreatic ductal adenocarcinoma is where the difference shows: chronic
 pancreatitis genuinely triggers its inflammation node, but that node binds
-macrophage and pancreatic stellate cell, while the disease arises in the ductal
+macrophage and pancreatic stellate cell, while the disease arises in the acinar
 cell named on the KRAS lesion.
 
 ### What was removed, and why

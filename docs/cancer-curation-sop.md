@@ -49,10 +49,10 @@ derives from that node's `cell_types`.
     variant_origin: SOMATIC
     functional_impact_category: GAIN_OF_FUNCTION
   cell_types:
-  - preferred_term: pancreatic ductal cell
+  - preferred_term: pancreatic acinar cell
     term:
-      id: CL:0002079
-      label: pancreatic ductal cell
+      id: CL:0002064
+      label: pancreatic acinar cell
 ```
 
 Then read the derivation back with `just check-cancer-origin`. Deriving **more
