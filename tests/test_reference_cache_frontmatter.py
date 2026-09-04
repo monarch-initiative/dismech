@@ -192,7 +192,7 @@ def test_check_cache_file_accepts_publication_types(tmp_path: Path):
 def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path):
     """Fabrication-fingerprint defense (#1737): a hand-crafted PMID cache
     with neither ``authors`` nor ``journal`` and a paraphrastic title was
-    how prior fabrications evaded ``validate-references``. The deterministic
+    how prior fabrications evaded ``validate-kb-references``. The deterministic
     check must reject the shape regardless of whether the body is real."""
     fabricated = tmp_path / "PMID_36606642.md"
     fabricated.write_text(
