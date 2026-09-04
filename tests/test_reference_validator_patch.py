@@ -184,6 +184,52 @@ def test_pmc_restricted_record_without_body_remains_unavailable():
     assert XMLExtractor().extract(xml) is None
 
 
+def test_prose_use_of_restricted_does_not_hide_available_body():
+    """The ordinary English word in article prose is not a restriction notice.
+
+    PMC5593426 (PMID:28530713) carries no ``restricted-by`` metadata at all -- it
+    says "IgM-restricted plasma cells" in the results and "Searches were
+    restricted to the period from ..." in the methods. Upstream's whole-document
+    word match discarded the entire body over those two sentences (issue #10867).
+    """
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"""\
+    <article>
+      <body><sec>
+        <p>Mice lacking BACH2 have B cells that differentiate into IgM-restricted plasma cells.</p>
+        <p>Searches were restricted to the period from 2007 to 2015.</p>
+      </sec></body>
+    </article>
+    """
+
+    extracted = XMLExtractor().extract(xml)
+
+    assert extracted is not None
+    assert "IgM-restricted plasma cells" in extracted
+    assert "Searches were restricted" in extracted
+
+
+def test_pmc_unavailable_record_shape_remains_unavailable():
+    """A genuinely unavailable PMC record is front matter with no ``<body>``.
+
+    This is the shape ``efetch`` actually returns when PMC will not serve the
+    full text: the trigger phrase sits in the front matter and there is no body
+    element. Dropping the word match must not turn one of these into full text.
+    """
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"""\
+    <article>
+      <front><article-meta>
+        <permissions><license><license-p>The full text cannot be obtained from PMC.</license-p></license></permissions>
+      </article-meta></front>
+    </article>
+    """
+
+    assert XMLExtractor().extract(xml) is None
+
+
 def test_fetch_reference_recipe_uses_patched_validator_wrapper():
     """Cache generation must apply the same compatibility patches as validation."""
     recipe = Path("project.justfile").read_text(encoding="utf-8")
@@ -249,3 +295,65 @@ def test_reference_validator_wrapper_treats_warning_only_exit_as_advisory(
 
     assert result.returncode == 0
     assert "[WARNING] transient reference fetch failed" in result.stdout
+
+
+def test_jats_tables_are_appended_as_quotable_rows():
+    """A clinical report's Table 1 must reach the cache, not just its paragraphs.
+
+    Upstream keeps ``<body>`` paragraphs only. In PMID:28530713 that dropped the
+    one place the founding report records immunoglobulin replacement and the
+    per-subject isotype pattern (issue #10867). NIHMS-converted JATS puts tables
+    in a trailing ``<floats-group>``, outside ``<body>``, so they are located
+    across the whole document.
+    """
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"""\
+    <article>
+      <body><sec><p>Affected subjects had lymphocyte-maturation defects.</p></sec></body>
+      <floats-group>
+        <table-wrap>
+          <label>Table 1</label><caption><p>Summary clinical characteristics.</p></caption>
+          <table>
+            <tr><th>Patients</th><th>A.II.1</th><th>B.III.2</th></tr>
+            <tr><td>IgA</td><td>Low</td><td>Low</td></tr>
+            <tr><td></td><td></td><td></td></tr>
+            <tr><td>On IvIg treatment</td><td>Yes</td><td>No</td></tr>
+          </table>
+        </table-wrap>
+      </floats-group>
+    </article>
+    """
+
+    extracted = XMLExtractor().extract(xml)
+
+    assert "Affected subjects had lymphocyte-maturation defects." in extracted
+    assert "## Table 1 Summary clinical characteristics." in extracted
+    assert "| On IvIg treatment | Yes | No |" in extracted
+    # An all-empty row carries nothing quotable and is dropped.
+    assert "|  |  |  |" not in extracted
+
+
+def test_oversized_jats_table_is_not_appended():
+    """A data dump is not a quotable clinical table and must not bloat the cache."""
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    rows = "".join(f"<tr><td>probe{n}</td><td>{n}</td></tr>" for n in range(500))
+    xml = (
+        "<article><body><sec><p>Body paragraph.</p></sec></body>"
+        f"<floats-group><table-wrap><label>Table S1</label><table>{rows}</table>"
+        "</table-wrap></floats-group></article>"
+    ).encode()
+
+    extracted = XMLExtractor().extract(xml)
+
+    assert extracted == "Body paragraph."
+
+
+def test_article_without_tables_is_unchanged():
+    """The table pass must be a no-op for an article that carries none."""
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"<article><body><sec><p>Body paragraph.</p></sec></body></article>"
+
+    assert XMLExtractor().extract(xml) == "Body paragraph."

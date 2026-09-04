@@ -194,38 +194,125 @@ def _wrap_fulltext_method(original):
     return wrapper
 
 
-def _wrap_xml_extractor(original):
-    """Recover JATS bodies carrying the harmless ``restricted-by`` metadata tag.
+# A JATS ``<table-wrap>`` carrying more rows than this is a data dump rather than
+# a clinical or summary table, and appending it would bloat the cache file without
+# giving a curator anything quotable. Table 1 of a clinical report runs to a few
+# dozen rows.
+_MAX_TABLE_ROWS = 200
 
-    Current PMC/Europe PMC JATS 1.4 documents can include
-    ``<restricted-by>pmc</restricted-by>`` in ``processing-meta`` even when the
-    complete article body is present.  Upstream treats any occurrence of the
-    word ``restricted`` as an unavailable article and discards that body.  Keep
-    its normal behavior first, then recover only documents that actually contain
-    non-empty body paragraphs; genuinely restricted records still have no body
-    and remain unavailable.
+
+def _jats_tables_as_text(soup) -> str:
+    """Render JATS ``<table-wrap>`` elements as pipe-delimited quotable rows.
+
+    Upstream's extractor keeps only ``<body>`` paragraphs, so every table in the
+    article is discarded. In a clinical report that is where the per-patient
+    phenotype lives -- Table 1 of PMID:28530713 is the only place the founding
+    BRIDA report states that two of its three subjects were on immunoglobulin
+    replacement, and the only place the third subject's *raised* IgM and IgG are
+    recorded (issue #10867).
+
+    Rows are emitted in the leading/trailing-pipe form the structured-database
+    caches already use (``| Splenomegaly | Yes | No | No |``), which the reference
+    validator's own snippet matching tolerates with or without the outer pipes, so
+    a curator can quote one row the same way they quote an ORPHA or ICEES row.
+
+    Tables are located across the whole document, not only inside ``<body>``:
+    NIHMS-converted JATS puts them in a trailing ``<floats-group>``.
+    """
+    rendered: list[str] = []
+
+    for wrap in soup.find_all("table-wrap"):
+        table = wrap.find("table")
+        if table is None:
+            continue
+
+        rows: list[str] = []
+        for row in table.find_all("tr"):
+            cells = [cell.get_text(" ", strip=True) for cell in row.find_all(["td", "th"])]
+            if not any(cell for cell in cells):
+                continue
+            rows.append("| " + " | ".join(cells) + " |")
+            if len(rows) > _MAX_TABLE_ROWS:
+                break
+        if not rows or len(rows) > _MAX_TABLE_ROWS:
+            continue
+
+        label = wrap.find("label")
+        caption = wrap.find("caption")
+        heading = " ".join(
+            part.get_text(" ", strip=True) for part in (label, caption) if part is not None
+        ).strip()
+        rendered.append(("## " + heading if heading else "## Table") + "\n\n" + "\n".join(rows))
+
+    return "\n\n".join(rendered)
+
+
+def _wrap_xml_extractor(original):
+    """Recover JATS bodies upstream discards on a whole-document word match.
+
+    Upstream ``XMLExtractor.extract`` rejects a document outright when the word
+    ``restricted`` or the phrase ``cannot be obtained`` appears anywhere in it,
+    and only then looks for a ``<body>``.  Both strings occur in ordinary
+    article prose, so the test discards complete full texts:
+
+    * ``<restricted-by>pmc</restricted-by>`` in JATS 1.4 ``processing-meta``,
+      which is metadata about the record and says nothing about the body; and
+    * the plain English word, as in PMC5593426 (PMID:28530713), whose body
+      reads "IgM-restricted plasma cells" and "Searches were restricted to the
+      period from ..." -- 88k characters of real article thrown away over two
+      sentences that happen to use the word (issue #10867).
+
+    What a genuinely unavailable PMC record looks like settles the right test.
+    Asked for one, ``efetch`` returns front matter alone and **no ``<body>``
+    element at all**; the phrase upstream keys on sits in that front matter.  So
+    the presence of a ``<body>`` carrying non-empty paragraphs is the signal,
+    and the word match is noise.  Keep upstream's behavior first, then recover
+    on that structural test alone -- a record with no body, or with an empty
+    one, still returns ``None`` and remains unavailable.
+
+    On top of that, whichever path produced the body text, any ``<table-wrap>``
+    the article carries is appended as quotable rows. Upstream keeps ``<body>``
+    paragraphs only, so a clinical report's Table 1 -- the per-patient phenotype
+    grid -- never reached the cache; see :func:`_jats_tables_as_text`.
+
+    Scope: this patch covers ``XMLExtractor.extract`` only. The same
+    ``"restricted" in text.lower()`` guard also sits in
+    ``PMIDSource._fetch_pmc_xml``, which this module wraps for network retry but
+    not for this. That path is not the one supplying full text today -- the
+    ``pmc`` full-text provider is -- so it is left alone rather than patched
+    speculatively. If it ever becomes the supplying path, the bug is live there
+    and this wrapper will not catch it.
     """
 
     @wraps(original)
     def wrapper(self, data, *args, **kwargs):
         result = original(self, data, *args, **kwargs)
-        if result is not None:
+        text_data = data.decode("utf-8") if isinstance(data, bytes) else data
+
+        # Parsing a full article is not cheap, so only pay for it when there is
+        # something to gain: a body to recover, or a table to append.
+        needs_recovery = result is None
+        has_tables = "<table-wrap" in text_data
+        if not needs_recovery and not has_tables:
             return result
 
-        text_data = data.decode("utf-8") if isinstance(data, bytes) else data
-        if "<restricted-by" not in text_data:
-            return None
-
         soup = BeautifulSoup(text_data, "xml")
-        body = soup.find("body")
-        if body is None:
-            return None
-        paragraphs = [
-            paragraph.get_text()
-            for paragraph in body.find_all("p")
-            if paragraph.get_text().strip()
-        ]
-        return "\n\n".join(paragraphs) if paragraphs else None
+
+        if needs_recovery:
+            body = soup.find("body")
+            if body is None:
+                return None
+            paragraphs = [
+                paragraph.get_text()
+                for paragraph in body.find_all("p")
+                if paragraph.get_text().strip()
+            ]
+            if not paragraphs:
+                return None
+            result = "\n\n".join(paragraphs)
+
+        tables = _jats_tables_as_text(soup)
+        return f"{result}\n\n{tables}" if tables else result
 
     return wrapper
 
