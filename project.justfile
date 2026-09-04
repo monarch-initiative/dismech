@@ -45,6 +45,10 @@ validate-all:
 
     just fix-references-cache "${files[@]}"
 
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
     exit_code=0
     echo "Validating ${#files[@]} disorder files (batched)..."
     echo "Schema validation (batch)..."
@@ -59,7 +63,7 @@ validate-all:
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} || exit_code=1
     echo ""
 
-    just normalize-cache || exit_code=1
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
     if [ $exit_code -ne 0 ]; then
         echo "✗ Validation completed with errors (see above)"
         exit $exit_code
@@ -90,14 +94,17 @@ validate-all:
 validate file:
     #!/usr/bin/env bash
     set -e
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
     echo "Schema validation..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    uv run linkml-validate --config "$(just _linkml-validate-config Disease)" {{file}}
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
-    just normalize-cache
+    just _normalize-cache-if-changed "$cache_stamp"
     echo "✓ All validations passed for {{file}}"
 
 # Fast, non-mutating validation of a single disorder file, for the pre-edit hook
@@ -127,7 +134,7 @@ validate-pre-edit file:
     #!/usr/bin/env bash
     set -e
     echo "Schema validation..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    uv run linkml-validate --config "$(just _linkml-validate-config Disease)" {{file}}
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation (advisory, cache-bound)..."
@@ -162,6 +169,10 @@ validate-disorders *files:
         exit 0
     fi
 
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
     exit_code=0
     echo "Validating ${#existing[@]} disorder file(s) (batched)..."
     echo "Schema validation (batch)..."
@@ -177,7 +188,7 @@ validate-disorders *files:
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
-    just normalize-cache || exit_code=1
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
     if [ $exit_code -ne 0 ]; then
         echo "✗ Validation failed for one or more disorder files (see above)"
         exit $exit_code
@@ -187,7 +198,35 @@ validate-disorders *files:
 # Schema-only validation (fast, structure check)
 [group('QC')]
 validate-schema file:
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    uv run linkml-validate --config "$(just _linkml-validate-config Disease)" {{file}}
+
+# Print the path of a `linkml-validate --config` file that points at a
+# pre-generated JSON Schema for `target_class`.
+#
+# Generating the JSON Schema from dismech.yaml is about a third of a single-file
+# `linkml-validate` call (~0.7 s of ~2.2 s) and produces the same document every
+# time, so it is generated once into tmp/linkml-validate/ and regenerated only
+# when something under the schema directory, or uv.lock (which pins the
+# generator), is newer than the cached copy. The cached document is byte-identical
+# to what `JsonschemaValidationPlugin(closed=True)` builds in memory, so results
+# do not change. Used by the single-file recipes, where the per-call cost is felt;
+# the batched recipes pay it once per run and keep the plain form. (#11005)
+[private]
+_linkml-validate-config target_class="Disease":
+    #!/usr/bin/env bash
+    set -e
+    dir=tmp/linkml-validate
+    json="$dir/{{target_class}}.closed.json"
+    cfg="$dir/{{target_class}}.yaml"
+    mkdir -p "$dir"
+    if [ ! -s "$json" ] || [ ! -s "$cfg" ] \
+       || [ -n "$(find {{parent_directory(schema_path)}} uv.lock -newer "$json" -print -quit)" ]; then
+        echo "Regenerating cached JSON Schema for {{target_class}} -> $json" >&2
+        uv run gen-json-schema --closed --top-class {{target_class}} --include-range-class-descendants --indent 0 {{schema_path}} > "$json.tmp"
+        mv "$json.tmp" "$json"
+        printf 'schema: %s\ntarget_class: %s\nplugins:\n  JsonschemaValidationPlugin:\n    closed: true\n    json_schema_path: %s\n' "{{schema_path}}" "{{target_class}}" "$json" > "$cfg"
+    fi
+    echo "$cfg"
 
 # Scaffold a new append-only history record (pass-through to scripts/new_history.py).
 # Run `just new-history --help` for all options. Prints the created path.
@@ -3029,6 +3068,22 @@ normalize-cache:
         cat "$tmp" >> "$f"
     done
     echo "✓ All caches normalized"
+
+# Run `normalize-cache` only if something under cache/ changed since `stamp`
+# was created (`mktemp tmp/dismech_cache_stamp.XXXXXX` at the top of the calling
+# recipe). The term validator writes to cache/ only when it learns a new term,
+# so on a typical single-entry run nothing changed and the ~3 s re-sort of every
+# cache file is skipped. A cache that was already out of order before the run is
+# still reported by `check-cache-order` / `check-term-cache-integrity`. (#11005)
+[private]
+_normalize-cache-if-changed stamp:
+    #!/usr/bin/env bash
+    set -e
+    if [ -n "$(find cache -type f -newer "{{stamp}}" -print -quit)" ]; then
+        just normalize-cache
+    else
+        echo "Caches unchanged since validation started; skipping normalize-cache"
+    fi
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
