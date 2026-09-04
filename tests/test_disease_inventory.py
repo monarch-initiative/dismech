@@ -68,6 +68,27 @@ def test_extract_rows_disease_and_subtypes():
     assert type3["has_mondo"] == "false"
 
 
+def test_non_exact_mappings_do_not_resolve_disease_mondo_id():
+    # A locus-level entry deliberately omits disease_term and carries several
+    # mutually exclusive narrowMatch mappings to its named subtypes. None of
+    # these should be picked as a disease-level anchor -- doing so would
+    # silently re-ground the entry on whichever mapping happens to be first
+    # in the list (PR #8709).
+    disorder = {
+        "name": "Locus-Level Spectrum",
+        "mappings": {
+            "mondo_mappings": [
+                {"term": {"id": "MONDO:0001", "label": "mild variant"}, "mapping_predicate": "skos:narrowMatch"},
+                {"term": {"id": "MONDO:0002", "label": "severe variant"}, "mapping_predicate": "skos:narrowMatch"},
+            ]
+        },
+    }
+    rows = extract_rows(disorder, "Locus_Level_Spectrum.yaml")
+    assert rows[0]["mondo_id"] == ""
+    assert rows[0]["mondo_source"] == ""
+    assert rows[0]["has_mondo"] == "false"
+
+
 def test_non_mondo_primary_term_falls_back_to_blank():
     disorder = {
         "name": "Oncology Subtype Parent",

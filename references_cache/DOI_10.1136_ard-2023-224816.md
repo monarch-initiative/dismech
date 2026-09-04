@@ -1,0 +1,265 @@
+---
+reference_id: DOI:10.1136/ard-2023-224816
+title: "Temporary Expression of concern: “Efficacy and safety of avacopan in patients with ANCA-associated vasculitis receiving rituximab in a randomised trial” [Annals of the Rheumatic Diseases, Volume 83, Issue 2, February 2024, Pages 223–232]"
+authors:
+- Duvuru Geetha
+- Anisha Dua
+- Huibin Yue
+- Jason Springer
+- Carlo Salvarani
+- David Jayne
+- Peter Merkel
+- C. Au Peh
+- A. Chakera
+- B. Cooper
+- J. Kurtkoti
+- D. Langguth
+- V. Levidiotis
+- G. Luxton
+- P. Mount
+- D. Mudge
+- E. Noble
+- R. Phoon
+- A. Ritchie
+- J. Ryan
+- M. Suranyi
+- A. Rosenkranz
+- A. Kronbichler
+- N. Demoulin
+- C. Bovy
+- R. Hellemans
+- J. Hougardy
+- B. Sprangers
+- K. Wissing
+- C. Pagnoux
+- S. Barbour
+- S. Brachemi
+- S. Cournoyer
+- L. Girard
+- L. Laurin
+- P. Liang
+- D. Philibert
+- M. Walsh
+- V. Tesar
+- R. Becvar
+- P. Horak
+- I. Rychlik
+- W. Szpirt
+- H. Dieperink
+- J. Gregersen
+- P. Ivarsen
+- E. Krarup
+- C. Lyngsoe
+- C. Rigothier
+- J. Augusto
+- A. Belot
+- D. Chauveau
+- D. Cornec
+- N. Jourde-Chiche
+- M. Ficheux
+- A. Karras
+- A. Klein
+- F. Maurier
+- R. Mesbah
+- O. Moranne
+- A. Neel
+- T. Quemeneur
+- D. Saadoun
+- B. Terrier
+- P. Zaoui
+- M. Schaier
+- U. Benck
+- R. Bergner
+- M. Busch
+- J. Floege
+- F. Grundmann
+- H. Haller
+- M. Haubitz
+- B. Hellmich
+- J. Henes
+- B. Hohenstein
+- C. Hugo
+- C. Iking-Konert
+- F. Arndt
+- T. Kubacki
+- I. Kotter
+- P. Lamprecht
+- T. Lindner
+- J. Halbritter
+- H. Mehling
+- U. Schönermarck
+- N. Venhoff
+- V. Vielhauer
+- O. Witzke
+- I. Szombati
+- G. Szucs
+- G. Garibotto
+- F. Alberici
+- E. Brunetta
+- L. Dagna
+- S. De Vita
+- G. Emmi
+- A. Gabrielli
+- L. Manenti
+- F. Pieruzzi
+- D. Roccatello
+- C. Salvarani
+- M. Harigai
+- H. Dobashi
+- T. Atsumi
+- S. Fujimoto
+- N. Hagino
+- A. Ihata
+- S. Kaname
+- Y. Kaneko
+- A. Katagiri
+- M. Katayama
+- Y. Kirino
+- K. Kitagawa
+- A. Komatsuda
+- H. Kono
+- T. Kurasawa
+- R. Matsumura
+- T. Mimura
+- A. Morinobu
+- Y. Murakawa
+- T. Naniwa
+- T. Nanki
+- N. Ogawa
+- H. Oshima
+- K. Sada
+- E. Sugiyama
+- T. Takeuchi
+- H Taki
+- N. Tamura
+- T. Tsukamoto
+- K. Yamagata
+- M. Yamamura
+- P. van Daele
+- A. Rutgers
+- Y. Teng
+- R. Walker
+- I. Chua
+- M. Collins
+- K. Rabindranath
+- J. de Zoysa
+- M. Svensson
+- B. Grevbo
+- S. Kalstad
+- M. Little
+- M. Clarkson
+- E. Molloy
+- I. Agraz Pamplona
+- J. Anton
+- V. Barrio Lucia
+- S. Ciggaran
+- M. Cinta Cid
+- M. Diaz Encarnacion
+- X. Fulladosa Oliveras
+- M. Jose Soler
+- H. Marco Rusinol
+- M. Praga
+- L. Quintana Porras
+- A. Segarra
+- A. Bruchfeld
+- M. Segelmark
+- I. Soveri
+- E. Thomaidi
+- K. Westman
+- T. Neumann
+- M. Burnier
+- T. Daikeler
+- J. Dudler
+- T. Hauser
+- H. Seeger
+- B. Vogt
+- D. Jayne
+- J. Burton
+- R. Al Jayyousi
+- T. Amin
+- J. Andrews
+- L. Baines
+- P. Brogan
+- B. Dasgupta
+- T. Doulton
+- O. Flossmann
+- S. Griffin
+- J. Harper
+- L. Harper
+- D. Kidder
+- R. Klocke
+- P. Lanyon
+- R. Luqmani
+- J. McLaren
+- D. Makanjuola
+- L. McCann
+- A. Nandagudi
+- S. Selvan
+- E. O’Riordan
+- M. Patel
+- R. Patel
+- C. Pusey
+- R. Rajakariar
+- J. Robson
+- M. Robson
+- A. Salama
+- L. Smyth
+- J. Sznajd
+- J. Taylor
+- P. Merkel
+- A. Sreih
+- E. Belilos
+- A. Bomback
+- J. Carlin; Y
+- Chang Chen Lin
+- V. Derebail
+- S. Dragoi
+- A. Dua
+- L. Forbess
+- D. Geetha
+- P. Gipson
+- R. Gohh
+- G.T. Greenwood
+- S. Hugenberg
+- R. Jimenez
+- M. Kaskas
+- T. Kermani
+- A. Kivitz
+- C. Koening
+- C. Langford
+- G. Marder
+- A. Mohamed
+- P. Monach
+- N. Neyra
+- G. Niemer
+- J. Niles
+- R. Obi
+- C. Owens
+- D. Parks
+- A. Podoll
+- B. Rovin
+- R. Sam
+- W. Shergy
+- A. Silva
+- R. Spiera
+- J. Springer
+- C. Striebich
+- A. Swarup
+- S. Thakar
+- A. Tiliakos
+- Y. Tsai
+- D. Waguespack
+- M. Chester Wasko
+journal: Annals of the Rheumatic Diseases
+year: '2024'
+doi: 10.1136/ard-2023-224816
+content_type: unavailable
+is_preprint: false
+---
+
+# Temporary Expression of concern: “Efficacy and safety of avacopan in patients with ANCA-associated vasculitis receiving rituximab in a randomised trial” [Annals of the Rheumatic Diseases, Volume 83, Issue 2, February 2024, Pages 223–232]
+**Authors:** Duvuru Geetha, Anisha Dua, Huibin Yue, Jason Springer, Carlo Salvarani, David Jayne, Peter Merkel, C. Au Peh, A. Chakera, B. Cooper, J. Kurtkoti, D. Langguth, V. Levidiotis, G. Luxton, P. Mount, D. Mudge, E. Noble, R. Phoon, A. Ritchie, J. Ryan, M. Suranyi, A. Rosenkranz, A. Kronbichler, N. Demoulin, C. Bovy, R. Hellemans, J. Hougardy, B. Sprangers, K. Wissing, C. Pagnoux, S. Barbour, S. Brachemi, S. Cournoyer, L. Girard, L. Laurin, P. Liang, D. Philibert, M. Walsh, V. Tesar, R. Becvar, P. Horak, I. Rychlik, W. Szpirt, H. Dieperink, J. Gregersen, P. Ivarsen, E. Krarup, C. Lyngsoe, C. Rigothier, J. Augusto, A. Belot, D. Chauveau, D. Cornec, N. Jourde-Chiche, M. Ficheux, A. Karras, A. Klein, F. Maurier, R. Mesbah, O. Moranne, A. Neel, T. Quemeneur, D. Saadoun, B. Terrier, P. Zaoui, M. Schaier, U. Benck, R. Bergner, M. Busch, J. Floege, F. Grundmann, H. Haller, M. Haubitz, B. Hellmich, J. Henes, B. Hohenstein, C. Hugo, C. Iking-Konert, F. Arndt, T. Kubacki, I. Kotter, P. Lamprecht, T. Lindner, J. Halbritter, H. Mehling, U. Schönermarck, N. Venhoff, V. Vielhauer, O. Witzke, I. Szombati, G. Szucs, G. Garibotto, F. Alberici, E. Brunetta, L. Dagna, S. De Vita, G. Emmi, A. Gabrielli, L. Manenti, F. Pieruzzi, D. Roccatello, C. Salvarani, M. Harigai, H. Dobashi, T. Atsumi, S. Fujimoto, N. Hagino, A. Ihata, S. Kaname, Y. Kaneko, A. Katagiri, M. Katayama, Y. Kirino, K. Kitagawa, A. Komatsuda, H. Kono, T. Kurasawa, R. Matsumura, T. Mimura, A. Morinobu, Y. Murakawa, T. Naniwa, T. Nanki, N. Ogawa, H. Oshima, K. Sada, E. Sugiyama, T. Takeuchi, H Taki, N. Tamura, T. Tsukamoto, K. Yamagata, M. Yamamura, P. van Daele, A. Rutgers, Y. Teng, R. Walker, I. Chua, M. Collins, K. Rabindranath, J. de Zoysa, M. Svensson, B. Grevbo, S. Kalstad, M. Little, M. Clarkson, E. Molloy, I. Agraz Pamplona, J. Anton, V. Barrio Lucia, S. Ciggaran, M. Cinta Cid, M. Diaz Encarnacion, X. Fulladosa Oliveras, M. Jose Soler, H. Marco Rusinol, M. Praga, L. Quintana Porras, A. Segarra, A. Bruchfeld, M. Segelmark, I. Soveri, E. Thomaidi, K. Westman, T. Neumann, M. Burnier, T. Daikeler, J. Dudler, T. Hauser, H. Seeger, B. Vogt, D. Jayne, J. Burton, R. Al Jayyousi, T. Amin, J. Andrews, L. Baines, P. Brogan, B. Dasgupta, T. Doulton, O. Flossmann, S. Griffin, J. Harper, L. Harper, D. Kidder, R. Klocke, P. Lanyon, R. Luqmani, J. McLaren, D. Makanjuola, L. McCann, A. Nandagudi, S. Selvan, E. O’Riordan, M. Patel, R. Patel, C. Pusey, R. Rajakariar, J. Robson, M. Robson, A. Salama, L. Smyth, J. Sznajd, J. Taylor, P. Merkel, A. Sreih, E. Belilos, A. Bomback, J. Carlin; Y, Chang Chen Lin, V. Derebail, S. Dragoi, A. Dua, L. Forbess, D. Geetha, P. Gipson, R. Gohh, G.T. Greenwood, S. Hugenberg, R. Jimenez, M. Kaskas, T. Kermani, A. Kivitz, C. Koening, C. Langford, G. Marder, A. Mohamed, P. Monach, N. Neyra, G. Niemer, J. Niles, R. Obi, C. Owens, D. Parks, A. Podoll, B. Rovin, R. Sam, W. Shergy, A. Silva, R. Spiera, J. Springer, C. Striebich, A. Swarup, S. Thakar, A. Tiliakos, Y. Tsai, D. Waguespack, M. Chester Wasko
+**Journal:** Annals of the Rheumatic Diseases (2024)
+**DOI:** [10.1136/ard-2023-224816](https://doi.org/10.1136/ard-2023-224816)
+
+## Content
