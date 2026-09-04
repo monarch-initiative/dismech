@@ -44968,6 +44968,111 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "CCDC115-CDG",
+    "disease_id": "MONDO:0014789",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "Congenital Disorder of Glycosylation"
+    ],
+    "creation_date": "2026-08-29T20:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CCDC115-CDG (congenital disorder of glycosylation type IIo) is an ultra-rare autosomal recessive disorder of Golgi homeostasis. Biallelic variants in CCDC115 - the human homolog of the yeast V-ATPase assembly factor Vma22p - produce a combined defect of N-linked and mucin-type O-linked protein glycosylation, and a phenotype that is dominated by the liver rather than by the multisystem features usual in congenital disorders of glycosylation.\nChildren present in the first years of life with a storage-disease-like picture: hepatosplenomegaly that often regresses with age, markedly raised bone-derived alkaline phosphatase, raised aminotransferases, hypercholesterolemia, and abnormal copper metabolism with low serum ceruloplasmin. Psychomotor delay and hypotonia are common but not universal. Outcome is heterogeneous in a way that matters clinically: some children stabilise, while others progress to fibrosis, cirrhosis and liver failure - two of the first eight reported individuals died of liver failure and one was transplanted.\nThe diagnostic problem this entry exists to record is that the biochemistry points at Wilson disease. Low ceruloplasmin and abnormal copper handling in a child with liver disease is a Wilson presentation, and CCDC115-CDG has been found precisely by sequencing beyond ATP7B in Wilson-phenotype patients in whom biallelic ATP7B variants could not be demonstrated. Niemann-Pick disease type C and mitochondrial hepatopathies are the other mimics named in the literature. Serum transferrin glycosylation screening is what separates them.\nTwo things are worth stating once. The gene symbol is in flux: the live HGNC registry has renamed HGNC:28178 to VMA22 (vacuolar ATPase assembly factor VMA22), keeping CCDC115 as a previous symbol, while the OBO HGNC build this repository validates against still calls it CCDC115. The disease name, every paper, and the MONDO label all say CCDC115, and that is what this entry binds - but a reader matching against current HGNC will not find that symbol. And the mechanism is shared with a small family of neighbours - TMEM199-CDG, ATP6AP1-CDG, ATP6AP2-CDG and VMA21-related disease - which all disturb V-ATPase assembly and all produce overlapping liver and lipid phenotypes.",
+    "pathophysiology": [
+      "Biallelic CCDC115 Loss of Function",
+      "Impaired V-ATPase Assembly and Organelle Acidification",
+      "Combined N- and O-Glycosylation Defect",
+      "Lysosomal Lipid Accumulation and Failed Lipophagy",
+      "Hepatic Injury and Fibrosis"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "proton transmembrane transport",
+      "regulation of intracellular pH",
+      "autophagy",
+      "protein N-linked glycosylation",
+      "mucin-type O-glycosylation",
+      "Golgi organization",
+      "lipophagy"
+    ],
+    "phenotypes": [
+      "Hepatosplenomegaly",
+      "Elevated Alkaline Phosphatase",
+      "Elevated Hepatic Transaminases",
+      "Hypercholesterolemia",
+      "Decreased Circulating Ceruloplasmin",
+      "Abnormal Protein Glycosylation",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Cirrhosis",
+      "Hepatic Failure",
+      "Cholestasis",
+      "Jaundice",
+      "Abnormal Facial Shape",
+      "Hepatic Steatosis"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Laboratory",
+      "Neurological",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001433",
+      "HP:0003155",
+      "HP:0002910",
+      "HP:0003124",
+      "HP:0010837",
+      "HP:0012346",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001394",
+      "HP:0001399",
+      "HP:0001396",
+      "HP:0000952",
+      "HP:0001999",
+      "HP:0001397"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CCDC115"
+    ],
+    "treatments": [
+      "Supportive Care and Hepatic Surveillance",
+      "Liver Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CCDC115-CDG.yaml",
+    "page_url": "../pages/disorders/CCDC115-CDG.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "CCN2-Related Kyphomelic Dysplasia",
     "disease_id": null,
     "category": "Mendelian",
@@ -48871,7 +48976,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "7"
   },
   {
@@ -67578,6 +67683,91 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Cone-rod dystrophy and hearing loss 2",
+    "disease_id": "MONDO:0020780",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited retinal dystrophy",
+      "Sensorineural hearing loss",
+      "Ciliopathy"
+    ],
+    "creation_date": "2026-08-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cone-rod dystrophy and hearing loss 2 is a rare autosomal recessive dual-sensory disorder caused by biallelic truncating variants in CEP250, which encodes C-Nap1. C-Nap1 sits at the proximal ends of the two parent centrioles and, with rootletin and NEK2, holds them together; in photoreceptors the mother centriole is the basal body of the connecting cilium, and C-Nap1 is expressed in that cilium and interacts with CEP78, the protein mutated in the sibling disorder cone-rod dystrophy and hearing loss 1.\nThe disorder is repeatedly described in the literature as atypical Usher syndrome, and it is worth being precise about what that means. It is Usher-like in combining retinal degeneration with sensorineural hearing loss. It is not Usher syndrome in mechanism - C-Nap1 is not a component of the Usher protein interactome that organises the stereocilia hair bundle - and it differs clinically in ways that matter: the hearing loss is postlingual and progressive rather than congenital, vestibular function is spared, and the retinal disease is cone-predominant and often mild rather than the rod-first retinitis pigmentosa of classical Usher syndrome.\nThe presentation is asymmetric between the two organs and between patients. Some individuals come to attention through vision, some through hearing, and in reported series a minority have appeared to have only one of the two. Because the ophthalmological changes can be very subtle, high-resolution retinal imaging has been recommended to detect them.",
+    "pathophysiology": [
+      "Biallelic CEP250 Truncating Variants",
+      "Loss of C-Nap1 from the Centriole",
+      "Photoreceptor Connecting Cilium Dysfunction",
+      "Progressive Cone-Predominant Photoreceptor Degeneration",
+      "Cochlear Hair Cell Degeneration",
+      "Progressive Postlingual Sensorineural Hearing Loss"
+    ],
+    "cell_types": [
+      "retinal cone cell",
+      "retinal rod cell",
+      "cochlea auditory hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000573",
+      "CL:0000604",
+      "CL:4023120"
+    ],
+    "biological_processes": [
+      "centriole-centriole cohesion"
+    ],
+    "phenotypes": [
+      "Cone-rod dystrophy",
+      "Progressive sensorineural hearing impairment",
+      "Postlingual sensorineural hearing impairment",
+      "Photophobia",
+      "Reduced visual acuity",
+      "Spicular pigmentation of the retina",
+      "Constriction of peripheral visual field",
+      "Abnormal electroretinogram",
+      "Photoreceptor layer loss on macular OCT",
+      "Abnormal fundus autofluorescence imaging"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Otologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000548",
+      "HP:0000408",
+      "HP:0008596",
+      "HP:0000613",
+      "HP:0007663",
+      "HP:0007737",
+      "HP:0001133",
+      "HP:0000512",
+      "HP:0030609",
+      "HP:0030602"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CEP250"
+    ],
+    "treatments": [
+      "Low-vision rehabilitation and hearing amplification"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cone-rod_Dystrophy_And_Hearing_Loss_2.yaml",
+    "page_url": "../pages/disorders/Cone-rod_dystrophy_and_hearing_loss_2.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cone Dystrophy",
@@ -98897,7 +99087,7 @@ window.searchData = [
     "num_pathophysiology": 22,
     "num_genes": 25,
     "num_treatments": 8,
-    "causal_graph_edges": "145",
+    "causal_graph_edges": "147",
     "causal_graph_longest_path": "6"
   },
   {
@@ -195894,7 +196084,7 @@ window.searchData = [
     "num_pathophysiology": 23,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "57",
+    "causal_graph_edges": "59",
     "causal_graph_longest_path": "9"
   },
   {
@@ -216489,7 +216679,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 23,
     "num_treatments": 6,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "4"
   },
   {
@@ -228939,6 +229129,143 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Short-rib thoracic dysplasia 21 without polydactyly",
+    "disease_id": "MONDO:0030356",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathies",
+      "Short-Rib Dysplasias"
+    ],
+    "creation_date": "2026-08-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Short-rib thoracic dysplasia 21 without polydactyly is the skeletal presentation of biallelic KIAA0753 variants. KIAA0753 - also called Moonraker and OFIP - is a centriolar and pericentriolar-satellite protein. It sits at the top of a recruitment cascade at the distal end of the centriole: Moonraker brings in OFD1, FOPNL and CEP90, which in turn place the distal appendage proteins that dock the basal body to the plasma membrane so a cilium can be built. Losing it therefore removes the cilium's foundation rather than its transport machinery, which distinguishes this disorder mechanistically from the intraflagellar-transport and dynein-2 forms of short-rib thoracic dysplasia.\nThe consequence in the growth plate is a Hedgehog signalling failure. Chondrocyte proliferation in the growth plate depends on cilium-transduced Hedgehog signals; patient fibroblasts are deficient in primary cilia and show a blunted response to Hedgehog pathway stimulation, and the growth plate of an affected fetus had a disorganised proliferative zone with a broadened hypertrophic zone. Clinically this gives short ribs, a narrow thorax and short tubular bones, with respiratory insufficiency as the cause of death in the severe cases.\nTwo things make this entity awkward and both are recorded explicitly below. First, it is one of three phenotypes caused by the same gene: KIAA0753 also causes Joubert syndrome and orofaciodigital syndrome type 6, and the literature on the gene mixes all three. Second, the separation between them is not clean in individual patients - several people counted as skeletal cases also have the molar tooth sign, and the report of the eighth patient concluded that this gene shows how one locus can present as apparently distinct syndromes.",
+    "pathophysiology": [
+      "Biallelic KIAA0753 Loss-of-Function Variants",
+      "Defective Basal Body Docking and Ciliogenesis",
+      "Impaired Hedgehog Signal Transduction",
+      "Growth Plate Zonal Disorganisation",
+      "Short Ribs and Thoracic Constriction",
+      "Pulmonary Hypoplasia",
+      "Respiratory Insufficiency from Thoracic Restriction",
+      "Cerebellar and CNS Involvement"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "hypertrophic chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000743"
+    ],
+    "biological_processes": [
+      "cilium assembly",
+      "protein localization to cilium",
+      "smoothened signaling pathway",
+      "Wnt signaling pathway",
+      "growth plate cartilage development"
+    ],
+    "phenotypes": [
+      "Narrow chest",
+      "Short long bone",
+      "Metaphyseal irregularity",
+      "Trident pelvis",
+      "Respiratory insufficiency",
+      "Feeding difficulties",
+      "Global developmental delay",
+      "Hypotonia",
+      "Molar tooth sign on MRI",
+      "Cone-shaped epiphysis",
+      "Short ribs",
+      "Thoracic hypoplasia",
+      "Brachydactyly",
+      "Delayed speech and language development",
+      "Delayed gross motor development",
+      "Flexion contracture",
+      "Protuberant abdomen",
+      "Aplasia/Hypoplasia of the corpus callosum",
+      "Ventriculomegaly",
+      "Small pituitary gland",
+      "Rhizomelia",
+      "Pulmonary hypoplasia",
+      "Macrocephaly",
+      "Frontal bossing",
+      "Flat face",
+      "Depressed nasal bridge",
+      "Hypoplasia of teeth"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Respiratory",
+      "Gastrointestinal",
+      "Neurologic",
+      "Endocrine",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000774",
+      "HP:0003026",
+      "HP:0003025",
+      "HP:0034044",
+      "HP:0002093",
+      "HP:0011968",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0002419",
+      "HP:0010579",
+      "HP:0000773",
+      "HP:0005257",
+      "HP:0001156",
+      "HP:0000750",
+      "HP:0002194",
+      "HP:0001371",
+      "HP:0001538",
+      "HP:0007370",
+      "HP:0002119",
+      "HP:0012506",
+      "HP:0008905",
+      "HP:0002089",
+      "HP:0000256",
+      "HP:0002007",
+      "HP:0012368",
+      "HP:0005280",
+      "HP:0000685"
+    ],
+    "frequencies": [
+      "2/4",
+      "4/4",
+      "3/3",
+      "2/3",
+      "3/4"
+    ],
+    "genes": [
+      "KIAA0753"
+    ],
+    "treatments": [
+      "Respiratory support and thoracic management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Short-rib_Thoracic_Dysplasia_21_Without_Polydactyly.yaml",
+    "page_url": "../pages/disorders/Short-rib_thoracic_dysplasia_21_without_polydactyly.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Short QT Syndrome",
@@ -262383,17 +262710,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2544,
+  "total_disorder_pages": 2547,
   "total_subtypes": 3571,
-  "total_disorders_and_subtypes": 6115,
-  "total_unique_evidence_sources": 36371,
-  "total_unique_publications": 34234,
+  "total_disorders_and_subtypes": 6118,
+  "total_unique_evidence_sources": 36406,
+  "total_unique_publications": 34269,
   "total_unique_disease_categories": 52,
   "total_unique_phenotype_categories": 270,
-  "total_pathographs": 2539,
-  "total_unique_pathological_events": 14848,
+  "total_pathographs": 2542,
+  "total_unique_pathological_events": 14863,
   "total_modules": 167,
-  "total_research_reports": 2659,
+  "total_research_reports": 2662,
   "total_classifications": 19,
   "total_comorbidities": 25,
   "total_groupings": 100
