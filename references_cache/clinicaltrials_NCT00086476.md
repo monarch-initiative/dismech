@@ -1,0 +1,12 @@
+---
+reference_id: clinicaltrials:NCT00086476
+title: Investigations of Megakaryocytes From Patients With Abnormal Platelet Vesicles
+content_type: summary
+full_text_attempted: true
+---
+
+# Investigations of Megakaryocytes From Patients With Abnormal Platelet Vesicles
+
+## Content
+
+Congenital bleeding disorders characterized by abnormal platelet granules include Gray Platelet syndrome (GPS; defective alpha-granules), Hermansky-Pudlak syndrome (HPS; defective delta-granules), and combined alpha delta-storage pool deficiency (alpha delta-SPD). Other diseases associated with variable defects in platelet gamma-granules include Chediak-Higashi, Griscelli, Wiskott-Aldrich, and Thrombocytopenia Absent Radius syndromes. These disorders are models for the study of organelle formation in megakaryocytes and platelets. Characteristics of megakaryocytopoiesis in these disorders have not been investigated because megakaryocytes could not be cultured from patients in sufficient quantities for experimental purposes. Recent advances have made it possible to culture megakaryocytes using serum-free media supplemented with recombinant human thrombopoietin (TPO). Such cultured human megakaryocytes, amplified from bone marrow-derived CD34+ stem cells, synthesize and store organellar proteins and produce functional platelets. In this protocol, we plan to obtain bone marrow aspirates from 40 children and adults (ages 2 to 80 years) with GPS, HPS, and related disorders. Patients admitted to the NIH Clinical Center on specific disease-related protocols will be enrolled in this protocol during their routine 3-5 day visits. We will culture megakaryocytes from CD34+ stem cells isolated from bone marrow aspirates. Studies of cultured megakaryocytes will include evaluation of granule membrane and soluble proteins using fluorescent antibodies and immunoelectron microscopy and comparison of RNA and protein expression patterns between normal and patient cells. Precautions will be taken to prevent the primary risk of the bone marrow aspiration, i.e., prolonged bleeding at the aspiration site. Standard diagnostic studies on the bone marrow sample may reveal information that may directly benefit patients. However, the broader benefit of this study is the acquisition of a better understanding of the characteristics of functional platelet disorders and the process of intracellular vesicle formation.
