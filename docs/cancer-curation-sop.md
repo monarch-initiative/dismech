@@ -59,7 +59,7 @@ Then read the derivation back with `just check-cancer-origin`. Deriving **more
 than one** cell of origin is the signal to revisit the lump/split call: it is
 usually a grouping, sometimes cell-of-origin subtypes, occasionally an unsettled
 origin. See [cancer-cell-of-origin.md](cancer-cell-of-origin.md) and design
-decisions Sec 3b.
+decisions Sec 3d.
 
 ## `disease_term`: MONDO-first
 
