@@ -697,8 +697,16 @@ respected the distinction it drew: `rate_per_100000` carried no dimension (a poi
 prevalence of `5.0` is a dimensionless proportion; an annual incidence of `5.0` is
 5 per 100,000 *per year*), `_band_from_rate()` assigned Orphanet **prevalence** classes
 purely as a function of the number, and no test or QC plugin read `measure_type` at all.
-The KB drifted accordingly — 116 of 138 `ANNUAL_INCIDENCE` and 41 of 45
+The KB drifted accordingly — 118 of 140 `ANNUAL_INCIDENCE` and 41 of 45
 `CARRIER_FREQUENCY` records carry numeric prevalence bands (issue #8431).
+
+*Counts in this amendment are a snapshot taken on the branch that landed it
+(`c5496675ec`, 2026-09-04), over `kb/disorders/`, `kb/comorbidities/`, and
+`kb/modules/`. This repository merges fast enough that they drift within days —
+they are recorded to show the scale of the problem the decision addresses, not
+as figures to re-derive against a later tree. The audit is reproducible: walk
+each `prevalence:` record and cross-tabulate `measure_type` against
+`prevalence_class`.*
 
 **Decision.** A `prevalence_class` band reports **magnitude only**; `measure_type`
 supplies the semantics. `BAND_1_9_PER_100000` means "1-9 per 100,000 of whatever this
@@ -728,7 +736,7 @@ and legitimate; only 8 (all `ANNUAL_INCIDENCE`) are errors.
 
 **Rationale for this reading over the alternative.** The alternative — treating bands as
 strictly prevalence-typed and stripping them from incidence and carrier records — would
-have required rewriting 157 KB records against a queue of 100+ open curation PRs, and
+have required rewriting 159 KB records against a queue of 100+ open curation PRs, and
 would have *lost* information: the only landing place for those records is a qualitative
 tier, which is both less precise and itself prevalence-semantic, so the category error
 would survive in a less detectable form. Worked counterexample:
@@ -763,12 +771,13 @@ occurrence-general. Renaming would touch every KB record carrying a prevalence b
 was judged not worth the churn; the enum documentation carries the meaning instead.
 
 **Deferred to follow-ups.** (a) A QC check gating qualitative tiers to prevalence-shaped
-measure types, landing alongside the band-vs-rate check proposed in #7005 — **21**
+measure types, landing alongside the band-vs-rate check proposed in #7005 — **23**
 records to fix, not 8. The rule has two halves and only the first was counted initially:
-8 records carry a qualitative tier on `ANNUAL_INCIDENCE`/`CARRIER_FREQUENCY`, and 18 carry
+8 records carry a qualitative tier on `ANNUAL_INCIDENCE`/`CARRIER_FREQUENCY`, and 20 carry
 one alongside a populated numeric estimate (counting `rate_low`/`rate_high`, not just
-`rate_per_100000`), overlapping in 5. Five of the 18 are a distinct pre-existing data bug
-— `rate_per_100000: 0.0` on `CASES_IN_LITERATURE` records, where zero is not a rate. (b) Backfilling the 286 records that set no `measure_type` (a further 203 are
+`rate_per_100000`), overlapping in 5 (22 distinct files — `Specific_Antibody_Deficiency`
+carries two such records). Five of the 18 are a distinct pre-existing data bug
+— `rate_per_100000: 0.0` on `CASES_IN_LITERATURE` records, where zero is not a rate. (b) Backfilling the 286 records that set no `measure_type` (a further 218 are
 `UNKNOWN`), after which the slot can become required. (c) Whether `CARRIER_FREQUENCY`
 belongs on `Prevalence` at all — it is a genotype frequency among unaffected people, and
 `GeneCaseFraction` is structurally closer; moving it would remove 41 of the flagged
