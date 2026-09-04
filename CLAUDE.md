@@ -2826,12 +2826,18 @@ not a hold: anything opened as a PR is in the review queue. The controller marks
 an eligible draft ready, re-reads every guard, and restores draft state if that
 merge attempt aborts.
 
-Each run acts on at most one PR. Immediately before it does, the controller
-re-reads every PR guard and pins the merge request to that verified head SHA.
-It deliberately does not require that head to contain the latest `main` commit:
-loose branch protection permits an already-green PR to merge, while a required
-merge queue tests the latest-main combination on a temporary merge-group commit.
-Branch-freshness updates are therefore not part of deterministic eligibility.
+Immediately before each action, the controller re-reads every PR guard and pins
+the merge request to that verified head SHA. When a required merge queue is
+active, a run enqueues up to 50 eligible PRs and GitHub serializes their merges;
+the limit leaves headroom under GitHub's content-creation rate limit and the
+workflow's timeout. A manual dispatch can lower that budget. Any candidates left
+by it are listed explicitly in the run summary and reconsidered on the next
+hourly run. When no queue is active, the controller directly merges at most one
+PR per run. It deliberately does not require a PR head to contain the latest
+`main` commit: the merge queue tests the latest-main combination on a temporary
+merge-group commit, while loose branch protection permits an already-green PR
+to merge. Branch-freshness updates are therefore not part of deterministic
+eligibility.
 
 Do not enable GitHub auto-merge on ordinary PRs outside this controller: it is a
 separate server-side path that bypasses the controller's age and assignment
