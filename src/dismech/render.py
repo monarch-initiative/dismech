@@ -34,6 +34,11 @@ from dismech.graph import (
     graph_to_json,
     iter_variant_items,
 )
+from dismech.module_collections import (
+    build_module_collection_tree,
+    load_module_collections,
+    module_collection_reference_errors,
+)
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
 from dismech.term_labels import label_restates_title
@@ -637,7 +642,11 @@ def _annotate_ref_target_anchors(disorder: dict) -> None:
             if not isinstance(item, dict):
                 continue
             value = next(
-                (item.get(k) for k in key_slots if isinstance(item.get(k), str) and item.get(k)),
+                (
+                    item.get(k)
+                    for k in key_slots
+                    if isinstance(item.get(k), str) and item.get(k)
+                ),
                 None,
             )
             if not value:
@@ -1310,12 +1319,9 @@ def _module_category_display() -> dict[str, dict]:
     in ``schema/dismech.yaml``, so the vocabulary has exactly one home and a
     category cannot be renamed on a page without being renamed in the schema.
     """
-    permissible_values = (
-        (_load_schema().get("enums") or {})
-        .get("ModuleCategoryEnum", {})
-        .get("permissible_values")
-        or {}
-    )
+    permissible_values = (_load_schema().get("enums") or {}).get(
+        "ModuleCategoryEnum", {}
+    ).get("permissible_values") or {}
     display: dict[str, dict] = {}
     for index, (key, meta) in enumerate(permissible_values.items()):
         meta = meta if isinstance(meta, dict) else {}
@@ -1616,7 +1622,7 @@ def _load_module_context(
 
 
 def _build_module_summary(module: dict) -> dict:
-    """Build a compact card payload for the module index page."""
+    """Build a compact row payload for the module index page."""
     module_id = str(module.get("_module_id") or "")
     used_by_disorders = module.get("_used_by_disorders") or []
     return {
@@ -1630,7 +1636,83 @@ def _build_module_summary(module: dict) -> dict:
         "biological_process_count": len(module.get("_biological_processes") or []),
         "disorder_count": len(used_by_disorders),
         "used_by_disorders": used_by_disorders,
+        "collections": module.get("_module_collections") or [],
     }
+
+
+def _build_module_collection_context(
+    collections_dir: Path,
+    module_summaries_by_id: dict[str, dict],
+) -> tuple[list[dict], dict[str, list[dict]]]:
+    """Resolve collection members and build module-to-collection backlinks."""
+    collections: list[dict] = []
+    reverse: dict[str, list[dict]] = defaultdict(list)
+
+    for yaml_path, data in load_module_collections(collections_dir):
+        name = str(data.get("name") or yaml_path.stem)
+        page_name = f"{slugify(name)}.html"
+        members: list[dict] = []
+        for member in data.get("module_members") or []:
+            if not isinstance(member, dict):
+                continue
+            module_id = str(member.get("module") or "").strip()
+            module_summary = module_summaries_by_id.get(module_id, {})
+            resolved = {
+                "id": module_id,
+                "name": module_summary.get("name") or module_id,
+                "href": f"../modules/{module_id}.html",
+                "description": member.get("description"),
+                "framework_terms": member.get("framework_terms") or [],
+                "pathophysiology_count": module_summary.get("pathophysiology_count", 0),
+                "disorder_count": module_summary.get("disorder_count", 0),
+            }
+            members.append(resolved)
+            reverse[module_id].append(
+                {
+                    "name": name,
+                    "display_name": data.get("display_name"),
+                    "collection_type": data.get("collection_type"),
+                    "href": f"../module-collections/{page_name}",
+                    "framework_terms": resolved["framework_terms"],
+                }
+            )
+
+        collections.append(
+            {
+                "name": name,
+                "display_name": data.get("display_name"),
+                "description": data.get("description"),
+                "collection_type": data.get("collection_type"),
+                "creation_date": data.get("creation_date"),
+                "evidence": data.get("evidence") or [],
+                "notes": data.get("notes"),
+                "members": members,
+                "module_count": len(members),
+                "framework_term_count": sum(
+                    len(member["framework_terms"]) for member in members
+                ),
+                "child_collection_names": data.get("child_collections") or [],
+                "href": f"../module-collections/{page_name}",
+                "page_name": page_name,
+                "source_file": (
+                    "https://github.com/monarch-initiative/dismech/blob/main/"
+                    f"kb/module_collections/{yaml_path.name}"
+                ),
+            }
+        )
+
+    for memberships in reverse.values():
+        memberships.sort(
+            key=lambda item: str(
+                item.get("display_name") or item.get("name") or ""
+            ).casefold()
+        )
+    collections.sort(
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold()
+    )
+    return collections, dict(reverse)
 
 
 def _build_comorbidity_summary(
@@ -2376,8 +2458,8 @@ def render_disorder(
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
     env.filters["curie_to_url"] = curie_to_url
-    env.filters["semantic_ref_href"] = (
-        lambda ref: semantic_ref_index.get(str(ref), "") if ref is not None else ""
+    env.filters["semantic_ref_href"] = lambda ref: (
+        semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
     env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
@@ -2613,6 +2695,7 @@ def render_module(
     *,
     disorders_dir: Path = Path("kb/disorders"),
     usage_index: dict[str, list[dict]] | None = None,
+    collections: list[dict] | None = None,
 ) -> Path:
     """Render a single shared module YAML file to HTML."""
     module, disorder_usage = _load_module_context(
@@ -2620,6 +2703,13 @@ def render_module(
         disorders_dir=disorders_dir,
         usage_index=usage_index,
     )
+    if collections is None:
+        _, reverse = _build_module_collection_context(
+            yaml_path.parent.parent / "module_collections",
+            {yaml_path.stem: _build_module_summary(module)},
+        )
+        collections = reverse.get(yaml_path.stem, [])
+    module["_module_collections"] = collections
     # Module hypothesis boxes show the same support/refute balance as disorder
     # pages. Only the tally is computed here: modules do not render hypothesis
     # chips on pathophysiology nodes, so the rest of
@@ -2674,24 +2764,36 @@ def render_module(
 def render_module_index(
     modules: list[dict],
     output_path: Path = Path("pages/modules/index.html"),
+    *,
+    collections: list[dict] | None = None,
 ) -> Path:
     """Render the shared-module index page."""
     template_dir = Path(__file__).parent / "templates"
     env = _get_shared_env(str(template_dir))
     template = env.get_template("module_index.html.j2")
 
-    # Legend lists only the categories actually in use, so a value defined in
-    # the schema but not yet applied to any module does not advertise itself as
-    # something a reader can browse by.
+    sorted_modules = sorted(
+        modules,
+        key=lambda module: str(module.get("name") or "").casefold(),
+    )
+    sorted_collections = sorted(
+        collections or [],
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold(),
+    )
+    # The legend lists only categories actually used by the rendered modules.
     categories_in_use = {
         category["key"]: category
-        for module in modules
+        for module in sorted_modules
         for category in module.get("categories") or []
     }
     html = template.render(
-        modules=sorted(
-            modules,
-            key=lambda module: str(module.get("name") or "").casefold(),
+        modules=sorted_modules,
+        collections=sorted_collections,
+        collection_tree=build_module_collection_tree(sorted_collections),
+        collected_module_count=sum(
+            1 for module in sorted_modules if module.get("collections")
         ),
         category_legend=[
             categories_in_use[key]
@@ -2700,6 +2802,48 @@ def render_module_index(
         ],
     )
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_module_collection(
+    collection: dict,
+    output_path: Path,
+    template_path: Path | None = None,
+) -> Path:
+    """Render one curated module-collection page."""
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "module_collection.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+    env = _get_shared_env(str(template_dir))
+    env.filters["curie_to_url"] = curie_to_url
+    html = env.get_template(template_name).render(collection=collection)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_module_collection_index(
+    collections: list[dict],
+    output_path: Path = Path("pages/module-collections/index.html"),
+) -> Path:
+    """Render the standalone module-collection index."""
+    template_dir = Path(__file__).parent / "templates"
+    env = _get_shared_env(str(template_dir))
+    sorted_collections = sorted(
+        collections,
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold(),
+    )
+    html = env.get_template("module_collection_index.html.j2").render(
+        collections=sorted_collections,
+        collection_tree=build_module_collection_tree(sorted_collections),
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
     return output_path
@@ -3041,7 +3185,9 @@ def _reference_is_preprint(reference: str | None) -> bool:
     prefix, local = prefix.strip(), local.strip()
     if prefix.upper() == "DOI" and _PREPRINT_DOI_RE.match(local):
         return True
-    cache_path = _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+    cache_path = (
+        _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+    )
     try:
         with cache_path.open(encoding="utf-8") as handle:
             if handle.readline().strip() != "---":
@@ -3496,16 +3642,22 @@ def render_all_modules(
     template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
+    collections_dir: Path | None = None,
+    collections_output_dir: Path | None = None,
 ) -> list[Path]:
-    """Render all shared mechanism modules plus their index page."""
+    """Render mechanism modules, their collections, and both index pages."""
     if not input_dir.exists():
         return []
 
     output_dir.mkdir(parents=True, exist_ok=True)
     usage_index = _collect_module_usage(disorders_dir)
+    if collections_dir is None:
+        collections_dir = input_dir.parent / "module_collections"
+    if collections_output_dir is None:
+        collections_output_dir = output_dir.parent / "module-collections"
 
     output_files: list[Path] = []
-    module_summaries: list[dict] = []
+    module_contexts: dict[str, dict] = {}
 
     for yaml_path in sorted(input_dir.glob("*.yaml")):
         module, _ = _load_module_context(
@@ -3513,6 +3665,28 @@ def render_all_modules(
             disorders_dir=disorders_dir,
             usage_index=usage_index,
         )
+        module_contexts[yaml_path.stem] = module
+
+    initial_summaries = {
+        module_id: _build_module_summary(module)
+        for module_id, module in module_contexts.items()
+    }
+    collection_records = load_module_collections(collections_dir)
+    collection_errors = module_collection_reference_errors(
+        collection_records,
+        set(module_contexts),
+    )
+    if collection_errors:
+        raise ValueError("Invalid module collections:\n" + "\n".join(collection_errors))
+    collections, collections_by_module = _build_module_collection_context(
+        collections_dir,
+        initial_summaries,
+    )
+
+    module_summaries: list[dict] = []
+    for yaml_path in sorted(input_dir.glob("*.yaml")):
+        module = module_contexts[yaml_path.stem]
+        module["_module_collections"] = collections_by_module.get(yaml_path.stem, [])
         output_path = output_dir / f"{yaml_path.stem}.html"
         render_module(
             yaml_path,
@@ -3520,15 +3694,39 @@ def render_all_modules(
             template_path,
             disorders_dir=disorders_dir,
             usage_index=usage_index,
+            collections=module["_module_collections"],
         )
         output_files.append(output_path)
         module_summaries.append(_build_module_summary(module))
         print(f"Rendered module: {yaml_path.stem} -> {output_path}")
 
-    index_path = render_module_index(module_summaries, output_dir / "index.html")
+    index_path = render_module_index(
+        module_summaries,
+        output_dir / "index.html",
+        collections=collections,
+    )
     output_files.append(index_path)
     print(f"Rendered module index -> {index_path}")
     _prune_orphan_pages(output_dir, output_files, label="module")
+
+    collection_output_files: list[Path] = []
+    for collection in collections:
+        output_path = collections_output_dir / collection["page_name"]
+        render_module_collection(collection, output_path)
+        collection_output_files.append(output_path)
+        print(f"Rendered module collection: {collection['name']} -> {output_path}")
+    collection_index_path = render_module_collection_index(
+        collections,
+        collections_output_dir / "index.html",
+    )
+    collection_output_files.append(collection_index_path)
+    print(f"Rendered module collection index -> {collection_index_path}")
+    _prune_orphan_pages(
+        collections_output_dir,
+        collection_output_files,
+        label="module collection",
+    )
+    output_files.extend(collection_output_files)
     return output_files
 
 
@@ -3653,8 +3851,6 @@ def _resolve_member_href(member: dict, by_name: dict[str, str]) -> str | None:
     if mtype in ("DISEASE", "SUBTYPE"):
         page = by_name.get(_normalize_disorder_lookup(ref))
         return f"../disorders/{page}" if page else None
-    if mtype == "MODULE":
-        return f"../modules/{ref.split('#', 1)[0].strip()}.html"
     if mtype == "GROUPING":
         return f"{slugify(ref)}.html"
     return None
@@ -4057,13 +4253,19 @@ def _mondo_scope_state(row: dict, exact_scope_ids: set[str]) -> dict:
 def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
     has_dismech = bool(row["dismech_entries"])
     has_mondo = row["mondo"] is not None
-    is_listed = any(e["member_state"] == "listed" for e in row["dismech_entries"])
-    is_candidate = any(e["member_state"] == "candidate" for e in row["dismech_entries"])
-    is_not_listed = any(
-        e["member_state"] == "not_listed" for e in row["dismech_entries"]
-    )
+    states = {e["member_state"] for e in row["dismech_entries"]}
+    # A disease held through a nested GROUPING member is a member of this
+    # grouping too; it is "listed" for every status below, and the label says
+    # "nested" only when no entry on the row is a direct member.
+    is_listed = bool(states & {"listed", "nested"})
+    nested_only = is_listed and "listed" not in states
+    is_candidate = "candidate" in states
+    is_not_listed = "not_listed" in states
     mondo_id = row["mondo"]["id"] if row["mondo"] else None
     has_exact_scope = bool(exact_scope_ids)
+
+    def _label(text: str) -> str:
+        return text.replace("listed", "nested", 1) if nested_only else text
 
     if (
         has_exact_scope
@@ -4072,7 +4274,7 @@ def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
         and mondo_id not in exact_scope_ids
     ):
         if is_listed:
-            return "outside_scope", "listed outside grouping MONDO"
+            return "outside_scope", _label("listed outside grouping MONDO")
         if is_candidate:
             return "outside_scope", "candidate outside grouping MONDO"
         if is_not_listed:
@@ -4080,8 +4282,8 @@ def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
         return "outside_scope", "outside grouping MONDO"
     if has_dismech and has_mondo and is_listed:
         if has_exact_scope:
-            return "mapped", "listed in scope"
-        return "mapped", "listed with MONDO ID"
+            return "mapped", _label("listed in scope")
+        return "mapped", _label("listed with MONDO ID")
     if has_dismech and has_mondo and is_candidate:
         if has_exact_scope:
             return "candidate", "candidate in scope"
@@ -4105,8 +4307,17 @@ def _build_grouping_coverage_rows(
     criteria_columns: list[dict],
     identity_by_name: dict[str, dict],
     by_mondo: dict[str, list[dict]],
+    nested_members: dict[str, dict] | None = None,
 ) -> tuple[list[dict], dict]:
-    """Build a unified DisMech/MONDO coverage table for a grouping page."""
+    """Build a unified DisMech/MONDO coverage table for a grouping page.
+
+    ``nested_members`` maps a disease held through a nested ``GROUPING``
+    member to ``{"via": <grouping name>, "via_href": ..., "row": <the member
+    row in that nested grouping>}``. Such a disease is a member of this
+    grouping — it renders as ``nested`` (with the grouping it arrived
+    through), counts toward coverage, and is never reported as ``not listed``.
+    """
+    nested_members = nested_members or {}
     mondo_mappings = _grouping_mondo_mappings(grouping)
     exact_roots = [m["id"] for m in mondo_mappings if m["is_exact"]]
     descendant_terms, exact_scope_ids, shadowed_ids, note = (
@@ -4151,8 +4362,12 @@ def _build_grouping_coverage_rows(
         name = entry["name"]
         if any(existing["name"] == name for existing in row["dismech_entries"]):
             return
+        nested = nested_members.get(name)
         if name in listed_names:
             state = "listed"
+        elif nested is not None:
+            state = "nested"
+            member = member or nested.get("row")
         elif name in candidate_names:
             state = "candidate"
         else:
@@ -4165,6 +4380,10 @@ def _build_grouping_coverage_rows(
                 "member_state": state,
                 "member_type": (member or {}).get("member_type", "DISEASE"),
                 "mechanisms": (member or {}).get("differentiating_mechanisms") or [],
+                "via": (nested or {}).get("via") if state == "nested" else None,
+                "via_href": (nested or {}).get("via_href")
+                if state == "nested"
+                else None,
             }
         )
 
@@ -4190,7 +4409,7 @@ def _build_grouping_coverage_rows(
 
     # Add all listed members and advisory candidates, including DisMech-only or
     # outside-MONDO-scope rows.
-    for name in sorted(listed_names | candidate_names):
+    for name in sorted(listed_names | candidate_names | set(nested_members)):
         entry = identity_by_name.get(_normalize_disorder_lookup(name))
         if entry is None:
             entry = {
@@ -4222,7 +4441,8 @@ def _build_grouping_coverage_rows(
             names,
             audit,
             is_listed=any(
-                entry["member_state"] == "listed" for entry in row["dismech_entries"]
+                entry["member_state"] in ("listed", "nested")
+                for entry in row["dismech_entries"]
             ),
         )
         row["mondo_scope"] = _mondo_scope_state(row, exact_scope_ids)
@@ -4250,7 +4470,10 @@ def _build_grouping_coverage_rows(
     scope_listed = sum(
         1
         for row in scope_rows
-        if any(entry["member_state"] == "listed" for entry in row["dismech_entries"])
+        if any(
+            entry["member_state"] in ("listed", "nested")
+            for entry in row["dismech_entries"]
+        )
     )
     scope_dismech = sum(1 for row in scope_rows if row["dismech_entries"])
     scope_total = len(scope_rows)
@@ -4281,6 +4504,11 @@ def _build_grouping_coverage_rows(
             "mapped": sum(1 for r in sorted_rows if r["status"] == "mapped"),
             "mondo_gap": sum(1 for r in sorted_rows if r["status"] == "mondo_gap"),
             "not_listed": sum(1 for r in sorted_rows if r["status"] == "not_listed"),
+            "nested": sum(
+                1
+                for r in sorted_rows
+                if any(e["member_state"] == "nested" for e in r["dismech_entries"])
+            ),
             "dismech_only": sum(
                 1
                 for r in sorted_rows
@@ -4291,17 +4519,100 @@ def _build_grouping_coverage_rows(
     return sorted_rows, coverage
 
 
+def _load_sibling_groupings(groupings_dir: Path) -> dict[str, dict]:
+    """Load every grouping in ``groupings_dir`` keyed by name (for nesting)."""
+    from .groupings import load_groupings_by_name
+
+    if not groupings_dir.exists():
+        return {}
+    return load_groupings_by_name(sorted(groupings_dir.glob("*.yaml")))
+
+
+def _grouping_hierarchy(
+    grouping: dict, groupings_by_name: dict[str, dict]
+) -> tuple[dict, dict[str, dict]]:
+    """Describe where a grouping sits in the declared grouping-of-grouping tree.
+
+    Returns the ``_hierarchy`` view (parents that list this grouping as a
+    ``GROUPING`` member, the nested groupings it lists, and how many diseases
+    arrive through them) plus the ``nested_members`` map consumed by the
+    coverage table.
+    """
+    from .groupings import nested_disease_members
+
+    name = str(grouping.get("name") or "")
+    parents = [
+        {"name": parent, "href": f"{slugify(parent)}.html"}
+        for parent, data in sorted(
+            groupings_by_name.items(), key=lambda kv: kv[0].casefold()
+        )
+        if parent != name
+        and any(
+            m.get("member_type") == "GROUPING" and m.get("member") == name
+            for m in data.get("members") or []
+        )
+    ]
+    children = []
+    for member in grouping.get("members") or []:
+        if member.get("member_type") != "GROUPING" or not member.get("member"):
+            continue
+        child = str(member["member"])
+        child_data = groupings_by_name.get(child)
+        children.append(
+            {
+                "name": child,
+                "display_name": (child_data or {}).get("display_name") or child,
+                "href": f"{slugify(child)}.html",
+                "resolved": child_data is not None,
+                "member_count": len((child_data or {}).get("members") or []),
+            }
+        )
+
+    nested_members: dict[str, dict] = {}
+    for disease, via in nested_disease_members(grouping, groupings_by_name).items():
+        via_rows = {
+            m.get("member"): m
+            for m in (groupings_by_name.get(via) or {}).get("members") or []
+            if isinstance(m, dict) and m.get("member")
+        }
+        nested_members[disease] = {
+            "via": via,
+            "via_href": f"{slugify(via)}.html",
+            "row": via_rows.get(disease),
+        }
+    hierarchy = {
+        "parents": parents,
+        "children": children,
+        "nested_member_count": len(nested_members),
+    }
+    return hierarchy, nested_members
+
+
 def _annotate_grouping(
     grouping: dict,
     *,
     disorders_dir: Path = Path("kb/disorders"),
+    groupings_by_name: dict[str, dict] | None = None,
 ) -> dict:
     """Decorate a grouping with member hrefs, criteria views, and an advisory
-    membership audit, returning summary metadata used by the page templates."""
+    membership audit, returning summary metadata used by the page templates.
+
+    ``groupings_by_name`` is every grouping the nesting tree may reach (the
+    sibling files of the one being rendered); it defaults to ``kb/groupings/``.
+    """
     disorder_context = _build_grouping_disorder_context(str(disorders_dir.resolve()))
     by_name = disorder_context["page_by_name"]
     mondo_mappings = _grouping_mondo_mappings(grouping)
     criteria_columns = _grouping_criteria_columns(grouping)
+    if groupings_by_name is None:
+        from .groupings import GROUPINGS_DIR
+
+        groupings_by_name = _load_sibling_groupings(GROUPINGS_DIR)
+    groupings_by_name = dict(groupings_by_name)
+    if grouping.get("name"):
+        groupings_by_name[str(grouping["name"])] = grouping
+    hierarchy, nested_members = _grouping_hierarchy(grouping, groupings_by_name)
+    grouping["_hierarchy"] = hierarchy
 
     # Criteria views (recursive logic trees).
     for criteria in grouping.get("membership_criteria") or []:
@@ -4333,7 +4644,7 @@ def _annotate_grouping(
         )
 
         index = disorder_context["disease_index"]
-        for ev in evaluate_grouping(grouping, index):
+        for ev in evaluate_grouping(grouping, index, groupings_by_name):
             audit.setdefault(ev.member, []).append(
                 {
                     "criteria_index": ev.criteria_index,
@@ -4350,7 +4661,7 @@ def _annotate_grouping(
                     "unmet": [d for d, r in ev.leaves if r.value != "SATISFIED"],
                 }
             )
-        for name in find_candidate_members(grouping, index):
+        for name in find_candidate_members(grouping, index, groupings_by_name):
             page = by_name.get(_normalize_disorder_lookup(name))
             candidates.append(
                 {"name": name, "href": f"../disorders/{page}" if page else None}
@@ -4370,6 +4681,7 @@ def _annotate_grouping(
             criteria_columns=criteria_columns,
             identity_by_name=disorder_context["identity_by_name"],
             by_mondo=disorder_context["by_mondo"],
+            nested_members=nested_members,
         )
     except Exception:
         coverage_rows = []
@@ -4396,12 +4708,27 @@ def _annotate_grouping(
     grouping["_coverage_rows"] = coverage_rows
     grouping["_coverage"] = coverage
 
+    from .groupings import grouping_disease_members
+
     member_count = len(grouping.get("members") or [])
     child_grouping_names = [
         str(member["member"])
         for member in grouping.get("members") or []
         if member.get("member_type") == "GROUPING" and member.get("member")
     ]
+    try:
+        disease_member_names = sorted(
+            grouping_disease_members(grouping, groupings_by_name)
+        )
+    except (KeyError, ValueError):
+        # A dangling GROUPING reference or a nesting cycle: fall back to the
+        # direct members so the index still renders; the tree flags the cycle.
+        disease_member_names = sorted(
+            str(m["member"])
+            for m in grouping.get("members") or []
+            if m.get("member")
+            and m.get("member_type", "DISEASE") in ("DISEASE", "SUBTYPE")
+        )
     return {
         "id": slugify(str(grouping.get("name") or "")),
         "name": grouping.get("name"),
@@ -4412,6 +4739,9 @@ def _annotate_grouping(
         "coverage": coverage,
         "member_count": member_count,
         "child_grouping_names": child_grouping_names,
+        "parent_grouping_names": [p["name"] for p in hierarchy["parents"]],
+        "disease_member_names": disease_member_names,
+        "nested_member_count": hierarchy["nested_member_count"],
         "criteria_count": len(grouping.get("membership_criteria") or []),
         "candidate_count": len(candidates),
         "href": f"{slugify(str(grouping.get('name') or ''))}.html",
@@ -4468,14 +4798,76 @@ def render_grouping(
 ) -> Path:
     """Render a single disease grouping YAML file to HTML."""
     grouping = load_grouping(yaml_path)
-    summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+    summary = _annotate_grouping(
+        grouping,
+        disorders_dir=disorders_dir,
+        groupings_by_name=_load_sibling_groupings(Path(yaml_path).parent),
+    )
     return _render_grouping_document(
         grouping, summary, yaml_path, output_path, template_path
     )
 
 
+def _undeclared_containments(
+    groupings: list[dict], declared: set[tuple[str, str]]
+) -> list[dict]:
+    """Pairs where every expanded disease member of ``child`` is also held by
+    ``parent`` but ``parent`` does not list ``child`` as a nested grouping.
+
+    Mirrors :func:`dismech.groupings.compute_nesting_report` over index
+    summaries so the index can show the same advisory offline. Equal member
+    sets are reported once, in name order, and flagged.
+    """
+    sets = {
+        str(g["name"]): set(g.get("disease_member_names") or [])
+        for g in groupings
+        if g.get("name")
+    }
+    hrefs = {str(g["name"]): g.get("href") for g in groupings if g.get("name")}
+    display = {
+        str(g["name"]): g.get("display_name") or g["name"]
+        for g in groupings
+        if g.get("name")
+    }
+    names = sorted(sets, key=str.casefold)
+    out: list[dict] = []
+    for parent in names:
+        parent_set = sets[parent]
+        for child in names:
+            child_set = sets[child]
+            if child == parent or not child_set or (parent, child) in declared:
+                continue
+            if not child_set <= parent_set or len(parent_set) < len(child_set):
+                continue
+            equal = child_set == parent_set
+            if equal and child.casefold() < parent.casefold():
+                continue
+            out.append(
+                {
+                    "parent": parent,
+                    "parent_display_name": display[parent],
+                    "parent_href": hrefs[parent],
+                    "parent_count": len(parent_set),
+                    "child": child,
+                    "child_display_name": display[child],
+                    "child_href": hrefs[child],
+                    "child_count": len(child_set),
+                    "equal_sets": equal,
+                }
+            )
+    return out
+
+
 def _build_grouping_tree(groupings: list[dict]) -> dict:
-    """Build a forest from explicit GROUPING members on grouping summaries."""
+    """Build a forest from explicit GROUPING members on grouping summaries.
+
+    Only a ``member_type: GROUPING`` member creates an edge; the tree is the
+    curated nesting, nothing inferred. Because most groupings are deliberately
+    orthogonal cross-cuts that nest in nothing, the result separates the roots
+    that actually have children (``nested_roots``) from the ``standalone``
+    groupings, and adds the offline containment advisory so an undeclared
+    parent/child pair is visible next to the declared ones.
+    """
     by_name = {str(g.get("name")): g for g in groupings if g.get("name")}
     children_by_parent: dict[str, list[str]] = {}
     parents_by_child: dict[str, list[str]] = defaultdict(list)
@@ -4514,11 +4906,24 @@ def _build_grouping_tree(groupings: list[dict]) -> dict:
 
     edge_count = sum(len(children) for children in children_by_parent.values())
     nested_count = len(parents_by_child)
+    root_nodes = [make_node(name) for name in roots]
+    nested_roots = [node for node in root_nodes if node["children"]]
+    standalone = [node for node in root_nodes if not node["children"]]
+    declared = {
+        (parent, child)
+        for parent, children in children_by_parent.items()
+        for child in children
+    }
     return {
-        "roots": [make_node(name) for name in roots],
+        "roots": root_nodes,
+        "nested_roots": nested_roots,
+        "standalone": standalone,
         "edge_count": edge_count,
         "nested_count": nested_count,
         "root_count": len(roots),
+        "nested_root_count": len(nested_roots),
+        "standalone_count": len(standalone),
+        "undeclared_containments": _undeclared_containments(groupings, declared),
     }
 
 
@@ -4556,10 +4961,14 @@ def render_all_groupings(
 
     output_files: list[Path] = []
     summaries: list[dict] = []
+    # Nesting (parents, nested members, containment) needs every sibling.
+    groupings_by_name = _load_sibling_groupings(input_dir)
     for yaml_path in sorted(input_dir.glob("*.yaml")):
         # Load once per file so the index summary matches the rendered grouping.
         grouping = load_grouping(yaml_path)
-        summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+        summary = _annotate_grouping(
+            grouping, disorders_dir=disorders_dir, groupings_by_name=groupings_by_name
+        )
         output_path = output_dir / summary["href"]
         _render_grouping_document(
             grouping, summary, yaml_path, output_path, template_path
