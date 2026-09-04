@@ -474,19 +474,23 @@ window.searchData = [
     "num_variables": 0,
     "perturbations": [],
     "perturbation_ids": [],
-    "modeled_mechanisms": [],
-    "num_mechanisms": 0,
+    "modeled_mechanisms": [
+      "DNA Repair Deficiency",
+      "Homologous Recombination Impairment"
+    ],
+    "num_mechanisms": 2,
     "findings": [
       "The model simulates ICL repair mediated by the FA/BRCA pathway",
       "Alternative DNA repair pathways are predicted to become active when FA/BRCA is defective",
-      "Checkpoint protein activation patterns emerge from recurrent DNA damage"
+      "Checkpoint protein activation patterns emerge from recurrent DNA damage",
+      "Mutant simulations generated predictions about FA/BRCA pathway function that had not been reported experimentally."
     ],
-    "num_findings": 3,
+    "num_findings": 4,
     "evidence_refs": [
       "PMID:22267503"
     ],
     "num_evidence": 1,
-    "notes": "",
+    "notes": "Pathograph links added as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. `model_format` and `repository_url` are deliberately left unset: this 2012 model predates routine SBML-qual deposition and no public model-repository record could be sourced, so recording either would be a guess. Literature-referenced, not runnable in-repo.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-boolean-network-model-of-fa-brca-pathway",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
@@ -632,6 +636,50 @@ window.searchData = [
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Atrial_Fibrillation.html#computational-model-courtemanche-ramirez-nattel-human-atrial-action-potential-model",
     "source_file": "kb/disorders/Atrial_Fibrillation.yaml"
+  },
+  {
+    "model_key": "COVID-19--computational-model-covid-19-disease-map-sbml-qual-boolean-models--0",
+    "name": "COVID-19 Disease Map SBML-qual Boolean Models",
+    "description": "Executable Boolean networks generated from the COVID-19 Disease Map (C19DMap), the community-curated repository of SARS-CoV-2 virus-host mechanism diagrams. The CellDesigner diagrams were translated to SBML-qual with CaSQ, retaining the source diagrams' references, annotations and layout, and deposited on FAIRDOMHub as a reusable model collection. Because the translation is automated and layout-aware, each Boolean model remains traceable back to the curated diagram and the literature behind it \u2014 the property that makes the collection reviewable rather than opaque.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "SBML-qual",
+    "model_software": "CaSQ, CellDesigner",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "https://fairdomhub.org/models/714",
+    "repository_host": "Other",
+    "publication": "PMID:34664389",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "COVID-19",
+    "disease_id": "MONDO:0100096",
+    "category": "",
+    "parents": [
+      "coronavirus infectious disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "RNA Virus-Induced Interferon and PARP Activation"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The generated SBML-qual files retain the references, annotations and layout of the source CellDesigner diagrams, so each Boolean model stays traceable to its curation."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:34664389"
+    ],
+    "num_evidence": 1,
+    "notes": "Curated as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. A collection rather than a single network \u2014 FAIRDOMHub model 714 holds SBML-qual translations of selected C19DMap diagrams. Literature-referenced, not runnable in-repo.",
+    "creation_date": "2026-05-26T18:00:00Z",
+    "page_url": "../../pages/disorders/COVID-19.html#computational-model-covid-19-disease-map-sbml-qual-boolean-models",
+    "source_file": "kb/disorders/COVID-19.yaml"
   },
   {
     "model_key": "Deregulated_Nutrient_Sensing_Module--computational-model-dallepezze2016-concurrent-ampk-and-mtor-activation-by-amino-acids--1",
@@ -2330,6 +2378,52 @@ window.searchData = [
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
   },
   {
+    "model_key": "Parkinson's_Disease--computational-model-pd-map-cohort-specific-probabilistic-boolean-models--4",
+    "name": "PD Map Cohort-Specific Probabilistic Boolean Models",
+    "description": "Probabilistic Boolean Networks (PBNs) built from the Parkinson's disease map, the largest curated repository of PD pathway diagrams. Pathways enriched in the Parkinson's Progression Markers Initiative (PPMI) cohort were exported from the PD map in CellDesigner SBML format, translated to SBML-qual with CaSQ, and parameterised against cohort miRNA and transcriptomic data so that each model represents a specific PD subgroup (prodromal, SWEDD, parkinsonism). Simulating the resulting models with pyMaBoSS reveals subtype-specific differences in dopamine transcription, PI3K/AKT signalling, FOXO3 activity, mTOR-MAPK signalling and PRKN mitophagy. The probabilistic parameterisation, rather than plain Boolean logic, is what lets cohort-level data enter the model.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "SBML-qual",
+    "model_software": "CaSQ, pyMaBoSS, CellDesigner",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "https://gitlab.lcsb.uni.lu/lcsb-biocore/publications/hemedan23-boolean-modelling-of-pd",
+    "repository_host": "Other",
+    "publication": "PMID:39429779",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Parkinson's Disease",
+    "disease_id": "MONDO:0005180",
+    "category": "Complex",
+    "parents": [
+      "Neurodegenerative Disease",
+      "Movement Disorder"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Autophagy-Lysosome Pathway Dysfunction",
+      "Striatal Dopamine Deficiency"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Cohort-level and real-world patient data were integrated into the logical models to represent subtype-specific pathway deregulation."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:39429779"
+    ],
+    "num_evidence": 1,
+    "notes": "Curated as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. Literature-referenced, not runnable in-repo: dismech-perturb has no SBML-qual execution path yet. Note this is a *probabilistic* Boolean network \u2014 cohort data enter as node transition probabilities, so it is not a plain deterministic Boolean model.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Parkinson's_Disease.html#computational-model-pd-map-cohort-specific-probabilistic-boolean-models",
+    "source_file": "kb/disorders/Parkinsons_Disease.yaml"
+  },
+  {
     "model_key": "Pancreatic_Ductal_Adenocarcinoma--computational-model-pdac-caf-mediated-invasion-physicell-model--0",
     "name": "PDAC CAF-Mediated Invasion PhysiCell Model",
     "description": "Grammar-based PhysiCell agent-based model of pancreatic ductal adenocarcinoma neoplastic cells and cancer-associated fibroblasts. The model encodes fibroblast-mediated invasion, epithelial-mesenchymal state switching, and ECM-dependent motility tradeoffs using human-interpretable cell rules informed by PDAC spatial transcriptomics and coculture data.",
@@ -3041,6 +3135,55 @@ window.searchData = [
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Osteoporosis.html#computational-model-qct-based-finite-element-model-of-the-proximal-femur",
     "source_file": "kb/disorders/Osteoporosis.yaml"
+  },
+  {
+    "model_key": "Rheumatoid_Arthritis--computational-model-ra-fls-large-scale-boolean-model--0",
+    "name": "RA-FLS Large-Scale Boolean Model",
+    "description": "A large-scale, modular Boolean model of the rheumatoid arthritis fibroblast-like synoviocyte (RA-FLS), inferred from the RA map \u2014 a CellDesigner process-description disease map in the Disease Maps initiative \u2014 using the CaSQ map-to-model framework and analysed with GINsim, bioLQM, MaBoSS and the CoLoMoTo notebook. It comprises five phenotype-specific submodels (apoptosis, cell proliferation, matrix degradation, bone erosion, inflammation) that share a core of 191 nodes and can be simulated independently or as a single global model. Perturbing the direct upstream regulators of each phenotype drives a drug-repurposing analysis proposing drug combinations predicted to restore apoptosis while switching the four pathological phenotypes off.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "SBML-qual",
+    "model_software": "CaSQ, GINsim, bioLQM, MaBoSS, CoLoMoTo",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "https://gitlab.com/genhotel/rheumatoid-arthritis-large-scale-computational-modeling/-/tree/main",
+    "repository_host": "GitLab",
+    "publication": "PMID:37454172",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Rheumatoid Arthritis",
+    "disease_id": "MONDO:0008383",
+    "category": "Complex",
+    "parents": [
+      "Autoimmune Disease",
+      "Inflammatory Arthritis"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Synovial Hyperplasia",
+      "Cartilage and Bone Destruction",
+      "Inflammatory Cytokine Production"
+    ],
+    "num_mechanisms": 3,
+    "findings": [
+      "The five phenotype-specific submodels share a core of 191 nodes, so the global model is smaller than the sum of its parts.",
+      "In silico perturbation reproduced expected RA-FLS behaviour and was then used to simulate mono and combination therapy and propose repurposing candidates."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:32403123",
+      "PMID:37454172"
+    ],
+    "num_evidence": 2,
+    "notes": "Curated as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. This is a literature-referenced model, not yet runnable in-repo \u2014 there is no models/<model_id> artifact and dismech-perturb has no SBML-qual execution path.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Rheumatoid_Arthritis.html#computational-model-ra-fls-large-scale-boolean-model",
+    "source_file": "kb/disorders/Rheumatoid_Arthritis.yaml"
   },
   {
     "model_key": "Telomere_Attrition_Module--computational-model-rastgou-talemi2015-dna-damage-model-with-persistent-telomere-associated-foci--2",
@@ -3817,6 +3960,52 @@ window.searchData = [
     "creation_date": "2026-01-26T02:55:13Z",
     "page_url": "../../pages/disorders/Glioblastoma,_IDH-Wildtype.html#computational-model-tumortwin-high-grade-glioma-digital-twin",
     "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
+  },
+  {
+    "model_key": "COVID-19--computational-model-type-1-interferon-signalling-boolean-model--1",
+    "name": "Type 1 Interferon Signalling Boolean Model",
+    "description": "An executable, dynamic Boolean model of type 1 interferon signalling derived from the COVID-19 Disease Map interferon diagram using CaSQ and the same map-to-model framework as the rheumatoid arthritis FLS model. Simulated in Cell Collective under virus infection, inflammatory conditions, and both combined, it yields 128 stable states and no oscillations, which are clustered by four output nodes \u2014 viral replication, antiviral response, inflammation, and IFNA1 secretion. Systematic single-node knockouts across this and companion apoptosis and macrophage models were used to nominate drug targets.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "SBML-qual",
+    "model_software": "CaSQ, Cell Collective",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "https://git-r3lab.uni.lu/covid/models",
+    "repository_host": "Other",
+    "publication": "PMID:38414974",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "COVID-19",
+    "disease_id": "MONDO:0100096",
+    "category": "",
+    "parents": [
+      "coronavirus infectious disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "RNA Virus-Induced Interferon and PARP Activation",
+      "Enhanced Viral Replication and Tissue Pathology"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "The model yields 128 stable states and no oscillations, clustered by four output nodes.",
+      "Single-node knockouts of each Boolean model were used to nominate candidate drug targets."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:38414974"
+    ],
+    "num_evidence": 1,
+    "notes": "Curated as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. Two companion Boolean models from the same work \u2014 respiratory epithelium apoptosis and macrophage immune-cell recruitment \u2014 were embedded in a multiscale lung-infection simulator; they are not separately curated here. Literature-referenced, not runnable in-repo.",
+    "creation_date": "2026-05-26T18:00:00Z",
+    "page_url": "../../pages/disorders/COVID-19.html#computational-model-type-1-interferon-signalling-boolean-model",
+    "source_file": "kb/disorders/COVID-19.yaml"
   },
   {
     "model_key": "Loss_of_Proteostasis_Module--computational-model-uch-l1-inclusion-formation-model--2",
@@ -4665,10 +4854,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 99,
-  "total_source_entries": 38,
+  "total_models": 103,
+  "total_source_entries": 40,
   "total_model_types": 8,
   "total_runnable": 4,
-  "total_with_repository": 39
+  "total_with_repository": 43
 };
 window.dispatchEvent(new Event('searchDataReady'));
