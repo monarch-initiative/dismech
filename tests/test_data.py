@@ -229,8 +229,17 @@ def _non_therapeutic_action_target_errors(data):
 
 @pytest.fixture(scope="module")
 def validator():
-    """Create a validator instance for all tests."""
-    return Validator(SCHEMA_PATH)
+    """Create a validator instance for all tests.
+
+    ``Validator`` has no default plugin: built without ``validation_plugins`` it
+    returns an empty report for any instance, so every assertion on it passes.
+    The closed JSON Schema plugin is what ``linkml-validate`` (and ``just
+    validate``) run.
+    """
+    return Validator(
+        SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
 
 
 @pytest.mark.kb_data
@@ -991,7 +1000,8 @@ def test_phenotype_multivalued_subtypes_validates(validator, tmp_path):
     disease = {
         "name": "Test Multi-Subtype Disease",
         "disease_term": {
-            "term": {"id": "MONDO:0000001", "label": "disease or disorder"}
+            "preferred_term": "disease or disorder",
+            "term": {"id": "MONDO:0000001", "label": "disease or disorder"},
         },
         "has_subtypes": [
             {"name": "Type 1", "description": "Subtype one."},
