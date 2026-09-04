@@ -38,7 +38,9 @@ pathophysiology:
     functional_impact_category: GAIN_OF_FUNCTION
     description: >-
       Somatic activating KRAS codon-12 mutation, the initiating lesion of the
-      PanIN-to-PDAC sequence.
+      PanIN-to-PDAC sequence, arising in the acinar/centroacinar compartment. The
+      tumour's ductal phenotype is acquired downstream through acinar-to-ductal
+      metaplasia and does not indicate a ductal cell of origin.
   cell_types:
   - preferred_term: pancreatic acinar cell
     term:
