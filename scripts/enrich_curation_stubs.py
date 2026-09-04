@@ -17,9 +17,16 @@ What it adds, and why each one is the fact a curator actually asks for:
   old dashboard scored child count and got the sign backwards.
 - ``genes`` — which gene MONDO holds responsible, as lowercase ``hgnc:`` per
   repository convention. Distinguishes sibling numbered subtypes from each other.
+- ``mondo_obsolete`` / ``mondo_replaced_by`` / ``mondo_obsoletion_candidate`` —
+  whether MONDO has retired the term, or decided to. This is the fact the queue
+  could not previously see: the old signal was a string heuristic on the label,
+  which only fires when the nominating export happened to capture the label
+  after MONDO prefixed it, and matches zero of the committed stubs
+  (dismech#10785). Writing it here is what lets ``just check-stubs`` report it
+  offline, with no 1.2 GB ontology in CI.
 
-Idempotent, and it only ever adds these three blocks — everything a person wrote
-in the stub is preserved.
+Idempotent, and it only ever adds the blocks listed above — everything a person
+wrote in the stub is preserved.
 
     uv run python scripts/enrich_curation_stubs.py            # all stubs
     uv run python scripts/enrich_curation_stubs.py --dry-run
@@ -38,6 +45,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from dismech.stubs.obsolescence import TermStatus, read_statuses
 from dismech.stubs.seed import yaml_scalar
 from dismech.yaml_io import safe_load
 
@@ -134,8 +142,23 @@ def term_block(curie: str, label: str | None, indent: str = "") -> list[str]:
     return lines
 
 
-def render(parents, descendants, total, genes) -> list[str]:
+def render(parents, descendants, total, genes, status=None) -> list[str]:
     lines: list[str] = []
+    if status is not None:
+        # Written only when MONDO has something to say. A `mondo_obsolete: false`
+        # on all 1,300-odd live stubs would be a mechanical line of noise in
+        # every file and every diff, to state the default; absence means the same
+        # thing, and `check_stubs` keeps the label heuristic as its backstop
+        # either way.
+        if status.obsolete:
+            lines.append("mondo_obsolete: true")
+        if status.replaced_by:
+            lines.append(f"mondo_replaced_by: {status.replaced_by}")
+        if status.obsoletion_candidate and status.obsoletion_note:
+            lines.append(
+                "mondo_obsoletion_candidate: "
+                f"{yaml_scalar(' '.join(status.obsoletion_note.split()))}"
+            )
     if parents:
         lines.append("mondo_parents:")
         for curie, label in parents:
@@ -155,6 +178,9 @@ def render(parents, descendants, total, genes) -> list[str]:
 def strip_existing(text: str) -> str:
     """Remove blocks this script owns, so a re-run replaces rather than appends."""
     owned = (
+        "mondo_obsolete:",
+        "mondo_replaced_by:",
+        "mondo_obsoletion_candidate:",
         "mondo_parents:",
         "mondo_descendants:",
         "mondo_descendant_count:",
@@ -222,6 +248,10 @@ def main() -> int:
     ):
         genes.setdefault(subject, []).append(str(obj))
 
+    # Only terms MONDO has ruled on come back. A live term is absent from this
+    # mapping rather than present and empty, and gets no obsolescence lines.
+    statuses = read_statuses(conn, ids)
+
     changed = 0
     for path, mondo_id in stub_ids.items():
         kids = sorted(descendants.get(mondo_id, []))
@@ -233,6 +263,7 @@ def main() -> int:
                 (g.lower(), gene_labels.get(g.lower()) or labels.get(g))
                 for g in sorted(genes.get(mondo_id, []))
             ],
+            statuses.get(mondo_id, TermStatus(curie=mondo_id)),
         )
         original = path.read_text(encoding="utf-8")
         # Strip unconditionally, including when `block` is empty. Short-circuiting
@@ -258,6 +289,9 @@ def main() -> int:
         f"mondo: {version or 'unknown'}  "
         f"stubs: {len(stub_ids)}  with parents: {len(parents)}  "
         f"with descendants: {len(descendants)}  with genes: {len(genes)}  "
+        f"obsolete: {sum(1 for s in statuses.values() if s.obsolete)}  "
+        f"obsoletion candidates: "
+        f"{sum(1 for s in statuses.values() if s.obsoletion_candidate)}  "
         f"{'would change' if args.dry_run else 'changed'}: {changed}"
     )
     return 0
