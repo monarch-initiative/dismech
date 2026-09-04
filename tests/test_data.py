@@ -1716,18 +1716,13 @@ def test_reference_range_interpretation_bands_validate(validator):
     assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
 
 
-def test_reference_range_band_rejects_invalid_abnormal_flag():
-    """An out-of-enum abnormal_flag on a band must fail strict validation.
+def test_reference_range_band_rejects_invalid_abnormal_flag(validator):
+    """An out-of-enum abnormal_flag on a band must fail validation.
 
-    Uses a closed jsonschema validator because the lenient module-scoped
-    ``validator`` fixture does not enforce enum membership.
+    The negative counterpart of the positive ``*_validates`` tests above: it is
+    the one check in this module that fails if the ``validator`` fixture stops
+    enforcing the schema, which is what happened before it carried a plugin.
     """
-    from linkml.validator import Validator as _Validator
-    from linkml.validator.plugins import JsonschemaValidationPlugin
-
-    strict = _Validator(
-        SCHEMA_PATH, validation_plugins=[JsonschemaValidationPlugin(closed=True)]
-    )
     data = {
         "name": "Test Disease",
         "biochemical": [
@@ -1750,7 +1745,7 @@ def test_reference_range_band_rejects_invalid_abnormal_flag():
             }
         ],
     }
-    report = strict.validate(data, target_class="Disease")
+    report = validator.validate(data, target_class="Disease")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert errors, "Expected a validation error for an invalid abnormal_flag value"
 
