@@ -229,8 +229,17 @@ def _non_therapeutic_action_target_errors(data):
 
 @pytest.fixture(scope="module")
 def validator():
-    """Create a validator instance for all tests."""
-    return Validator(SCHEMA_PATH)
+    """Create a validator instance for all tests.
+
+    ``Validator`` has no default plugin: built without ``validation_plugins`` it
+    returns an empty report for any instance, so every assertion on it passes.
+    The closed JSON Schema plugin is what ``linkml-validate`` (and ``just
+    validate``) run.
+    """
+    return Validator(
+        SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=True)],
+    )
 
 
 @pytest.mark.kb_data
@@ -991,7 +1000,8 @@ def test_phenotype_multivalued_subtypes_validates(validator, tmp_path):
     disease = {
         "name": "Test Multi-Subtype Disease",
         "disease_term": {
-            "term": {"id": "MONDO:0000001", "label": "disease or disorder"}
+            "preferred_term": "disease or disorder",
+            "term": {"id": "MONDO:0000001", "label": "disease or disorder"},
         },
         "has_subtypes": [
             {"name": "Type 1", "description": "Subtype one."},
@@ -1706,18 +1716,13 @@ def test_reference_range_interpretation_bands_validate(validator):
     assert not errors, f"Unexpected validation errors: {[str(e) for e in errors]}"
 
 
-def test_reference_range_band_rejects_invalid_abnormal_flag():
-    """An out-of-enum abnormal_flag on a band must fail strict validation.
+def test_reference_range_band_rejects_invalid_abnormal_flag(validator):
+    """An out-of-enum abnormal_flag on a band must fail validation.
 
-    Uses a closed jsonschema validator because the lenient module-scoped
-    ``validator`` fixture does not enforce enum membership.
+    The negative counterpart of the positive ``*_validates`` tests above: it is
+    the one check in this module that fails if the ``validator`` fixture stops
+    enforcing the schema, which is what happened before it carried a plugin.
     """
-    from linkml.validator import Validator as _Validator
-    from linkml.validator.plugins import JsonschemaValidationPlugin
-
-    strict = _Validator(
-        SCHEMA_PATH, validation_plugins=[JsonschemaValidationPlugin(closed=True)]
-    )
     data = {
         "name": "Test Disease",
         "biochemical": [
@@ -1740,7 +1745,7 @@ def test_reference_range_band_rejects_invalid_abnormal_flag():
             }
         ],
     }
-    report = strict.validate(data, target_class="Disease")
+    report = validator.validate(data, target_class="Disease")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
     assert errors, "Expected a validation error for an invalid abnormal_flag value"
 
@@ -2294,4 +2299,60 @@ def test_dataset_accession_prefix_and_shape(filepath):
     assert not errors, (
         f"{Path(filepath).name} has malformed dataset accessions:\n"
         + "\n".join(f"  - {e}" for e in errors)
+    )
+
+
+# The frozen shared dataset-verification blob. Kept in git only because ~200 open
+# PRs still carry edits to it; deleting it now would conflict with all of them.
+# Nothing may read or write it: dataset verification moved to per-record files
+# under references_cache/, which two PRs can add to without colliding.
+FROZEN_DATASET_CACHE = "cache/dataset_accessions.json"
+
+
+def test_no_automation_touches_the_frozen_dataset_cache():
+    """No script, module, test, workflow, or recipe may read or write the blob.
+
+    The old ``cache/dataset_accessions`` JSON was rewritten in full by every run
+    of the dataset verifier -- including a run over a single disorder file -- so
+    every curation PR that touched a ``datasets:`` block churned the same
+    1.8 MB file. With 919 ``geo:`` keys sorted into one contiguous block, two
+    PRs adding neighbouring accessions landed inside each other's diff context
+    and conflicted.
+
+    Verification now goes through ``references_cache/<PREFIX>_<ID>.md``: one
+    file per dataset, added not modified, which is the same shape the repo
+    already uses for PMIDs. This test keeps the old path from creeping back in.
+    Documentation may still name the file -- that is how curators learn not to
+    touch it -- so only code and automation are scanned.
+    """
+    scanned = [
+        *ROOT_DIR.glob("src/**/*.py"),
+        *ROOT_DIR.glob("scripts/**/*.py"),
+        *ROOT_DIR.glob("scripts/**/*.sh"),
+        *ROOT_DIR.glob("tests/**/*.py"),
+        *ROOT_DIR.glob(".github/workflows/*.yaml"),
+        *ROOT_DIR.glob(".github/workflows/*.yml"),
+        ROOT_DIR / "justfile",
+        ROOT_DIR / "project.justfile",
+        ROOT_DIR / "ai.just",
+    ]
+    offenders = []
+    for path in scanned:
+        # This file names the path in FROZEN_DATASET_CACHE, so it must exclude
+        # itself; that exclusion is the only guard, which is why the constant
+        # above is a plain literal rather than a concatenation.
+        if not path.is_file() or path.resolve() == Path(__file__).resolve():
+            continue
+        try:
+            text = path.read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if FROZEN_DATASET_CACHE in text:
+            offenders.append(str(path.relative_to(ROOT_DIR)))
+
+    assert not offenders, (
+        f"{FROZEN_DATASET_CACHE} is frozen and must not be read or written.\n"
+        "Cache dataset records per-record under references_cache/ instead "
+        "(see scripts/verify_dataset_accessions.py).\nFound in:\n"
+        + "\n".join(f"  - {o}" for o in offenders)
     )
