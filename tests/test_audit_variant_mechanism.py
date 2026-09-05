@@ -74,3 +74,19 @@ def test_summary_runs_on_given_files(tmp_path, capsys):
     assert audit.main([path, "--cache-dir", str(tmp_path)]) == 0
     out = capsys.readouterr().out
     assert "without (the gap):                      1" in out
+
+
+def test_summary_breaks_out_unknown_only_entries(tmp_path, capsys):
+    """UNKNOWN is a recorded claim, but a contested one must stay countable."""
+    extra = textwrap.dedent(
+        """\
+        genetic_context:
+          functional_impact_category: UNKNOWN
+        """
+    )
+    path = _write(tmp_path, extra)
+    assert audit.main([path, "--cache-dir", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "with functional_impact_category:        1" in out
+    assert "of which recorded as UNKNOWN only:    1" in out
+    assert "without (the gap):                      0" in out

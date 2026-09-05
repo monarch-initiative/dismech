@@ -28,10 +28,14 @@ just variant-mechanism-audit --format tsv --out /tmp/gap.tsv
 | gap whose own prose already names a mechanism term | 558 |
 | gap with a quotable mechanism sentence already in a cited cached reference | 516 |
 
-By mode: AR 327, AD 206, AD/AR 46, X-linked (all forms) 40, mitochondrial 5, mixed the
-rest. Categories in use across the KB after this tranche: `LOSS_OF_FUNCTION` 167,
-`PARTIAL_LOSS_OF_FUNCTION` 42, `GAIN_OF_FUNCTION` 37, `DOMINANT_NEGATIVE` 27, `UNKNOWN` 11,
-`HYPERMORPHIC` 5, `NEOMORPHIC` 2.
+These are the counts **before** this branch's edits. By mode the gap was: AR 327, AD 206,
+AD/AR 46, X-linked (all forms) 40, mitochondrial 5, mixed the rest. After the 26-entry
+tranche and the five contested entries below, the gap stands at 641 and the categories in
+use are `LOSS_OF_FUNCTION` 167, `PARTIAL_LOSS_OF_FUNCTION` 42, `GAIN_OF_FUNCTION` 37,
+`DOMINANT_NEGATIVE` 27, `UNKNOWN` 16, `HYPERMORPHIC` 5, `NEOMORPHIC` 2. Seven Mendelian
+entries carry `UNKNOWN` as their only category; the audit summary breaks that line out,
+because "nobody has looked" and "assessed, and contested" are different states wearing
+one enum value.
 
 The gap is large but cheap to work: for four entries in five the mechanism is already
 stated in the entry's own text, and for four in five a sentence that will verify as an
