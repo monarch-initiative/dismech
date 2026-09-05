@@ -1,6 +1,6 @@
 ---
 title: Coarse HPO Bindings Must Say Why
-status: BRAINSTORM
+status: ENACTED
 description: >-
   A phenotype bound to a top-level HPO organ-system term ("Abnormality of the
   eye") is usually a curator who stopped early, but three legitimate reasons
@@ -16,9 +16,28 @@ tags: [SCHEMA_EVOLUTION, PHENOTYPES, HPO, ONTOLOGY_BINDING, BRAINSTORM]
 
 # Coarse HPO Bindings Must Say Why
 
-**Status: brainstorm.** Nothing here is enacted. Numbers are a 2026-09-05
-census of `kb/disorders/`; regenerate them with the recipe in the appendix
-rather than trusting them.
+**Status: enacted, 2026-09-05.** This is the design record; the reference
+documentation is [`docs/coarse-phenotype-bindings.md`](../../coarse-phenotype-bindings.md)
+and the decision is registered as §4b of the
+[decision register](../../explanation/design-decisions.md). Read this file for
+*why*, that one for *how*.
+
+**Two things changed between this proposal and what was built**, recorded here
+rather than edited away:
+
+1. **The `PATHOGRAPH_HUB` rule inverted.** Part 3 below requires a hub to have
+   outgoing `sequelae` into its specific findings. That is wrong. `sequelae` is
+   a `CausalEdge`, and a coloboma is not *caused by* an eye abnormality — it *is*
+   one, so the requirement would have had curators drawing an is-a hierarchy as a
+   causal chain to satisfy a guard. As built, a hub is defined by its **incoming**
+   edges (something in the entry must target it) plus the absence of a
+   `frequency`; constituents go in `spectrum_terms`, which asserts no causation.
+2. **`spectrum_terms` is allowed on a hub too**, optionally, for the same reason.
+
+Numbers below are the 2026-09-05 census taken before enactment: 168 unexplained
+bindings, of which four became the worked examples, leaving the 164 now
+grandfathered in `tests/coarse_phenotype_baseline.txt`. Regenerate with
+`just list-coarse-phenotypes` rather than trusting them.
 
 ## The problem, precisely
 
