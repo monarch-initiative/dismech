@@ -18,8 +18,8 @@ tags: [SCHEMA_EVOLUTION, PATHOGRAPH, PATHOPHYSIOLOGY, BRAINSTORM]
 ## The tree
 
 The authoritative tree is
-[`pathograph_node_classes.txt`](../pathograph_node_classes.txt), which carries
-the glosses and ~1,600 worked `<node name> [Disease]` examples. Reproduced here
+[`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt), which carries
+the glosses and ~1,600 worked `[Disease] <node name>` examples. Reproduced here
 is only its top level, which is what the proposal actually is; do not treat this
 copy as the tree, and regenerate it rather than editing it:
 
@@ -142,7 +142,7 @@ silencing, transcriptional regulation.
 
 ## The GO seed table
 
-[`pathograph_node_class_go_seed.tsv`](../pathograph_node_class_go_seed.tsv)
+[`kb/node_classes/pathograph_node_class_go_seed.tsv`](../../../kb/node_classes/pathograph_node_class_go_seed.tsv)
 hand-classifies **640 GO BP terms** into the nine classes, with a `confidence`
 column so genuinely ambiguous terms (`inflammatory response`, `nervous system
 development`) are marked `LOW` and suggest rather than seed.
@@ -530,6 +530,219 @@ bacterial GO terms fall outside the top-200 seed table. That is a seed-coverage
 gap, and an argument for extending the table to 500 terms before leaning on
 module shape.
 
+## The tree's grammar, and which classes have logical definitions
+
+The tree is curated content (`kb/node_classes/`), and its text form is a
+grammar rather than a convention. Every line is classified by its **first
+non-space character**, so a line's kind never depends on invisible spacing --
+the earlier form separated a node name from its `[Disease]` with "two or more
+spaces", which is exactly the kind of thing a hand edit breaks:
+
+| first character | line kind | example |
+|---|---|---|
+| `#` | comment | `# ---- NOTES FROM BUILDING THIS` |
+| `[` | worked example: `[Disease_Entry] Node name` | `[Fanconi_Anemia] Genomic Instability` |
+| `:` | attribute of the enclosing class or example | `:split ACTIVITY = the enzyme` |
+| `=` | the class's logical definition | `= biological_processes some GO:0008219 'cell death'` |
+| anything else | a class, with an optional ` -- gloss` | `cell death -- the cell is lost` |
+
+`just node-classes` checks the grammar, `--verify-kb` resolves every example,
+`--format text` renders the tree back to its own bytes (a test enforces it),
+and the YAML/JSON forms are the migration path when the design settles.
+
+### Logical definitions: 45 classes, 41 of the 84 leaves
+
+A definition is a **sufficient condition** over the ontology-bound slots a node
+already carries -- `slot some TERM ['label'] [modifier V|W]`, joined by `and`
+and `or`, where `some TERM` closes over `is_a` and `modifier` pins the same
+descriptor's `ModifierEnum` value. Three shapes cover everything written so far:
+
+| shape | example |
+|---|---|
+| intrinsic: one term names the leaf | `senescence = biological_processes some GO:0090398 'cellular senescence'` |
+| polar: a family plus the curated direction | `signalling increased = biological_processes some GO:0007165 'signal transduction' modifier INCREASED` |
+| tier-level: slot presence | `MOLECULAR ACTIVITY EFFECT = molecular_functions some GO`; `metabolite accumulation = chemical_entities some CHEBI modifier INCREASED` |
+
+Which classes carry none is the informative part. **DISPOSITION, OUTCOME,
+COMPENSATION, INTERVENTION POINT, DEBUNDLE TARGETS and STILL UNPLACED carry no
+definition** (a test keeps it that way): each is a curatorial judgement that no
+term on the node can decide. Within the cascade, `pathogenic sequence variant`,
+`dosage`, `structural variant`, `pathological structure formed`,
+`degeneration / atrophy`, `mechanical obstruction`, `material deposition`,
+`organ failure` and the `infectious agent` / `pathogen spread` pair are also
+undefined -- the first three because a gene annotation cannot say which kind of
+lesion it is, the last pair because both sides use the same `symbiont entry into
+host` GO terms and the agent/host distinction the tree draws is not one GO draws.
+
+```bash
+just node-classes --check-definitions            # labels vs cache/<prefix>/terms.csv (offline)
+just node-classes --check-definitions --online   # labels vs the ontology (OLS)
+just node-classes --evaluate                     # each definition vs its examples and the KB
+```
+
+### What the evaluation says
+
+`--evaluate` runs every definition over its own worked examples (does it
+capture what the curator meant?), over the whole KB (how many nodes would it
+classify?), and reports **cross-hits**: examples of *other* classes it also
+captures. Regenerate rather than quote; the headline at the time of writing:
+
+| | |
+|---|---:|
+| examples under defined classes | 899 |
+| of which carry any GO / CHEBI / CC / ECTO term | 753 |
+| satisfied by their own class's definition | **384 (43%)** |
+
+So the gap is not grounding: 84% of those examples carry a usable term, and
+the definitions are narrow on purpose. Recall runs from 76% (`cell death`) down
+to 13-18% for leaves whose examples are grounded in a cell type and a site
+rather than a process (`barrier failure`, `haematological deficit`,
+`autoimmune response`, `receptor / adaptor activity`). Those are honest floors
+for a term-based definition, not targets to hit by loosening it.
+
+The cross-hits are the debundle detector in a new form, and three of them are
+findings about the *tree*:
+
+- `cell death` captures **12** `degeneration / atrophy` examples. The tree
+  separates the cellular event from the tissue-level loss; the curated GO
+  terms do not, because a degenerating neuron carries `neuron apoptotic
+  process` either way. Whether that boundary belongs in the tree or in a
+  `locations` qualifier is the open question the numbers pose.
+- `functional disturbance` captures **7** `channel conductance` examples --
+  channel nodes are curated with the ion-transport process, not the channel
+  activity, so at the term level a broken channel and an excitability disorder
+  look alike.
+- `organelle dysfunction`, defined partly by `cellular_components some
+  organelle`, captures 7 `catalytic activity` and 7 `metabolite accumulation`
+  examples: a mitochondrial enzyme deficiency names the mitochondrion. That is
+  the same MF-vs-BP discrimination problem the scanner already records as
+  unsolved, seen from the other side.
+
+Because a definition is sufficient rather than necessary, the seed table is not
+yet redundant: `just node-class-scan` still classifies from the 640 hand-labelled
+GO terms, and the definitions are the check on the tree, not yet the classifier.
+Turning them into the classifier means deriving the seed rows from the
+definitions and measuring what is lost, which is the natural next step.
+
+## Migrating `role`: what the edges already say
+
+The first version of this document found `role` -- a free-text `string` slot with
+no enum -- carrying 55 distinct values that answer at least four different
+questions, and predicted from a cross-tab against graph topology that most of it
+was re-typing what the edges already say. That prediction is now a tool rather
+than a table:
+
+```bash
+just node-role-audit                    # sizes the residue
+just node-role-audit --format casing    # spellings that collapse into one value
+just node-role-audit --format crosstab  # role x computed position
+just node-role-audit --format residue   # the per-node worklist
+just node-role-audit --format tsv       # everything, one row per tagged node
+```
+
+`src/dismech/node_role_audit.py` maps every normalised value to the **facet it
+is answering** and checks the two facets that are computable against the graph.
+Regenerate the numbers below rather than quoting them; the slot has grown from
+2,322 tagged nodes to 4,334 (25.3% of 17,146) since the first census, and 87
+raw spellings now collapse to 69 values -- eleven of them, `trigger`, `modifier`
+and `consequence` included, are spelled two or three ways.
+
+| facet | what the value claims | checked against | roles | nodes |
+|---|---|---|---:|---:|
+| `POSITION` | where the node sits in the chain (`trigger`, `mediator`, `consequence` …) | `downstream` in/out-degree | 33 | 3,943 |
+| `INTERFACE` | something outside the chain touches it (`therapeutic_vulnerability`, `biomarker`) | `target_mechanisms`, `readouts` … | 2 | 114 |
+| `DISPOSITION` | a standing susceptibility or modifier | -- (the tree's DISPOSITION class) | 9 | 81 |
+| `RESISTANCE` | therapy escape, immune evasion, virulence | -- (domain content) | 6 | 63 |
+| `NODE_CLASS` | what kind of thing it is (`mechanism`, `driver`, `organ_dysfunction`) | -- (the tree's job) | 11 | 124 |
+| `COMPENSATION` | the body pushing back (`protective`, `host_defense`) | -- (the tree's ALSO CLASSES) | 3 | 4 |
+| `EPISTEMIC` | how sure we are (`provisional_effector`, `disputed_branch`) | `mechanism_confidence` | 5 | 5 |
+
+### Nine tenths of `role` is recoverable from the edges
+
+| verdict | nodes | |
+|---|---:|---|
+| `DERIVED` -- the edges say what the role says | 3,903 | **90.1%** |
+| `CONTRADICTED` -- a checkable claim the edges refute | 154 | 3.6% |
+| `CURATED` -- a kind-of-thing claim nothing can check | 277 | 6.4% |
+
+So the answer to "how much is left over" is **431 nodes, 9.9% of the tagged
+set**, and it splits into two different jobs. The 277 `CURATED` nodes are
+`role` doing the node-class tree's work with a 30-value improvised vocabulary --
+`modifier` (60), `mechanism` (59), `driver` (48), `adaptive_escape` (35),
+`intrinsic_resistance` (16) -- and migrate to a leaf, not to another slot. The
+154 `CONTRADICTED` nodes are a curation worklist: a node whose own edges disagree
+with its tag is either mis-tagged or mis-wired.
+
+The cross-tab that motivated the migration has sharpened rather than moved:
+
+| role | n | source | interior | sink | isolated |
+|---|---:|---:|---:|---:|---:|
+| trigger | 887 | **93%** | 7% | 0% | 0% |
+| mediator | 160 | 1% | **98%** | 1% | 0% |
+| intermediate | 116 | 0% | **100%** | 0% | 0% |
+| central_effector | 743 | 2% | **97%** | 1% | 0% |
+| amplifier | 366 | 4% | **95%** | 1% | 0% |
+| effector | 687 | 1% | 85% | 13% | 0% |
+| consequence | 768 | 0% | 40% | **59%** | 0% |
+| outcome | 150 | 0% | 40% | **60%** | 0% |
+| therapeutic_vulnerability | 109 | 23% | 21% | 18% | **38%** |
+| modifier | 60 | 43% | 35% | 17% | 5% |
+
+Two decisions in the checker are worth recording, because both were made to
+avoid manufacturing disagreement:
+
+- **A phenotype target counts as an out-edge.** The earlier cross-tab restricted
+  topology to the pathophysiology subgraph, which filed a trigger whose only
+  downstream is a phenotype as *isolated*. It is a source. Counting phenotype
+  exits moved 108 nodes from `CONTRADICTED` to `DERIVED`.
+- **Downstream roles accept `INTERIOR` as well as `SINK`.** `consequence` and
+  `outcome` split 40/60 between the two and the first census already showed them
+  indistinguishable from each other; the claim they make is "caused by something
+  upstream", which either position satisfies. `effector` is treated the same way:
+  the 92 sink effectors are terminal effectors (a glial scar, an acquired
+  resistance state) with nothing pathophysiological left to point at. The hub
+  roles -- `mediator`, `amplifier`, `central_effector`, `intermediate` -- still
+  require `INTERIOR`, because each claims something on both sides.
+
+### What the contradictions are
+
+- **60 interior triggers** -- *Sustained Elevation of Circulating Serum Amyloid
+  A* [AA_Amyloidosis], *Clonal Adrenocortical Proliferation*
+  [Adrenal_Cortex_Adenoma] -- each has an upstream pathophysiology node feeding
+  it. Either the tag means "the first step that matters" rather than "the first
+  step", or the upstream node is the real trigger. That is a curation question,
+  and it is the largest single item on the worklist.
+- **26 `therapeutic_vulnerability` nodes with no treatment edge -- 24 of them
+  in `kb/modules/`.** These are the *key treatment targets of drug-mechanism
+  modules* (`antisense_oligonucleotide_therapy`,
+  `bacterial_cell_wall_synthesis_inhibition`, `fungal_ergosterol_synthesis_inhibition` …),
+  where the targeting edge lives in the conforming disorders' `treatments`
+  rather than in the module file -- so the claim is true and the module file
+  cannot show it. The audit is per-file and does not follow `conforms_to`
+  backwards; that is the one systematic blind spot in the check, and it is
+  confined to module nodes. Only two disorder nodes are named as
+  vulnerabilities that no treatment in their entry targets.
+- **28 hub roles at a source** (16 `amplifier`, 12 `central_effector`) -- an
+  amplifier with nothing upstream to amplify is a naming problem or a missing
+  edge, and either way the tag is doing no work.
+
+### What is not derivable, and is worth keeping
+
+Position is free, but *which* interior role a node carries is not.
+`mediator` (passes the signal through), `amplifier` (increases its magnitude)
+and `central_effector` (the convergence hub the disease turns on) are 95-98%
+interior and topology cannot tell them apart. **1,227 derived nodes carry one
+of those three**, and that distinction -- a curatorial judgement about causal
+*function* -- is the only part of `role` the first census argued deserves a
+curated slot. Everything else the slot holds is either the edges (compute it)
+or the node-class tree (migrate it to a leaf).
+
+`therapeutic_vulnerability` confirms the other half of that argument from the
+opposite direction: 41 of its 109 nodes are isolated in the pathophysiology
+graph and exist only as `target_mechanisms` targets. They are not
+causal-position claims. They are interface claims wearing `role`'s clothes, and
+the graph already knows about every one of the 83 that a treatment names.
+
 ## Comparison with MPATH and NCI Thesaurus
 
 Both are prior art for "kinds of pathology" and both were checked against the
@@ -633,17 +846,21 @@ absence from our tree is correct, not an oversight.
 
 ## Next step
 
-Started: [`docs/superpowers/pathograph_node_classes.txt`](../pathograph_node_classes.txt) — the tree as a plain text file, leaves being real `<node name> [Disease]`
-pairs, representatives only. No schema, no enum, nothing in `kb/` depends on it.
+Started: [`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt) — the tree as a plain text file, leaves being real `[Disease] <node name>`
+pairs, representatives only. No schema slot and no enum yet; the tree is curated content under `kb/node_classes/`.
 Its `STILL UNPLACED` section is where the design is already failing and is the
 most useful part to argue with.
 
 Then, in order:
 
-1. **Migrate `role` mechanically where it is derivable** — normalise casing
-   (3 variants of `trigger` today), compute cascade position and C2 from the
-   edges, and see how much of the 2,322 tagged nodes is left over. That number
-   sizes the real curation job.
+1. ~~Migrate `role` mechanically where it is derivable~~ — **measured, not yet
+   migrated.** `just node-role-audit` normalises the spellings, computes causal
+   position and treatment/biomarker interface from the edges, and finds 90.1%
+   of the 4,334 tagged nodes recoverable. The residue is 431 nodes: 277 that
+   belong to the node-class tree and 154 whose edges contradict their tag (see
+   *Migrating `role`* above). The migration itself -- an enum for the three
+   interior causal-function values, the rest computed or moved to a leaf --
+   waits on the tree settling, since 277 of the residue land there.
 2. ~~Classify ~100 nodes against the 9+2 tree~~ — **done, and then some.** The
    tree now carries ~1,600 worked examples across ~1,275 entries, placed in five
    random draws plus a sweep of MPATH/MeSH/SNOMED/NCIT. The build notes at the
@@ -657,4 +874,7 @@ All figures read `kb/disorders/*.yaml` and `kb/modules/*.yaml` via
 `.strip().lower().replace(' ', '_')`. Degree and depth computed over
 `downstream[].target` edges restricted to targets resolving to a
 pathophysiology node in the same file; depth is longest path from a source,
-iterated to fixpoint with a 12-round cap.
+iterated to fixpoint with a 12-round cap. The `role` audit differs in one
+respect: a `downstream` target naming a phenotype in the same file counts as an
+out-edge when computing position (reported separately as `phenotype_out`), so a
+trigger that goes straight to a phenotype is a source rather than an isolate.

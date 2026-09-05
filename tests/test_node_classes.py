@@ -19,17 +19,18 @@ from dismech.node_classes import (
 )
 
 ROOT = Path(__file__).parent.parent
-TREE = ROOT / "docs" / "superpowers" / "pathograph_node_classes.txt"
+TREE = ROOT / "kb" / "node_classes" / "pathograph_node_classes.txt"
 
 SAMPLE = """\
 # a comment, ignored
-GENOMIC EFFECT  -- the lesion at the level of DNA/chromatin
+GENOMIC EFFECT -- the lesion at the level of DNA/chromatin
   dosage
-    JAG1 haploinsufficiency  [Alagille_syndrome]
+    [Alagille_syndrome] JAG1 haploinsufficiency
 
 CELLULAR EFFECT
-  cell death
-    Some Node  [Some_Disease]
+  cell death -- the cell is lost
+    = biological_processes some GO:0008219 'cell death'
+    [Some_Disease] Some Node
       :note attached to the example
 """
 
@@ -62,7 +63,7 @@ def test_attribute_attaches_to_the_example_not_the_class():
 def test_repeated_attribute_keys_accumulate_in_order():
     roots = parse_text(
         "DEBUNDLE\n"
-        "  A Node  [A_Disease]\n"
+        "  [A_Disease] A Node\n"
         "    :split ACTIVITY = first\n"
         "    :split TISSUE = second\n"
     )
@@ -79,10 +80,28 @@ def test_class_may_carry_its_own_attributes():
 
 
 def test_example_name_may_contain_single_spaces_and_brackets_elsewhere():
-    roots = parse_text("TOP\n  Bacterial Cross-Linking (Beta-Lactam Target)  [Meningitis]\n")
+    roots = parse_text("TOP\n  [Meningitis] Bacterial Cross-Linking (Beta-Lactam Target)\n")
     example = roots[0].examples[0]
     assert example.node == "Bacterial Cross-Linking (Beta-Lactam Target)"
     assert example.disease == "Meningitis"
+
+
+def test_class_name_may_contain_single_spaces_and_a_single_space_before_gloss():
+    roots = parse_text("chemical / drug / toxin -- the insult from outside\n")
+    assert roots[0].name == "chemical / drug / toxin"
+    assert roots[0].gloss == "the insult from outside"
+
+
+def test_definition_attaches_to_its_class_and_is_parsed():
+    roots = parse_text(SAMPLE)
+    death = roots[1].children[0]
+    assert death.definition == "biological_processes some GO:0008219 'cell death'"
+    parsed = death.parsed_definition
+    assert parsed is not None
+    atom = parsed.disjuncts[0][0]
+    assert (atom.slot, atom.term, atom.label) == ("biological_processes", "GO:0008219", "cell death")
+    assert roots[0].children[0].parsed_definition is None
+    assert to_dict(roots)["classes"][1]["children"][0]["definition"] == death.definition
 
 
 @pytest.mark.parametrize(
@@ -91,11 +110,17 @@ def test_example_name_may_contain_single_spaces_and_brackets_elsewhere():
         ("TOP\n   bad indent\n", "not a multiple of 2"),
         ("TOP\n\tbad tab\n", "tab in indentation"),
         ("TOP\n      too deep\n", "indent jumps"),
-        ("  Orphan Node  [D]\n", "example outside any class"),
+        ("  [D] Orphan Node\n", "example outside any class"),
+        ("TOP\n  [D]\n", "example line has no node name"),
+        ("TOP\n  = nonsense here\n", "bad definition"),
+        ("  = cell_types some CL\n", "definition line has no enclosing class"),
+        ("TOP\n  [D] A Node\n    = cell_types some CL\n", "belongs to a class, not an example"),
+        ("TOP\n  = cell_types some CL\n  = cell_types some CL\n", "already has a definition"),
+        ("TOP\n  Old Style Node  [D]\n", "example lines start with"),
         ("TOP\n  a\n  a\n", "duplicate sibling class name"),
         ("  :key value\n", "attribute line has no enclosing node"),
         (
-            "TOP\n  first\n    A Node  [D]\n  second\n      :key value\n",
+            "TOP\n  first\n    [D] A Node\n  second\n      :key value\n",
             "attribute line has no enclosing node",
         ),
     ],
@@ -110,7 +135,7 @@ def test_grammar_violations_raise_with_a_line_number(text, fragment):
 def test_an_example_opens_no_scope_for_a_following_class():
     # A class line at the example's own depth is a sibling of the example's
     # parent class, not a child of the example.
-    roots = parse_text("TOP\n  first\n    A Node  [D]\n  second\n")
+    roots = parse_text("TOP\n  first\n    [D] A Node\n  second\n")
     assert [c.name for c in roots[0].children] == ["first", "second"]
 
 
@@ -119,13 +144,13 @@ def test_an_attribute_cannot_attach_into_a_closed_subtree():
     # current line had already closed, so this attribute -- misindented under
     # `second`, which has no example -- silently became an attribute of
     # `A Node` two branches away instead of failing.
-    text = "TOP\n  first\n    A Node  [D]\n  second\n      :key value\n"
+    text = "TOP\n  first\n    [D] A Node\n  second\n      :key value\n"
     with pytest.raises(ParseError) as excinfo:
         parse_text(text, source="sample.txt")
     assert excinfo.value.line == 5
 
     # The same indentation IS valid while that subtree is still open.
-    roots = parse_text("TOP\n  first\n    A Node  [D]\n      :key value\n")
+    roots = parse_text("TOP\n  first\n    [D] A Node\n      :key value\n")
     assert roots[0].children[0].examples[0].attributes == {"key": ["value"]}
 
 
@@ -144,9 +169,9 @@ def test_verify_examples_reports_missing_entry_and_missing_node(tmp_path):
     )
     roots = parse_text(
         "TOP\n"
-        "  Real Node  [Real_Disease]\n"
-        "  Ghost Node  [Real_Disease]\n"
-        "  Real Node  [No_Such_Disease]\n"
+        "  [Real_Disease] Real Node\n"
+        "  [Real_Disease] Ghost Node\n"
+        "  [No_Such_Disease] Real Node\n"
     )
     problems = verify_examples(roots, [kb])
     assert len(problems) == 2
@@ -215,3 +240,25 @@ def test_committed_tree_has_examples_for_every_top_level_class():
     for root in roots:
         cited = [ex for trail, ex in iter_examples([root])]
         assert cited, f"top-level class {root.name} cites no examples"
+
+
+def test_committed_tree_definitions_parse_and_cached_labels_are_right():
+    """Every `=` line parses (the parser enforces it) and no label contradicts
+    the term cache. A term absent from the cache is *unresolved*, not wrong --
+    `just node-classes --check-definitions --online` is the authoritative run."""
+    from dismech.node_class_definitions import cache_label_lookup, check_labels, curie_labels
+
+    roots = parse_file(TREE)
+    defined = [n.parsed_definition for _, n in iter_classes(roots) if n.definition]
+    assert len(defined) >= 40
+    problems = check_labels(curie_labels(defined), cache_label_lookup(ROOT / "cache"))
+    wrong = [p for p in problems if "unresolved" not in p]
+    assert not wrong, "\n".join(wrong)
+
+
+def test_committed_tree_definitions_sit_on_cascade_tiers_not_judgement_classes():
+    """DISPOSITION, OUTCOME, DEBUNDLE TARGETS and STILL UNPLACED are curatorial
+    judgements; a definition there would claim a term can decide them."""
+    for trail, node in iter_classes(parse_file(TREE)):
+        if trail[0] in {"DISPOSITION", "OUTCOME", "DEBUNDLE TARGETS", "STILL UNPLACED", "ALSO CLASSES"}:
+            assert not node.definition, f"{' > '.join(trail)} carries a definition"
