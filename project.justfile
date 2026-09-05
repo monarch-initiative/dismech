@@ -1123,7 +1123,7 @@ check-enum-values *files:
     uv run python scripts/check_enum_values.py "$@"
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
-# run in `test_entity_ref_foreign_keys`, but that test is selected by the
+# run in `check_entity_ref_foreign_keys`, but that test is selected by the
 # `python`/`schema` path filters, so a curation PR -- which touches only kb/ --
 # skips it entirely. This lane is ungated in CI for the same reason
 # check-duplicate-keys is: the PRs that break the invariant are exactly the ones
