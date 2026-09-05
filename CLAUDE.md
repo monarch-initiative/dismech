@@ -1522,6 +1522,81 @@ phenotype_term:
 Use these first-class slots for common post-composition. Reserve `qualifiers` for
 more complex predicate-value patterns that are not covered by dedicated slots.
 
+### Gene–disease validity vs relationship kind
+
+`Genetic` carries **two orthogonal** controlled vocabularies, and they answer
+different questions. Set both when a source supports both.
+
+| Question | Slot | Enum |
+|---|---|---|
+| What *kind* of relationship is asserted? | `relationship_type` | `GeneDiseaseRelationshipEnum` (CAUSATIVE, RISK_FACTOR, MODIFIER, SOMATIC_DRIVER, …) |
+| How well *established* is it? | `validity` | `GeneDiseaseValidityEnum` (DEFINITIVE, STRONG, MODERATE, LIMITED, DISPUTED, REFUTED, NO_KNOWN_DISEASE_RELATIONSHIP, ANIMAL_MODEL_ONLY) |
+
+They are independent: a gene may be `RISK_FACTOR` + `DEFINITIVE` (a
+well-established risk allele) or `CAUSATIVE` + `LIMITED` (a claimed monogenic
+cause resting on a single family).
+
+`validity` is the ClinGen Gene-Disease Validity ladder, which GenCC also adopts
+and onto which PanelApp green/amber/red maps. **Assign it from a citable source,
+not curator impression** — dismech caches ClinGen assertions as `CGGV:`
+structured references whose rows state the classification directly:
+
+```yaml
+genetic:
+- name: HGD variants
+  gene_term:
+    preferred_term: HGD
+    term: {id: hgnc:4892, label: HGD}
+  relationship_type: CAUSATIVE
+  validity: DEFINITIVE
+  evidence:
+  - reference: CGGV:assertion_5186836d-...
+    snippet: HGD | HGNC:4892 | alkaptonuria | MONDO:0008753 | AR | Definitive
+```
+
+Leave `validity` absent when no source states one — that is **not** the same as
+`NO_KNOWN_DISEASE_RELATIONSHIP`, which means the pair was assessed and nothing
+was found. `GeneDiseaseRelationshipEnum.DISPUTED` is deprecated; use
+`validity: DISPUTED` (or `REFUTED`) and keep `relationship_type` for the kind.
+Worked example: `Alkaptonuria`.
+
+### Gene Classifications (`kb/gene_classifications/`)
+
+Transcriptions of external systems that classify **genes** (as opposed to
+diseases), validating against `GeneClassificationCollection`. Provenance sits
+once in the file header; rows carry an HGNC-bound gene plus a multivalued
+`values` list.
+
+```bash
+just fetch-nmd-gene-table          # regenerate the NMD gene table collection
+just validate-gene-classifications # validate every collection
+```
+
+**`values` is multivalued by design.** A gene appears once per clinically
+distinct allelic presentation — TTN is in six Gene Table groups (Udd distal
+myopathy, LGMDR10, centronuclear myopathy, HMERF, cardiomyopathy). That is a
+true fact about TTN, and putting it on the gene is exactly why this axis exists;
+it becomes unmodellable if forced onto a disease entry's `classifications`.
+
+Current collection: `nmd_gene_table.yaml` — 707 genes in the 17 groups of the
+[Gene Table of Neuromuscular Disorders](https://musclegenetable.fr/) (`GeneTableNMDGroupEnum`).
+Note this is a **gene catalogue**, not an expert nosology in the ISDS sense;
+there is no whole-domain nosology for neuromuscular disease. It is nuclear-genome
+and monogenic only, so mtDNA disease and acquired neuromuscular disease
+(myasthenia gravis, the inflammatory myopathies, Guillain-Barré) are simply
+absent rather than assigned to a catch-all.
+
+**Never hand-edit a collection** — regenerate with its script. Adding a new
+source means: a new enum module under `src/dismech/schema/classifications/`, a
+fetch script, and an entry in `SYSTEM_ENUMS` in
+`tests/test_gene_classifications.py` so its values are checked against that enum.
+
+Distinct from `gene_sets:`, which references flat, typically
+experimentally-derived sets (signatures, perturbation results) consumed as
+enrichment inputs. A gene classification is a curated, authoritative assertion
+about which genes cause disease in a domain. See
+[`docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md`](docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md).
+
 ### Gain/Loss of Function: which slot?
 
 `GAIN_OF_FUNCTION` and `LOSS_OF_FUNCTION` appear in **two different enums**, on two
