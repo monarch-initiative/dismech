@@ -3789,6 +3789,37 @@
     {% endif %}
     {% endmacro %}
 
+    {# A phenotype bound to a top-level HPO organ-system term ("Abnormality of the
+       eye") looks, on the page, exactly like a specific finding -- which is how a
+       curator stopping early became invisible. `coarse_binding_basis` says why the
+       binding is coarse, so show it: the badge tells a reader the coarseness was a
+       decision, and `spectrum_terms` gives back the specific findings the summary
+       binding stands in for. Defined after render_descriptor_tag so the tag
+       renderer is bound by the time this is called. #}
+    {% macro render_coarse_binding(descriptor) %}
+    {% if descriptor and (descriptor.coarse_binding_basis or descriptor.spectrum_terms) %}
+    <div class="item-meta">
+        {% if descriptor.coarse_binding_basis %}
+        {% set basis_titles = {
+            "SPECTRUM_SUMMARY": "Bound at organ-system level deliberately: many distinct findings, variable between patients. The constituent findings are listed alongside.",
+            "SOURCE_UNSPECIFIED": "Bound at organ-system level deliberately: the cited source characterizes the finding no further, so a narrower term would assert more than the evidence.",
+            "NO_HPO_TERM": "Bound at organ-system level deliberately: the claim is narrower than any available HPO term, and the display name carries the specificity.",
+            "PATHOGRAPH_HUB": "A convergence point in the causal graph rather than a clinical claim: a mechanism reaches this system-level node, which is where several specific findings converge."
+        } %}
+        <span class="tag tag-classification" title="{{ basis_titles.get(descriptor.coarse_binding_basis, '') }}">Coarse binding: {{ descriptor.coarse_binding_basis | replace('_', ' ') | lower }}</span>
+        {% endif %}
+        {% if descriptor.spectrum_terms %}
+        {% for entry in descriptor.spectrum_terms %}
+        {{ render_descriptor_tag(entry, "tag-phenotype", true, "phenotype.spectrum_terms") }}
+        {% endfor %}
+        {% endif %}
+        {% if descriptor.term_gap %}
+        <div class="mapping-notes">Ontology gap: {{ descriptor.term_gap }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endmacro %}
+
     {% macro render_genetic_context(gc) %}
     {% if gc %}
     <div class="item-meta">
@@ -5738,6 +5769,7 @@
                         {{ render_descriptor_qualifiers(pheno.phenotype_term) }}
                     </div>
                     {% endif %}
+                    {{ render_coarse_binding(pheno.phenotype_term) }}
                     {% if pheno.notes %}
                     <div class="item-desc">{{ pheno.notes }}</div>
                     {% endif %}
@@ -5805,6 +5837,7 @@
                     {{ render_descriptor_qualifiers(pheno.phenotype_term) }}
                 </div>
                 {% endif %}
+                {{ render_coarse_binding(pheno.phenotype_term) }}
                 {% if pheno.notes %}
                 <div class="item-desc">{{ pheno.notes }}</div>
                 {% endif %}

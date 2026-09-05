@@ -748,6 +748,55 @@ enums:
           regardless of underlying mechanism (epigenetic silencing, protein
           sequestration, competitive inhibition, etc.). For mutation-driven LOF,
           use GeneticContext.functional_impact_category: LOSS_OF_FUNCTION.
+  CoarseBindingBasisEnum:
+    description: >-
+      Why a descriptor is deliberately bound to a coarse, organ-system-level
+      ontology term rather than a specific finding. Required by
+      `just check-coarse-phenotypes` on any phenotype bound to one of the
+      top-level HPO organ-system terms (the PhenotypeCategoryEnum meanings,
+      the direct children of HP:0000118), which name a facet bucket rather
+      than a clinical finding. The point is NOT to reward narrow terms --
+      manufacturing a specificity the source does not support is a worse
+      defect than a coarse binding. The point is that a coarse binding should
+      say which of these situations it is in, so the unexplained one (the
+      curator who stopped early) is distinguishable from the three legitimate
+      ones.
+    permissible_values:
+      SPECTRUM_SUMMARY:
+        title: Spectrum summary
+        description: >-
+          The disease produces many distinct findings in this system with
+          variable expressivity, and one summary phenotype is the honest grain.
+          Record the constituent findings in `spectrum_terms` rather than
+          leaving them in prose; at least two are required.
+      SOURCE_UNSPECIFIED:
+        title: Source unspecified
+        description: >-
+          The cited source characterizes the finding no further ("ocular
+          involvement", "congenital heart defect" with no named lesion), so a
+          narrower term would assert something the evidence does not. The
+          evidence snippet is the proof, so this value needs no companion slot.
+      NO_HPO_TERM:
+        title: No suitable ontology term
+        description: >-
+          The claim is more specific than any available ontology term, and the
+          coarse parent is the best honest anchor. `preferred_term` carries the
+          specificity the ontology lacks and must differ from the bound label;
+          record any term request in `term_gap`.
+      PATHOGRAPH_HUB:
+        title: Pathograph hub
+        description: >-
+          The node is a deliberately unqualified convergence point in the causal
+          graph: a mechanism disrupts a system, and the system-level disruption
+          is where several specific findings converge. It is defined by its
+          INCOMING edges -- at least one causal edge in the same entry must
+          target it -- and it carries no clinical claim of its own, so it takes
+          no `frequency`. Name its constituents in `spectrum_terms` if useful;
+          do NOT connect it to them with `sequelae`, which is a causal edge, and
+          a coloboma is not caused by an eye abnormality but is one. Distinct
+          from a pathophysiology node such as "disrupted eye development", which
+          binds GO and asserts a process; a hub binds HP and asserts a
+          system-level outcome. The two may sit in sequence.
   DietaryModificationActionEnum:
     description: Action applied to a food or beverage as part of a dietary treatment
     permissible_values:
@@ -3298,6 +3347,36 @@ slots:
     description: The HP term for this phenotype
     range: PhenotypeDescriptor
     inlined: true
+  coarse_binding_basis:
+    description: >-
+      Why this descriptor is deliberately bound to a coarse, organ-system-level
+      term rather than a specific finding. Required on any phenotype bound to a
+      top-level HPO organ-system term (see CoarseBindingBasisEnum and
+      `just check-coarse-phenotypes`); permitted, and companion-checked, on any
+      binding a curator judges coarse.
+    range: CoarseBindingBasisEnum
+  spectrum_terms:
+    description: >-
+      The specific findings a SPECTRUM_SUMMARY binding stands in for. These
+      carry HP terms but no frequency and no evidence of their own -- the
+      summary phenotype's evidence covers them -- so recording the spectrum
+      costs the curator a term lookup rather than a fully curated phenotype per
+      finding. Use a first-class `phenotypes` entry instead whenever a finding
+      has its own frequency or evidence.
+    multivalued: true
+    range: PhenotypeDescriptor
+    inlined_as_list: true
+    comments:
+      - Only meaningful alongside a SPECTRUM_SUMMARY or PATHOGRAPH_HUB basis
+      - At least two entries; one specific finding is not a spectrum
+      - Each entry must be narrower than the summary term, never coarse itself
+  term_gap:
+    description: >-
+      The ontology gap behind a NO_HPO_TERM binding -- ideally a term-request
+      URL, otherwise a short note on what was searched and what is missing.
+      Turns a permanent gap into a lead, in the same spirit as the
+      "searched, found nothing" record an uncitable exposure carries.
+    range: string
   inheritance_term:
     description: The HPO mode of inheritance term for this inheritance pattern
     range: InheritanceDescriptor
@@ -5429,6 +5508,12 @@ classes:
   PhenotypeDescriptor:
     is_a: Descriptor
     description: A descriptor for phenotypes, bindable to Human Phenotype Ontology (HP)
+    comments:
+      - A binding to a top-level HPO organ-system term must say why via coarse_binding_basis
+    slots:
+      - coarse_binding_basis
+      - spectrum_terms
+      - term_gap
     slot_usage:
       term:
         description: Optional HP phenotype term reference

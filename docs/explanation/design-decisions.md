@@ -356,6 +356,69 @@ of fake identifiers.
 validation. **Known gap:** prefixes *not* listed there are silently skipped during
 validation (only a warning), so an unconstrained prefix can pass unchecked — see *Gaps* below.
 
+### 4b. Coarse phenotype bindings state a basis; specificity is never scored (2026-09-05)
+
+**Decision.** A phenotype bound to one of the 23 **top-level HPO organ-system terms** —
+the direct children of `HP:0000118`, which are also the `PhenotypeCategoryEnum` meanings
+and the browser's *Phenotype Systems* facet vocabulary — must declare
+`coarse_binding_basis` on its descriptor: `SPECTRUM_SUMMARY`, `SOURCE_UNSPECIFIED`,
+`NO_HPO_TERM`, or `PATHOGRAPH_HUB`. Each value carries a checkable requirement, enforced
+offline and whole-KB by `just check-coarse-phenotypes`; the 164 bindings predating the
+slot are grandfathered in a shrink-only baseline.
+
+**What was rejected, and why it stays rejected.** Three approaches to the same problem
+were considered and are recorded here so they are not re-proposed:
+
+1. **Information content or term depth.** Depth is a property of how HPO happens to be
+   built, not of the claim. `HP:0004322` *Short stature* is the most-used HP term in the
+   knowledge base and is exactly as specific as the literature ever gets; `HP:0001627`
+   *Abnormal heart morphology* carries "Congenital heart defect" as an EXACT synonym and
+   is the correct binding for a paper that names no lesion. Any metric ranking those as
+   vague would flag the terms most often exactly right.
+2. **Rewarding specificity in compliance scoring.** A score gradient towards narrower
+   terms is precisely the pressure that manufactures bindings the source does not
+   support, which §4's term contract forbids outright. Coverage is scored; grain is not.
+3. **Category-gated rules.** §10 already records why *category = X ⇒ term under X* is
+   circular — the category is derived from the term's HPO ancestry. Nothing about the
+   derived facet can say whether a coarse binding was deliberate.
+
+What remains is a **closed, hand-reviewed list**: membership is the whole specificity
+model, and widening it is a schema pull request with an argument attached. The subset is
+read from `PhenotypeCategoryEnum`'s `meaning:` values rather than restated, so the coarse
+set and the facet set cannot drift apart.
+
+**Rationale.** The three legitimate reasons for a coarse binding were already present in
+the knowledge base as prose nothing could read — `PAICS_Deficiency` ("the specific ocular
+finding is not characterized in the available abstract"), the paragraph in
+`PUS3-Related_Neurodevelopmental_Disorder` arguing that `HP:0001627` is "the right binding
+rather than a mere fallback parent", and the `Li-Fraumeni_Syndrome` note recording that
+HPO has no term for neoplasm multiplicity. Making the reason structured leaves the
+*unexplained* coarse binding as the only thing a guard can fail, which is the one the
+maintainer objected to.
+
+**A hub is defined by incoming edges, not outgoing ones.** The `PATHOGRAPH_HUB` value
+covers a coarse term used deliberately as a convergence node inside the causal graph. An
+earlier draft required outgoing `sequelae` into the specific findings; that was wrong and
+was corrected before enactment. `sequelae` is a `CausalEdge`, and a coloboma is not
+*caused by* an eye abnormality — it *is* one, so the requirement would have had curators
+drawing an is-a hierarchy as a causal chain to satisfy a guard. A hub is instead required
+to be *targeted* by at least one causal edge in its entry, and to carry no `frequency`
+(frequency is a claim about patients; a hub makes none). Constituents, when worth naming,
+go in `spectrum_terms`, which asserts no causation. A hub is also distinct from a
+pathophysiology node such as "disrupted eye development", which binds GO and asserts a
+process: no HP slot is being added to `Pathophysiology`.
+
+**Scope.** HP only. The same design would extend to GO and `biological_processes` (whose
+`goslim_*` subsets are the natural starting list) and to HPO's organisational second tier
+(`HP:0000924`, the morphology/physiology split terms), but neither is enacted — the second
+tier is not uniform and would need enumerating by hand. Companion rules are nonetheless
+checked wherever a basis is declared, including outside the coarse subset, so a curator
+may adopt the second tier early without the declaration going unchecked.
+
+**Reference.** [`docs/coarse-phenotype-bindings.md`](../coarse-phenotype-bindings.md);
+brainstorm in
+[`docs/superpowers/specs/2026-09-05-coarse-hpo-bindings-brainstorm.md`](../superpowers/specs/2026-09-05-coarse-hpo-bindings-brainstorm.md).
+
 ### 4a. MAXO removed in favour of NCIT (2026-07-31)
 
 **Decision.** The Medical Action Ontology (MAXO) was removed from dismech entirely. All

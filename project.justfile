@@ -780,7 +780,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1087,6 +1087,32 @@ list-causal-targets *files:
 [group('QC')]
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
+
+# Require a stated reason for phenotypes bound to a TOP-LEVEL HPO organ-system
+# term (the 23 direct children of HP:0000118, i.e. the PhenotypeCategoryEnum
+# meanings that also drive the browser's "Phenotype Systems" facet). Such a term
+# names a facet bucket, not a finding. Three legitimate reasons exist -- a
+# pleiotropic spectrum, a source that says no more, a claim narrower than any HP
+# term -- and the KB already carries all three as prose nothing can read; this
+# makes them `coarse_binding_basis` instead, leaving the unexplained binding as
+# the only thing that fails. NOT a specificity metric: no depth, no information
+# content, nothing that would pressure a curator into a narrower term than the
+# source supports. Ungated and whole-KB for the same reason as the lanes above.
+[group('QC')]
+check-coarse-phenotypes *files:
+    uv run python scripts/check_coarse_phenotypes.py "$@"
+
+# Census of coarse phenotype bindings: which terms, which files, which bases are
+# already declared. Exit 0.
+[group('QC')]
+list-coarse-phenotypes *files:
+    uv run python scripts/check_coarse_phenotypes.py --report "$@"
+
+# Regenerate the grandfathered coarse-binding baseline. Only ever to REMOVE
+# entries as curators decide a basis -- never to admit a new unexplained one.
+[group('QC')]
+update-coarse-phenotype-baseline:
+    uv run python scripts/check_coarse_phenotypes.py --update-baseline
 
 # Check ontology labels on terms nested inside `qualifiers` (#10197).
 # `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;

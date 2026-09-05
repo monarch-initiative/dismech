@@ -1449,6 +1449,64 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
 
+### Coarse Phenotype Bindings Must Say Why
+
+A phenotype bound to a **top-level HPO organ-system term** — `HP:0000478`
+*Abnormality of the eye*, `HP:0002664` *Neoplasm*, the 23 direct children of
+`HP:0000118` — passes every other gate while saying almost nothing.
+`Schaaf-Yang_Syndrome` named strabismus, esotropia and myopia in its
+`description` and then discarded all three in the binding.
+
+Such a binding is not forbidden. It must **say why**, via
+`coarse_binding_basis` on the descriptor:
+
+| Value | Means | Requirement |
+|---|---|---|
+| `SPECTRUM_SUMMARY` | many findings, variable between patients | ≥2 `spectrum_terms`, none itself coarse |
+| `SOURCE_UNSPECIFIED` | the cited source characterizes it no further | none — the snippet is the proof |
+| `NO_HPO_TERM` | narrower than any HP term | `preferred_term` ≠ the bound label; record `term_gap` |
+| `PATHOGRAPH_HUB` | a deliberately unqualified convergence node | ≥1 causal edge in the entry targets it; no `frequency` |
+
+```bash
+just check-coarse-phenotypes                    # gate (offline, in `just qc`)
+just list-coarse-phenotypes                     # census by term and file
+just update-coarse-phenotype-baseline           # only ever to SHRINK
+```
+
+**This is not a rule to prefer narrow terms.** Manufacturing a specificity the
+source does not support is a worse defect than a coarse binding, and the
+[Ontology Term Contract](#ontology-term-contract) forbids it. There is
+deliberately no depth or information-content metric: `HP:0004322` *Short
+stature* is the most-used HP term in the KB and `HP:0001627` *Abnormal heart
+morphology* carries "Congenital heart defect" as an EXACT synonym, so any such
+metric would flag the two terms that are most often exactly right. The coarse
+set is the `PhenotypeCategoryEnum` meanings — the same list that drives the
+browser's *Phenotype Systems* facet — and widening it is a schema PR with an
+argument, not a threshold.
+
+**`spectrum_terms` is the cheap way to keep the specifics.** Its entries carry
+HP terms but no frequency and no evidence of their own (the summary phenotype's
+evidence covers them), so recording a spectrum costs a term lookup rather than a
+curated phenotype per finding. They *are* term-validated — unlike terms under
+`qualifiers` (next section) — because the slot's range is `PhenotypeDescriptor`,
+whose `term` is enum-bound. Use a first-class `phenotypes` entry instead whenever
+a finding has its own frequency or evidence.
+
+**A hub is defined by its INCOMING edges.** Do not connect a `PATHOGRAPH_HUB` to
+its constituent findings with `sequelae`: that slot is a `CausalEdge`, and a
+coloboma is not *caused by* an eye abnormality, it *is* one. Drawing subsumption
+as causation would corrupt the graph to satisfy a guard. Name constituents in
+`spectrum_terms` instead. A hub is also **not** a "disruption of eye development"
+node — that belongs in `pathophysiology`, binds GO, and asserts a process, where
+a hub binds HP and asserts a system-level outcome; the two may sit in sequence.
+A coarse node carrying a `frequency` is a `SPECTRUM_SUMMARY`, not a hub.
+
+The 164 bindings predating the slot are grandfathered in
+`tests/coarse_phenotype_baseline.txt`, which may only shrink. Worked examples,
+one per value: `Schaaf-Yang_Syndrome`, `PAICS_Deficiency`,
+`Li-Fraumeni_Syndrome`, `Rubinstein-Taybi_Syndrome`. See
+[`docs/coarse-phenotype-bindings.md`](docs/coarse-phenotype-bindings.md).
+
 ### Terms Inside `qualifiers` Are Not Covered by `validate-terms`
 
 **`linkml-term-validator` does not look inside `qualifiers`.** It validates slots
