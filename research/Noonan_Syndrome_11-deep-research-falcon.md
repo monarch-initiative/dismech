@@ -1216,3 +1216,36 @@ Checked with `linkml-reference-validator` 0.2.1.
 | Off topic | 0 |
 
 All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 29 |
+| Resolved | 29 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+| Terms whose name was checked | 7 |
+| Terms named correctly | 0 |
+| Terms named as a **different** term | 6 |
+| Terms whose name is worth a second look | 1 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `HP:0001642` (1 mention) - the report calls it "Congenital structural cardiac sign"; HP calls it **Pulmonic stenosis**
+- `HP:0001631` (1 mention) - the report calls it "Congenital structural cardiac sign"; HP calls it **Atrial septal defect**
+- `HP:0004322` (1 mention) - the report calls it "Growth manifestation, childhood"; HP calls it **Short stature**
+- `HP:0001252` (1 mention) - the report calls it "Neuromuscular sign, infancy/childhood"; HP calls it **Hypotonia**
+- `HP:0000767` (1 mention) - the report calls it "Skeletal manifestation"; HP calls it **Pectus excavatum**
+- `HP:0001382` (1 mention) - the report calls it "Musculoskeletal sign"; HP calls it **Joint hypermobility**
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `HP:0001263` (1 mention) - the report calls it "Neurodevelopmental sign, early childhood"; HP calls it **Global developmental delay**, and lists "Developmental delay in early childhood" among its other names
