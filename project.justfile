@@ -816,6 +816,18 @@ environmental-term-audit *args="":
 model-scale-audit *args="":
     uv run python scripts/model_scale_audit.py {{args}}
 
+# Census of Mendelian entries (single-locus inheritance + CAUSATIVE gene) that
+# carry no structured variant mechanism -- no
+# `GeneticContext.functional_impact_category` anywhere in the file. Advisory;
+# always exits 0. `--format list` ranks the gap by how many cited cached
+# references already contain a quotable mechanism sentence.
+#   just variant-mechanism-audit
+#   just variant-mechanism-audit --format list --single-gene --with-cached-hits
+#   just variant-mechanism-audit --format tsv --out /tmp/gap.tsv
+[group('QC')]
+variant-mechanism-audit *args="":
+    uv run python scripts/audit_variant_mechanism.py {{args}}
+
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
