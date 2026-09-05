@@ -43,6 +43,7 @@ from dismech.perturb.results_export import load_results as load_model_run_result
 from dismech.perturb.results_export import threshold_kind
 from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
+from dismech.treatment_platform import treatment_platform_label
 from dismech.yaml_io import safe_load, safe_load_path
 
 # Module-local alias kept so existing call sites read unchanged. The
@@ -100,6 +101,11 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # degrades to a name-only match. Derived from SECTION_KEYS so the JS cannot
     # drift from the resolver. Page-independent, hence a global.
     env.globals["entity_ref_kind_aliases"] = ENTITY_REF_KIND_ALIASES
+    # Display labels for the enum-backed treatment-platform slots. A global, and
+    # in Python rather than a per-template Jinja map, because both
+    # disorder.html.j2 and module.html.j2 render these chips and a drifting map
+    # would describe the same treatment differently on the two pages.
+    env.globals["treatment_platform_label"] = treatment_platform_label
     return env
 
 

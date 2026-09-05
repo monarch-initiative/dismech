@@ -3854,6 +3854,66 @@
     {%- endif -%}
     {% endmacro %}
 
+
+    {# Treatment platform rows: therapeutic modality, and for a treatment that acts
+       by base-pairing with a target RNA, the oligonucleotide_details block.
+       delivery_platform and conjugation are shown as separate chips on purpose --
+       they are orthogonal, and collapsing them would hide the distinction that
+       matters most here (patisiran is Unconjugated AND Lipid nanoparticle, while
+       vutrisiran is GalNAc AND Ligand conjugate). aso_details / aso_mechanism /
+       aso_chemistry are the deprecated spellings and are read as fallbacks so
+       entries authored before the slot was generalized still render. #}
+    {% macro render_treatment_platform(tx) %}
+    {% set oligo = tx.oligonucleotide_details or tx.aso_details %}
+    {% set oligo_mechanism = (oligo.oligonucleotide_mechanism or oligo.aso_mechanism) if oligo else none %}
+    {% set oligo_chemistry = (oligo.oligonucleotide_chemistry or oligo.aso_chemistry) if oligo else none %}
+    {% if tx.therapeutic_modality or oligo_mechanism or oligo_chemistry or (oligo and (oligo.delivery_platform or oligo.conjugation)) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        {% if tx.therapeutic_modality %}
+        <span class="tag tag-treatment">{{ treatment_platform_label(tx.therapeutic_modality) }}</span>
+        {% endif %}
+        {% if oligo_mechanism %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ treatment_platform_label(oligo_mechanism) }}</span>
+        {% endif %}
+        {% if oligo and oligo.delivery_platform %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: {{ treatment_platform_label(oligo.delivery_platform) }}</span>
+        {% endif %}
+        {% if oligo and oligo.conjugation %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Conjugate: {{ treatment_platform_label(oligo.conjugation) }}</span>
+        {% endif %}
+        {% if oligo_chemistry %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: {{ treatment_platform_label(oligo_chemistry) }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if oligo and (oligo.target_gene or oligo.target_transcript or oligo.target_exon) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+        {% if oligo.target_gene %}
+        {{ render_descriptor_tag(oligo.target_gene, "tag-gene", false, "treatment.target_gene") }}
+        {% endif %}
+        {% if oligo.target_transcript %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_transcript }}</span>
+        {% endif %}
+        {% if oligo.target_exon %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_exon }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if tx.dosing_interval or tx.dosing_interval_days %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Dosing:</strong>
+        {% if tx.dosing_interval %}
+        <span class="tag tag-treatment">{{ tx.dosing_interval }}</span>
+        {% endif %}
+        {% if tx.dosing_interval_days %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">every {{ tx.dosing_interval_days | round(1) | int if tx.dosing_interval_days == tx.dosing_interval_days | round(0) else tx.dosing_interval_days }} days</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endmacro %}
+
     {% macro render_entity_refs(title, refs) %}
     {% if refs %}
     <div class="experiment-section">
@@ -6022,6 +6082,7 @@
                     {% endfor %}
                 </div>
                 {% endif %}
+                {{ render_treatment_platform(tx) }}
                 {% if tx.treatment_term and tx.treatment_term.dietary_modifications %}
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Diet:</strong>
