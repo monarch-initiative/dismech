@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import sqlite3
 from collections import defaultdict
 from pathlib import Path
@@ -29,6 +30,34 @@ DEFAULT_PRIORITY_SUBSETS = {
     "obo:mondo#clingen",
 }
 ORPHANET_PREFIXES = ("orphanet:", "ordo:")
+
+
+def candidates_meta_path(candidates_path: Path) -> Path:
+    """Sidecar path holding the export counts for a candidate TSV.
+
+    The exporter drops already-curated roots from the TSV, so the rows that
+    reach a downstream consumer are the *remaining* candidates only. Anything
+    that wants to report coverage needs the count that was dropped, and a TSV
+    has nowhere to put it -- a comment line would break ``csv.DictReader``.
+    Hence a sidecar beside the export, named for it.
+    """
+    return candidates_path.with_suffix(".meta.json")
+
+
+def load_candidates_meta(candidates_path: Path) -> dict[str, Any] | None:
+    """Read a candidate export's sidecar, or None when there isn't one.
+
+    A hand-built or pre-sidecar TSV is a legitimate input; callers should treat
+    a missing sidecar as "nothing was excluded" rather than an error.
+    """
+    meta_path = candidates_meta_path(candidates_path)
+    if not meta_path.is_file():
+        return None
+    try:
+        payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def _normalize_text(text: str | None) -> str:
@@ -361,12 +390,20 @@ def export_mondo_priority_candidates(
         writer.writeheader()
         writer.writerows(rows)
 
-    return {
-        "output_path": output_path,
+    meta = {
         "disease_root_id": disease_root_id,
+        "kb_dir": str(kb_dir) if kb_dir is not None else None,
         "total_descendants": total_descendants,
         "excluded_curated": excluded_curated,
         "exported_rows": len(rows),
+    }
+    meta_path = candidates_meta_path(output_path)
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+
+    return {
+        "output_path": output_path,
+        "meta_path": meta_path,
+        **meta,
     }
 
 
@@ -416,6 +453,7 @@ def main() -> int:
         "Exported "
         f"{result['exported_rows']} MONDO prioritizer candidates to {result['output_path']}"
     )
+    print(f"Wrote export counts to {result['meta_path']}")
     if args.kb_dir is not None:
         print(
             f"Excluded {result['excluded_curated']} already curated roots from "

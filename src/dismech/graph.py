@@ -38,6 +38,8 @@ class Edge:
     relationship: str | None = None
     direction: str | None = None
     endpoint_context: str | None = None
+    fidelity: str | None = None
+    limitations: str | None = None
     hypothesis_groups: list[str] = field(default_factory=list)
     causal_link_type: str | None = None
     intermediate_mechanisms: list[str] = field(default_factory=list)
@@ -63,6 +65,7 @@ NODE_COLORS = {
     "treatment": "#fce7f3",  # pink-100
     "biochemical": "#e0e7ff",  # indigo-100
     "experimental_model": "#ccfbf1",  # teal-100
+    "animal_model": "#ede9fe",  # violet-100
     "computational_model": "#ecfccb",  # lime-100
     "orphan": "#fee2e2",  # red-100 for unmatched targets
 }
@@ -87,6 +90,31 @@ DEFAULT_ENVIRONMENTAL_PREDICATE = "influences"
 ENVIRONMENTAL_PREDICATES: frozenset[str] = frozenset(
     ENVIRONMENTAL_EFFECT_PREDICATES.values()
 ) | {DEFAULT_ENVIRONMENTAL_PREDICATE}
+
+# ModelMechanismRelationshipEnum value to pathograph edge predicate, following
+# the same principle as ENVIRONMENTAL_EFFECT_PREDICATES: the predicate carries
+# the semantics. A model curated as NOT reproducing a mechanism must not be
+# drawn as an ordinary "models" arrow, which would invert the curated claim.
+MODEL_RELATIONSHIP_PREDICATES = {
+    "RECAPITULATES": "models",
+    "PARTIALLY_RECAPITULATES": "partially_models",
+    "FAILS_TO_RECAPITULATE": "fails_to_model",
+    "PERTURBS": "perturbs",
+    "MEASURES": "measures",
+    "RESCUES": "rescues",
+}
+
+# Used when `relationship` is absent, which is every model link curated before
+# the slot existed. Keeps those edges exactly as they were.
+DEFAULT_MODEL_PREDICATE = "models"
+
+def model_edge_predicate(relationship: Any) -> str:
+    """Map a ModelMechanismLink relationship onto its edge predicate."""
+    if isinstance(relationship, str):
+        return MODEL_RELATIONSHIP_PREDICATES.get(
+            relationship.upper(), DEFAULT_MODEL_PREDICATE
+        )
+    return DEFAULT_MODEL_PREDICATE
 
 
 def _sanitize_node_id(name: str) -> str:
@@ -270,6 +298,73 @@ def iter_variant_items(
     return items
 
 
+# Sections that contribute named elements as graph nodes.
+NODE_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("pathophysiology", "pathophysiology"),
+    ("phenotypes", "phenotype"),
+    ("environmental", "environmental"),
+    ("genetic", "genetic"),
+    ("treatments", "treatment"),
+    ("biochemical", "biochemical"),
+    ("experimental_models", "experimental_model"),
+    ("computational_models", "computational_model"),
+)
+
+
+def collect_graph_nodes(disorder: dict[str, Any]) -> dict[str, NodeInfo]:
+    """Every name that can be the target of a bare-name pathograph edge.
+
+    Split out of :func:`build_causal_graph` so that the CI gate over bare
+    targets (``scripts/check_causal_targets.py``) resolves against exactly the
+    node set the graph builds, rather than a hand-copied subset of it. That
+    duplication had already drifted: the gate mirrored the eight
+    :data:`NODE_SECTIONS` but not the two sources below, leaving 1,813 real node
+    names KB-wide invisible to it, so a bare target legitimately naming an
+    animal model or a variant would have been reported as dangling.
+    """
+    nodes: dict[str, NodeInfo] = {}
+
+    for section_key, node_type in NODE_SECTIONS:
+        for item in disorder.get(section_key, []) or []:
+            if isinstance(item, dict) and "name" in item:
+                name = item["name"]
+                nodes[name] = NodeInfo(
+                    name=name,
+                    node_type=node_type,
+                    description=item.get("description"),
+                )
+
+    # Animal models cannot ride the loop above: `name` is optional on
+    # AnimalModel, so their node identity comes from animal_model_label(), which
+    # falls back to genotype/species. As with the other model sections, a model
+    # only becomes a node if some edge uses it -- i.e. if it declares
+    # `modeled_mechanisms` -- so entries without mechanism links stay out of the
+    # graph entirely.
+    for item in disorder.get("animal_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        label = animal_model_label(item)
+        if not label:
+            continue
+        nodes[label] = NodeInfo(
+            name=label,
+            node_type="animal_model",
+            description=item.get("description"),
+        )
+
+    for _parent_name, variant in iter_variant_items(disorder):
+        name = variant.get("name")
+        if not name:
+            continue
+        nodes[name] = NodeInfo(
+            name=name,
+            node_type="genetic",
+            description=variant.get("description"),
+        )
+
+    return nodes
+
+
 def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
     """
     Build a causal graph from disorder data.
@@ -284,40 +379,7 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
         CausalGraph with nodes, edges, and any integrity issues
     """
     graph = CausalGraph()
-
-    # Sections that contain named elements (potential nodes)
-    node_sections = [
-        ("pathophysiology", "pathophysiology"),
-        ("phenotypes", "phenotype"),
-        ("environmental", "environmental"),
-        ("genetic", "genetic"),
-        ("treatments", "treatment"),
-        ("biochemical", "biochemical"),
-        ("experimental_models", "experimental_model"),
-        ("computational_models", "computational_model"),
-    ]
-
-    # Collect all nodes
-    for section_key, node_type in node_sections:
-        items = disorder.get(section_key, []) or []
-        for item in items:
-            if isinstance(item, dict) and "name" in item:
-                name = item["name"]
-                graph.nodes[name] = NodeInfo(
-                    name=name,
-                    node_type=node_type,
-                    description=item.get("description"),
-                )
-
-    for _parent_name, variant in iter_variant_items(disorder):
-        name = variant.get("name")
-        if not name:
-            continue
-        graph.nodes[name] = NodeInfo(
-            name=name,
-            node_type="genetic",
-            description=variant.get("description"),
-        )
+    graph.nodes.update(collect_graph_nodes(disorder))
 
     phenotype_lookup = _build_section_lookup(
         disorder.get("phenotypes", []) or [], descriptor_key="phenotype_term"
@@ -474,8 +536,35 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     Edge(
                         source=source,
                         target=link["target"],
-                        predicate="models",
+                        predicate=model_edge_predicate(link.get("relationship")),
                         source_type="experimental_model",
+                        description=link.get("description"),
+                        relationship=link.get("relationship"),
+                        fidelity=link.get("fidelity"),
+                        limitations=link.get("limitations"),
+                    )
+                )
+
+    # Collect edges from animal model links
+    for item in disorder.get("animal_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source = animal_model_label(item)
+        if not source:
+            continue
+
+        for link in item.get("modeled_mechanisms", []) or []:
+            if isinstance(link, dict) and "target" in link:
+                graph.edges.append(
+                    Edge(
+                        source=source,
+                        target=link["target"],
+                        predicate=model_edge_predicate(link.get("relationship")),
+                        source_type="animal_model",
+                        description=link.get("description"),
+                        relationship=link.get("relationship"),
+                        fidelity=link.get("fidelity"),
+                        limitations=link.get("limitations"),
                     )
                 )
 
@@ -493,8 +582,12 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     Edge(
                         source=source,
                         target=link["target"],
-                        predicate="models",
+                        predicate=model_edge_predicate(link.get("relationship")),
                         source_type="computational_model",
+                        description=link.get("description"),
+                        relationship=link.get("relationship"),
+                        fidelity=link.get("fidelity"),
+                        limitations=link.get("limitations"),
                     )
                 )
 
@@ -1028,8 +1121,62 @@ def _collect_experimental_model_links(
                 link_data["model_type"] = model["experimental_model_type"]
             if model.get("namo_type"):
                 link_data["namo_type"] = model["namo_type"]
-            if link.get("description"):
-                link_data["description"] = link["description"]
+            for link_key in ("relationship", "fidelity", "description"):
+                if link.get(link_key):
+                    link_data[link_key] = link[link_key]
+            links_by_target[str(target)].append(link_data)
+
+    return links_by_target
+
+
+def animal_model_label(model: dict[str, Any]) -> str | None:
+    """Return a display label for an animal model.
+
+    `name` is optional on AnimalModel, so fall back to a genotype/species
+    label for the 400-odd entries curated before the slot existed. The fallback
+    is not stable across edits and can collide within one file, which is why
+    `name` is recommended once a model carries `modeled_mechanisms`.
+    """
+    # str() before strip(): a genotype like `2` parses as an int from YAML, and
+    # calling .strip() on it directly would raise rather than degrade.
+    name = str(model.get("name") or "").strip()
+    if name:
+        return name
+    parts = [
+        str(model.get(key)).strip()
+        for key in ("genotype", "species")
+        if str(model.get(key) or "").strip()
+    ]
+    return " ".join(parts) or None
+
+
+def _collect_animal_model_links(
+    disorder: dict[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
+    """Collect animal model links keyed by target pathophysiology node name."""
+    links_by_target: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    for model in disorder.get("animal_models", []) or []:
+        if not isinstance(model, dict):
+            continue
+        model_name = animal_model_label(model)
+        if not model_name:
+            continue
+
+        for link in model.get("modeled_mechanisms", []) or []:
+            if not isinstance(link, dict):
+                continue
+            target = link.get("target")
+            if not target:
+                continue
+
+            link_data: dict[str, Any] = {"name": model_name}
+            for model_key in ("species", "genotype", "background", "category"):
+                if model.get(model_key):
+                    link_data[model_key] = model[model_key]
+            for link_key in ("relationship", "fidelity", "description"):
+                if link.get(link_key):
+                    link_data[link_key] = link[link_key]
             links_by_target[str(target)].append(link_data)
 
     return links_by_target
@@ -1062,8 +1209,9 @@ def _collect_computational_model_links(
                 link_data["model_software"] = model["model_software"]
             if model.get("model_format"):
                 link_data["model_format"] = model["model_format"]
-            if link.get("description"):
-                link_data["description"] = link["description"]
+            for link_key in ("relationship", "fidelity", "description"):
+                if link.get(link_key):
+                    link_data[link_key] = link[link_key]
             links_by_target[str(target)].append(link_data)
 
     return links_by_target
@@ -1175,6 +1323,7 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         if "name" in variant:
             item_lookup[variant["name"]] = variant
     model_links_by_target = _collect_experimental_model_links(disorder)
+    animal_model_links_by_target = _collect_animal_model_links(disorder)
     computational_model_links_by_target = _collect_computational_model_links(disorder)
     histopathology_links_by_key = _collect_histopathology_links(disorder)
 
@@ -1224,6 +1373,10 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
             node_data.setdefault("meta", {})["experimental_models"] = (
                 model_links_by_target[name]
             )
+        if name in animal_model_links_by_target:
+            node_data.setdefault("meta", {})["animal_models"] = (
+                animal_model_links_by_target[name]
+            )
         if name in computational_model_links_by_target:
             node_data.setdefault("meta", {})["computational_models"] = (
                 computational_model_links_by_target[name]
@@ -1247,6 +1400,10 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
             edge_data["direction"] = edge.direction
         if edge.endpoint_context:
             edge_data["endpoint_context"] = edge.endpoint_context
+        if edge.fidelity:
+            edge_data["fidelity"] = edge.fidelity
+        if edge.limitations:
+            edge_data["limitations"] = edge.limitations
         if edge.hypothesis_groups:
             edge_data["hypothesis_groups"] = edge.hypothesis_groups
         if edge.causal_link_type:

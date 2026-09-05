@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04943445"
+reference_id: clinicaltrials:NCT04943445
 title: "A Single-arm, Multi-institutional, Phase 2 Study of a Pembrolizumab-based Organ Preservation Strategy for Locally Advanced Larynx Cancers"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Single-arm, Multi-institutional, Phase 2 Study of a Pembrolizumab-based Organ Preservation Strategy for Locally Advanced Larynx Cancers

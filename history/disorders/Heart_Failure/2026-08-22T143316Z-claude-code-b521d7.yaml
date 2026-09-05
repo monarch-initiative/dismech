@@ -1,0 +1,48 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Heart_Failure
+  path: kb/disorders/Heart_Failure.yaml
+session:
+  id: 2026-08-22T143316Z-claude-code-b521d7
+  timestamp: '2026-08-22T14:33:16Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/9244
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - pathophysiology
+  summary: 'Review response: narrow the MR preferred_term; correct the GO term count
+    in the prior record (PR #9244)'
+  details: |
+    Response to the third review on PR #9244, which APPROVED the commit and raised one non-blocking observation plus one note about the previous history record. Both verified against OAK before acting; one is a correction to me, the other turned out to be a correction to me that is LARGER than the reviewer realised.
+
+    OBSERVATION - preferred_term reached past the bound term's definition. APPLIED, and the reviewer is right. The MR descriptor read 'mineralocorticoid receptor signalling, including the ligand-independent arm' over GO:0031959. I checked the term's definition directly:
+
+      def: 'A nuclear receptor-mediated signaling pathway initiated by a mineralocorticoid binding to an intracellular receptor of the nuclear receptor protein family, and ending with regulation of a downstream cellular process, e.g. transcription.'
+
+    GO:0031959 is ligand-dependent BY CONSTRUCTION - 'initiated by a mineralocorticoid binding to an intracellular receptor'. The ligand-independent Rac1/ROS-mediated arm is precisely the thing that definition excludes, so the preferred_term was BROADER than the bound term rather than more specific than it. CLAUDE.md sanctions preferred_term being more specific or more nuanced than term.label, not broader, so this inverted the pattern. Shortened to 'mineralocorticoid receptor signalling'. Nothing was lost: the ligand-independent arm remains in the node description and in its own evidence item ('drives ligand-independent MR activation'), both of which state it plainly.
+
+    NOTE ON THE PRIOR HISTORY RECORD - the GO term count. The reviewer observed that the record 2026-08-22T142407Z-claude-code-13e6c6.yaml says the label-substring search returns 'nine live GO terms' and then lists twelve identifiers, of which one is CHEBI, one CL and one an obsolete GO term. I re-ran the search WITHOUT the head truncation to check, and the true figures are:
+
+      runoak -i sqlite:obo:go search 'l~mineralocorticoid'  ->  15 result lines
+                                                                12 of them GO terms
+                                                                 1 of those obsolete (GO:0017082)
+                                                            ->  11 LIVE GO TERMS
+
+    So 'nine' is wrong, and wrong in the opposite direction from the reviewer's reading: it is an UNDERcount, not an inconsistency between a stated number and a longer list. Both the reviewer and I were computing from the same truncated output, because the command I recorded and ran ended in 'head -12'.
+
+    The root cause is worth naming because it is the SAME CLASS OF ERROR as the one that record was written to correct. The original mistake was concluding a term did not exist from a bare 'search' that returns only exact matches. This one was stating a count from output that 'head -12' had cut off. Both are conclusions drawn from a truncated or filtered view of tool output, presented as if complete. The first produced a wrong ontology binding; the second produced a wrong number in a provenance record. Neither was caught by any automated check, because neither is the kind of thing a validator can see.
+
+    History records are append-only, so 2026-08-22T142407Z stands as written and this record carries the correction. The YAML notes on the node do not state a count at all, so nothing in kb/ needed changing for this.
+
+    Validation re-run after the edit: just validate (passed); just validate-terms (passed); just count-verified-snippets (45/45 verified, unchanged - this commit changes one preferred_term string and nothing else in kb/); pytest tests/test_data.py -k Heart_Failure.yaml (18 passed). No cache changes: the term binding is unchanged, only its free-text preferred_term. Seven unrelated references_cache files rewritten by just validate were reverted, as in all previous commits on this branch.

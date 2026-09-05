@@ -45,6 +45,13 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
     cx2 = disorder_to_cx2(
         load_disorder(disorder_path),
         source_path=disorder_path,
+        release_metadata={
+            "version": "2026-09-test",
+            "author": "DisMech contributors",
+            "rights": "BSD-3-Clause",
+            "rightsHolder": "Example rights holder",
+        },
+        source_revision="abc123",
     )
     aspects = _aspect_map(cx2)
     nodes, _ = _nodes_by_name(aspects)
@@ -56,6 +63,9 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
 
     network_attributes = aspects["networkAttributes"][0]
     assert network_attributes["name"] == "Stargardt Disease"
+    assert network_attributes["version"] == "2026-09-test"
+    assert network_attributes["author"] == "DisMech contributors"
+    assert network_attributes["source_revision"] == "abc123"
     assert "Stargardt disease" in network_attributes["disease"]
     assert network_attributes["disease_term_id"] == "MONDO:0019353"
     assert network_attributes["node_count"] == len(aspects["nodes"])
@@ -67,7 +77,7 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
     assert "photoreceptor cell" in network_attributes["tissue"]
     assert "retinal pigment epithelial cell" in network_attributes["tissue"]
     assert (
-        "github.com/monarch-initiative/dismech/blob/main/kb/disorders/Stargardt_Disease.yaml"
+        "github.com/monarch-initiative/dismech/blob/abc123/kb/disorders/Stargardt_Disease.yaml"
         in network_attributes["prov:wasDerivedFrom"]
     )
 
@@ -171,6 +181,58 @@ def test_disorder_to_cx2_exports_crohn_model_edges() -> None:
     assert model_edge["v"]["predicate"] == "models"
     assert model_edge["v"]["line_style"] == "dashed"
     assert "PMID:39701210" in model_edge["v"]["Evidence"]
+
+
+def test_disorder_to_cx2_exports_animal_model_edges() -> None:
+    """Animal models must reach cx2 as real nodes carrying their link detail.
+
+    Regression guard for review feedback on #8217: the cx2 `add_detail` block
+    for animal models was unreachable while `animal_models` produced no graph
+    nodes or `models` edges, so edge detail had nothing to attach to.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = (
+        repo_root / "kb" / "disorders" / "Amyotrophic_Lateral_Sclerosis.yaml"
+    )
+
+    cx2 = disorder_to_cx2(
+        load_disorder(disorder_path),
+        source_path=disorder_path,
+    )
+    aspects = _aspect_map(cx2)
+    node_map, _ = _nodes_by_name(aspects)
+    edges = _edges_by_endpoints(aspects)
+
+    canine = "Canine degenerative myelopathy (SOD1 E40K homozygous dog)"
+    assert canine in node_map
+
+    model_edge = edges[(canine, "Motor Neuron Degeneration")]
+    assert model_edge["v"]["predicate"] == "models"
+    assert "PMID:19188595" in model_edge["v"]["Evidence"]
+    # The caveat slots must reach cx2, not stay HTML-only.
+    assert model_edge["v"]["relationship"] == "RECAPITULATES"
+    assert model_edge["v"]["fidelity"] == "MODERATE"
+    assert "E40K is not among the SOD1 alleles" in model_edge["v"]["limitations"]
+
+    # The equine model links two different nodes, which is the case that makes
+    # per-link (rather than per-model) detail necessary -- and the two links
+    # carry different relationships, so they must not share a predicate.
+    equine = "Equine motor neuron disease (vitamin E-deficient horse)"
+    degeneration = edges[(equine, "Motor Neuron Degeneration")]["v"]
+    assert degeneration["predicate"] == "partially_models"
+    assert degeneration["relationship"] == "PARTIALLY_RECAPITULATES"
+    # Asserted on the NON-default predicate deliberately. `description` and
+    # `Evidence` come only from the (source, target, predicate) detail lookup,
+    # with no edge-payload fallback, so a mismatch between the registered key
+    # and the mapped predicate silently drops both -- and would pass a test
+    # that checked the `models` edge alone.
+    assert degeneration["description"]
+    assert "PMID:7988544" in degeneration["Evidence"]
+    assert edges[(equine, "Oxidative Stress")]["v"]["predicate"] == "models"
+
+    # Nodes the models point at advertise them back.
+    assert canine in node_map["Motor Neuron Degeneration"]["v"]["linked_animal_models"]
+    assert node_map[canine]["v"]["type_label"] == "Animal Model"
 
 
 def test_disorder_to_cx2_exports_event_location_links() -> None:

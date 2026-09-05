@@ -289,6 +289,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -373,6 +383,75 @@
             border-radius: 6px;
             font-size: 0.85rem;
             font-weight: 500;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
         }
 
         .tag-cell {
@@ -565,9 +644,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -905,6 +982,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -913,7 +1004,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -1449,6 +1540,7 @@
     
 
     
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1482,11 +1574,16 @@
         <header class="page-header">
             <h1>Gut Dysbiosis Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Geroscience mechanism — the hallmarks of aging and the age-associated processes (senescence, telomere attrition, stem-cell exhaustion, proteostasis and genome-maintenance decline) that drive late-onset disease."
+                      style="background: hsl(35, 68%, 96%); border-color: hsl(35, 52%, 78%); color: hsl(35, 62%, 26%);">Aging</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">gut_dysbiosis</span>
                 <span class="badge badge-count">2 disorders</span>
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
                 
             </div>
             
@@ -1526,16 +1623,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Inflammatory Response
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006954</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1560,14 +1662,166 @@
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
                 <h2 class="card-title">Notes</h2>
             </div>
-            <div class="item-desc">This is a mechanism module, not a specific disease. Disorder entries reference individual nodes via conforms_to (e.g., &#34;gut_dysbiosis#Intestinal Barrier Dysfunction and Microbial Translocation&#34;). Conforming nodes in disorder files should include the corresponding biological processes and causal edges, specialized to their disease context. Dysbiosis is an integrative hallmark that feeds the inflammaging module (systemic inflammation is the shared interface); route the systemic-inflammation consequences there rather than re-deriving them. Key conformance target: &#34;gut_dysbiosis#Intestinal Barrier Dysfunction and Microbial Translocation&#34;.</div>
+            <div class="item-desc">This is a mechanism module, not a specific disease. Disorder entries reference individual nodes via conforms_to (e.g., &#34;gut_dysbiosis#Intestinal Barrier Dysfunction and Microbial Translocation&#34;). Conforming nodes in disorder files should include the corresponding biological processes and causal edges, specialized to their disease context. Dysbiosis is an integrative hallmark that feeds the inflammaging module (systemic inflammation is the shared interface); route the systemic-inflammation consequences there rather than re-deriving them. Key conformance target: &#34;gut_dysbiosis#Intestinal Barrier Dysfunction and Microbial Translocation&#34;.
+One non-animal model is attached under experimental_models: an anaerobic human intestine-on-a-chip that holds a complex living human gut community against human intestinal epithelium and reads out barrier function in the same device. Both of its links are MEASURES rather than recapitulation claims, because the study compares oxygenation conditions and not aged with young donors; it supplies the assay this module&#39;s trigger-to-effector step would be tested with, not evidence for that step. Conforming disorder entries do not inherit those links. It is typed ORGAN_ON_CHIP because the oxygen-gradient device is what makes it informative here; the sibling non-animal model on inflammaging is typed CO_CULTURE by the same reasoning applied to a different distinctive feature, and that entry&#39;s notes carry the rationale for the divergence.</div>
         </div>
         
 
         
 
         
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box anchor-target" id="knowledge_gap_which_microbiome_measure_reports_aging">
+                <div class="item-name">Which summary of the gut microbiota, if any, is the aging readout? Alpha diversity is the usual assumption and does not survive contact with longitudinal data.</div>
+                <div class="item-meta">
+                    
+                    <span class="tag" style="background:#eef2ff;color:#4338ca;">KNOWLEDGE GAP</span>
+                    
+                    
+                    <span class="tag" style="background:#ecfdf5;color:#047857;">OPEN</span>
+                    
+                    
+                    <span class="tag" style="background:#f3f4f6;color:#374151;">knowledge_gap_which_microbiome_measure_reports_aging</span>
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b7280;">Attached to:</strong>
+                    
+                    <span class="tag" style="background:#fef3c7;color:#b45309;"></span>
+                    
+                    <span class="tag" style="background:#fef3c7;color:#b45309;">Age-Associated Gut Microbiota Alteration</span>
+                    
+                </div>
+                
+                
+                <div class="item-desc" style="margin-top: 10px;">Both markers curated in this module report the barrier and the host response to translocation. The first node, the compositional shift itself, has no curated marker, and the reason is that it is unclear what to measure. Reduced alpha diversity is the conventional summary, but in a longitudinal centenarian cohort followed to death there was no significant alpha-diversity difference between the period before death and earlier follow-up, while ten individual species did change significantly. If the signal is carried by particular taxa rather than by a diversity index, then the readout is a high-dimensional composition and not a number, which raises the same representational problem recorded in the decision register for composite indices. A further obstacle specific to this hallmark: the same paper found the centenarian microbiome in Hainan differs from that in northern Italy, so a taxon-level marker may not transfer between populations even if it is real within one.</div>
+                
+                
+            </div>
+            
+        </div>
+        
 
+        
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
+                <h2 class="card-title">Computational Models</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box anchor-target" id="computational-model-agora-gut-microbiome-genome-scale-metabolic-reconstructions" data-dismech-node="AGORA Gut Microbiome Genome-Scale Metabolic Reconstructions" data-dismech-type="computational_model">
+                <div class="item-name">
+                    AGORA Gut Microbiome Genome-Scale Metabolic Reconstructions
+                    <span class="tag-list" style="display: inline-flex; margin-left: 8px; vertical-align: middle;">
+                        
+                        <span class="tag tag-role">GENOME_SCALE_METABOLIC</span>
+                        
+                        
+                        <span class="tag tag-component">SBML</span>
+                        
+                        
+                        <span class="tag tag-bio">COBRA Toolbox</span>
+                        
+                    </span>
+                </div>
+                
+                <div class="item-desc">Resource of genome-scale metabolic reconstructions semi-automatically generated for 773 human gut bacteria (assembly of gut organisms through reconstruction and analysis). Interactions among modelled species depend on both each species&#39; metabolic potential and the nutrients available, so a community&#39;s metabolic output can be predicted from its composition. Reconstructions integrate metagenomic or 16S rRNA sequencing data and are compatible with the human reconstruction Recon 2, allowing host-microbiome metabolic coupling to be simulated.</div>
+                
+                
+                <div class="item-meta">
+                    Models:
+                    Age-Associated Gut Microbiota Alteration
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+    
+    
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/27893703" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:27893703">PMID:27893703</a>
+    
+    
+                    
+                    
+                </div>
+                
+                <div class="item-desc">This is the piece of tooling that makes the module&#39;s first node quantitatively connectable to its downstream inflammation node - short-chain fatty acid and other metabolite output is the mechanistic currency between them.</div>
+                
+            </div>
+            
+        </div>
+        
+
+        
+        <div class="card" id="experimental-models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">🧫</div>
+                <h2 class="card-title">Experimental Models / Non-animal Systems</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box anchor-target" data-dismech-node="Anaerobic human intestine-on-a-chip with complex gut microbiome coculture" data-dismech-type="experimental_model">
+                <div class="item-name">
+                    Anaerobic human intestine-on-a-chip with complex gut microbiome coculture
+                    
+                    <span class="tag tag-role" style="margin-left: 8px;">ORGAN ON CHIP</span>
+                    
+                </div>
+                
+                <div class="item-desc">A two-channel microfluidic intestine-on-a-chip in which living human intestinal epithelium and its overlying mucus are held in direct contact with a complex living human gut microbial community. The device controls and reports a transluminal oxygen gradient, so the anaerobic luminal environment that obligate anaerobes require can be maintained while the epithelium stays oxygenated from the basal side. Establishing that physiological hypoxia gradient, rather than culturing aerobically, both raised intestinal barrier function and sustained a community whose diversity and Firmicutes to Bacteroidetes ratio approach those of human faeces. For this module the platform is the host-microbe interface itself: it makes microbial community composition a manipulable variable measured alongside barrier function in the same human tissue.</div>
+                
+                
+                <div class="item-meta">
+                    Models:
+                    Age-Associated Gut Microbiota Alteration (measures), Intestinal Barrier Dysfunction and Microbial Translocation (measures)
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+    
+    
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/31086325" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:31086325">PMID:31086325</a>
+    
+    
+                    
+                    
+                </div>
+                
+                <div class="item-desc" style="color: #6b7280;">The cached reference is abstract-only, so snippets quote the abstract and figure-level detail is summarized in prose. This is a non-animal human system attached to this module for its host-microbe interface, not a model of aging: no arm of the study compared aged with young donors, which is why the trigger-node link is MEASURES at LOW fidelity rather than a recapitulation claim. The same platform is the natural place to test whether an aged-donor community reproduces the barrier failure this module asserts.</div>
+                
+            </div>
+            
+        </div>
+        
+
+        
+        <div class="card" id="module-collections">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4338ca;">⌘</div>
+                <h2 class="card-title">Module Collections</h2>
+                <span class="card-count">1</span>
+            </div>
+            <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../module-collections/Hallmarks_of_Aging.html">Hallmarks of Aging</a>
+                    
+                    <span class="crosslink-desc">as Dysbiosis</span>
+                    
+                </div>
+                
+            </div>
+        </div>
         
 
         <div class="card">
@@ -1636,7 +1890,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Age-Associated Gut Microbiota Alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With age the composition of the gut microbiota shifts: older individuals display greater inter-individual variation than younger adults and, from mid-to-late adulthood, increasingly unique individual microbiome compositions. This age-associated compositional drift is the initiating alteration of the hallmark.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}, {\"id\": \"Age-Related Health Decline and Reduced Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Through systemic inflammation and impaired barrier and immune function, dysbiosis contributes to age-related health decline; conversely, gut-microbiome patterns that reflect healthy aging are associated with survival. This is the conserved consequence of dysbiosis; specific disease phenotypes are supplied by the conforming disorder, and microbiome-directed strategies are the corresponding intervention target.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Dysbiosis-Driven Systemic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Translocating microbial products drive the age-associated increase in circulating inflammatory mediators and macrophage dysfunction. Germ-free studies indicate this age-related inflammation is causally dependent on the microbiota. This node is the amplifying interface at which gut dysbiosis feeds inflammaging.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\"], \"role\": \"amplifier\"}}, {\"id\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Age-associated dysbiosis is coupled to loss of intestinal barrier integrity (increased permeability), allowing microbial products to translocate across the gut wall. This barrier failure is the conserved central effector that links a shifted microbiota to systemic consequences.\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Age-Associated Gut Microbiota Alteration\", \"target\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"target\": \"Dysbiosis-Driven Systemic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysbiosis-Driven Systemic Inflammation\", \"target\": \"Age-Related Health Decline and Reduced Survival\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AGORA Gut Microbiome Genome-Scale Metabolic Reconstructions\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Resource of genome-scale metabolic reconstructions semi-automatically generated for 773 human gut bacteria (assembly of gut organisms through reconstruction and analysis). Interactions among modelled species depend on both each species\u0027 metabolic potential and the nutrients available, so a community\u0027s metabolic output can be predicted from its composition. Reconstructions integrate metagenomic or 16S rRNA sequencing data and are compatible with the human reconstruction Recon 2, allowing host-microbiome metabolic coupling to be simulated.\", \"meta\": {\"model_type\": \"GENOME_SCALE_METABOLIC\", \"model_software\": \"COBRA Toolbox\", \"model_format\": \"SBML\", \"publication\": \"PMID:27893703\"}}, {\"id\": \"Acarbose (Starch-Flux Redirection to Colonic Fermentation)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Acarbose is an alpha-glucosidase inhibitor that blocks host starch digestion, increasing the flux of starch to the colon where bacterial fermentation yields short-chain fatty acids. The microbiome effect is therefore a consequence of the drug\u0027s primary pharmacology rather than a separate activity, which is what makes it an unusually clean test of whether microbiome modulation contributes to lifespan extension. Ranked third of nine (9/12) by Kulkarni et al.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"acarbose\"]}}, {\"id\": \"Age-Associated Gut Microbiota Alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With age the composition of the gut microbiota shifts: older individuals display greater inter-individual variation than younger adults and, from mid-to-late adulthood, increasingly unique individual microbiome compositions. This age-associated compositional drift is the initiating alteration of the hallmark.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"experimental_models\": [{\"name\": \"Anaerobic human intestine-on-a-chip with complex gut microbiome coculture\", \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"description\": \"The chip sustains and profiles a complex living human gut community directly against human intestinal epithelium, reported as over 200 operational taxonomic units from 11 genera with an abundance of obligate anaerobes and faeces-like Firmicutes to Bacteroidetes ratios. That makes microbial community composition, the entity this node asserts is altered with age, an experimentally measurable and manipulable variable in a human system rather than one inferred from stool sequencing alone.\"}], \"animal_models\": [{\"name\": \"Young-donor gut microbiota transfer in turquoise killifish (Nothobranchius furzeri)\", \"species\": \"Turquoise killifish (Nothobranchius furzeri)\", \"genotype\": \"Wild type\", \"background\": \"Middle-aged fish whose gut was recolonized with bacteria from young donors, compared against age-matched controls, with 16S community profiling, survival, and behavioral endpoints.\", \"category\": \"Naturally short-lived vertebrate aging model\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Killifish lose gut microbial diversity as they age and shift away from a young-like community composition, reproducing the module\u0027s upstream node in a vertebrate host.\"}], \"computational_models\": [{\"name\": \"AGORA Gut Microbiome Genome-Scale Metabolic Reconstructions\", \"model_type\": \"GENOME_SCALE_METABOLIC\", \"model_software\": \"COBRA Toolbox\", \"model_format\": \"SBML\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Turns a compositional shift into a predicted metabolic-output shift, so an age-associated change in taxa can be expressed as a change in the community\u0027s metabolite production rather than as taxonomy alone.\"}]}}, {\"id\": \"Age-Related Health Decline and Reduced Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Through systemic inflammation and impaired barrier and immune function, dysbiosis contributes to age-related health decline; conversely, gut-microbiome patterns that reflect healthy aging are associated with survival. This is the conserved consequence of dysbiosis; specific disease phenotypes are supplied by the conforming disorder, and microbiome-directed strategies are the corresponding intervention target.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"animal_models\": [{\"name\": \"Young-donor gut microbiota transfer in turquoise killifish (Nothobranchius furzeri)\", \"species\": \"Turquoise killifish (Nothobranchius furzeri)\", \"genotype\": \"Wild type\", \"background\": \"Middle-aged fish whose gut was recolonized with bacteria from young donors, compared against age-matched controls, with 16S community profiling, survival, and behavioral endpoints.\", \"category\": \"Naturally short-lived vertebrate aging model\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"description\": \"Recolonizing middle-aged fish with a young-donor gut community extended lifespan and delayed behavioral decline. This is the module\u0027s strongest causal claim in any model: an intervention on the microbiota alone, applied after the host is already middle-aged, moving a survival endpoint.\"}]}}, {\"id\": \"Anaerobic human intestine-on-a-chip with complex gut microbiome coculture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A two-channel microfluidic intestine-on-a-chip in which living human intestinal epithelium and its overlying mucus are held in direct contact with a complex living human gut microbial community. The device controls and reports a transluminal oxygen gradient, so the anaerobic luminal environment that obligate anaerobes require can be maintained while the epithelium stays oxygenated from the basal side. Establishing that physiological hypoxia gradient, rather than culturing aerobically, both raised intestinal barrier function and sustained a community whose diversity and Firmicutes to Bacteroidetes ratio approach those of human faeces. For this module the platform is the host-microbe interface itself: it makes microbial community composition a manipulable variable measured alongside barrier function in the same human tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"conditions\": [\"Aerobic microbial coculture (comparator)\", \"Transluminal hypoxia gradient with anaerobic luminal compartment\", \"Complex human gut microbiome coculture\"], \"publication\": \"PMID:31086325\"}}, {\"id\": \"Dysbiosis-Driven Systemic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Translocating microbial products drive the age-associated increase in circulating inflammatory mediators and macrophage dysfunction. Germ-free studies indicate this age-related inflammation is causally dependent on the microbiota. This node is the amplifying interface at which gut dysbiosis feeds inflammaging.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\"], \"role\": \"amplifier\"}}, {\"id\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Age-associated dysbiosis is coupled to loss of intestinal barrier integrity (increased permeability), allowing microbial products to translocate across the gut wall. This barrier failure is the conserved central effector that links a shifted microbiota to systemic consequences.\", \"meta\": {\"evidence_count\": 1, \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"Anaerobic human intestine-on-a-chip with complex gut microbiome coculture\", \"model_type\": \"ORGAN_ON_CHIP\", \"namo_type\": \"namo:OrganOnChip\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Barrier function is assayed in human intestinal epithelium while a complex living gut community sits on its luminal face, which is the host-microbe interface this node\u0027s translocation claim depends on and the configuration a conventional monolayer cannot provide. Barrier function in this system is responsive rather than fixed: establishing the physiological transluminal hypoxia gradient increased it relative to aerobic coculture, so the same conditions that determine which community can be sustained also move the barrier readout.\"}]}}, {\"id\": \"Lipopolysaccharide-binding protein\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C105867\", \"term_label\": \"Lipopolysaccharide-Binding Protein\", \"readouts\": [{\"target\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"LBP reports systemic exposure to translocated lipopolysaccharide, which is the barrier failure this node models rather than the compositional shift upstream of it.\"}]}}, {\"id\": \"Metformin (Microbiome and Barrier Restoration)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Beyond its glucose-lowering action, metformin reshapes the aged gut microbiota and restores the mucus barrier, increasing goblet cell mass and mucin production and thereby reducing intestinal permeability and the systemic inflammation it drives. This targets two nodes of the module in sequence - the microbiota shift and the barrier defect - rather than treating the downstream inflammation alone.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"Soluble CD14\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C191971\", \"term_label\": \"Soluble Monocyte Differentiation Antigen CD14\", \"readouts\": [{\"target\": \"Dysbiosis-Driven Systemic Inflammation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"sCD14 reports monocyte activation by translocated microbial product, the step that converts barrier failure into the systemic inflammation this node models.\"}]}}, {\"id\": \"Young-donor gut microbiota transfer in turquoise killifish (Nothobranchius furzeri)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"This is the causal experiment behind the module. Rather than correlating an aged microbiome with poor outcomes, Smith and colleagues transferred the gut community of young killifish into middle-aged recipients and measured what happened. Recipients lived longer, declined behaviorally more slowly, retained microbial diversity, and kept a young-like community composition. Because the host is a vertebrate with a months-long lifespan, the whole intervention and its survival readout fit inside a single experiment.\"}], \"edges\": [{\"source\": \"Age-Associated Gut Microbiota Alteration\", \"target\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"target\": \"Dysbiosis-Driven Systemic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dysbiosis-Driven Systemic Inflammation\", \"target\": \"Age-Related Health Decline and Reduced Survival\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metformin (Microbiome and Barrier Restoration)\", \"target\": \"Age-Associated Gut Microbiota Alteration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metformin (Microbiome and Barrier Restoration)\", \"target\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acarbose (Starch-Flux Redirection to Colonic Fermentation)\", \"target\": \"Age-Associated Gut Microbiota Alteration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acarbose (Starch-Flux Redirection to Colonic Fermentation)\", \"target\": \"Age-Related Health Decline and Reduced Survival\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anaerobic human intestine-on-a-chip with complex gut microbiome coculture\", \"target\": \"Age-Associated Gut Microbiota Alteration\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The chip sustains and profiles a complex living human gut community directly against human intestinal epithelium, reported as over 200 operational taxonomic units from 11 genera with an abundance of obligate anaerobes and faeces-like Firmicutes to Bacteroidetes ratios. That makes microbial community composition, the entity this node asserts is altered with age, an experimentally measurable and manipulable variable in a human system rather than one inferred from stool sequencing alone.\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"limitations\": \"Fidelity is LOW because the inoculum is not age-stratified and the study makes no young-versus-aged comparison: the platform measures community composition but does not itself reproduce the age-associated drift this node describes. The coculture also runs over days, against the decades across which the human compositional shift develops, so nothing here speaks to the timescale of the trigger.\"}, {\"source\": \"Anaerobic human intestine-on-a-chip with complex gut microbiome coculture\", \"target\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Barrier function is assayed in human intestinal epithelium while a complex living gut community sits on its luminal face, which is the host-microbe interface this node\u0027s translocation claim depends on and the configuration a conventional monolayer cannot provide. Barrier function in this system is responsive rather than fixed: establishing the physiological transluminal hypoxia gradient increased it relative to aerobic coculture, so the same conditions that determine which community can be sustained also move the barrier readout.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The measurement is made under a healthy-donor community at physiological oxygenation, so it establishes the assay rather than the age-associated barrier failure this node asserts; no dysbiotic or aged community was tested. Translocation of microbial products across the epithelium is not itself reported in the cached abstract, so the second half of this node\u0027s claim is unaddressed here. MEDLINE indexes the study under Caco-2 Cells, so at least part of the work used a colorectal adenocarcinoma line rather than primary or organoid-derived epithelium.\"}, {\"source\": \"Young-donor gut microbiota transfer in turquoise killifish (Nothobranchius furzeri)\", \"target\": \"Age-Associated Gut Microbiota Alteration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Killifish lose gut microbial diversity as they age and shift away from a young-like community composition, reproducing the module\u0027s upstream node in a vertebrate host.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The taxa that mark a young-like killifish community are teleost gut genera and do not correspond to the human commensals whose loss defines age-associated dysbiosis in people, so the composition finding is directional rather than taxon-transferable. Fish gut communities are strongly shaped by the aquatic environment, which has no counterpart in the mammalian gut.\"}, {\"source\": \"Young-donor gut microbiota transfer in turquoise killifish (Nothobranchius furzeri)\", \"target\": \"Age-Related Health Decline and Reduced Survival\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Recolonizing middle-aged fish with a young-donor gut community extended lifespan and delayed behavioral decline. This is the module\u0027s strongest causal claim in any model: an intervention on the microbiota alone, applied after the host is already middle-aged, moving a survival endpoint.\", \"relationship\": \"RESCUES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mechanism connecting the transferred community to host survival is not resolved by this study; the module\u0027s intervening barrier-dysfunction and systemic-inflammation nodes are inferred, not measured here. The intervention is a whole-community transfer, so no individual taxon is established as causal. Lifespan effects in a fish with an annual life history and an environmentally coupled gut community should not be assumed to transfer quantitatively to mammals.\"}, {\"source\": \"AGORA Gut Microbiome Genome-Scale Metabolic Reconstructions\", \"target\": \"Age-Associated Gut Microbiota Alteration\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Turns a compositional shift into a predicted metabolic-output shift, so an age-associated change in taxa can be expressed as a change in the community\u0027s metabolite production rather than as taxonomy alone.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A general-purpose reconstruction resource, not an ageing model: it carries no age-specific parameterization, and any age contrast has to be supplied as input composition from a cohort.\"}, {\"source\": \"Intestinal Barrier Dysfunction and Microbial Translocation\", \"target\": \"Lipopolysaccharide-binding protein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"LBP reports systemic exposure to translocated lipopolysaccharide, which is the barrier failure this node models rather than the compositional shift upstream of it.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Dysbiosis-Driven Systemic Inflammation\", \"target\": \"Soluble CD14\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"sCD14 reports monocyte activation by translocated microbial product, the step that converts barrier failure into the systemic inflammation this node models.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -1770,16 +2024,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Inflammatory Response
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1870,5 +2129,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
