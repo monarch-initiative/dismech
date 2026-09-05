@@ -1400,6 +1400,25 @@ again.
 
 See `docs/history.md` and `src/dismech/schema/history.yaml` for the full format.
 
+**Reading the ledger back — "when was this entry last really curated?"**
+`history/` is what answers that; git cannot, because a whole-KB slot migration and a
+genuine re-curation are the same kind of touch in `git log`. But a bulk sweep writes a
+history record too (one identical `Backfill therapeutic_modality` record sits on 700
+entries), so the newest record is not the answer either.
+
+```bash
+just last-pass-report                       # summary + stalest 25, as a worklist
+just last-pass-report --status NO_HISTORY   # entries with no history record at all
+just last-pass-report --model sonnet-4      # everything last passed by an older model
+just last-pass-report --list-bulk           # audit which summaries counted as sweeps
+```
+
+It classifies each entry `PASSED` / `BULK_ONLY` / `NO_HISTORY`, flags `PASSED` entries
+whose *newest* record is a sweep, and orders stalest-first. The report is only as
+complete as the ledger — a real pass whose PR forgot its history record reads as stale
+— which is another reason to add the record. See
+[`docs/last-pass-report.md`](docs/last-pass-report.md) and issue #5334.
+
 Quick classification rules (use these before tagging):
 - HUMAN_CLINICAL: human patients, cohorts, case reports, clinical trials (NCT), epidemiology.
 - MODEL_ORGANISM: any in vivo animal data (mouse, zebrafish, dog/cat/horse veterinary case series, primate, or other non-human animals), even if observational and not interventional.
