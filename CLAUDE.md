@@ -2079,13 +2079,25 @@ record should separate the four dimensions the old field conflated:
 - `measure_type` (`PrevalenceMeasureEnum`) — `POINT_PREVALENCE`, `BIRTH_PREVALENCE`,
   `LIFETIME_PREVALENCE`, `PERIOD_PREVALENCE`, `ANNUAL_INCIDENCE`, `CARRIER_FREQUENCY`,
   `CASES_IN_LITERATURE`, or `UNKNOWN`. Never compare a prevalence with an incidence.
-- `prevalence_class` (`PrevalenceClassEnum`) — the coarse, always-fillable band
-  (the population-rate analog of phenotype `FrequencyEnum`). Numeric tiers are the
-  Orphanet classes (`ABOVE_1_IN_1000`, `BAND_1_5_PER_10000`, `BAND_1_9_PER_100000`,
-  `BAND_1_9_PER_1000000`, `BELOW_1_IN_1000000`, `NOT_YET_DOCUMENTED`); qualitative
-  tiers (`COMMON`, `RARE`, `ULTRA_RARE`, `UNKNOWN`) cover prose-only sources.
+- `prevalence_class` (`PrevalenceClassEnum`) — the coarse, always-fillable band.
+  Numeric tiers are the Orphanet-aligned bands (`ABOVE_1_IN_1000`,
+  `BAND_1_5_PER_10000`, `BAND_1_9_PER_100000`, `BAND_1_9_PER_1000000`,
+  `BELOW_1_IN_1000000`, `NOT_YET_DOCUMENTED`). **A band reports magnitude only** —
+  `measure_type` says what is being measured, and the band is meaningless without
+  it. The qualitative tiers (`COMMON`, `RARE`, `ULTRA_RARE`) are the exception:
+  they are defined by prevalence thresholds and presuppose no numeric estimate, so
+  **never** use them with `measure_type: ANNUAL_INCIDENCE` or `CARRIER_FREQUENCY`,
+  and not alongside a populated `rate_per_100000`. They are fine on the prevalence
+  measures, on `CASES_IN_LITERATURE`, and on `UNKNOWN` (a source that says only
+  "rare" without naming its measure). See design decision §8.
 - `rate_per_100000` (+ `rate_low` / `rate_high` for ranges) — one normalized number
   in cases per 100,000 (`% × 1000`; `per million ÷ 10`; `1 in N → 100000/N`).
+- `rate_denominator` (`RateDenominatorEnum`) — what the rate is a rate *of*:
+  `POPULATION`, `LIVE_BIRTHS`, `PERSON_YEARS`, or `POPULATION_PER_YEAR`. Optional
+  for the prevalence measures, which fall back to `POPULATION` (`LIVE_BIRTHS` for
+  `BIRTH_PREVALENCE`). **Always set it on an `ANNUAL_INCIDENCE` record** — that
+  measure has no fallback on purpose, because per-population-per-year and
+  per-person-year are both common and not interchangeable.
 - `notes` keeps the verbatim source phrasing; `evidence` is unchanged.
 
 ```yaml
@@ -2100,6 +2112,19 @@ prevalence:
     supports: SUPPORT
     snippet: "1-5 / 10 000 | Worldwide | Point prevalence | PMID:20301510"
     explanation: Orphanet epidemiology table.
+```
+
+**Incidence example** — note the explicit denominator, and that no qualitative
+tier is used:
+
+```yaml
+prevalence:
+- population: Olmsted County, Minnesota, 1990-2015
+  measure_type: ANNUAL_INCIDENCE
+  prevalence_class: BAND_1_9_PER_100000
+  rate_per_100000: 1.2
+  rate_denominator: PERSON_YEARS
+  notes: 1.2 new cases per 100,000 person-years.
 ```
 
 `scripts/migrate_prevalence.py` backfilled existing entries; do not populate
