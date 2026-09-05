@@ -425,9 +425,9 @@ binding stale rather than manually rebinding it.
 
 ### Dataset Curation (`datasets:` records)
 
-Dataset accessions are the one identifier class with no validator in the core
-stack — `linkml-reference-validator` checks PMIDs/DOIs/NCTs, but nothing
-resolved `geo:GSE…`, so a fabricated accession used to pass `just qc`.
+Dataset accessions used to be the one identifier class with no validator in the
+core stack — a fabricated `geo:GSE…` passed `just qc`. They are now verified the
+same way a PMID is: by fetching the record into `references_cache/`.
 
 ```bash
 just datasets-coverage                    # which entries still need datasets
@@ -439,6 +439,44 @@ just research-datasets openscientist Marfan_Syndrome  # non-GEO repositories
 **Always run `just verify-datasets` on any file whose `datasets:` block you
 touched.** An offline pytest guard catches malformed/mis-prefixed accessions;
 only the verifier catches nonexistent ones.
+
+#### A dataset accession is a reference (`geo:` first)
+
+`Dataset.accession` carries `implements: linkml:authoritative_reference` — it
+always *was* a reference slot, and `geo:` is now treated as one end to end:
+
+- `just verify-datasets` resolves a `geo:` accession by asking the reference
+  fetcher for it, which writes `references_cache/GEO_<ID>.md` — one file per
+  dataset, holding GEO's title and summary. **Commit that file with the
+  `datasets:` block**, exactly as you would a `PMID_*.md`.
+- A cache file present *is* the verification. All 919 `geo:` accessions in `kb/`
+  are backfilled, so a run over an untouched file makes no network calls.
+- `geo` has been removed from `skip_prefixes`, so
+  `linkml-reference-validator` now checks GEO records like any other reference.
+  Two consequences:
+  - **`datasets[].title` must be the repository's own title, copied exactly** —
+    it is a title slot next to a reference field, so the validator compares it
+    with the fetched record. Your summary of what the dataset contains goes in
+    `description`. Copy the title even when it is wrong: `geo:GSE301492` carries
+    GEO's misspelled "Reed-Stenberg", for the same reason a snippet never
+    corrects the source it quotes.
+  - A dataset record **can** carry real `evidence:` quoting the cached summary
+    and citing `GEO:<ID>` (`Acne_Vulgaris` is the worked example), and that
+    snippet is now exact-quote validated. This does not license bulk-generated
+    evidence (see below).
+- Other prefixes (EGA, MassIVE, dbGaP, PRIDE…) still resolve against their
+  repository API on every run, cache nothing, and stay in `skip_prefixes`.
+  Migrating one means giving it a fetcher, adding it to
+  `REFERENCE_CACHED_PREFIXES` in `scripts/verify_dataset_accessions.py`,
+  backfilling the cache, and fixing what the newly-enabled checks surface.
+
+**`cache/dataset_accessions.json` is frozen. Never read, write, or edit it.**
+It was a single shared JSON blob rewritten in full by every verifier run — so
+every curation PR touching a `datasets:` block churned the same 1.8 MB file, and
+PRs adding neighbouring `geo:` keys collided. Nothing reads or writes it any
+more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this). It
+stays in git only until the open PRs carrying edits to it have drained; do not
+add it to a commit, and do not "helpfully" regenerate it.
 
 **The check that tooling cannot do for you:** verification proves a dataset
 *exists*, never that it is about the right disease. Searching a causal gene
@@ -2256,6 +2294,14 @@ Non-negotiable rules:
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
+  list built earlier in the session goes stale the moment you add a section, and
+  pruning against it deletes a cache the entry now cites. CI does not catch this:
+  `just validate-disorders` silently network-fetches an uncached reference and
+  reports every snippet verified, so the branch only fails for someone checking
+  it out. Re-run `just count-verified-snippets` on the pushed tree afterwards,
+  and re-read `notes:` for any sentence that called a pruned reference "cached" —
+  prose describing repository state is content, and it rots.
 
 Example:
 
@@ -2740,7 +2786,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | Path | Commit? | Reason |
 |------|---------|--------|
 | `kb/disorders/*.yaml`, `kb/modules/*.yaml`, `kb/module_collections/*.yaml` | YES | Core content |
-| `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
+| `references_cache/*.md` | YES | Required for deterministic `validate-references` CI — including the `GEO_*.md` written by `just verify-datasets` |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `stubs/*.yaml` | YES | The curation queue. A curation PR **deletes** the stub it curates |
@@ -2758,6 +2804,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `docs/` HTML output | NO | Derived — regenerated by CI |
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
+| `cache/dataset_accessions.json` | **NEVER** | Frozen. Superseded by `references_cache/GEO_*.md`; nothing reads or writes it. Never stage it, in any change |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
@@ -2826,6 +2873,39 @@ them to facilitate.
 
 Note that sometimes it will appear that a review has stalled, but in fact this is usually because
 the PR is in conflict. Actively try and manage this, resolve conflicts carefully.
+
+#### Answer a review in one push
+
+`main` has `dismiss_stale_reviews` enabled, so **every push to a PR drops its
+approval**. A follow-up commit therefore costs a full re-review cycle, whatever
+its size — a two-line typo fix and a rewritten pathophysiology section are the
+same price.
+
+So the instruction above to address even "optional" changes is about *what* to
+address. This is about *when*: **the same push as the blocking findings**, never
+a chore commit afterwards. Before pushing a review round, gather all of it —
+
+- every blocking finding;
+- every optional suggestion you intend to take;
+- the `history/` record for the round;
+- any housekeeping the round exposed (a missing `references_cache` file, deep
+  research `_artifacts/`, a stale sentence in `notes:`).
+
+If you decide *not* to take a suggestion, say so in the same reply rather than
+deferring it. A deferred item you later change your mind about costs another
+round, and so does one you promised in a comment and pushed separately.
+
+Two corollaries worth knowing:
+
+- **A round that only re-verifies still costs a cycle.** Pushing housekeeping on
+  top of an approval makes the reviewer re-run everything to confirm nothing
+  regressed. That is cheap for them and slow for you.
+- **Don't push while a review is in flight.** The running review lands on the
+  commit it checked out, so it reports on a tree that no longer exists and a
+  further round is needed anyway. Wait for the verdict, then push once.
+
+Curating five entries in PRs #10142-#10146 took four cycles that a bundled push
+would have covered.
 
 #### Never dismiss a review
 
