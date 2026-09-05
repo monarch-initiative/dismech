@@ -1,0 +1,2668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sweeney-Cox Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Sweeney-Cox Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Sweeney-Cox Syndrome</h1>
+                
+                <p class="report-subtitle">Sweeney–Cox Syndrome (SWCOS) — Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0060592" target="_blank" rel="noopener noreferrer">MONDO:0060592</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                    <span class="meta-chip">25 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Sweeney–Cox Syndrome (SWCOS) — Comprehensive Research Report</h1>
+<p><strong>Prepared:</strong> 2026-08-28 · <strong>Target:</strong> <code>MONDO:0060592</code> · <strong>Category:</strong> Mendelian, autosomal dominant, craniofacial dysostosis/frontonasal dysplasia spectrum</p>
+<hr />
+<h2>Evidence-quality preamble (read first)</h2>
+<p>Sweeney–Cox syndrome is an <strong>ultra-rare, recently delineated entity with a total published cohort of three individuals</strong>. This dominates every section below. Two important consequences for knowledge-base curation:</p>
+<ol>
+<li><strong>Nearly every phenotype frequency is 1/2 or 2/2</strong>, derived from the two index patients in Kim et al. 2017. These are not population frequencies and must not be curated as if they were.</li>
+<li><strong>ClinGen's Craniofacial Malformations GCEP classified the TWIST1–Sweeney-Cox syndrome gene–disease relationship as <code>Limited</code></strong> (3–4 points) in its 2026 round-one curation — the weakest of its three TWIST1 assertions. This is the single most important recent development for this entry and is stated verbatim below.</li>
+</ol>
+<p>Throughout, I distinguish:
+- <strong>[CACHED]</strong> — quote verified against a file already in <code>references_cache/</code> (usable as a dismech evidence <code>snippet:</code> as-is).
+- <strong>[WEB]</strong> — retrieved from a database or full text online during this session; the claim is sound but the exact string has <strong>not</strong> been verified against a fetched reference cache file and must be re-fetched with <code>just fetch-reference</code> before being quoted.
+- <strong>[UNVERIFIED]</strong> — flagged inference or a detail I could not independently confirm.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>Sweeney–Cox syndrome (SWCOS) is an autosomal dominant congenital craniofacial dysostosis caused by <em>de novo</em> heterozygous missense substitution of a single highly conserved glutamic acid residue — <strong>Glu117</strong> — in the basic DNA-binding domain of <strong>TWIST1</strong>. It sits at the frontonasal-dysplasia end of the TWIST1 phenotypic spectrum: patients have severe hypertelorism, deficient formation of the bony orbits and eyelids (upper eyelid colobomas, pseudoproptosis), nasal and midfacial hypoplasia, dysplastic ears, and a variable set of extracranial malformations. It is mechanistically and clinically distinct from <strong>Saethre–Chotzen syndrome (SCS)</strong>, the classical TWIST1 <em>haploinsufficiency</em> disorder characterized by coronal craniosynostosis.</p>
+<p>The disease was named for the two clinicians who contributed the index patients — <strong>E. Sweeney</strong> and <strong>H. Cox</strong>, both co-authors on the delineating paper.</p>
+<p><strong>Delineating publication:</strong></p>
+<blockquote>
+<p>"Here, we describe a new clinical entity, Sweeney-Cox syndrome, associated with distinct de novo amino acid substitutions (p.Glu117Val and p.Glu117Gly) at a highly conserved glutamic acid residue located in the basic DNA binding domain of TWIST1, in two subjects with frontonasal dysplasia and additional malformations."
+— Kim S, Twigg SRF, Scanlon VA, et al. <em>Hum Mol Genet</em> 2017;26(11):2118–2132. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/28369379/" target="_blank" rel="noopener noreferrer">PMID:28369379</a></strong>, DOI 10.1093/hmg/ddx107 <strong>[CACHED]</strong></p>
+</blockquote>
+<h3>Key identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><code>MONDO:0060592</code> (label: "Sweeney-Cox syndrome"; related synonym "SWCOS") <strong>[WEB — OLS4]</strong></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td><strong>#617746</strong> SWEENEY-COX SYNDROME; SWCOS</td>
+</tr>
+<tr>
+<td>Gene (OMIM)</td>
+<td><strong>*601622</strong> TWIST1</td>
+</tr>
+<tr>
+<td>Disease Ontology</td>
+<td><code>DOID:0080538</code></td>
+</tr>
+<tr>
+<td>UMLS / MedGen</td>
+<td><code>C4540299</code></td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><strong>No dedicated ORPHA code identified.</strong> Repeated searches of Orphanet and the ORDO branch of OLS returned no Sweeney-Cox term. Orphanet lists TWIST1 under Saethre–Chotzen syndrome (<a href="https://bioregistry.io/ORPHA:794" target="_blank" rel="noopener noreferrer">ORPHA:794</a>) and related craniosynostoses. Treat "no ORPHA code" as the working assumption but re-verify against a current Orphadata refresh before asserting it in the KB.</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>No specific code. Closest: <strong>Q75.8</strong> (other specified congenital malformations of skull and face bones) or <strong>Q87.0</strong> (congenital malformation syndromes predominantly affecting facial appearance).</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>No specific code. Closest: <strong>LB70</strong> (structural developmental anomalies of the face) / <strong>LD24.5</strong> region.</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No specific descriptor. Indexed under <em>Abnormalities, Multiple</em>; <em>Acrocephalosyndactylia</em>; <em>Eye Abnormalities</em>; <em>Macrostomia</em> per the PubMed record for <a href="https://pubmed.ncbi.nlm.nih.gov/28369379/" target="_blank" rel="noopener noreferrer">PMID:28369379</a> <strong>[CACHED — see keywords block]</strong></td>
+</tr>
+<tr>
+<td>ZFIN human disease term</td>
+<td><code>ZDB-TERM-190716-1</code> (no zebrafish models registered) <strong>[WEB]</strong></td>
+</tr>
+<tr>
+<td>GTR condition</td>
+<td><code>C4540299</code> — 7 clinical tests listed, all TWIST1-based <strong>[WEB]</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Synonyms and alternative names</h3>
+<ul>
+<li><strong>SWCOS</strong> (OMIM abbreviation)</li>
+<li><em>TWIST1-related Sweeney-Cox syndrome</em> (ClinGen dyadic naming convention, used in Genet Med 2026)</li>
+<li>Descriptively referenced in the literature as "TWIST1 basic-domain (Glu117) frontonasal dysplasia" — not a formal synonym.</li>
+<li><strong>Do not</strong> use "frontonasal dysplasia type 4" or similar — FND1/2/3 are the ALX3/ALX4/ALX1 entities and are distinct.</li>
+</ul>
+<h3>Source of information</h3>
+<p><strong>Entirely aggregated disease-level and case-report literature.</strong> There is no EHR-derived cohort, no registry, no natural-history study, and no patient organization. All human phenotype data trace to three published individuals. HPO annotations for <code>OMIM:617746</code> cite <strong><a href="https://pubmed.ncbi.nlm.nih.gov/28369379/" target="_blank" rel="noopener noreferrer">PMID:28369379</a> exclusively</strong> for every term <strong>[WEB — HPO/ontology.jax.org API]</strong>.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Primary causal factor</h3>
+<p>A <strong>single heterozygous <em>de novo</em> missense substitution at TWIST1 codon 117</strong> (NM_000474.4), replacing a glutamic acid that makes base-specific contacts with the E-box DNA motif. No environmental, infectious, or multifactorial contribution is described or plausible.</p>
+<p><strong>Reported causal alleles (all three published patients):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>cDNA (NM_000474.4)</th>
+<th>Protein</th>
+<th>Patient</th>
+<th>Phenotype</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.350A&gt;T</td>
+<td>p.(Glu117Val)</td>
+<td>Kim 2017, Subject 1 (male)</td>
+<td>SWCOS, no craniosynostosis</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28369379/" target="_blank" rel="noopener noreferrer">PMID:28369379</a></td>
+</tr>
+<tr>
+<td>c.350A&gt;G</td>
+<td>p.(Glu117Gly)</td>
+<td>Kim 2017, Subject 2 (female)</td>
+<td>SWCOS, more severe</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28369379/" target="_blank" rel="noopener noreferrer">PMID:28369379</a></td>
+</tr>
+<tr>
+<td>c.351G&gt;T</td>
+<td>p.(Glu117Asp)</td>
+<td>Takenouchi 2018 (male infant)</td>
+<td>SWCOS facial phenotype <strong>+ bicoronal craniosynostosis + ablepharon</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30450715/" target="_blank" rel="noopener noreferrer">PMID:30450715</a> / ClinVar VCV002572412</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>⚠️ <strong>Nomenclature discrepancy worth flagging.</strong> The Takenouchi abstract states "<strong>c.351C&gt;G p.Glu117Asp</strong>" <strong>[CACHED]</strong>, but ClinVar represents the same protein change as <strong>c.351G&gt;T</strong> (VCV002572412) <strong>[WEB]</strong>. The ClinVar representation is internally consistent (GAG→GAT); the published <code>c.351C&gt;G</code> cannot yield Asp from a Glu codon under NM_000474.4. Per repo policy, <strong>never alter an identifier inside an evidence snippet</strong> — quote the paper as published and record the reconciliation in <code>notes:</code>.</p>
+</blockquote>
+<h3>Genetic risk factors</h3>
+<ul>
+<li><strong>Causal variant class:</strong> ultra-localized missense hotspot. Of ~100 TWIST1 mutations reported in SCS, none previously affected codon 117 <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/28369379/" target="_blank" rel="noopener noreferrer">PMID:28369379</a>]</strong>.</li>
+<li><strong>Susceptibility loci / modifier genes:</strong> none identified. Sample size (n=3) precludes any modifier analysis.</li>
+<li><strong>Family history:</strong> all three cases <em>de novo</em>; unaffected parents.</li>
+<li><strong>Parental age effect:</strong> not assessed (n=3).</li>
+</ul>
+<h3>Environmental risk factors</h3>
+<p><strong>None described.</strong> No toxin, teratogen, occupational, dietary, or infectious association has been reported or proposed. Sex distribution in the published cohort is 2 male : 1 female — not interpretable at this n.</p>
+<h3>Protective factors</h3>
+<p><strong>None known.</strong> No protective variants, modifier alleles, or environmental exposures have been described. gnomAD does not report the Glu117 substitutions (consistent with <em>de novo</em>, fully penetrant severe disease) <strong>[UNVERIFIED — should be checked directly at gnomad.broadinstitute.org before curating as an allele-frequency claim].</strong></p>
+<h3>Gene–environment interactions</h3>
+<p><strong>Not applicable / none reported.</strong> This is a fully penetrant <em>de novo</em> dominant developmental disorder with no evidence of environmental modulation.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>The authoritative annotation set</h3>
+<p>The HPO disease annotation for <code>OMIM:617746</code> contains <strong>48 phenotype terms plus inheritance and clinical-course terms</strong>, all sourced to <a href="https://pubmed.ncbi.nlm.nih.gov/28369379/" target="_blank" rel="noopener noreferrer">PMID:28369379</a>, all with frequencies expressed as fractions of the two index patients <strong>[WEB — ontology.jax.org/api/network/annotation/<a href="https://bioregistry.io/OMIM:617746" target="_blank" rel="noopener noreferrer">OMIM:617746</a>]</strong>. Reproduced in full below, since this is directly loadable into a dismech <code>phenotypes:</code> block.</p>
+<h4>Head and neck — craniofacial (the diagnostic core)</h4>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+<th>Freq</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a></td>
+<td><strong>Hypertelorism</strong></td>
+<td>2/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000636" target="_blank" rel="noopener noreferrer">HP:0000636</a></td>
+<td><strong>Upper eyelid coloboma</strong></td>
+<td>2/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005487" target="_blank" rel="noopener noreferrer">HP:0005487</a></td>
+<td><strong>Prominent metopic ridge</strong></td>
+<td>2/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000455" target="_blank" rel="noopener noreferrer">HP:0000455</a></td>
+<td><strong>Broad nasal tip</strong></td>
+<td>2/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" rel="noopener noreferrer">HP:0011800</a></td>
+<td>Midface retrusion</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000430" target="_blank" rel="noopener noreferrer">HP:0000430</a></td>
+<td>Underdeveloped nasal alae</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002000" target="_blank" rel="noopener noreferrer">HP:0002000</a></td>
+<td>Short columella</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009765" target="_blank" rel="noopener noreferrer">HP:0009765</a></td>
+<td>Low hanging columella</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" rel="noopener noreferrer">HP:0000431</a></td>
+<td>Wide nasal bridge</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" rel="noopener noreferrer">HP:0000453</a></td>
+<td>Choanal atresia</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000322" target="_blank" rel="noopener noreferrer">HP:0000322</a></td>
+<td>Short philtrum</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" rel="noopener noreferrer">HP:0000160</a></td>
+<td>Narrow mouth</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" rel="noopener noreferrer">HP:0000218</a></td>
+<td>High palate</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009099" target="_blank" rel="noopener noreferrer">HP:0009099</a></td>
+<td>Median cleft palate</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000220" target="_blank" rel="noopener noreferrer">HP:0000220</a></td>
+<td>Velopharyngeal insufficiency</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a></td>
+<td>Micrognathia</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" rel="noopener noreferrer">HP:0000248</a></td>
+<td>Brachycephaly</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005469" target="_blank" rel="noopener noreferrer">HP:0005469</a></td>
+<td>Flat occiput</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" rel="noopener noreferrer">HP:0000260</a></td>
+<td>Wide anterior fontanel</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000349" target="_blank" rel="noopener noreferrer">HP:0000349</a></td>
+<td>Widow's peak</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000294" target="_blank" rel="noopener noreferrer">HP:0000294</a></td>
+<td>Low anterior hairline</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000475" target="_blank" rel="noopener noreferrer">HP:0000475</a></td>
+<td>Broad neck</td>
+<td>1/2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h4>Ear</h4>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+<th>Freq</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000378" target="_blank" rel="noopener noreferrer">HP:0000378</a></td>
+<td>Cupped ear</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a></td>
+<td>Low-set ears</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009901" target="_blank" rel="noopener noreferrer">HP:0009901</a></td>
+<td>Crumpled ear</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" rel="noopener noreferrer">HP:0008551</a></td>
+<td>Microtia</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000396" target="_blank" rel="noopener noreferrer">HP:0000396</a></td>
+<td>Overfolded helix</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009909" target="_blank" rel="noopener noreferrer">HP:0009909</a></td>
+<td>Uplifted earlobe</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a></td>
+<td><strong>Hearing impairment</strong></td>
+<td>1/2 (conductive in Subject 1)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h4>Eye</h4>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+<th>Freq</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a></td>
+<td>Hypertelorism</td>
+<td>2/2</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Note: <strong>pseudoproptosis</strong> (secondary to deficient bony orbits, accentuated by midface hypoplasia) is described in OMIM's clinical synopsis and the Arizona Hereditary Ocular Diseases entry but is <strong>not</strong> in the HPO annotation set <strong>[WEB]</strong>. Consider <code>HP:0000520 Proptosis</code> with an explanatory <code>description</code> making clear it is <em>pseudo</em>proptosis of orbital-volume origin, or leave unbound with prose — the mechanistic distinction matters and no HPO term captures it cleanly.</p>
+<h4>Nervous system</h4>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+<th>Freq</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></td>
+<td><strong>Global developmental delay</strong></td>
+<td>2/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a></td>
+<td>Delayed speech and language development</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" rel="noopener noreferrer">HP:0001321</a></td>
+<td>Cerebellar hypoplasia</td>
+<td>1/2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h4>Limbs and skeletal</h4>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+<th>Freq</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100807" target="_blank" rel="noopener noreferrer">HP:0100807</a></td>
+<td>Long fingers</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009882" target="_blank" rel="noopener noreferrer">HP:0009882</a></td>
+<td>Short distal phalanx of finger</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010709" target="_blank" rel="noopener noreferrer">HP:0010709</a></td>
+<td>2-4 finger cutaneous syndactyly</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005650" target="_blank" rel="noopener noreferrer">HP:0005650</a></td>
+<td>2-5 finger cutaneous syndactyly</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010715" target="_blank" rel="noopener noreferrer">HP:0010715</a></td>
+<td>2-5 toe syndactyly</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001776" target="_blank" rel="noopener noreferrer">HP:0001776</a></td>
+<td>Bilateral talipes equinovarus</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000894" target="_blank" rel="noopener noreferrer">HP:0000894</a></td>
+<td>Short clavicles</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" rel="noopener noreferrer">HP:0000774</a></td>
+<td>Narrow chest</td>
+<td>1/2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h4>Cardiovascular / haematologic</h4>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+<th>Freq</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001655" target="_blank" rel="noopener noreferrer">HP:0001655</a></td>
+<td>Patent foramen ovale</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" rel="noopener noreferrer">HP:0001643</a></td>
+<td>Patent ductus arteriosus</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001746" target="_blank" rel="noopener noreferrer">HP:0001746</a></td>
+<td><strong>Asplenia</strong></td>
+<td>1/2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h4>Digestive / genitourinary</h4>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+<th>Freq</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002023" target="_blank" rel="noopener noreferrer">HP:0002023</a></td>
+<td><strong>Anal atresia</strong> (imperforate anus)</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a></td>
+<td>Gastroesophageal reflux</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008689" target="_blank" rel="noopener noreferrer">HP:0008689</a></td>
+<td>Bilateral cryptorchidism</td>
+<td>1/1 (male only)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h4>Skin, hair, nails / prenatal</h4>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+<th>Freq</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002230" target="_blank" rel="noopener noreferrer">HP:0002230</a></td>
+<td>Generalized hirsutism</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001792" target="_blank" rel="noopener noreferrer">HP:0001792</a></td>
+<td>Small nail</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" rel="noopener noreferrer">HP:0001561</a></td>
+<td>Polyhydramnios</td>
+<td>1/2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h4>Course and inheritance</h4>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003577" target="_blank" rel="noopener noreferrer">HP:0003577</a></td>
+<td><strong>Congenital onset</strong> (2/2)</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a></td>
+<td>Autosomal dominant inheritance</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Phenotypes reported in the third patient (Takenouchi 2018) — NOT in the HPO annotation set</h3>
+<p>The p.Glu117Asp patient extends the phenotype and is the key to the SWCOS↔SCS boundary:</p>
+<blockquote>
+<p>"Herein, we document a male infant with the distinctive facial features of ablepharon, hypertelorism, cheek pads adjacent to the corners of the mouth, and bilateral coronal suture craniosynostosis who had a de novo heterozygous mutation in the basic domain of TWIST1, that is, c.351C&gt;G p.Glu117Asp."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/30450715/" target="_blank" rel="noopener noreferrer">PMID:30450715</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<p>Additional HP suggestions for this patient (<strong>verify all with <code>just validate-terms</code> / OAK before binding</strong>):
+- <code>HP:0004440</code> Coronal craniosynostosis <strong>[UNVERIFIED ID]</strong>
+- <code>HP:0001363</code> Craniosynostosis (parent term, safer)
+- <strong>Ablepharon</strong> — no confident HPO ID; <code>HP:0000636</code> Upper eyelid coloboma understates it. Consider free-text <code>preferred_term</code> with no <code>term:</code> binding rather than manufacturing a match (per the repo's "no term beats a bad one" rule).
+- <strong>Cheek pads adjacent to the corners of the mouth</strong> — shared with Barber–Say and ablepharon–macrostomia syndromes; no clean HPO term. Free text recommended.</p>
+<h3>Phenotype characteristics</h3>
+<ul>
+<li><strong>Age of onset:</strong> congenital in 3/3 (<code>HP:0003577</code>). Malformations are established during embryonic craniofacial morphogenesis (~weeks 4–8); the phenotype is fully expressed at birth.</li>
+<li><strong>Severity:</strong> variable but uniformly severe facially. Subject 2 (p.Glu117Gly) was markedly more severe than Subject 1 (p.Glu117Val): she required <strong>tracheostomy from birth</strong>, had cardiac defects, asplenia, and progressed to <strong>corneal scarring with phthisis of the right eye</strong> despite lid coloboma repair <strong>[WEB — PMC5438873; Arizona HOD]</strong>.</li>
+<li><strong>Progression:</strong> the malformation burden is <strong>static/non-progressive</strong> — it is a structural dysostosis, not a degenerative process. What <em>does</em> progress is <strong>secondary/complication morbidity</strong>: corneal exposure keratopathy → scarring → phthisis bulbi; conductive hearing loss; feeding/airway compromise; and, in the E117D patient, craniosynostosis with its attendant risk of raised intracranial pressure.</li>
+<li><strong>Frequency among affected:</strong> see tables. <strong>Facial features (hypertelorism, upper eyelid coloboma, prominent metopic ridge, broad nasal tip) and global developmental delay are 2/2; everything else is 1/2.</strong></li>
+</ul>
+<h3>Quality-of-life impact</h3>
+<p>No formal QoL instrument (EQ-5D, PROMIS, SF-36) has ever been administered. Per-phenotype impacts inferred from the case descriptions <strong>[WEB]</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Functional impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Upper eyelid coloboma / ablepharon</td>
+<td>Corneal exposure → keratopathy, scarring, vision loss (documented phthisis in Subject 2)</td>
+</tr>
+<tr>
+<td>Velopharyngeal insufficiency / cleft palate</td>
+<td>Speech intelligibility, feeding, need for surgery</td>
+</tr>
+<tr>
+<td>Choanal atresia / airway compromise</td>
+<td>Tracheostomy dependence (Subject 2)</td>
+</tr>
+<tr>
+<td>Conductive hearing loss + microtia</td>
+<td>Language acquisition, amplification need</td>
+</tr>
+<tr>
+<td>Global developmental delay</td>
+<td>Moderate learning disability documented in Subject 1; educational support</td>
+</tr>
+<tr>
+<td>Syndactyly, talipes equinovarus, short distal phalanges</td>
+<td>Hand function, ambulation, orthopaedic surgery</td>
+</tr>
+<tr>
+<td>Facial dysmorphism</td>
+<td>Psychosocial burden, repeated reconstructive surgery</td>
+</tr>
+<tr>
+<td>Imperforate anus</td>
+<td>Neonatal surgery, continence</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Causal gene</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Symbol</td>
+<td><strong>TWIST1</strong></td>
+</tr>
+<tr>
+<td>Approved name</td>
+<td>twist family bHLH transcription factor 1</td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td><strong><code>hgnc:12428</code></strong> (lowercase prefix per repo convention) <strong>[WEB — rest.genenames.org]</strong></td>
+</tr>
+<tr>
+<td>Cytoband</td>
+<td><strong>7p21.1</strong></td>
+</tr>
+<tr>
+<td>Ensembl</td>
+<td>ENSG00000122691</td>
+</tr>
+<tr>
+<td>NCBI Gene</td>
+<td>7291</td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td><strong>Q15672</strong> (202 aa)</td>
+</tr>
+<tr>
+<td>OMIM gene</td>
+<td>*601622</td>
+</tr>
+<tr>
+<td>Reference transcript</td>
+<td>NM_000474.4</td>
+</tr>
+<tr>
+<td>Aliases (GTR)</td>
+<td>ACS3, BPES2, BPES3, CRS, SCS, bHLHa38</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Protein architecture and the Glu117 hotspot</h3>
+<ul>
+<li><strong>bHLH domain: residues 108–159</strong> (UniProt Q15672 FT DOMAIN) <strong>[WEB]</strong>.</li>
+<li><strong>Residues 1–105: disordered</strong>; <strong>residues 161–191: sufficient for transactivation</strong> <strong>[WEB]</strong>.</li>
+<li><strong>Glu117 lies within the basic (DNA-contacting) region</strong> at the N-terminal end of the bHLH fold. Sequence context around it (positions 111–120): <code>V M A N V R E R Q R</code> — i.e. <strong>E117</strong> flanked by the basic arginines R116/R118/R120. (R120G is an independently reported pathogenic SCS/craniosynostosis allele, ClinVar VCV001474221 <strong>[WEB]</strong> — underlining that this short stretch is a mutational hotspot for two mechanistically different diseases.)</li>
+<li><strong>Functional role of the conserved glutamate:</strong> it makes the sequence-specific base contacts that define E-box recognition:</li>
+</ul>
+<blockquote>
+<p>"is responsible for the sequence-specific contacts of adjacent bases (CA) that constitute the symmetrical E box binding motif CANNTG"
+— Kim et al. 2017 full text <strong>[WEB — PMC5438873]</strong></p>
+</blockquote>
+<ul>
+<li><strong>Structural resource:</strong> <strong>PDB <code>8OSB</code> — "TWIST1-TCF4-ALX4 complex on specific DNA"</strong>, X-ray, 2.90 Å, residues 101–167 <strong>[WEB — UniProt/RCSB]</strong>. This is the directly relevant structure for modelling the Glu117 substitutions, and it captures TWIST1 in the ternary arrangement that the Coordinator-motif biology (§6) predicts.</li>
+</ul>
+<h3>Variant classification and population frequency</h3>
+<p>ClinVar records at codon 117 and immediate neighbours <strong>[WEB — NCBI E-utilities]</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>VCV</th>
+<th>HGVS</th>
+<th>Protein</th>
+<th>Classification</th>
+<th>Review status</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VCV000444875</td>
+<td>c.350A&gt;T</td>
+<td>p.Glu117Val</td>
+<td><strong>Pathogenic</strong></td>
+<td>no assertion criteria provided</td>
+<td><strong>Sweeney-Cox syndrome</strong></td>
+</tr>
+<tr>
+<td>VCV000444876</td>
+<td>c.350A&gt;G</td>
+<td>p.Glu117Gly</td>
+<td><strong>Pathogenic</strong></td>
+<td>criteria provided, single submitter</td>
+<td>TWIST1-related craniosynostosis; Saethre-Chotzen syndrome</td>
+</tr>
+<tr>
+<td>VCV002572412</td>
+<td>c.351G&gt;T</td>
+<td>p.Glu117Asp</td>
+<td><strong>Pathogenic</strong></td>
+<td>criteria provided, single submitter</td>
+<td><strong>Sweeney-Cox syndrome</strong></td>
+</tr>
+<tr>
+<td>VCV001418275</td>
+<td>c.349G&gt;T</td>
+<td>p.Glu117Ter</td>
+<td>Pathogenic</td>
+<td>criteria provided, single submitter</td>
+<td>TWIST1-related craniosynostosis; SCS</td>
+</tr>
+<tr>
+<td>VCV001474221</td>
+<td>c.358C&gt;G</td>
+<td>p.Arg120Gly</td>
+<td>Pathogenic/Likely pathogenic</td>
+<td>multiple submitters, no conflicts</td>
+<td>SCS; TWIST1-related craniosynostosis</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Two curation-relevant observations:
+1. <strong><code>p.Glu117Ter</code> (nonsense) is annotated to Saethre–Chotzen/craniosynostosis, not Sweeney-Cox</strong> — exactly as the mechanism predicts. Truncation at 117 = loss of allele = haploinsufficiency = SCS. Missense at 117 = poisoned protein = SWCOS. The same codon produces two different diseases by two different mechanisms. This is a clean, curatable mechanistic contrast.
+2. <strong>ClinVar's condition assignment is inconsistent</strong> — p.Glu117Gly, one of the two original SWCOS alleles, is filed under "TWIST1-related craniosynostosis; Saethre-Chotzen syndrome." Do not treat ClinVar's condition field as authoritative for SWCOS membership; use the primary literature.</p>
+<ul>
+<li><strong>Variant type:</strong> all missense (single-nucleotide substitution).</li>
+<li><strong>Origin:</strong> <strong>germline, <em>de novo</em></strong> in 3/3. No somatic involvement; no mosaicism reported.</li>
+<li><strong>Allele frequency:</strong> absent from population databases (expected for <em>de novo</em> severe dominant disease) <strong>[UNVERIFIED — confirm in gnomAD directly].</strong></li>
+</ul>
+<h3>Functional consequence — the central mechanistic claim</h3>
+<p><strong>Antimorphic (dominant-negative), not loss-of-function.</strong> This is the defining molecular statement about the disease and it is asserted independently in two cached papers:</p>
+<blockquote>
+<p>"The genetic analysis favors a predominantly dominant-negative mechanism for the action of amino acid substitutions at this highly conserved glutamic acid residue"
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/28369379/" target="_blank" rel="noopener noreferrer">PMID:28369379</a></strong> <strong>[CACHED]</strong></p>
+<p>"Heterozygous localized TWIST1 and TWIST2 basic domain substitutions exert antimorphic effects to cause Sweeney-Cox syndrome, Barber-Say syndrome, and ablepharon-macrostomia syndrome, respectively."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/30450715/" target="_blank" rel="noopener noreferrer">PMID:30450715</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<p>For dismech schema purposes:
+- On <code>GeneticContext</code>: <code>functional_impact_category: DOMINANT_NEGATIVE</code> — this is the variant-consequence slot and it is the right one here.
+- Do <strong>not</strong> use <code>LOSS_OF_FUNCTION</code>; that is the SCS mechanism and conflating them erases the whole point of the entity.</p>
+<h3>Modifier genes</h3>
+<p><strong>None identified.</strong> Candidate modifiers on mechanistic grounds only (no human data): <code>TCF12</code> (<a href="https://bioregistry.io/HGNC:11623" target="_blank" rel="noopener noreferrer">HGNC:11623</a>, the obligate E-protein partner, itself a coronal craniosynostosis gene), <code>TCF3</code>/E12, <code>HAND2</code>, and the homeodomain Coordinator partners <code>ALX1</code>, <code>ALX4</code>, <code>MSX1</code>, <code>PRRX1</code>. All speculative — do not curate as modifiers.</p>
+<h3>Epigenetic information</h3>
+<p>No disease-specific DNA-methylation, histone, or chromatin dataset exists for SWCOS patients. <strong>However</strong>, TWIST1's own molecular action is chromatin-level: it drives chromatin opening and H3K27 acetylation at Coordinator-motif enhancers in cranial neural crest cells (§6). A Glu117 substitution is therefore expected to produce a <strong>genome-wide enhancer-accessibility defect</strong> in CNCCs — a testable and completely unexplored hypothesis, and a good candidate for a <code>KNOWLEDGE_GAP</code> discussion in the entry.</p>
+<h3>Chromosomal abnormalities</h3>
+<p>Not a mechanism for SWCOS. Note for differential purposes: <strong>7p21 deletions encompassing TWIST1</strong> cause SCS (haploinsufficiency), and a <strong>430 kb duplication involving TWIST1 regulatory elements</strong> causes auriculocondylar syndrome <strong>[WEB — PMC9411924]</strong>. Neither produces the SWCOS phenotype, again because SWCOS requires a <em>poisoned protein</em>, not altered dosage.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> none. No toxicological, radiation, pollution, or occupational association reported. CTD contains no SWCOS-specific chemical–disease association.</li>
+<li><strong>Lifestyle factors:</strong> none. No maternal smoking, alcohol, folate, or nutritional association has been reported or investigated (n=3 precludes it).</li>
+<li><strong>Infectious agents:</strong> not applicable.</li>
+</ul>
+<p><strong>Curation guidance:</strong> the <code>environmental:</code> section should be left empty, or, if a curator wishes to record that the search was performed, use the sanctioned waiver form — <code>review_notes:</code> beginning exactly <code>Left deliberately uncited.</code> followed by ≥20 words describing the searches run (CTD, PubMed teratogen queries, EPA) and why nothing quotable was found.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>This is the richest section of the entry and where SWCOS earns its place in a mechanism knowledge base. The causal chain is unusually well-supported for an n=3 disease because the <em>gene</em> is deeply studied even though the <em>disease</em> is not.</p>
+<h3>6.1 The causal chain (upstream → downstream)</h3>
+<pre><code>[1] De novo heterozygous TWIST1 c.350A&gt;T / c.350A&gt;G / c.351G&gt;T
+↓  (MOLECULAR)
+[2] Glu117 substitution in the bHLH basic region
+↓  (MOLECULAR)
+[3] Loss/degradation of sequence-specific E-box (CANNTG) recognition,
+    with RETAINED dimerization and residual DNA binding
+↓  (MOLECULAR)
+[4] Mutant protein sequesters wild-type TWIST1 and E-proteins (TCF3/TCF12)
+    into NON-PRODUCTIVE heterodimers  →  DOMINANT-NEGATIVE
+↓  (MOLECULAR)
+[5] Failure of TWIST1-dependent Coordinator-motif enhancer activation
+    (chromatin opening + H3K27ac) in cranial neural crest cells
+↓  (CELLULAR)
+[6] Failure to activate the frontonasal ectomesenchyme program —
+    ALX1, ALX3, ALX4 not induced in the frontonasal prominence
+↓  (CELLULAR)
+[7] Impaired CNCC EMT, migration, survival, and skeletogenic differentiation
+↓  (TISSUE)
+[8] Deficient frontonasal / periocular / orbital / nasal skeletal
+    and soft-tissue morphogenesis
+↓  (ORGANISM)
+[9] Hypertelorism, deficient bony orbits with pseudoproptosis, eyelid
+    colobomas, nasal hypoplasia, cleft palate/VPI, dysplastic ears
+</code></pre>
+<p>A parallel branch, dose-dependent, explains why one allele adds craniosynostosis:</p>
+<pre><code>[3'] Milder antimorphic effect (p.Glu117Asp)  →  net activity close to
+     the haploinsufficient (SCS) range  →  coronal suture boundary
+     failure  →  bicoronal craniosynostosis IN ADDITION to the
+     SWCOS facial phenotype
+</code></pre>
+<blockquote>
+<p>"The present observation suggests that a localized TWIST1 basic domain substitution, that is, p.Glu117Asp, in TWIST1 may exert a mild antimorphic effect similar to that of haploinsufficiency, leading to craniosynostosis and ablepharon."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/30450715/" target="_blank" rel="noopener noreferrer">PMID:30450715</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<h3>6.2 The dosage-continuum model (the key conceptual contribution)</h3>
+<p>Kim et al. propose that TWIST1/TWIST2 basic-domain phenotypes lie on a <strong>single continuum of residual protein activity</strong>, and that the identity of the substituting amino acid sets the position on that continuum:</p>
+<blockquote>
+<p>"phenotypes of individuals who are heterozygous for TWIST1 or TWIST2 mutations fall on a continuum" — correlating with protein activity levels; SWCOS alleles produce more severe dominant-negative effects than haploinsufficient SCS mutations, potentially reducing functional protein <strong>below the threshold required for neural crest survival</strong> <strong>[WEB — PMC5438873]</strong></p>
+</blockquote>
+<p>This makes SWCOS a textbook <strong>allelic-series / threshold</strong> disorder and is worth modelling explicitly as a <code>mechanistic_hypotheses</code> group in the dismech entry.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>Residue</th>
+<th>Substitution</th>
+<th>Disease</th>
+<th>Position on activity continuum</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TWIST1</td>
+<td>Glu117</td>
+<td>Ter (nonsense)</td>
+<td>Saethre–Chotzen</td>
+<td>50% (haploinsufficiency)</td>
+</tr>
+<tr>
+<td>TWIST1</td>
+<td>Glu117</td>
+<td><strong>Asp</strong></td>
+<td>SWCOS + craniosynostosis</td>
+<td>mild antimorph ≈ haploinsufficiency</td>
+</tr>
+<tr>
+<td>TWIST1</td>
+<td>Glu117</td>
+<td><strong>Val</strong></td>
+<td><strong>Sweeney–Cox</strong></td>
+<td>strong antimorph</td>
+</tr>
+<tr>
+<td>TWIST1</td>
+<td>Glu117</td>
+<td><strong>Gly</strong></td>
+<td><strong>Sweeney–Cox</strong> (severe)</td>
+<td>strong antimorph</td>
+</tr>
+<tr>
+<td>TWIST2</td>
+<td>Glu75</td>
+<td>Ala / Gln</td>
+<td>Barber–Say</td>
+<td>antimorph</td>
+</tr>
+<tr>
+<td>TWIST2</td>
+<td>Glu75</td>
+<td>Lys</td>
+<td>Ablepharon–macrostomia</td>
+<td>most severe antimorph</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The TWIST2 comparison is from Marchegiani et al., <em>Am J Hum Genet</em> 2015, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/26119818/" target="_blank" rel="noopener noreferrer">PMID:26119818</a></strong>: AMS = p.Glu75Lys; BSS = p.Glu75Gln or p.Glu75Ala; "the two syndromes differed based solely upon the nature of the substituting amino acid" <strong>[WEB]</strong>.</p>
+<h3>6.3 Molecular pathways and protein dysfunction</h3>
+<p><strong>TWIST1 normal function (UniProt Q15672):</strong></p>
+<blockquote>
+<p>"Efficient DNA binding requires dimerization with another bHLH protein. Homodimer or heterodimer with E proteins such as TCF3." … "Regulates cranial suture patterning and fusion." <strong>[WEB]</strong></p>
+</blockquote>
+<p><strong>Why a basic-domain missense is worse than a null.</strong> The mutant retains its HLH dimerization surface but has a corrupted DNA-reading head. It therefore continues to titrate the limited pool of wild-type TWIST1 and E-proteins into complexes that occupy or fail at target enhancers:</p>
+<blockquote>
+<p>mutant proteins likely "sequester WT protein in non-productive heterodimers comprising either HLH-2/HLH-8-Glu29† or HLH-8/HLH-8-Glu29†" <strong>[WEB — PMC5438873]</strong></p>
+</blockquote>
+<p><strong>The Coordinator motif — the highest-resolution account of what Glu117 actually does.</strong> Bhatt/Kim et al., <em>Cell</em> 2024 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/38262408/" target="_blank" rel="noopener noreferrer">PMID:38262408</a></strong>) showed that a composite DNA element called the <strong>Coordinator</strong> — an <strong>E-box plus a homeodomain TAAT site separated by a 6-bp spacer</strong> — "guides cooperative and selective binding between the bHLH family mesenchymal regulator TWIST1 and a collective of HD factors" <strong>[WEB]</strong>. Mechanistically:</p>
+<blockquote>
+<p>TWIST1 binds the E-box, drives chromatin opening, promotes homeodomain recruitment of ALX1, ALX4, MSX1 or PRRX1, and promotes enhancer acetylation at the coordinator motif <strong>[WEB]</strong></p>
+</blockquote>
+<p>Because Glu117 is precisely the residue that reads the E-box half of the Coordinator, a Glu117 substitution should <strong>collapse the entire cooperative assembly</strong>, not merely weaken one contact. This provides a direct, structure-anchored explanation for the frontonasal specificity of SWCOS, and PDB <code>8OSB</code> (TWIST1–TCF4–ALX4 on DNA) is the corresponding structure.</p>
+<p><strong>Direct downstream target — Alx1.</strong> A 2026 paper (already in the local reference cache) closes the loop from TWIST1 to the frontonasal-dysplasia gene program:</p>
+<blockquote>
+<p>"ECR1, whose homologous region in the human genome harbors a lead single nucleotide variation significantly associated with facial and cranial vault shape differences, exhibits high enrichment of Twist1 transcription factor occupancy in mouse embryonic frontonasal tissues and drove Twist1-dependent reporter transgene expression specifically in the developing periocular and frontonasal mesenchyme in transgenic mice."
+— Huang Y, Iyyanar PPR, Xu J, et al. <em>Dev Biol</em> 2026. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/41850652/" target="_blank" rel="noopener noreferrer">PMID:41850652</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<p>and, framing SWCOS explicitly:</p>
+<blockquote>
+<p>"Mutations in TWIST1 have been associated with Sweeney-Cox (OMIM 617746) and Saethre-Chotzen (OMIM 101400) syndromes, with Sweeney-Cox syndrome characterized by hypertelorism with severe deficiency in frontal bones and hypoplasia of the nose and facial bones while Saethre-Chotzen syndrome exhibits craniosynostosis with hypertelorism and maxillary hypoplasia"
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/41850652/" target="_blank" rel="noopener noreferrer">PMID:41850652</a></strong> <strong>[CACHED]</strong></p>
+<p>"mice with lineage-specific inactivation of Twist1 in migrating neural crest cells, exhibited dramatic loss of Alx1 mRNA expression in the developing frontonasal CNCCs"
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/41850652/" target="_blank" rel="noopener noreferrer">PMID:41850652</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<p><strong>This is the mechanistic bridge that makes SWCOS a <em>frontonasal dysplasia</em>:</strong> biallelic <em>ALX1</em> loss causes FND3 (OMIM 613456) with severe midfacial hypoplasia and extreme microphthalmia; TWIST1 sits directly upstream of <em>ALX1</em> through the ECR1 enhancer; so a dominant-negative TWIST1 phenocopies part of the ALX program. Curate this as an explicit causal edge.</p>
+<p><strong>Dimer-selection / phosphorylation axis (SCS-derived, mechanistically adjacent).</strong> Twist1–Hand2 dimer choice is modulated by PKA and PP2A phosphorylation of conserved helix-I residues, and multiple SCS-associated TWIST1 mutations alter this <strong>[WEB — PMC2568820, Firulli et al.]</strong>. Glu117 is in the basic region rather than the helices, so this is a <em>different</em> route to the same "dimer misallocation" endpoint — worth noting but do not conflate.</p>
+<h3>6.4 Cellular processes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Process</th>
+<th>GO suggestion</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neural crest cell migration</td>
+<td><code>GO:0001755</code></td>
+<td>Twist1 cKO CNCCs show ~50% fewer migratory cells and 68% shorter migration distance <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a>]</strong></td>
+</tr>
+<tr>
+<td>Epithelial-to-mesenchymal transition</td>
+<td><code>GO:0001837</code></td>
+<td>Twist1-null delaminated CNCCs retain E-cadherin and epithelial morphology <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a>]</strong></td>
+</tr>
+<tr>
+<td>Neural crest cell differentiation</td>
+<td><code>GO:0014033</code></td>
+<td>Loss of skeletogenic differentiation <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/19414008/" target="_blank" rel="noopener noreferrer">PMID:19414008</a>]</strong></td>
+</tr>
+<tr>
+<td>Cranial suture morphogenesis</td>
+<td><code>GO:0060363</code></td>
+<td>UniProt: "Regulates cranial suture patterning and fusion" <strong>[WEB]</strong></td>
+</tr>
+<tr>
+<td>Osteoblast differentiation</td>
+<td><code>GO:0001649</code></td>
+<td>TWIST1–RUNX2 antagonism via the Twist-box <strong>[WEB]</strong></td>
+</tr>
+<tr>
+<td>Regulation of transcription by RNA Pol II</td>
+<td><code>GO:0006357</code></td>
+<td>core TWIST1 function</td>
+</tr>
+<tr>
+<td>E-box binding</td>
+<td><code>GO:0070888</code></td>
+<td>the directly disrupted molecular function — <strong>this is the node Glu117 hits</strong></td>
+</tr>
+<tr>
+<td>Protein dimerization activity</td>
+<td><code>GO:0046983</code></td>
+<td>retained in mutant; the basis of the dominant-negative effect</td>
+</tr>
+<tr>
+<td>Neural tube closure</td>
+<td><code>GO:0001843</code></td>
+<td>Twist1-null embryos show complete NTD <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a>]</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The critical modelling insight: <strong><code>GO:0070888</code> E-box binding is <code>DECREASED</code>/<code>LOSS_OF_FUNCTION</code> while <code>GO:0046983</code> protein dimerization activity is <code>UNCHANGED</code>.</strong> That dissociation <em>is</em> the disease mechanism, and a well-built dismech entry should make it visible as two separate <code>molecular_functions</code> descriptors on the same or adjacent nodes.</p>
+<p>Direct quotes available for CNCC biology:</p>
+<blockquote>
+<p>"Twist1 suppresses Irf6 and other epithelial genes in CNCCs during the epithelial-to-mesenchymal transition (EMT) process and cell migration. Conversely, a loss of Twist1 leads to a sustained expression of epithelial and cell adhesion markers in migratory CNCCs."
+— Bertol JW, et al. <em>Development</em> 2022. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a></strong> <strong>[CACHED]</strong></p>
+<p>"TWIST1 has been shown to promote cell survival and proliferation of migratory CNCCs during craniofacial development"
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a></strong> <strong>[CACHED]</strong></p>
+<p>"Loss of Twist1 in neural crest cells and their derivatives impairs skeletogenic differentiation and leads to the loss of bones of the snout, upper face and skull vault."
+— Bildsoe H, et al. <em>Dev Biol</em> 2009. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/19414008/" target="_blank" rel="noopener noreferrer">PMID:19414008</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<h3>6.5 Systems not involved</h3>
+<ul>
+<li><strong>Metabolic changes:</strong> none. Not a metabolic disease; no enzyme deficiency, no biochemical marker.</li>
+<li><strong>Immune system involvement:</strong> none, despite TWIST1's known repression of TNF/IL1B in other contexts (UniProt) — no immunologic phenotype has been reported in any SWCOS patient. Note the 1/2 <strong>asplenia</strong>: this is a <em>structural</em> developmental defect (laterality/mesoderm-derived organ agenesis), and it does carry a real functional-asplenia infection risk (see §11/§13), but it is not evidence of a primary immune mechanism.</li>
+<li><strong>Tissue damage mechanisms:</strong> SWCOS is a <strong>dysmorphogenesis</strong>, not a tissue-injury disease. There is no oxidative stress, ischemia, fibrosis, or necrosis component. The only genuine "tissue damage" is <strong>secondary corneal exposure injury</strong> from the eyelid defect (documented: corneal scarring → phthisis bulbi).</li>
+<li><strong>Biochemical abnormalities:</strong> none. No diagnostic lab abnormality exists.</li>
+</ul>
+<h3>6.6 Molecular profiling</h3>
+<p><strong>No SWCOS-patient omics data exist</strong> — no transcriptomics, proteomics, metabolomics, lipidomics, or single-cell data from any of the three patients.</p>
+<p>Relevant <em>gene-level</em> datasets that could be re-used with clear labelling as model/normal-development data (not patient data), all GEO <strong>[WEB, via <a href="https://pubmed.ncbi.nlm.nih.gov/41850652/" target="_blank" rel="noopener noreferrer">PMID:41850652</a>]</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Accession</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GSE230316</code></td>
+<td>Twist1 ChIP-seq, E10.5 mouse embryonic facial tissue</td>
+</tr>
+<tr>
+<td><code>GSE89435</code> / <code>GSE89436</code></td>
+<td>H3K27ac ChIP-seq + ATAC-seq, E10.5 mouse frontonasal prominence</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>⚠️ <strong>Dataset-curation caution.</strong> Per the repo's dataset SOP, these are <em>not</em> Sweeney-Cox datasets. A gene-driven search for TWIST1 returns craniosynostosis, EMT, and cancer datasets — classic <code>GENE_ONLY</code> / Named Entity Confusion territory. If curated at all, they must be tagged as mouse developmental resources with explicit provenance <code>notes</code>, never as disease datasets. Run <code>just verify-datasets</code> on anything added.</p>
+</blockquote>
+<p><strong>Functional genomics / dosage.</strong> A 2025 Cell Genomics study examined "how concentrations of the dosage-sensitive TFs TWIST1 and SOX9 affect regulatory element chromatin accessibility in facial progenitor cells" (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/40020686/" target="_blank" rel="noopener noreferrer">PMID:40020686</a></strong>) <strong>[WEB]</strong> — directly relevant to the threshold model in §6.2 and the best available quantitative handle on TWIST1 dose-response.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ level</h3>
+<p><strong>Primary (2/2 or 3/3 involvement):</strong>
+- Craniofacial skeleton — frontal bones, <strong>bony orbits</strong> (deficient, producing pseudoproptosis), nasal bones/capsule, maxilla, palate
+- <strong>Eyelids</strong> — upper lid colobomas; ablepharon in the E117D patient
+- <strong>Nose</strong> — hypoplastic alae, short/low columella, broad tip
+- <strong>External ear</strong> — microtia, crumpled/cupped, low-set, overfolded helix
+- <strong>Palate / velopharynx</strong></p>
+<p><strong>Secondary and variable (1/2):</strong>
+- CNS — cerebellar hypoplasia; global developmental delay in 2/2
+- Cardiovascular — PDA, PFO
+- Spleen — <strong>asplenia</strong>
+- GI — anal atresia, GERD
+- GU — bilateral cryptorchidism
+- Limbs — hands (syndactyly, long fingers, short distal phalanges), feet (talipes equinovarus, 2-5 toe syndactyly)
+- Thorax — narrow chest, short clavicles
+- Airway — choanal atresia; tracheostomy dependence</p>
+<p><strong>Body systems:</strong> skeletal (craniofacial predominant), visual/ocular adnexal, auditory, nervous, cardiovascular, digestive, genitourinary, lymphoid/splenic, respiratory (upper airway).</p>
+<h3>Tissue and cell level</h3>
+<p><strong>The single defining cell type is the cranial neural crest cell and its ectomesenchymal derivatives.</strong> Bildsoe et al. showed the requirement is <em>not</em> uniform across derivatives:</p>
+<blockquote>
+<p>"Since Twist1 is expressed in the tissues of the maxillary eminence and the mandibular arch, this finding suggests that the requirement for Twist1 is not the same in all neural crest derivatives."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/19414008/" target="_blank" rel="noopener noreferrer">PMID:19414008</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<p>And a non-cell-autonomous component reaches mesoderm-derived bone:</p>
+<blockquote>
+<p>"The effect of the loss of Twist1 function is not restricted to neural crest-derived bones, since the predominantly mesoderm-derived parietal and interparietal bones are also affected, presumably as a consequence of lost interactions with neural crest-derived tissues."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/19414008/" target="_blank" rel="noopener noreferrer">PMID:19414008</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<p><strong>CL suggestions (verify every one with <code>just validate-terms</code> before binding):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>CL</th>
+<th>Term</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CL:0000333</code></td>
+<td>migratory cranial neural crest cell</td>
+<td><strong>primary affected cell type</strong></td>
+</tr>
+<tr>
+<td><code>CL:0000134</code></td>
+<td>mesenchymal stem cell</td>
+<td>ectomesenchyme</td>
+</tr>
+<tr>
+<td><code>CL:0000062</code></td>
+<td>osteoblast</td>
+<td>skeletogenic differentiation failure</td>
+</tr>
+<tr>
+<td><code>CL:0000138</code></td>
+<td>chondrocyte</td>
+<td>nasal/orbital cartilage</td>
+</tr>
+<tr>
+<td><code>CL:0000057</code></td>
+<td>fibroblast</td>
+<td>craniofacial mesenchyme</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Tissue types:</strong> neural crest–derived ectomesenchyme (connective/skeletal), membranous bone, cartilage, and — for the eyelid — surface ectoderm-derived structures whose development depends on the underlying mesenchyme.</p>
+<h3>Subcellular level</h3>
+<ul>
+<li><code>GO:0005634</code> <strong>nucleus</strong> — normal site of TWIST1 action; where the dominant-negative complexes form.</li>
+<li><code>GO:0090575</code> RNA polymerase II transcription regulator complex.</li>
+<li><strong>Unexpected non-nuclear pool:</strong> TWIST1 is also found in apical endocytic vesicles in the neuroepithelium and physically interacts with β- and δ-catenin:<blockquote>
+<p>"TWIST1 is expressed in endocytic vesicles at the apical surface and interacts with β/δ-catenins during neural tube closure"
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+</li>
+</ul>
+<p>Relevant GO: <code>GO:0030139</code> endocytic vesicle; <code>GO:0016342</code>/adherens-junction associations. Whether a Glu117 substitution affects this cytoplasmic pool is <strong>completely unknown</strong> — a good <code>KNOWLEDGE_GAP</code>.</p>
+<h3>Localization</h3>
+<p><strong>UBERON suggestions — treat ALL as leads requiring OAK verification</strong> (<code>uv run runoak -i sqlite:obo:uberon info "l^&lt;label&gt;"</code>):
+- face, head, nose, orbit / orbital region, eyelid, external ear, palate, mandible, maxilla, frontal bone, skull vault, coronal suture, frontonasal prominence, neural crest, spleen, anus, testis, limb.</p>
+<p><strong>Lateralization:</strong> predominantly <strong>bilateral and symmetric</strong> — bilateral upper eyelid colobomas, bilateral talipes, bilateral cryptorchidism, bilateral coronal synostosis (E117D patient), bilateral syndactyly. Asymmetry is <strong>not</strong> a feature (contrast Saethre–Chotzen, where facial asymmetry is characteristic — a useful differential discriminator).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Congenital</strong> — <code>HP:0003577</code>, 2/2. Malformations are complete at birth.</li>
+<li><strong>Embryologic critical window:</strong> cranial neural crest specification, delamination, migration, and frontonasal patterning — approximately <strong>weeks 3–8 of human gestation</strong> (mouse E8.5–E11.5, the window across which the Twist1 phenotypes are established).</li>
+<li><strong>Prenatal detectability:</strong> polyhydramnios in 1/2. Severe hypertelorism, orbital deficiency and nasal hypoplasia are in principle detectable on second-trimester ultrasound, but <strong>no prenatally diagnosed case has been published</strong>.</li>
+<li><strong>Onset pattern:</strong> not acute/subacute/chronic — it is a <strong>structural developmental anomaly</strong>, present ab initio.</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li><strong>Disease course: stable / non-progressive</strong> for the primary malformations. There is no degeneration, no relapsing-remitting pattern, no end-stage.</li>
+<li><strong>What does change over time is complication burden.</strong> Documented trajectory in Subject 2: eyelid coloboma → surgical repair → <strong>corneal scarring → phthisis of the right eye</strong> <strong>[WEB — PMC5438873, Arizona HOD]</strong>. This is treatment-modifiable secondary damage, not disease progression, and should be modelled as a downstream complication edge rather than a <code>progression:</code> phase.</li>
+<li><strong>In the E117D patient</strong>, craniosynostosis introduces the one genuinely time-critical element: untreated bicoronal synostosis risks raised intracranial pressure and requires surgical release in infancy.</li>
+<li><strong>Duration:</strong> lifelong.</li>
+<li><strong>Progression rate:</strong> not applicable.</li>
+</ul>
+<h3>Patterns</h3>
+<ul>
+<li><strong>Remission:</strong> none — the concept does not apply.</li>
+<li><strong>Critical periods for intervention:</strong></li>
+<li><strong>Neonatal (days):</strong> airway (tracheostomy for choanal atresia/airway compromise), imperforate anus (colostomy/anoplasty), <strong>corneal protection</strong> — arguably the most time-critical and most under-appreciated, since sight loss is preventable.</li>
+<li><strong>Infancy (0–12 mo):</strong> cranial vault surgery <em>if</em> synostosis present; hearing assessment and amplification (language window).</li>
+<li><strong>Early childhood:</strong> palate repair / VPI management for speech; syndactyly release; orchidopexy.</li>
+<li><strong>Childhood–adolescence:</strong> staged craniofacial and orbital reconstruction; ongoing developmental support.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Prevalence: not established.</strong> No Orphanet prevalence class; no registry; no population estimate anywhere in the literature.</li>
+<li><strong>Total published cases: 3</strong> (2 in Kim 2017; 1 in Takenouchi 2018).</li>
+<li><strong>Incidence:</strong> unknown.</li>
+</ul>
+<p><strong>Recommended dismech <code>Prevalence</code> record</strong> (per the structured-prevalence policy in CLAUDE.md — do <em>not</em> use the deprecated free-text <code>percentage</code>):</p>
+<pre><code class="language-yaml">prevalence:
+- population: Worldwide
+  measure_type: CASES_IN_LITERATURE
+  prevalence_class: ULTRA_RARE
+  notes: &gt;-
+    Three published individuals as of August 2026 (two in the delineating
+    report, one subsequent case). No prevalence or incidence estimate has
+    been published; no Orphanet epidemiology record exists.
+</code></pre>
+<p>Do <strong>not</strong> populate <code>rate_per_100000</code> — there is no numeric estimate to normalize, and inventing one would be fabrication.</p>
+<h3>Genetic parameters</h3>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Autosomal dominant</strong> (<code>HP:0000006</code>), all cases <em>de novo</em>. Confirmed across sources including the Asian craniosynostosis series:<blockquote>
+<p>"The pattern of inheritance is autosomal dominant in Saethre-Chotzen syndrome, Robinow-Sorauf syndrome, and Sweeney-Cox syndrome."
+— Dhiman S, et al. <em>J Pediatr Genet</em> 2024. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/39502847/" target="_blank" rel="noopener noreferrer">PMID:39502847</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+</li>
+<li><strong>Penetrance:</strong> presumed <strong>complete</strong> — 3/3 carriers affected, all severely. No unaffected carrier has been reported. (With n=3 and no transmitting parents, this is an assumption, not a measurement.)</li>
+<li><strong>Expressivity:</strong> <strong>variable</strong>, and — importantly — the variability tracks the substituting amino acid rather than being stochastic. Val vs Gly vs Asp gives three distinguishable severity/feature profiles.</li>
+<li><strong>Recurrence risk:</strong> for parents of a <em>de novo</em> proband, low but not zero (gonadal mosaicism cannot be excluded); for an affected individual, 50%. <strong>No SWCOS patient has reproduced</strong>, so vertical transmission has never been observed.</li>
+<li><strong>Genetic anticipation:</strong> not applicable (not a repeat expansion).</li>
+<li><strong>Germline mosaicism:</strong> not reported; theoretically possible.</li>
+<li><strong>Founder effects:</strong> none — three unrelated individuals, three different substitutions.</li>
+<li><strong>Consanguinity:</strong> irrelevant (dominant, <em>de novo</em>).</li>
+<li><strong>Carrier frequency:</strong> not applicable.</li>
+</ul>
+<h3>Population demographics</h3>
+<ul>
+<li><strong>Affected populations:</strong> no ethnic predilection. Reported patients came from UK-based clinical genetics services (Kim 2017, contributed by E. Sweeney and H. Cox) and Japan (Takenouchi 2018) — consistent with ascertainment through specialist craniofacial centres rather than any population enrichment.</li>
+<li><strong>Geographic distribution:</strong> no clustering; sporadic worldwide.</li>
+<li><strong>Variant geography:</strong> none — each allele reported once.</li>
+<li><strong>Sex ratio:</strong> 2 male : 1 female. <strong>Not interpretable</strong>; no sex bias is expected for an autosomal dominant <em>de novo</em> condition. Do not curate a sex ratio.</li>
+<li><strong>Age distribution:</strong> all identified in infancy/childhood. No adult SWCOS patient has been described in the literature, so nothing is known about the adult phenotype.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>The diagnostic pathway in one sentence</h3>
+<p><strong>Recognition of the characteristic facial gestalt → molecular confirmation of a TWIST1 codon-117 missense variant.</strong> There is no biochemical or imaging test that makes the diagnosis.</p>
+<h3>Clinical tests</h3>
+<ul>
+<li><strong>Laboratory tests:</strong> <strong>none diagnostic.</strong> No enzyme assay, metabolite, or blood/urine marker. No LOINC-codable disease-specific analyte exists.</li>
+<li><strong>Biomarkers:</strong> none. The only "biomarker" is the genotype.</li>
+<li><strong>Imaging:</strong></li>
+<li><strong>Craniofacial CT with 3D reconstruction</strong> — the key structural study; defines orbital bone deficiency, suture status, and midface hypoplasia. Takenouchi et al. used spiral CT (MeSH keyword "Tomography, Spiral Computed" on the PubMed record, <strong>[CACHED]</strong>).</li>
+<li><strong>Brain MRI</strong> — for cerebellar hypoplasia (1/2) and developmental-delay workup.</li>
+<li><strong>Echocardiography</strong> — PDA/PFO.</li>
+<li><strong>Abdominal ultrasound</strong> — <strong>essential</strong>, to detect asplenia, which is otherwise silent and carries real infection risk.</li>
+<li><strong>Ophthalmic assessment including corneal examination</strong> — for exposure keratopathy.</li>
+<li><strong>Functional tests:</strong> audiologic assessment (conductive loss); speech/VPI evaluation (nasendoscopy, videofluoroscopy).</li>
+<li><strong>Electrophysiology:</strong> electrodiagnostic testing was <strong>normal</strong> in Subject 1 despite small eyes and no vision concerns <strong>[WEB — Arizona HOD]</strong>. ECG as part of cardiac workup.</li>
+<li><strong>Biopsy / histopathology:</strong> <strong>no role.</strong> No characteristic histopathology has been described. Do not curate a <code>histopathology:</code> block.</li>
+</ul>
+<h3>Genetic testing — the diagnostic modality</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Utility for SWCOS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Trio whole-exome sequencing (WES)</strong></td>
+<td><strong>First-line and highest-yield.</strong> The de novo status, the non-classical phenotype, and the broad frontonasal-dysplasia differential all favour unbiased exome. This is how the E117D case was identified.</td>
+</tr>
+<tr>
+<td>Whole-genome sequencing (WGS)</td>
+<td>Reasonable alternative; adds regulatory/structural variant detection (relevant given TWIST1 regulatory-region duplications cause other phenotypes)</td>
+</tr>
+<tr>
+<td><strong>Craniosynostosis / craniofacial gene panels</strong></td>
+<td>Will include TWIST1 (present on ≥85% of GTR craniosynostosis panels — the criterion by which ClinGen selected it for curation <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/42059179/" target="_blank" rel="noopener noreferrer">PMID:42059179</a>]</strong>). Adequate if the clinician already suspects a TWIST1 disorder, but a panel chosen for <em>craniosynostosis</em> may not be reached for a <em>frontonasal dysplasia</em> presentation.</td>
+</tr>
+<tr>
+<td><strong>Single-gene TWIST1 sequencing</strong></td>
+<td>Appropriate only when the gestalt is recognized. TWIST1's coding region is small (202 aa, principally one coding exon) so this is cheap and fast.</td>
+</tr>
+<tr>
+<td>Chromosomal microarray (CMA)</td>
+<td><strong>Will not detect SWCOS.</strong> Useful only to exclude 7p21 deletions (→ SCS) and other CNV syndromes in the differential. Used in the Dhiman 2024 series alongside WES and Sanger <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/39502847/" target="_blank" rel="noopener noreferrer">PMID:39502847</a>]</strong>.</td>
+</tr>
+<tr>
+<td>Karyotype / FISH</td>
+<td>No role beyond excluding gross rearrangements.</td>
+</tr>
+<tr>
+<td>mtDNA testing</td>
+<td>No role.</td>
+</tr>
+<tr>
+<td>Repeat-expansion testing</td>
+<td>No role.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Critical interpretive point:</strong> because SWCOS and SCS are caused by variants in the <em>same gene, at the same codon</em>, <strong>the report must specify the variant, not just the gene.</strong> A laboratory report reading "pathogenic TWIST1 variant → Saethre-Chotzen syndrome" is a real misdiagnosis risk — and ClinVar's own condition assignment for p.Glu117Gly demonstrates it happening in practice (§4).</p>
+<h3>Omics-based diagnostics</h3>
+<p><strong>None applicable.</strong> No RNA-seq, proteomic, metabolomic, epigenomic (methylation episignature), or liquid-biopsy test exists or is under development for SWCOS. A DNA-methylation episignature has not been sought — a plausible but purely speculative future avenue given n=3.</p>
+<h3>Clinical criteria</h3>
+<p><strong>No formal diagnostic criteria, consensus statement, or society guideline exists.</strong> Diagnosis is: characteristic facial gestalt + confirmed TWIST1 codon-117 missense.</p>
+<p>Proposed working gestalt (synthesized from the 3 published patients — explicitly <em>not</em> a validated criterion set):
+1. Marked hypertelorism, <strong>and</strong>
+2. Upper eyelid coloboma or ablepharon with deficient bony orbits/pseudoproptosis, <strong>and</strong>
+3. Nasal hypoplasia (hypoplastic alae, short columella, broad tip), <strong>and</strong>
+4. <em>De novo</em> heterozygous TWIST1 p.Glu117 missense substitution.</p>
+<h3>Differential diagnosis</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Gene</th>
+<th>How to distinguish</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Saethre–Chotzen syndrome</strong> (OMIM 101400)</td>
+<td>TWIST1 (haploinsufficiency)</td>
+<td>Coronal synostosis dominant, <strong>facial asymmetry</strong>, ptosis, low frontal hairline, broad hallux; <strong>lacks</strong> eyelid coloboma and severe orbital bone deficiency. Same gene, different mechanism. Note the E117D patient blurs this boundary.</td>
+</tr>
+<tr>
+<td><strong>Barber–Say syndrome</strong></td>
+<td>TWIST2 p.Glu75Gln/Ala</td>
+<td>Ablepharon, macrostomia, hypertelorism, <strong>hypertrichosis, redundant/atrophic skin</strong>; <strong>no craniosynostosis</strong></td>
+</tr>
+<tr>
+<td><strong>Ablepharon–macrostomia syndrome</strong></td>
+<td>TWIST2 p.Glu75Lys</td>
+<td>Most severe ablepharon + macrostomia; <strong>no craniosynostosis</strong></td>
+</tr>
+<tr>
+<td><strong>Robinow–Sorauf syndrome</strong></td>
+<td>TWIST1</td>
+<td>Craniosynostosis + <strong>bifid hallux</strong></td>
+</tr>
+<tr>
+<td><strong>Craniofrontonasal syndrome</strong></td>
+<td>EFNB1 (X-linked)</td>
+<td>Hypertelorism, bifid nasal tip, coronal synostosis, <strong>longitudinally grooved nails</strong>, sternal anomalies; paradoxical female-severe X-linked inheritance</td>
+</tr>
+<tr>
+<td><strong>Frontonasal dysplasia 1/2/3</strong></td>
+<td>ALX3 / ALX4 / ALX1</td>
+<td><strong>Autosomal recessive</strong>; FND3 has extreme microphthalmia and bilateral facial clefting</td>
+</tr>
+<tr>
+<td><strong>Acromelic frontonasal dysostosis</strong></td>
+<td>ZSWIM6</td>
+<td>FND + distinctive limb (tibial/preaxial) anomalies</td>
+</tr>
+<tr>
+<td><strong>Teebi hypertelorism syndrome</strong></td>
+<td>SPECC1L</td>
+<td>Hypertelorism, prominent forehead; milder</td>
+</tr>
+<tr>
+<td><strong>Treacher Collins / mandibulofacial dysostosis</strong></td>
+<td>TCOF1, POLR1C/D</td>
+<td>Downslanting palpebral fissures, <strong>lower</strong> lid coloboma (vs upper in SWCOS), malar and mandibular hypoplasia</td>
+</tr>
+<tr>
+<td><strong>RNA Pol I–related craniofacial syndromes</strong></td>
+<td>POLR1A/B/C/D</td>
+<td>A 2025 report describes a patient with "features overlapping with Sweeney-Cox, Saethre-Cox, Robinow-Sorauf, and Treacher-Collins" (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/41010008/" target="_blank" rel="noopener noreferrer">PMID:41010008</a></strong>) <strong>[WEB]</strong> — direct evidence that SWCOS enters real-world differential lists</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The framing from Takenouchi is the cleanest single statement of the differential:</p>
+<blockquote>
+<p>"Sweeney-Cox syndrome, Barber-Say syndrome, and ablepharon-macrostomia syndrome share the facial features of ablepharon, hypertelorism, underdevelopment of the eyelids, and cheek pads adjacent to the corners of the mouth."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/30450715/" target="_blank" rel="noopener noreferrer">PMID:30450715</a></strong> <strong>[CACHED]</strong></p>
+<p>"Our review showed that Sweeney-Cox syndrome appears to share many characteristics with Barber-Say syndrome and ablepharon-macrostomia syndrome except for craniosynostosis, which is a cardinal feature of Saethre-Chotzen syndrome."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/30450715/" target="_blank" rel="noopener noreferrer">PMID:30450715</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<h3>Screening</h3>
+<ul>
+<li><strong>Newborn screening:</strong> not applicable and not appropriate (no treatable metabolic component).</li>
+<li><strong>Carrier screening:</strong> not applicable (<em>de novo</em> dominant).</li>
+<li><strong>Cascade screening:</strong> not applicable (no familial cases).</li>
+<li><strong>Prenatal testing:</strong> available on request for a couple with a previously affected child — targeted testing for the known familial variant by amniocentesis/CVS, or PGT-M. Recurrence risk is low (gonadal mosaicism only), so this is a counselling decision rather than a recommendation.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>All prognostic statements below are extrapolations from three patients. There is no survival data, no natural-history study, and no cohort. Curate accordingly.</strong></p>
+<h3>Survival and mortality</h3>
+<ul>
+<li><strong>Survival rate (5-/10-year/overall):</strong> <strong>unknown — no data.</strong> All three published patients were alive at report.</li>
+<li><strong>Life expectancy:</strong> <strong>not established.</strong> Not obviously reduced by the malformation complex itself in the absence of lethal cardiac or CNS anomalies, but the two known severe-end features that plausibly affect it are (a) airway compromise requiring tracheostomy and (b) <strong>asplenia</strong>, which confers lifelong overwhelming-post-splenectomy-infection–type risk if unrecognized.</li>
+<li><strong>Mortality rate / disease-specific mortality:</strong> no data.</li>
+<li><strong>Note on the allelic series:</strong> Takenouchi raises the possibility that some codon-117 substitutions may be <strong>lethal</strong> and therefore unascertained:<blockquote>
+<p>"This suggests that any amino acid substitutions at Glu117 would likely lead to the Sweeney-Cox syndrome phenotype or lethality."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/30450715/" target="_blank" rel="noopener noreferrer">PMID:30450715</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+</li>
+</ul>
+<p>This is a strong candidate for an ascertainment-bias <code>discussions</code> entry: the three living patients may represent the <em>survivable</em> tail of the allelic series.</p>
+<h3>Morbidity and function</h3>
+<ul>
+<li><strong>Developmental outcome:</strong> global developmental delay in 2/2; <strong>moderate learning disability</strong> documented in Subject 1 <strong>[WEB — PMC5438873]</strong>. Whether delay is intrinsic (cerebellar hypoplasia, CNS involvement) or partly secondary (hearing loss, prolonged hospitalization, tracheostomy) is unresolved — a genuine knowledge gap.</li>
+<li><strong>Sensory outcome:</strong> conductive hearing loss (1/2); <strong>vision loss from corneal exposure is documented and is the most clearly preventable morbidity</strong> (phthisis of the right eye in Subject 2 despite lid repair).</li>
+<li><strong>Communication:</strong> delayed speech and language; velopharyngeal insufficiency and cleft palate compound this.</li>
+<li><strong>Disability outcomes:</strong> surgical burden across craniofacial, ophthalmic, ENT, orthopaedic, urologic and colorectal domains; long-term multidisciplinary dependence.</li>
+<li><strong>Quality-of-life measures:</strong> <strong>never assessed with any instrument.</strong></li>
+</ul>
+<h3>Complications</h3>
+<p>Airway obstruction; exposure keratopathy → corneal scarring → phthisis bulbi; recurrent otitis media / conductive hearing loss; feeding difficulty and GERD; speech impairment from VPI; <strong>infection risk from asplenia</strong>; raised intracranial pressure if craniosynostosis is untreated; anaesthetic risk from difficult airway across repeated surgeries.</p>
+<h3>Recovery potential</h3>
+<p>The structural anomalies are not recoverable, only reconstructable. Functional outcomes for <strong>airway, feeding, hearing and speech are substantially improvable</strong> with timely intervention; <strong>vision is preservable only if corneal protection is instituted early</strong>.</p>
+<h3>Prognostic factors</h3>
+<p>Entirely inferential, but the strongest candidate is <strong>the identity of the substituting amino acid at codon 117</strong> — the same variable that drives the phenotypic continuum. On current evidence: Asp → milder antimorph, adds synostosis; Val → intermediate; Gly → most severe (tracheostomy, cardiac defects, asplenia, eye loss). <strong>n=1 per allele. This is a hypothesis, not a genotype–phenotype rule</strong>, and should be curated with <code>status: EMERGING</code> if modelled as a <code>mechanistic_hypotheses</code> group.</p>
+<p>Other plausible prognostic factors: presence of asplenia, presence of cardiac defect, degree of airway compromise, timeliness of corneal protection.</p>
+<h3>Prognostic biomarkers</h3>
+<p><strong>None.</strong></p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>The honest summary</h3>
+<p><strong>There is no disease-modifying therapy, no drug, no clinical trial, and no published management guideline for Sweeney-Cox syndrome.</strong> Management is entirely symptomatic, surgical, and supportive, delivered by a multidisciplinary craniofacial team. The Arizona Hereditary Ocular Diseases entry states it plainly: no specific treatment exists for the underlying condition; individual malformations receive targeted care <strong>[WEB]</strong>.</p>
+<h3>Pharmacotherapy</h3>
+<p><strong>None.</strong> No drug targets the mechanism. No pharmacogenomic considerations. Leave <code>therapeutic_agent</code> absent throughout.</p>
+<h3>Surgical and interventional (the mainstay)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Indication</th>
+<th>NCIT suggestion (<strong>all require <code>runoak</code> verification</strong>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Eyelid coloboma repair / oculoplastic reconstruction</td>
+<td>Corneal protection — <strong>highest priority</strong></td>
+<td><code>NCIT:C15329</code> Surgical Procedure</td>
+</tr>
+<tr>
+<td>Corneal protection (lubricants, tarsorrhaphy, moisture chambers)</td>
+<td>Exposure keratopathy</td>
+<td><code>NCIT:C15747</code> Supportive Care</td>
+</tr>
+<tr>
+<td>Tracheostomy</td>
+<td>Airway obstruction (performed in Subject 2 from birth)</td>
+<td><code>NCIT:C15329</code> Surgical Procedure</td>
+</tr>
+<tr>
+<td>Choanal atresia repair</td>
+<td>Nasal airway</td>
+<td><code>NCIT:C15329</code></td>
+</tr>
+<tr>
+<td>Cranial vault remodelling / fronto-orbital advancement</td>
+<td>Craniosynostosis (E117D patient)</td>
+<td><code>NCIT:C15329</code></td>
+</tr>
+<tr>
+<td>Orbital / midface reconstruction, hypertelorism correction (facial bipartition, box osteotomy)</td>
+<td>Orbital bone deficiency, hypertelorism</td>
+<td><code>NCIT:C15329</code></td>
+</tr>
+<tr>
+<td>Palatoplasty; pharyngoplasty for VPI</td>
+<td>Cleft palate, velopharyngeal insufficiency</td>
+<td><code>NCIT:C15329</code></td>
+</tr>
+<tr>
+<td>Anoplasty / colostomy</td>
+<td>Imperforate anus</td>
+<td><code>NCIT:C15329</code></td>
+</tr>
+<tr>
+<td>Orchidopexy</td>
+<td>Bilateral cryptorchidism</td>
+<td><code>NCIT:C15329</code></td>
+</tr>
+<tr>
+<td>Syndactyly release</td>
+<td>2-4 / 2-5 cutaneous syndactyly</td>
+<td><code>NCIT:C16186</code> Orthopedic Surgical Procedure</td>
+</tr>
+<tr>
+<td>Clubfoot management (Ponseti casting ± surgery)</td>
+<td>Bilateral talipes equinovarus</td>
+<td><code>NCIT:C16186</code></td>
+</tr>
+<tr>
+<td>Auricular reconstruction</td>
+<td>Microtia</td>
+<td><code>NCIT:C15329</code></td>
+</tr>
+<tr>
+<td>Gastrostomy</td>
+<td>Feeding failure</td>
+<td><code>NCIT:C15329</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><code>therapeutic_modality: SURGERY</code> for all of the above (mechanically inferable from the NCIT surgical-action terms per the CLAUDE.md backfill table); <code>DEVICE</code> for hearing aids and tracheostomy hardware, which cannot be inferred mechanically and needs a per-entry decision.</p>
+<h3>Supportive and rehabilitative</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>NCIT suggestion</th>
+<th>Modality</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hearing amplification / audiologic management</td>
+<td>(no reliable NCIT action term for device usage)</td>
+<td><code>DEVICE</code></td>
+</tr>
+<tr>
+<td>Speech and language therapy</td>
+<td><code>NCIT:C159273</code> Speech Therapy</td>
+<td><code>BEHAVIORAL</code></td>
+</tr>
+<tr>
+<td>Occupational therapy</td>
+<td><code>NCIT:C121351</code> Occupational Therapy</td>
+<td><code>BEHAVIORAL</code></td>
+</tr>
+<tr>
+<td>Physical therapy</td>
+<td><code>NCIT:C15302</code> Physical Therapy</td>
+<td><code>BEHAVIORAL</code></td>
+</tr>
+<tr>
+<td>Nutritional support / feeding management</td>
+<td><code>NCIT:C15433</code> Nutritional Support</td>
+<td>⚠️ <strong>do not auto-tag <code>BEHAVIORAL</code></strong> — see the CLAUDE.md caution</td>
+</tr>
+<tr>
+<td>Developmental / educational support</td>
+<td><code>NCIT:C15747</code> Supportive Care</td>
+<td><code>BEHAVIORAL</code></td>
+</tr>
+<tr>
+<td>Genetic counselling</td>
+<td><code>NCIT:C15240</code> Genetic Counseling</td>
+<td><code>BEHAVIORAL</code></td>
+</tr>
+<tr>
+<td><strong>Antibiotic prophylaxis + immunization for functional asplenia</strong></td>
+<td><code>NCIT:C15986</code> Pharmacotherapy</td>
+<td><code>SMALL_MOLECULE</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The asplenia management item is worth curating explicitly: it is standard of care for asplenia generally (penicillin prophylaxis + pneumococcal/meningococcal/Hib vaccination), it is genuinely life-saving, and it is easy to miss in a patient whose clinical attention is dominated by the face.</p>
+<h3>Advanced therapeutics</h3>
+<ul>
+<li><strong>Gene therapy / gene editing:</strong> none for SWCOS. Conceptually, a dominant-negative allele is an <strong>allele-specific silencing</strong> target (ASO or siRNA knockdown of the mutant transcript, or base editing of the c.350/c.351 substitution) — but the disease is established embryonically, so postnatal correction cannot reverse existing dysmorphogenesis. This is a fundamental, not merely practical, barrier and should be stated as such rather than presented as a pipeline.</li>
+<li><strong>A relevant adjacent result:</strong> RNA nanoparticle gene therapy has been used successfully in <em>Twist1</em> mutant <strong>mice</strong> — PEGylated-peptide nanoparticles delivering plasmid DNA expressing <strong>miR-200a</strong>, injected subscalp at P7–P10, inhibited premature suture fusion, increased Gli1⁺/Six2⁺ suture stem cells, and sustained the effect to 56 days (<em>Science Advances</em> 2025) <strong>[WEB — PMC12372882]</strong>.<blockquote>
+<p>⚠️ <strong>This targets craniosynostosis in a Twist1-haploinsufficient (SCS) model, not Sweeney-Cox.</strong> It is postnatal suture biology, not embryonic frontonasal patterning, and it would not address the SWCOS phenotype. Cite it only with that scope explicitly stated, and grade it <code>evidence_source: MODEL_ORGANISM</code>.</p>
+</blockquote>
+</li>
+<li><strong>Cell therapy, RNA therapies, targeted therapy, immunotherapy:</strong> none applicable.</li>
+</ul>
+<h3>Experimental treatments / clinical trials</h3>
+<p><strong>Zero.</strong> A search of ClinicalTrials.gov and ICTRP returns no interventional or observational study for Sweeney-Cox syndrome. The <code>clinical_trials:</code> block should be empty.</p>
+<h3>Treatment outcomes, algorithms, personalized medicine</h3>
+<ul>
+<li><strong>Response rates:</strong> no data.</li>
+<li><strong>Adverse events:</strong> those of the individual procedures; the cumulative anaesthetic risk of a difficult airway across many operations is the notable syndrome-specific concern.</li>
+<li><strong>Treatment algorithms:</strong> none published. Care follows general craniofacial-team principles.</li>
+<li><strong>Combination therapy / genotype-guided treatment:</strong> not applicable — genotype currently informs prognosis and counselling only, not therapy choice.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<p><strong>Not possible.</strong> <em>De novo</em> dominant variants are not preventable by any known intervention. There is no modifiable risk factor, no periconceptional supplement, and no exposure to avoid.</p>
+<h3>Secondary prevention (early detection)</h3>
+<p>This is where prevention is actually meaningful in SWCOS — not preventing the disease, but preventing its avoidable sequelae:</p>
+<ol>
+<li><strong>Corneal protection from day one.</strong> The documented loss of an eye to exposure keratopathy in Subject 2 is the strongest argument in the literature for aggressive, immediate ocular surface management in any infant with eyelid coloboma/ablepharon.</li>
+<li><strong>Abdominal ultrasound to detect asplenia</strong>, followed by prophylaxis and immunization.</li>
+<li><strong>Newborn hearing screening</strong> and ongoing audiologic surveillance.</li>
+<li><strong>Cranial imaging for suture status</strong> — the E117D case establishes that craniosynostosis can accompany SWCOS, so it should be actively excluded rather than assumed absent, with ICP surveillance if present.</li>
+<li><strong>Airway assessment</strong> for choanal atresia at birth.</li>
+<li><strong>Developmental surveillance</strong> from infancy.</li>
+</ol>
+<h3>Tertiary prevention</h3>
+<p>Staged reconstructive surgery to prevent functional deterioration; ICP monitoring; speech therapy to prevent entrenched articulation patterns; antibiotic prophylaxis for asplenia; dental and orthodontic follow-up given midface hypoplasia.</p>
+<h3>Immunization</h3>
+<p>Routine childhood schedule, <strong>plus asplenia-indicated vaccines</strong> (pneumococcal, meningococcal, Hib) where asplenia is present. There is no SWCOS-specific vaccine.</p>
+<h3>Genetic screening and counselling</h3>
+<ul>
+<li><strong>Population/carrier screening:</strong> not applicable.</li>
+<li><strong>Prenatal testing / PGT-M:</strong> available for the known familial variant after an affected child; recurrence risk low (gonadal mosaicism only).</li>
+<li><strong>Genetic counselling</strong> (<code>NCIT:C15240</code>): the essential preventive intervention. Must cover: <em>de novo</em> origin, ~50% transmission risk from an affected individual, low sibling recurrence risk, the SWCOS-vs-SCS distinction (so the family is not given SCS prognostic information), and the limits of what is known from three patients.</li>
+</ul>
+<h3>Behavioural, public-health, environmental interventions, prophylaxis</h3>
+<p>Not applicable, except the asplenia antibiotic prophylaxis noted above.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Species affected (natural disease):</strong> <strong>none known.</strong> No naturally occurring Sweeney-Cox syndrome has been reported in any non-human species. Nothing in OMIA corresponds to it.</li>
+<li><strong>Breed (VBO):</strong> not applicable.</li>
+<li><strong>Orthologous genes:</strong></li>
+</ul>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Species</th>
+<th>NCBI Taxon</th>
+<th>Gene</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human</td>
+<td><code>NCBITaxon:9606</code></td>
+<td>TWIST1 (Gene 7291)</td>
+<td>Glu117</td>
+</tr>
+<tr>
+<td>Mouse</td>
+<td><code>NCBITaxon:10090</code></td>
+<td><em>Twist1</em></td>
+<td>equivalent glutamate; extensively studied</td>
+</tr>
+<tr>
+<td>Zebrafish</td>
+<td><code>NCBITaxon:7955</code></td>
+<td><em>twist1a</em>, <em>twist1b</em></td>
+<td>ZFIN lists <strong>no</strong> models for this disease</td>
+</tr>
+<tr>
+<td><em>C. elegans</em></td>
+<td><code>NCBITaxon:6239</code></td>
+<td><strong><em>hlh-8</em></strong> — the <strong>single</strong> Twist homolog</td>
+<td>equivalent residue <strong>Glu29</strong> — the basis of the disease model</td>
+</tr>
+<tr>
+<td><em>Drosophila</em></td>
+<td><code>NCBITaxon:7227</code></td>
+<td><em>twist</em></td>
+<td>founding member; mesoderm specification</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Veterinary relevance:</strong> none. TWIST1-adjacent note of comparative interest: a severe craniofacial phenotype in <strong>Burmese cats</strong> is caused by homozygous disruption of <em>Alx1</em> — the gene TWIST1 directly regulates through the ECR1 enhancer <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/41850652/" target="_blank" rel="noopener noreferrer">PMID:41850652</a>, citing Lyons et al. 2016]</strong>. This is a natural animal model of the <em>downstream</em> node, not of SWCOS itself, and should not be curated as a SWCOS animal model.</li>
+<li><strong>Comparative pathology:</strong> the mouse <em>Twist1</em> neural-crest conditional knockout reproduces the <em>direction</em> of the human defect — loss of snout, upper face and skull vault bones — but as a recessive tissue-specific null, not as a dominant-negative heterozygote.</li>
+<li><strong>Evolutionary conservation:</strong> exceptional. The glutamate is conserved from <em>C. elegans</em> HLH-8 (Glu29) through <em>Drosophila</em> Twist to human TWIST1 (Glu117) and TWIST2 (Glu75). This conservation is what licensed the worm allelic series and is itself the strongest <em>a priori</em> evidence for pathogenicity.</li>
+<li><strong>Zoonotic potential / cross-species transmission:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 <em>Caenorhabditis elegans</em> — the definitive SWCOS model</h3>
+<p><strong>This is the only model organism in which the actual SWCOS disease alleles have been engineered and studied</strong>, and it is the source of the dominant-negative conclusion.</p>
+<ul>
+<li><strong>Model type:</strong> invertebrate; CRISPR-engineered knock-in allelic series at the endogenous <em>hlh-8</em> locus.</li>
+<li><strong>Rationale:</strong> <em>C. elegans</em> has a <strong>single</strong> Twist homolog (<em>hlh-8</em>), eliminating the paralogue redundancy that confounds vertebrate models, and permitting single-cell-resolution readouts in the developing mesoderm.</li>
+<li><strong>Alleles engineered:</strong> all five human disease substitutions at the equivalent <strong>Glu29</strong> residue — Glu29Val and Glu29Gly (SWCOS), Glu29Ala and Glu29Gln (Barber–Say), Glu29Lys (AMS). A Glu29Asp allele corresponding to the Takenouchi patient is also described in this line of work <strong>[UNVERIFIED — confirm which paper generated the Asp allele before citing].</strong></li>
+<li><strong>Readouts:</strong> target-gene expression in vulval and enteric muscle; constipation/defecation defect; egg-laying/embryo-retention phenotype.</li>
+<li><strong>Result — graded severity:</strong><blockquote>
+<p>"This allelic series revealed that different substitutions exhibit graded severity, in terms of both gene expression and cellular phenotype, which we incorporate into a model explaining the various human disease phenotypes."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/28369379/" target="_blank" rel="noopener noreferrer">PMID:28369379</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+</li>
+</ul>
+<p>Reported ordering, most to least severe: <strong>Glu29Lys (AMS) &gt; Glu29Val (and Glu29Asp) &gt; Glu29Gly ≈ Glu29Ala ≈ Glu29Gln</strong>, with the weaker alleles retaining residual target-gene expression (74–100% in intestinal muscles) <strong>[WEB — PMC5438873]</strong>.
+- <strong>Dominant-negative evidence:</strong> <em>hlh-8</em> null alleles behave <strong>recessively</strong>, whereas <strong>all</strong> Glu29 heterozygotes showed semi-dominant embryo retention and reduced target-gene expression in vulval muscle — i.e. the mutant proteins interfere with wild-type HLH-8 <strong>[WEB — PMC5438873]</strong>. This heterozygote-vs-null contrast is the crux of the argument and is exactly what a <code>RECAPITULATES</code> link with a mechanism-level <code>target</code> should point at.
+- <strong>Tissue-specific sensitivity:</strong> vulval muscles (heterodimer-dependent) were more sensitive than enteric muscles (where HLH-8 homodimers matter) <strong>[WEB]</strong> — an elegant internal control showing the defect is dimer-context-dependent.
+- <strong>Phenotype recapitulation:</strong> <strong>excellent for mechanism, nil for morphology.</strong> The worm reproduces the <em>molecular logic</em> (allele-specific graded antimorphism, heterozygous interference) but has no craniofacial structures, no neural crest, and no vertebrate skeleton. This is the textbook case for <code>PARTIALLY_RECAPITULATES</code> with an explicit <code>limitations</code> string.
+- <strong>Suggested dismech link:</strong>
+  <code>yaml
+  animal_models:
+  - name: C. elegans hlh-8 Glu29 disease-allele series
+    species: Caenorhabditis elegans
+    genotype: hlh-8(Glu29Val), hlh-8(Glu29Gly) knock-in heterozygotes and homozygotes
+    publication: PMID:28369379
+    modeled_mechanisms:
+    - target: &lt;the dominant-negative dimer-sequestration node&gt;
+      relationship: PARTIALLY_RECAPITULATES
+      fidelity: MODERATE
+      limitations: &gt;-
+C. elegans has no neural crest, no craniofacial skeleton, and no
+vertebrate suture biology; the model recapitulates the allele-specific
+antimorphic logic and heterozygous interference, not the human
+frontonasal phenotype. Readouts are mesodermal muscle lineages.</code>
+- <strong>Database:</strong> WormBase.</p>
+<h3>15.2 Mouse — the gene model, not the disease model</h3>
+<p><strong>No mouse carrying a Twist1 Glu117-equivalent knock-in has been reported.</strong> This is the single largest experimental gap for SWCOS.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Phenotype</th>
+<th>Relevance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><em>Twist1</em><sup>−/−</sup> null</strong></td>
+<td>Embryonic lethal at mid-gestation; complete neural tube closure defect at E11.5 <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a>]</strong></td>
+<td>Establishes requirement; not a disease model</td>
+</tr>
+<tr>
+<td><strong><em>Twist1</em><sup>+/−</sup> heterozygote</strong></td>
+<td><strong>100% craniosynostosis</strong> (though not complete coronal fusion); acrocephalic, brachycephalic, wide skull; shortened cranial base <strong>[WEB]</strong></td>
+<td>Established <strong>Saethre–Chotzen</strong> model — <strong>NOT</strong> a SWCOS model. Do not curate it as one.</td>
+</tr>
+<tr>
+<td><strong><em>Twist1</em><sup>fl/fl</sup>; Wnt1-Cre / Wnt1-Cre2</strong> (NCC-conditional)</td>
+<td>Loss of snout, upper face and skull vault bones; no recognizable maxilla; malformed mandible; exencephaly; ~50% fewer migratory CNCCs, 68% shorter migration <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/19414008/" target="_blank" rel="noopener noreferrer">PMID:19414008</a> + <a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a>]</strong></td>
+<td><strong>Closest phenocopy of the SWCOS craniofacial defect</strong> — but as a tissue-specific <em>null</em>, not a dominant negative</td>
+</tr>
+<tr>
+<td><strong><em>Twist1</em><sup>fl/fl</sup>; Sox10-Cre</strong></td>
+<td>Dramatic disruption of frontonasal development; failure to activate <em>Alx1</em>, <em>Alx3</em>, <em>Alx4</em> in the FNP <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/41850652/" target="_blank" rel="noopener noreferrer">PMID:41850652</a>]</strong></td>
+<td>The mechanistic link to the frontonasal gene program</td>
+</tr>
+<tr>
+<td><strong><em>Alx1</em><sup>ΔDE1/ΔDE1</sup></strong> (Twist1-bound enhancer deletion)</td>
+<td>Hypoplastic/disrupted nasal cartilages, shortened premaxilla (10/10), malocclusion (7/10), disorganized extraocular muscles; &gt;80% loss of <em>Alx1</em> mRNA at E10.5 <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/41850652/" target="_blank" rel="noopener noreferrer">PMID:41850652</a>]</strong></td>
+<td>Models the <em>downstream node</em>; shows what losing the TWIST1→ALX1 edge does</td>
+</tr>
+<tr>
+<td><strong><em>Twist1</em> phospho-incompetent knock-in lines</strong></td>
+<td>Epidermal blebbing, edema, neural tube defects, CNCC-derived structural abnormalities <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a>]</strong></td>
+<td>Dimer-regulation axis (SCS-adjacent)</td>
+</tr>
+<tr>
+<td><strong><em>Irf6</em><sup>+/−</sup>; <em>Twist1</em><sup>+/−</sup> compound</strong></td>
+<td>Mandibular agnathia, fused maxilla, cleft palate, holoprosencephaly <strong>[CACHED, <a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a>]</strong></td>
+<td>Genetic-interaction model</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p><strong>Curation warning.</strong> The temptation to attach <em>Twist1</em><sup>+/−</sup> mice to a Sweeney-Cox entry should be resisted — that genotype models <strong>haploinsufficiency</strong>, the mechanism SWCOS explicitly is <em>not</em>. If included at all, it belongs with <code>relationship: FAILS_TO_RECAPITULATE</code> against the dominant-negative node, with <code>limitations</code> and <code>evidence</code> supplied (both required for that relationship value by <code>test_failure_to_recapitulate_links_are_substantiated</code>).</p>
+</blockquote>
+<h3>15.3 Zebrafish</h3>
+<ul>
+<li>ZFIN carries the human disease term <code>ZDB-TERM-190716-1</code> for Sweeney-Cox syndrome with <strong>no genes and no models registered</strong> <strong>[WEB]</strong>.</li>
+<li>A zebrafish <em>twist</em> model of <strong>Saethre-Chotzen</strong> craniosynostosis exists (altered bone growth dynamics prefiguring suture fusion) <strong>[WEB — PMC6207424]</strong> — again, SCS not SWCOS.</li>
+<li>The paralogue duplication (<em>twist1a</em>/<em>twist1b</em>) makes zebrafish a poorer choice than <em>C. elegans</em> for a dominant-negative allelic series.</li>
+</ul>
+<h3>15.4 Cellular / in vitro systems</h3>
+<ul>
+<li><strong>hPSC-derived cranial neural crest cells (hCNCCs)</strong> — the most promising unexploited system. The Coordinator-motif work (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/38262408/" target="_blank" rel="noopener noreferrer">PMID:38262408</a></strong>) and the TF-dosage work (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/40020686/" target="_blank" rel="noopener noreferrer">PMID:40020686</a></strong>) both use hCNCC differentiation and directly interrogate TWIST1 binding, chromatin opening, and dose-response. <strong>Knocking a p.Glu117Val allele into hPSCs and differentiating to CNCC would be the single highest-value experiment for this disease</strong> and is, as far as I can determine, not yet published.</li>
+<li><strong>Structural/biophysical:</strong> PDB <code>8OSB</code> (TWIST1–TCF4–ALX4 on DNA) supports in silico modelling of E117V/G/D.</li>
+<li><strong>Patient-derived lines:</strong> none reported. No fibroblast or iPSC line from any of the three patients is described or deposited.</li>
+</ul>
+<h3>15.5 Applications and gaps</h3>
+<p><strong>Answerable with existing models:</strong> the dominant-negative-vs-null distinction; graded allele severity; the TWIST1→ALX1 regulatory edge; CNCC EMT/migration/survival requirements; suture biology.</p>
+<p><strong>Not answerable with existing models — recommended <code>discussions</code> entries:</strong>
+- <code>HUMAN_MODEL_MISMATCH</code> — the antimorphic mechanism is demonstrated only in <em>C. elegans</em> mesodermal muscle; it has <strong>never been tested in a vertebrate craniofacial context</strong>, and no mammalian model of a Glu117-equivalent substitution exists.
+- <code>KNOWLEDGE_GAP</code> — why is the <em>frontonasal/periocular</em> region specifically vulnerable, when TWIST1 is expressed throughout CNCCs and pharyngeal arches? (The Coordinator/homeodomain-partner hypothesis is the leading answer but is untested for Glu117.)
+- <code>KNOWLEDGE_GAP</code> — is the developmental delay intrinsic (cerebellar hypoplasia, CNS TWIST1 function) or secondary (hearing loss, hospitalization, airway)?
+- <code>KNOWLEDGE_GAP</code> — does a Glu117 substitution affect the non-nuclear, β/δ-catenin-associated TWIST1 pool described in <a href="https://pubmed.ncbi.nlm.nih.gov/35781329/" target="_blank" rel="noopener noreferrer">PMID:35781329</a>?
+- <code>KNOWLEDGE_GAP</code> — Takenouchi's lethality conjecture: are the three known patients the survivable tail of the codon-117 allelic series?</p>
+<hr />
+<h2>Curation appendix — ready-to-use evidence items</h2>
+<p>These snippets are <strong>exact substrings of files already in <code>references_cache/</code></strong> and will pass <code>just count-verified-snippets</code> / <code>just validate-references</code> without further fetching. Everything else in this report must be fetched with <code>just fetch-reference &lt;ID&gt;</code> before it can be quoted.</p>
+<pre><code class="language-yaml"># Disease definition / delineation
+- reference: PMID:28369379
+  supports: SUPPORT
+  evidence_source: HUMAN_CLINICAL
+  snippet: &quot;Here, we describe a new clinical entity, Sweeney-Cox syndrome, associated with distinct de novo amino acid substitutions (p.Glu117Val and p.Glu117Gly) at a highly conserved glutamic acid residue located in the basic DNA binding domain of TWIST1, in two subjects with frontonasal dysplasia and additional malformations.&quot;
+  explanation: Delineates the entity and its two founding de novo TWIST1 alleles.
+
+# Codon-117 specificity vs the SCS mutation spectrum
+- reference: PMID:28369379
+  supports: SUPPORT
+  evidence_source: HUMAN_CLINICAL
+  snippet: &quot;Although about one hundred different TWIST1 mutations have been reported in patients with the dominant haploinsufficiency Saethre-Chotzen syndrome (typically associated with craniosynostosis), substitutions uniquely affecting the Glu117 codon were not observed previously.&quot;
+  explanation: Establishes codon 117 as a distinct hotspot separate from the SCS haploinsufficiency spectrum.
+
+# Dominant-negative mechanism
+- reference: PMID:28369379
+  supports: SUPPORT
+  evidence_source: MODEL_ORGANISM
+  snippet: &quot;The genetic analysis favors a predominantly dominant-negative mechanism for the action of amino acid substitutions at this highly conserved glutamic acid residue&quot;
+  explanation: C. elegans allelic series supports antimorphic rather than loss-of-function action.
+
+# Graded severity across the allelic series
+- reference: PMID:28369379
+  supports: SUPPORT
+  evidence_source: MODEL_ORGANISM
+  snippet: &quot;This allelic series revealed that different substitutions exhibit graded severity, in terms of both gene expression and cellular phenotype, which we incorporate into a model explaining the various human disease phenotypes.&quot;
+  explanation: Basis for the activity-continuum model relating substituting residue to disease.
+
+# Antimorphic effect shared with the TWIST2 disorders
+- reference: PMID:30450715
+  supports: SUPPORT
+  evidence_source: HUMAN_CLINICAL
+  snippet: &quot;Heterozygous localized TWIST1 and TWIST2 basic domain substitutions exert antimorphic effects to cause Sweeney-Cox syndrome, Barber-Say syndrome, and ablepharon-macrostomia syndrome, respectively.&quot;
+  explanation: Independent statement of the antimorphic mechanism across the paralogous hotspots.
+
+# Third patient: craniosynostosis + ablepharon with p.Glu117Asp
+- reference: PMID:30450715
+  supports: SUPPORT
+  evidence_source: HUMAN_CLINICAL
+  snippet: &quot;Herein, we document a male infant with the distinctive facial features of ablepharon, hypertelorism, cheek pads adjacent to the corners of the mouth, and bilateral coronal suture craniosynostosis who had a de novo heterozygous mutation in the basic domain of TWIST1, that is, c.351C&gt;G p.Glu117Asp.&quot;
+  explanation: Extends the phenotype to include craniosynostosis and adds the third causal allele.
+
+# The SWCOS / SCS boundary
+- reference: PMID:30450715
+  supports: SUPPORT
+  evidence_source: HUMAN_CLINICAL
+  snippet: &quot;Our review showed that Sweeney-Cox syndrome appears to share many characteristics with Barber-Say syndrome and ablepharon-macrostomia syndrome except for craniosynostosis, which is a cardinal feature of Saethre-Chotzen syndrome.&quot;
+  explanation: Positions SWCOS in the differential against the TWIST2 disorders and SCS.
+
+# Mild-antimorph model for the Asp allele
+- reference: PMID:30450715
+  supports: SUPPORT
+  evidence_source: HUMAN_CLINICAL
+  snippet: &quot;The present observation suggests that a localized TWIST1 basic domain substitution, that is, p.Glu117Asp, in TWIST1 may exert a mild antimorphic effect similar to that of haploinsufficiency, leading to craniosynostosis and ablepharon.&quot;
+  explanation: Supports the dose-continuum edge linking milder antimorphism to a synostosis phenotype.
+
+# Inheritance
+- reference: PMID:39502847
+  supports: SUPPORT
+  evidence_source: HUMAN_CLINICAL
+  snippet: &quot;The pattern of inheritance is autosomal dominant in Saethre-Chotzen syndrome, Robinow-Sorauf syndrome, and Sweeney-Cox syndrome.&quot;
+  explanation: Confirms autosomal dominant inheritance for SWCOS.
+
+# Twist1 requirement in frontonasal / skull vault development (mouse)
+- reference: PMID:19414008
+  supports: SUPPORT
+  evidence_source: MODEL_ORGANISM
+  snippet: &quot;Loss of Twist1 in neural crest cells and their derivatives impairs skeletogenic differentiation and leads to the loss of bones of the snout, upper face and skull vault.&quot;
+  explanation: Mouse NCC-conditional null supports the neural-crest skeletogenic node.
+
+# Non-cell-autonomous extension to mesodermal bone
+- reference: PMID:19414008
+  supports: SUPPORT
+  evidence_source: MODEL_ORGANISM
+  snippet: &quot;The effect of the loss of Twist1 function is not restricted to neural crest-derived bones, since the predominantly mesoderm-derived parietal and interparietal bones are also affected, presumably as a consequence of lost interactions with neural crest-derived tissues.&quot;
+  explanation: Supports a non-cell-autonomous edge from NCC dysfunction to mesoderm-derived skull vault bone.
+
+# TWIST1 in CNCC EMT
+- reference: PMID:35781329
+  supports: SUPPORT
+  evidence_source: MODEL_ORGANISM
+  snippet: &quot;Twist1 suppresses Irf6 and other epithelial genes in CNCCs during the epithelial-to-mesenchymal transition (EMT) process and cell migration. Conversely, a loss of Twist1 leads to a sustained expression of epithelial and cell adhesion markers in migratory CNCCs.&quot;
+  explanation: Supports the EMT/migration node downstream of TWIST1 dysfunction.
+
+# TWIST1 as a CNCC survival/proliferation factor
+- reference: PMID:35781329
+  supports: SUPPORT
+  evidence_source: MODEL_ORGANISM
+  snippet: &quot;TWIST1 has been shown to promote cell survival and proliferation of migratory CNCCs during craniofacial development&quot;
+  explanation: Supports the CNCC survival node in the causal chain.
+
+# SWCOS vs SCS phenotype framing (2026)
+- reference: PMID:41850652
+  supports: SUPPORT
+  evidence_source: OTHER
+  snippet: &quot;Mutations in TWIST1 have been associated with Sweeney-Cox (OMIM 617746) and Saethre-Chotzen (OMIM 101400) syndromes, with Sweeney-Cox syndrome characterized by hypertelorism with severe deficiency in frontal bones and hypoplasia of the nose and facial bones while Saethre-Chotzen syndrome exhibits craniosynostosis with hypertelorism and maxillary hypoplasia&quot;
+  explanation: Current framing of the SWCOS phenotype in contrast with SCS.
+
+# TWIST1 -&gt; ALX1 regulatory edge
+- reference: PMID:41850652
+  supports: SUPPORT
+  evidence_source: MODEL_ORGANISM
+  snippet: &quot;mice with lineage-specific inactivation of Twist1 in migrating neural crest cells, exhibited dramatic loss of Alx1 mRNA expression in the developing frontonasal CNCCs&quot;
+  explanation: Supports the causal edge from TWIST1 dysfunction to failure of the frontonasal ALX gene program.
+</code></pre>
+<h3>The finding that most changes how this entry should be written</h3>
+<p>ClinGen's Craniofacial Malformations GCEP evaluated TWIST1 against three separate disease assertions and reached three different verdicts — <strong>Definitive</strong> for Saethre-Chotzen, <strong>Moderate</strong> for TWIST1-related craniosynostosis, and <strong>Limited</strong> for Sweeney-Cox:</p>
+<blockquote>
+<p>"Three rare but clinically defined and distinguishable gene-disease pairs were found to have Limited evidence ranging from 3 to 4 points to support the relationship by the Cranio GCEP: FGFR1-related osteoglophonic dysplasia (<a href="https://bioregistry.io/OMIM:166250" target="_blank" rel="noopener noreferrer">OMIM:166250</a>), TWIST1-related Sweeney-Cox syndrome (<a href="https://bioregistry.io/OMIM:617746" target="_blank" rel="noopener noreferrer">OMIM:617746</a>), and FGFR2 and lacrimo-auriculo-dento-digital (LADD) syndrome (<a href="https://bioregistry.io/OMIM:149730" target="_blank" rel="noopener noreferrer">OMIM:149730</a>)"
+— Edoh EYA, et al. <em>Genet Med</em> 2026. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/42059179/" target="_blank" rel="noopener noreferrer">PMID:42059179</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<p>with the operational consequence spelled out in the same paper:</p>
+<blockquote>
+<p>"According to ACMG technical standards, genes classified as Moderate, Strong, or Definitive are eligible for inclusion in diagnostic testing panels, whereas those below this threshold should not be considered."
+— <strong><a href="https://pubmed.ncbi.nlm.nih.gov/42059179/" target="_blank" rel="noopener noreferrer">PMID:42059179</a></strong> <strong>[CACHED]</strong></p>
+</blockquote>
+<p>Two things follow. First, this is a <strong>clinically distinguishable entity with a well-supported mechanism whose gene–disease validity is nonetheless formally <code>Limited</code></strong> — the constraint is case count (3), not evidence quality, and the paper is explicit that Moderate and Limited curations are revisited every three years. Second, a dismech entry that presents SWCOS with the same confidence as a Definitive relationship would be overstating the field's own position. State the <code>Limited</code> classification in the entry, cite it, and let the mechanism sections carry the weight they legitimately can.</p>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28369379/">Kim S, Twigg SRF, et al. Localized TWIST1 and TWIST2 basic domain substitutions cause four distinct human diseases that can be modeled in <em>Caenorhabditis elegans</em>. Hum Mol Genet 2017 — PMID:28369379</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5438873/">full text PMC5438873</a> · <a href="https://academic.oup.com/hmg/article/26/11/2118/3091092">Oxford Academic</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/30450715/">Takenouchi T, et al. Ablepharon and craniosynostosis in a patient with a localized TWIST1 basic domain substitution. Am J Med Genet A 2018 — PMID:30450715</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42059179/">Edoh EYA, et al. Evidence-based classification of genes implicated in craniosynostosis disorders using the ClinGen curation framework. Genet Med 2026 — PMID:42059179</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41850652/">Huang Y, et al. A Twist1-regulated distal enhancer crucial for Alx1 gene expression and function during craniofacial development. Dev Biol 2026 — PMID:41850652</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39502847/">Dhiman S, et al. TWIST1 Gene Variants Cause Craniosynostosis with Limb Abnormalities in Asian Patients. J Pediatr Genet 2024 — PMID:39502847</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35781329/">Bertol JW, et al. TWIST1 interacts with β/δ-catenins during neural tube development. Development 2022 — PMID:35781329</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S0012160609002814">Bildsoe H, et al. Requirement for Twist1 in frontonasal and skull vault development in the mouse embryo. Dev Biol 2009 — PMID:19414008</a></li>
+<li><a href="https://www.cell.com/cell/fulltext/S0092-8674(23)01438-1">DNA-guided transcription factor cooperativity shapes face and limb mesenchyme. Cell 2024 — PMID:38262408</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26119818/">Marchegiani S, et al. Recurrent Mutations in the Basic Domain of TWIST2 Cause Ablepharon Macrostomia and Barber-Say Syndromes. Am J Hum Genet 2015 — PMID:26119818</a></li>
+<li><a href="https://www.nature.com/articles/s41467-025-59728-9">The ALX4 dimer structure provides insight into how disease alleles impact function. Nat Commun 2025 — PMID:40410151</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12372882/">Inhibition of craniosynostosis and premature suture fusion in Twist1 mutant mice with RNA nanoparticle gene therapy. Sci Adv 2025</a></li>
+<li><a href="https://www.omim.org/entry/617746">OMIM #617746 — Sweeney-Cox syndrome</a> · <a href="https://omim.org/clinicalSynopsis/617746">Clinical Synopsis</a> · <a href="https://omim.org/entry/601622">OMIM *601622 TWIST1</a></li>
+<li><a href="https://ontology.jax.org/api/network/annotation/OMIM:617746">HPO annotations for OMIM:617746 (ontology.jax.org API)</a></li>
+<li><a href="https://rest.uniprot.org/uniprotkb/Q15672.txt">UniProt Q15672 — TWIST1_HUMAN</a> · <a href="https://rest.genenames.org/fetch/symbol/TWIST1">HGNC:12428</a> · <a href="https://www.rcsb.org/structure/8OSB">RCSB PDB 8OSB</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/clinvar/RCV003314297/">ClinVar — TWIST1 variants at codon 117</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/gtr/conditions/C4540299/">GTR condition C4540299 — Sweeney-Cox syndrome</a> · <a href="https://www.informatics.jax.org/disease/DOID:0080538">Disease Ontology DOID:0080538</a> · <a href="https://zfin.org/ZDB-TERM-190716-1">ZFIN human disease term</a></li>
+<li><a href="https://disorders.eyes.arizona.edu/disorders/sweeney-cox-syndrome-0">Hereditary Ocular Diseases — Sweeney-Cox Syndrome (Univ. of Arizona)</a></li>
+</ul>
+<hr />
+<p><strong>Next step:</strong> if you want this turned into the KB entry, the highest-value first pass is the pathophysiology chain in §6.1 — nine nodes with <code>biological_scale</code> tags already assigned, the <code>GO:0070888</code> E-box-binding-lost / <code>GO:0046983</code> dimerization-retained contrast as the mechanistic core, and eleven cache-verified snippets ready to attach. Say the word and I'll draft it against the untracked <code>kb/disorders/Sweeney-Cox_Syndrome.yaml</code> on this branch.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>21</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:40020686</code> <em>(abstract only)</em>: "how concentrations of the dosage-sensitive TFs TWIST1 and SOX9 affect regulatory element chromatin accessibility in facial progenitor cells"</li>
+<li>closest text in source: "We applied transfer learning to predict how concentrations of the dosage-sensitive TFs TWIST1 and SOX9 affect regulatory element (RE) chromatin accessibility in facial progenitor cells, achieving near-experimental accuracy"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>94</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>88</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>73</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>64</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>DOID:0080538</code> (4 mentions) - the report calls it "Disease Ontology"; DOID calls it <strong>Sweeney-Cox syndrome</strong></li>
+<li><code>NCIT:C15329</code> (10 mentions) - the report calls it "Nasal airway", "Craniosynostosis (E117D patient)", "Orbital bone deficiency, hypertelorism", "Cleft palate, velopharyngeal insufficiency", "Imperforate anus", "Bilateral cryptorchidism", "Microtia", "Feeding failure"; NCIT calls it <strong>Surgical Procedure</strong></li>
+<li><code>NCIT:C16186</code> (2 mentions) - the report calls it "Bilateral talipes equinovarus"; NCIT calls it <strong>Orthopedic Surgical Procedure</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0002023</code> (1 mention) - the report calls it "Anal atresia<strong> (imperforate anus)"; HP calls it </strong>Anal atresia**, and lists "Imperforate anus" among its other names</li>
+<li><code>HP:0003577</code> (3 mentions) - the report calls it "Congenital onset<strong> (2/2)"; HP calls it </strong>Congenital onset**</li>
+<li><code>GO:0006357</code> (1 mention) - the report calls it "Regulation of transcription by RNA Pol II"; GO calls it <strong>regulation of transcription by RNA polymerase II</strong></li>
+<li><code>CL:0000333</code> (1 mention) - the report calls it "migratory cranial neural crest cell"; CL calls it <strong>migratory neural crest cell</strong></li>
+<li><code>NCBITaxon:6239</code> (1 mention) - the report calls it "C. elegans"; NCBITaxon calls it <strong>Caenorhabditis elegans</strong>, and lists "Rhabditis elegans" among its other names</li>
+<li><code>NCBITaxon:7227</code> (1 mention) - the report calls it "Drosophila"; NCBITaxon calls it <strong>Drosophila melanogaster</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>NCIT:C15329</code> - called "Nasal airway", "Craniosynostosis (E117D patient)", "Orbital bone deficiency, hypertelorism", "Cleft palate, velopharyngeal insufficiency", "Imperforate anus", "Bilateral cryptorchidism", "Microtia", "Feeding failure"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>OMIM</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Susac_Syndrome-falcon.html">← Susac Syndrome (Falcon)</a>
+                
+                
+                <a href="Sweet_Syndrome-claude_code.html">Sweet Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Sweeney-Cox_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Sweeney-Cox_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
