@@ -826,13 +826,24 @@ next-unclaimed count="5" claims="tmp/claims.json" *args="":
 seed-stubs source *args="":
     uv run dismech-stubs seed {{source}} {{args}}
 
-# Adds MONDO parents, subclass descendants (+ total), and causal genes to each
-# stub, so the lump/split call can be made from the file. Needs the MONDO
-# database (`just fetch-ontology-dbs mondo`). Idempotent; preserves hand edits.
+# Adds MONDO parents, subclass descendants (+ total), causal genes, and
+# retirement status to each stub, so the lump/split call can be made from the
+# file. Needs the MONDO database (`just fetch-ontology-dbs mondo`). Idempotent;
+# preserves hand edits.
 # Add MONDO context to the stub files
 [group('Curation')]
 enrich-stubs *args="":
     uv run python scripts/enrich_curation_stubs.py {{args}}
+
+# Asks MONDO directly which stub terms it has retired (`owl:deprecated`, with
+# `term_replaced_by`) or decided to retire (its `obsoletion_candidate` subset).
+# The exact version of the signal `check-stubs` reads out of the committed stub
+# files. Needs the MONDO database; without it this says so and exits 0 — a
+# census for a person, never a gate.
+# Report stub terms MONDO has retired or scheduled for retirement
+[group('Curation')]
+stub-obsolescence *args="":
+    uv run dismech-stubs obsolescence {{args}}
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
@@ -1112,7 +1123,7 @@ check-enum-values *files:
     uv run python scripts/check_enum_values.py "$@"
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
-# run in `test_entity_ref_foreign_keys`, but that test is selected by the
+# run in `check_entity_ref_foreign_keys`, but that test is selected by the
 # `python`/`schema` path filters, so a curation PR -- which touches only kb/ --
 # skips it entirely. This lane is ungated in CI for the same reason
 # check-duplicate-keys is: the PRs that break the invariant are exactly the ones
