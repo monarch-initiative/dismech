@@ -326,57 +326,150 @@ enums:
         description: The measure type is not stated or cannot be determined from the source.
   PrevalenceClassEnum:
     description: >-
-      Coarse, always-fillable band for disease occurrence — the population-rate
-      analog of the HPO-style FrequencyEnum used for phenotype frequency. The
-      numeric bands are the Orphanet prevalence classes (so the ~7% of records
-      already quoting Orphanet map directly and the ICEES/ORPHA structured sources
-      stay aligned); the qualitative tiers cover records that report only
-      prose ("rare", "common") with no numeric estimate. When a numeric estimate
-      exists, also populate rate_per_100000 (or rate_low/rate_high); the band is
-      the queryable summary, the rate carries the precision.
+      Coarse, always-fillable band for the MAGNITUDE of a disease-occurrence rate
+      — the population-rate analog of the HPO-style FrequencyEnum used for
+      phenotype frequency.
+
+      IMPORTANT: a band reports magnitude only. It does not say what is being
+      measured; the sibling `measure_type` slot does that, and a band is
+      meaningless without it. `BAND_1_9_PER_100000` on a POINT_PREVALENCE record
+      means "1-9 of every 100,000 people have this disease"; the same band on an
+      ANNUAL_INCIDENCE record means "1-9 new cases per 100,000 per year"; on a
+      CARRIER_FREQUENCY record it describes carriers, who do not have the disease
+      at all. Never read, compare, aggregate, or render a band without reading
+      `measure_type` alongside it. `rate_denominator` pins the denominator
+      explicitly and should be preferred by consumers where present.
+
+      The five numeric bands are aligned to the Orphanet prevalence classes, so
+      Orphanet-sourced prevalence records (and the ICEES/ORPHA structured sources)
+      map across directly; on a non-prevalence measure the same boundaries are
+      read purely as magnitude.
+
+      The qualitative tiers are NOT magnitude bands. COMMON/RARE/ULTRA_RARE are
+      each defined by a prevalence threshold and each presuppose that the source
+      gave no numeric estimate. They are therefore INVALID on the two measures
+      that are definitely not prevalence — ANNUAL_INCIDENCE and
+      CARRIER_FREQUENCY — and should not sit alongside a populated
+      `rate_per_100000`. They remain correct on the prevalence measures, on
+      CASES_IN_LITERATURE, and on UNKNOWN, which is the ordinary prose-only case:
+      a source that says only "rare" without naming its measure.
+
+      When a numeric estimate exists, also populate rate_per_100000 (or
+      rate_low/rate_high); the band is the queryable summary, the rate carries the
+      precision.
     permissible_values:
       ABOVE_1_IN_1000:
         title: ">1 / 1,000"
-        description: More than 1 in 1,000 (more than 100 per 100,000). Orphanet class.
+        description: >-
+          More than 100 per 100,000, in whatever denominator `measure_type`
+          specifies. Boundary aligned to the Orphanet >1/1,000 prevalence class.
       BAND_1_5_PER_10000:
         title: 1-9 / 10,000
-        description: 1 to 9 per 10,000 (10-99 per 100,000). Combines the Orphanet
-          1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching
-          the other per-decade bands and the _band_from_rate() boundaries.
+        description: >-
+          10-99 per 100,000 (1-9 per 10,000), in whatever denominator
+          `measure_type` specifies. Combines the Orphanet 1-5 and 6-9 per 10,000
+          classes into one decade-spanning band, matching the other per-decade
+          bands and the _band_from_rate() boundaries.
       BAND_1_9_PER_100000:
         title: 1-9 / 100,000
-        description: 1 to 9 per 100,000. Orphanet class.
+        description: >-
+          1-9 per 100,000, in whatever denominator `measure_type` specifies.
+          Boundary aligned to the Orphanet 1-9/100,000 prevalence class.
       BAND_1_9_PER_1000000:
         title: 1-9 / 1,000,000
-        description: 1 to 9 per 1,000,000 (0.1-0.9 per 100,000). Orphanet class.
+        description: >-
+          0.1-0.9 per 100,000 (1-9 per 1,000,000), in whatever denominator
+          `measure_type` specifies. Boundary aligned to the Orphanet
+          1-9/1,000,000 prevalence class.
       BELOW_1_IN_1000000:
         title: "<1 / 1,000,000"
-        description: Fewer than 1 in 1,000,000 (less than 0.1 per 100,000). Orphanet class.
+        description: >-
+          Fewer than 0.1 per 100,000 (less than 1 per 1,000,000), in whatever
+          denominator `measure_type` specifies. Boundary aligned to the Orphanet
+          <1/1,000,000 prevalence class.
       COMMON:
         title: Common
         description: >-
           Qualitative tier for disorders described as common/endemic with no numeric
           estimate captured. Roughly corresponds to the >1/1,000 region but asserted
           only qualitatively.
+          Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and
+          should not sit alongside a populated rate_per_100000.
       RARE:
         title: Rare
         description: >-
           Qualitative tier for disorders described as "rare" in the source without a
           numeric estimate (the EU rare-disease threshold is <1 in 2,000).
+          Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and
+          should not sit alongside a populated rate_per_100000.
       ULTRA_RARE:
         title: Ultra-rare
         description: >-
           Qualitative tier for disorders described as ultra-rare / only a handful of
           reported cases, with no population rate available. Often paired with
           measure_type CASES_IN_LITERATURE.
+          Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and
+          should not sit alongside a populated rate_per_100000.
       NOT_YET_DOCUMENTED:
         title: Not yet documented
-        description: Source states prevalence is not yet documented. Orphanet class.
+        description: >-
+          Source states that the measure is not yet documented. Orphanet class;
+          applies to whatever `measure_type` reports, not to prevalence alone.
         aliases:
           - Not yet documented
       UNKNOWN:
         title: Unknown
-        description: Prevalence is unknown or not stated.
+        description: >-
+          The magnitude is unknown or not stated for whatever `measure_type`
+          reports.
+  RateDenominatorEnum:
+    description: >-
+      What a Prevalence record's rate is a rate *of* — the denominator its
+      numerator is divided by. Together with `measure_type` this pins the
+      dimension of `rate_per_100000`, which is otherwise ambiguous: a point
+      prevalence of 5.0 is a dimensionless proportion of a population, while an
+      annual incidence of 5.0 is 5 per 100,000 per year (dimension time^-1).
+      Records that omit the slot fall back to the denominator implied by
+      `measure_type`: POPULATION for the prevalence measures and for
+      CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE. ANNUAL_INCIDENCE has
+      deliberately NO fallback — a published "annual incidence per 100,000" is
+      usually computed against a mid-year population (POPULATION_PER_YEAR) but
+      person-year denominators are standard in cohort studies, and the two are
+      not interchangeable unless the population is stable. Neither choice is
+      right often enough to assume, and the wrong one would silently assert a
+      dimension for every legacy incidence record, none of which were migrated
+      with denominator information. Treat an incidence record with no
+      `rate_denominator` as undetermined, and set the slot explicitly on any
+      incidence record you write. (Counts as of the decision are in
+      design-decisions §8; they are deliberately not repeated here, since a
+      schema description outlives any KB snapshot.)
+    permissible_values:
+      POPULATION:
+        title: Per population
+        description: >-
+          Whatever `measure_type` counts, per 100,000 people in the stated
+          population — affected individuals for a prevalence, carriers for a
+          carrier frequency. A dimensionless proportion; the denominator for
+          point, period, and lifetime prevalence, and for carrier frequency.
+      LIVE_BIRTHS:
+        title: Per live births
+        description: >-
+          Whatever `measure_type` counts, per 100,000 live births (or births).
+          A birth-cohort proportion, not a per-year rate; the denominator for
+          birth prevalence and for predicted per-birth incidence catalogues.
+      PERSON_YEARS:
+        title: Per person-years
+        description: >-
+          New cases per 100,000 person-years of observation. A true rate with
+          dimension time^-1; never directly comparable with a prevalence
+          proportion.
+      POPULATION_PER_YEAR:
+        title: Per population per year
+        description: >-
+          New cases per 100,000 population per year, where the source reports an
+          annual rate against a mid-period population rather than accumulated
+          person-time. Distinguished from PERSON_YEARS because the two are only
+          interchangeable when the population is stable over the interval.
   ClinicalSignificanceEnum:
     description: The clinical significance of a variant for a condition (ACMG guidelines)
     permissible_values:
@@ -1558,6 +1651,131 @@ enums:
         description: >-
           Correspondence to the human mechanism has not been established.
           Prefer this over guessing a tier.
+  ModelDivergenceTypeEnum:
+    description: >-
+      Typed kind of departure between a model and the mechanism node it is linked
+      to. Values were fixed by reading all 50 computational-model `limitations`
+      strings in the KB and clustering them, with the animal and NAM sets probed
+      to establish which kinds are shared -- see
+      docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single
+      link usually carries more than one, which is why `divergences` is
+      multivalued. The set is deliberately computational-model-first; extending
+      it to animal models would add supraphysiological expression and incomplete
+      phenotype, each already evidenced in that set.
+    see_also:
+      - PMID:32993675
+    permissible_values:
+      BOUNDARY_OMISSION:
+        title: Boundary omission
+        description: >-
+          A component, cell type, compartment, or process the mechanism requires
+          lies outside the model boundary. The commonest kind. Contrast
+          PROXY_QUANTITY, where the thing is in the model but stands in for
+          something else.
+      PROXY_QUANTITY:
+        title: Proxy quantity
+        description: >-
+          The model's variable is a stand-in of a different quantity from the one
+          the mechanism node describes -- transcriptional regulation of dopamine
+          synthesis for striatal dopamine concentration, an imaging signal for
+          the tissue property it correlates with. Can occur at the same
+          biological scale, so it is not recoverable from `model_scale`.
+      CALIBRATION_PROVENANCE:
+        title: Calibration provenance
+        description: >-
+          Parameters, training data, or validation derive from a system, cohort,
+          or measurement type that does not match the claim -- fitted to cultured
+          epithelia, parameterized from mouse fibroblasts, validated against
+          aggregate rather than individual outcomes.
+      CAUSE_UNREPRESENTED:
+        title: Cause unrepresented
+        description: >-
+          The disease lesion is not encoded; the mechanism is imposed
+          phenomenologically instead of arising from the allele, exposure, or
+          perturbation that causes it. Also covers a perturbation that cannot be
+          applied in isolation.
+      STRUCTURAL_IDEALIZATION:
+        title: Structural idealization
+        description: >-
+          Geometry, topology, or spatial organisation is idealized rather than
+          anatomically or patient-derived -- a symmetric airway tree, a
+          one-dimensional strand standing for a reconstructed outflow tract,
+          spatially uniform fields.
+      TEMPORAL_SCOPE:
+        title: Temporal scope
+        description: >-
+          The model's time horizon or dynamic resolution does not match the
+          mechanism's: an acute-injury window standing for chronic progression,
+          or a parameter-free qualitative model that reaches reachability but not
+          magnitude or timing.
+      CONTESTED_ASSUMPTION:
+        title: Contested assumption
+        description: >-
+          The model encodes a mechanistic assumption that independent or later
+          evidence disputes, or that rests on a structure not experimentally
+          known. Distinct from the other kinds in that the model may be internally
+          sound and still wrong about the biology.
+      SCALE_EXTRAPOLATION:
+        title: Scale extrapolation
+        description: >-
+          The model observes below the biological scale of the node it is cited
+          for and infers the higher-scale outcome. Derivable from `model_scale`
+          versus the target's `biological_scale`; record it explicitly when the
+          curator wants to state why it matters here.
+      SPECIES_MISMATCH:
+        title: Species mismatch
+        description: >-
+          The model, or the data behind it, derives from a non-human system.
+          Marginal among computational models and dominant among animal models,
+          where it is the principal translational caveat.
+      POPULATION_MISMATCH:
+        title: Population mismatch
+        description: >-
+          The modelled cohort, subtype, or indication is not the one this entry
+          describes -- a generic model standing for a genotype-defined disorder,
+          or a cohort that mixes in cases outside the entry's molecular criteria.
+      OTHER:
+        title: Other
+        description: >-
+          A divergence that does not fit the values above. Requires a
+          `description` that states the kind plainly, and is a signal the
+          taxonomy may need a value.
+  ModelDivergenceMaterialityEnum:
+    description: >-
+      Whether a specific divergence bears on the specific claim its link makes.
+      This is what separates a caveat that undermines the claim from one that is
+      real but beside the point, and it is deliberately per-divergence where
+      `fidelity` is per-link. Recording it is what could eventually let `fidelity`
+      be derived rather than authored. The per-divergence framing mirrors the
+      risk-informed grading in ASME V&V 40 and the FDA credibility guidance, where
+      how much credibility evidence a model needs is set by its influence on the
+      decision and the consequence of that decision being wrong, rather than by a
+      single global quality score.
+    see_also:
+      - https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices
+      - https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions
+    permissible_values:
+      INVALIDATING:
+        title: Invalidating
+        description: >-
+          The claim should not be transferred to human disease on this model
+          alone. Usually pairs with PARTIALLY_RECAPITULATE or
+          FAILS_TO_RECAPITULATE and a low fidelity tier.
+      QUALIFYING:
+        title: Qualifying
+        description: >-
+          The claim holds, but in a narrower form than the link's `description`
+          would suggest on its own. The commonest value.
+      IMMATERIAL:
+        title: Immaterial
+        description: >-
+          A real divergence that does not bear on this particular claim. Worth
+          recording precisely because it stops a reader inferring that a known
+          limitation of the model undermines this use of it.
+      UNKNOWN:
+        title: Unknown
+        description: >-
+          Bearing on the claim has not been assessed. Prefer this over guessing.
   ModelReadoutDirectionEnum:
     description: >-
       Direction of a measured effect in an experimental, animal, or
@@ -2944,6 +3162,27 @@ slots:
     range: float
     examples:
       - value: '9.0'
+  rate_denominator:
+    description: >-
+      What `rate_per_100000` (and rate_low/rate_high) is a rate *of*. Makes the
+      dimension of the rate explicit so a prevalence proportion is never silently
+      compared with an incidence rate.
+
+      ALWAYS set this on an `ANNUAL_INCIDENCE` record: that measure has no
+      implied denominator, because per-population-per-year and per-person-year
+      are both common and are interchangeable only when the population is
+      stable. An incidence record without this slot is undetermined, not
+      defaulted.
+
+      Optional elsewhere: a record that omits it falls back to the denominator
+      implied by `measure_type` — POPULATION for the prevalence measures and for
+      CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE (see
+      RateDenominatorEnum). Populate it anyway whenever the source's denominator
+      differs from that fallback, or whenever the record is intended for
+      cross-record comparison.
+    range: RateDenominatorEnum
+    examples:
+      - value: LIVE_BIRTHS
   case_fractions:
     description: >-
       Per-cohort estimates of the fraction of cases of a genetically
@@ -4025,6 +4264,57 @@ slots:
       mechanism: species divergence, supraphysiological expression, absent cell
       types, missing immune or vascular compartments, and similar.
     range: string
+  model_scale:
+    description: >-
+      Biological scale at which this model actually represents or measures the
+      linked target — molecular, cellular, tissue/organ, or organism. Records
+      what the model *observes*, which is not always the scale of the mechanism
+      it is cited for: a signalling-network model whose output node is named for
+      a tissue-level outcome still observes only molecular state. Compared
+      against the target node's own `biological_scale`, this makes the scale gap
+      computable rather than leaving it buried in `limitations` prose. Reuses
+      BiologicalScaleEnum so the two are directly comparable.
+    range: BiologicalScaleEnum
+    examples:
+      - value: MOLECULAR
+        description: >-
+          A Boolean signalling network linked to an ORGANISM-scale node — the
+          model observes molecular state and infers the organism-scale outcome.
+      - value: ORGANISM
+        description: >-
+          A whole-animal model linked to a MOLECULAR node — the model contains
+          the target scale, so no extrapolation is involved.
+  divergences:
+    description: >-
+      Typed, individually explained ways in which this model departs from the
+      mechanism it is linked to. The structured counterpart of the free-text
+      `limitations` summary: each entry names a kind from a fixed taxonomy, says
+      in the curator's own words why that kind of gap applies *here*, and
+      optionally records whether it bears on this link's claim. Multivalued
+      because a real caveat is usually several kinds at once.
+    multivalued: true
+    range: ModelDivergence
+    inlined_as_list: true
+    comments:
+      - Complements `relationship` and `fidelity` rather than replacing them -- those say
+        what the model does and how well, this says in what specific respects it falls short
+      - A SCALE_EXTRAPOLATION divergence should agree with the `model_scale` comparison;
+        `just model-scale-audit` cross-checks the two
+      - >-
+        This slot is the structured form of rule 4 of the ten rules of credible
+        practice in healthcare modeling ("list limitations explicitly"); typing
+        the list rather than writing it as prose is the only change dismech makes
+        to that rule.
+    see_also:
+      - PMID:32993675
+  divergence_type:
+    description: Kind of departure between the model and the mechanism it is linked to
+    range: ModelDivergenceTypeEnum
+  materiality:
+    description: >-
+      Whether this specific divergence bears on the specific claim the link
+      makes. Per-divergence, where `fidelity` is per-link.
+    range: ModelDivergenceMaterialityEnum
   influences_mechanisms:
     description: >-
       Pathophysiology mechanism nodes that this environmental factor or exposure
@@ -5904,6 +6194,47 @@ classes:
           omitted (known or unknown) intermediates.
       evidence:
         description: Evidence that this exposure acts on this specific mechanism
+  ModelDivergence:
+    description: >-
+      One typed way in which a model departs from the mechanism node it is linked
+      to, with the curator's explanation of why that gap applies to this
+      particular claim.
+    comments:
+      - >-
+        The point of the type is queryability -- "which models are limited by
+        calibration provenance rather than by species" is not answerable against a
+        prose `limitations` string. The point of the required `description` is that
+        the type alone is never the argument: BOUNDARY_OMISSION says a component is
+        missing, not which one or why it matters here.
+      - >-
+        Orthogonal to `relationship` and `fidelity`. A link can be
+        RECAPITULATES with several QUALIFYING divergences, or
+        PARTIALLY_RECAPITULATES for a reason that is not a divergence in this
+        taxonomy at all.
+    see_also:
+      - PMID:32993675
+      - https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices
+      - https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions
+    slots:
+      - divergence_type
+      - description
+      - materiality
+      - evidence
+    slot_usage:
+      divergence_type:
+        required: true
+      description:
+        required: true
+        description: >-
+          Why this kind of divergence applies to this link, in specific terms --
+          which component is outside the boundary, which quantity is standing in
+          for which, which cohort the calibration came from. Never a restatement
+          of the enum value.
+      evidence:
+        description: >-
+          Optional citation for the divergence itself, when it is a published
+          finding rather than a reading of the model's own scope -- a later study
+          displacing an assumption the model encodes, for instance.
   ModelMechanismLink:
     description: >-
       Links an experimental (NAM), animal, or computational model to a specific
@@ -5922,6 +6253,27 @@ classes:
         A FAILS_TO_RECAPITULATE link is a substantive negative claim and should
         carry both `limitations` and `evidence`; it usually pairs with a
         HUMAN_MODEL_MISMATCH discussion.
+      - >-
+        A link is a *context-of-use* statement in the sense of the model-credibility
+        literature: it asserts that this model is informative for this specific
+        mechanism, which is a narrower and more checkable claim than "this model is
+        good". `divergences` is the corresponding applicability analysis. The
+        framing is borrowed from ASME V&V 40 and the FDA credibility guidance
+        (both written for medical-device submissions) and from the healthcare-wide
+        ten rules of credible practice, whose rule 1 is "define context clearly"
+        and rule 4 "list limitations explicitly".
+      - >-
+        `model_scale` records the scale the model observes, against which the
+        target node's own `biological_scale` can be compared. The comparison is
+        directional and the two directions mean different things: a model
+        BELOW its target's scale is extrapolating upward — it cannot observe
+        the outcome it is cited for — whereas a model ABOVE its target's scale
+        contains that scale and is normally unremarkable (a whole animal can
+        report a molecular readout). Do not store the comparison; derive it.
+    see_also:
+      - PMID:32993675
+      - https://www.asme.org/codes-standards/find-codes-standards/assessing-credibility-of-computational-modeling-through-verification-and-validation-application-to-medical-devices
+      - https://www.fda.gov/regulatory-information/search-fda-guidance-documents/assessing-credibility-computational-modeling-and-simulation-medical-device-submissions
     slots:
       - target
       - relationship
@@ -5929,6 +6281,8 @@ classes:
       - readouts
       - fidelity
       - limitations
+      - model_scale
+      - divergences
       - evidence
     slot_usage:
       target:
@@ -6360,6 +6714,7 @@ classes:
       - rate_per_100000
       - rate_low
       - rate_high
+      - rate_denominator
       - percentage
       - evidence
       - notes
