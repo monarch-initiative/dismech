@@ -42,8 +42,8 @@ from dismech.module_collections import (
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
 from dismech.term_labels import label_restates_title
-from dismech.treatment_platform import treatment_platform_label
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
+from dismech.treatment_platform import treatment_platform_label
 from dismech.yaml_io import safe_load, safe_load_path
 
 # Module-local alias kept so existing call sites read unchanged. The
