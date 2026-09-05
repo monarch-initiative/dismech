@@ -52,6 +52,7 @@ which previously had none. All were selected because pathology is spatially grad
 Eight `modeled_mechanisms` links against four of the entry's five existing
 pathophysiology nodes, with 11 evidence-backed readouts. Every snippet was checked
 as an exact substring of its cached reference *before* being written, not after.
+All eight links carry `model_scale` and typed `divergences` (see below).
 
 Two gradings are worth flagging because they are the ones a reviewer would
 challenge:
@@ -87,43 +88,66 @@ The unassessed rows are recorded as unassessed deliberately. Reading a title in 
 reference list is not evidence about a paper, and the distinction matters more here
 than usual because the whole point of the exercise was evidence discipline.
 
-## The schema gap this exposed
+## What the schema does and does not carry
 
-**dismech can say that a measurement was made and which way it went. It cannot say
-where in the tissue, how often, with what instrument, or against which comparator.**
-That is precisely the axis the perspective argues is what makes an in vitro model
-informative, and writing the block above ran into it four times.
+**Correction to an earlier draft of this report.** It claimed that an exhaustive
+search of the schema found no slot for the measurement context these models need.
+That was wrong by the time it was written. `model_scale` and `divergences` had
+already landed on `ModelMechanismLink`, between this branch's original base and
+the `main` it was rebased onto, and the survey behind the claim was run against
+the older base and never re-run. Both slots are now populated on all eight links
+in this pass. What follows is the corrected position.
 
-`ExperimentalReadout` carries `name`, `description`, `target`, `phenotype_term`,
-`biomarker_term`, `biological_processes`, `assays`, `direction`, `interpretation`,
-`evidence`, `notes`. An exhaustive search of `src/dismech/schema/dismech.yaml` for
-spatial, temporal, sensor, instrument, sampling, coordinate and heterogeneity
-vocabulary finds no slot on this path. The nearest analogues both belong elsewhere:
-`spatial_extent` (`SpatialExtentEnum`: FOCAL, MULTIFOCAL, DIFFUSE, …) is a coarse
-qualifier on a phenotype descriptor, and `platform` belongs to `Dataset`.
+### What the new slots do cover
 
-Four concrete claims from this pass that the schema forced into prose:
+`model_scale` (`BiologicalScaleEnum`) records the scale a model actually
+*observes*, so a scale gap against the target node's `biological_scale` is
+computable rather than buried in prose. `divergences` types the caveat that
+`limitations` writes as prose, each entry naming a kind, explaining why it applies
+here, and grading whether it bears on this link's claim.
+
+Three of the four problems the first draft listed are answered by `divergences`:
+
+| Claim | Now carried as |
+|---|---|
+| HL-1 is a murine atrial line, not human ventricular myocardium | `SPECIES_MISMATCH`, `INVALIDATING` |
+| The border-zone chip's inflammation link has no leukocytes at all | `BOUNDARY_OMISSION`, `INVALIDATING` |
+| Its inflammatory readout is transcript abundance standing in for a cellular response | `PROXY_QUANTITY`, `QUALIFYING` |
+| Ischemia is imposed by diffusion limit or gas control, not by coronary occlusion | `CAUSE_UNREPRESENTED`, `QUALIFYING` |
+
+That last one is worth flagging: every model in this entry is
+`CAUSE_UNREPRESENTED` against a disease whose defining lesion is atherothrombotic,
+and the taxonomy makes that queryable across the KB rather than leaving it as a
+sentence eight times over.
+
+### What still has nowhere to go
+
+Both new slots describe how a model **falls short**. Neither records positive
+metadata about how a measurement was *made*, which is the axis the perspective
+argues about. Three things from this pass still survive only as prose:
 
 1. **An internal spatial comparator.** The Richards calcium readout compares
-   *interior* to *edge* cardiomyocytes within the same organoid. That the control is
-   internal is the methodological point of the model, and it survives only as a
-   sentence in `interpretation`.
-2. **Temporal resolution.** The two-photon light-sheet calcium imaging runs at 20 ms
-   resolution, which is what makes the arrhythmia visible at all. It is recorded in
-   free-text `culture_system`, alongside the culture format, because there is
-   nowhere else.
-3. **A non-monotonic time course.** The bioelectronic chip's beat rate rises, then
-   falls, then becomes arrhythmic. `direction` is single-valued, so this is
-   `ALTERED` plus prose — accurate, but it discards the ordering that was the result.
-4. **An unnamed comparator.** `ModelReadoutDirectionEnum` is defined "relative to the
-   model's control or comparator arm", yet no slot names that arm. The Bannerman
-   cell-death readout is `DECREASED` against *epicardium-free tissue*, not against
-   untreated tissue; read without the prose, `DECREASED` is close to meaningless.
+   *interior* to *edge* cardiomyocytes within the same organoid. `model_scale`
+   says the model observes cellular state; it cannot say the control is a
+   different region of the same construct, which is the methodological point.
+   `STRUCTURAL_IDEALIZATION` is the nearest divergence type and is the wrong
+   shape — the spatial structure here is the model's strength, not its idealization.
+2. **Temporal resolution.** The two-photon light-sheet calcium imaging runs at
+   20 ms, which is what makes the arrhythmia visible. It sits in free-text
+   `culture_system` next to the culture format. `TEMPORAL_SCOPE` again types a
+   mismatch, not a sampling rate.
+3. **An unnamed comparator.** `ModelReadoutDirectionEnum` is defined "relative to
+   the model's control or comparator arm", yet no slot names that arm. The
+   Bannerman cell-death readout is `DECREASED` against *epicardium-free tissue*,
+   not against untreated tissue; read without the prose, `DECREASED` is close to
+   meaningless. This is the smallest and most tractable of the three, is not
+   specific to spatial models, and every one of the KB's readouts inherits it.
 
-Item 4 is the smallest and most tractable of these, and is not specific to spatial
-models: every one of the 289 readouts in `kb/` inherits it.
+The fourth item in the first draft — a non-monotonic beat-rate time course
+recorded as `ALTERED` — is a real loss of information but is adequately handled by
+`ALTERED` plus `interpretation`, and is withdrawn as a schema concern.
 
-Two supporting observations, both from a full parse of `kb/`:
+### Two observations that still hold
 
 - **`assays` is defined, OBI-bound, and populated on 0 of 289 readouts.** The slot
   for naming the measurement technique exists and is universally unused. `OBI` is
@@ -131,19 +155,27 @@ Two supporting observations, both from a full parse of `kb/`:
   a curator who tried to use it could not validate it — the disuse is a tooling
   consequence, not curator neglect.
 - **230 `modeled_mechanisms` links carry no `relationship` at all**, against 160
-  `RECAPITULATES` and 49 `PARTIALLY_RECAPITULATES`. The expressive slots that do
-  exist are under-populated, which is worth weighing before adding more.
+  `RECAPITULATES` and 49 `PARTIALLY_RECAPITULATES`. The expressive slots that
+  exist are under-populated, which is worth weighing before adding more. The same
+  caution applies to the new slots: `just model-scale-audit` reports 1,876 of 1,886
+  links as scale-`UNDETERMINED`.
 
-This is written up as an open gap, not a proposed schema change. A row has been
-added to §12 of the decision register pointing here. The trade the register would
-have to weigh is real: the fields are optional and would be sparsely filled — as
-`assays` demonstrates — and the value of a `spatial_context` free-text slot over a
-well-written `interpretation` is genuinely unclear. The comparator slot (item 4) is
-the strongest candidate because it repairs an ambiguity in a slot that is already
-heavily used, rather than adding a new one that might not be.
+### A follow-on this pass deliberately did not take
+
+The eight links here set `model_scale`, but all eight stay `UNDETERMINED` in
+`just model-scale-audit` because no `Myocardial_Infarction` pathophysiology node
+carries `biological_scale`. Populating those five nodes would make the comparison
+computable and is probably right, but it edits nodes this PR did not author and
+that `main` revised independently, so it belongs in its own change.
 
 ## Notes for future scans
 
+- **Re-run a schema survey against the base you actually ship on.** The gap section
+  of this report was written from a survey run against the branch's original base,
+  and by the time it was committed `main` had added `model_scale` and `divergences`
+  to the very class it claimed had no such slot. The rebase brought the new schema
+  in and silently invalidated the prose. A survey is a claim about repository state
+  and rots exactly like a `notes:` sentence does.
 - Fetch the reference before believing a perspective's characterization of it.
   The perspective describes PMID:32092276 among cardiac instrumentation advances
   without foregrounding that its cells are murine; that only surfaced on reading
