@@ -5,7 +5,12 @@ PR #10358 — found 42 `environmental[]` diet entries that carry a supporting,
 snippet-backed citation but no `influences_mechanisms` link, so they never appear
 in the mechanism graph. This records what was decided for each.
 
-**20 got an edge (21 links). 8 are proposed but not added. 14 were left alone.**
+**20 got an edge. 8 are proposed but not added. 14 were left alone.**
+
+Two of those 20 were reached independently by `main` while this work was in
+review, and `main`'s version won on the merits in both cases — see *Superseded
+by main* below. The change here is 19 new links across 11 entries, plus an
+evidence block on one edge main created.
 
 ## The rule applied
 
@@ -32,7 +37,7 @@ They vary independently. Wilson Disease's dietary copper edge is topologically
 evidence is `INDIRECT`, because the source says lowering intake prevents
 re-accumulation and the forward claim is inferred from that removal design.
 
-## Added (20 entries, 21 links)
+## Added (19 links across 11 entries, plus evidence on one of main's)
 
 | Entry | Exposure | Target node | Effect | Why |
 |---|---|---|---|---|
@@ -40,7 +45,7 @@ re-accumulation and the forward claim is inferred from that removal design.
 | Celiac Disease | Wheat / Barley / Rye | Gluten-Triggered Immune Response | TRIGGERS | One snippet names all three grains as triggering and maintaining it (3 links) |
 | Gastroesophageal Reflux | Alcohol Consumption | Lower Esophageal Sphincter Dysfunction | EXACERBATES | Snippet states the sphincter-pressure reduction |
 | Gastroesophageal Reflux | Dietary Factors | Lower Esophageal Sphincter Dysfunction | EXACERBATES | Physiologic evidence for chocolate and high-fat meals on the same node |
-| Heart Failure | Alcohol Abuse | Myocardial Contractile Dysfunction | TRIGGERS | Snippet names chronic cardiac dysfunction and alcoholic dilated cardiomyopathy |
+| Heart Failure | Alcohol Abuse | Myocardial Contractile Dysfunction | TRIGGERS | Snippet names chronic cardiac dysfunction and alcoholic dilated cardiomyopathy. **Edge created by main; this adds its evidence block** |
 | Hyperlipidemia | High Saturated Fat Diet | Increased LDL Cholesterol | EXACERBATES | Snippet attributes the LDL-C rise to saturated fat substitution |
 | Obesity | High-Calorie Diet | Energy Imbalance | TRIGGERS | Inpatient randomised crossover trial; excess intake attributable to processing itself |
 | Obesity | Obesogenic Environment | Increased Body Mass Index | PREDISPOSES | Causal-inference systematic review linking outlet density to BMI |
@@ -51,7 +56,6 @@ re-accumulation and the forward claim is inferred from that removal design.
 | Irritable Bowel Syndrome | Dietary Triggers | Abdominal Pain, Bloating | EXACERBATES | Low-FODMAP meta-analysis reports both (2 links) |
 | Migraine | Dietary Triggers | Headache | TRIGGERS | Provocation studies for caffeine withdrawal and MSG |
 | Carotid Stenosis | Smoking and diet | Atherosclerotic carotid plaque formation | PREDISPOSES | Snippet names plaque development specifically |
-| Marchiafava-Bignami | Chronic alcohol use and malnutrition | Alcohol-related thiamine depletion | PREDISPOSES | Review establishes this as the dominant clinical context |
 | Lathyrism | Grass pea overconsumption | Beta-ODAP Receptor Agonism | TRIGGERS | Study attributes the disease to prolonged overconsumption |
 
 Every edge carries its own evidence, copied byte-exact from the entry it sits on
@@ -63,6 +67,27 @@ evidence that dietary avoidance improves outcomes. The IBS edge is scoped to
 FODMAPs, because the gluten half of that annotation is uncited. The migraine edge
 is scoped to caffeine withdrawal and MSG, because the entry's own `REFUTE` item
 withdraws chocolate and aged cheese.
+
+## Superseded by main
+
+Two of the 20 were curated independently on `main` while this sat in review. In
+both cases main's version is kept, on the merits rather than by merge order.
+
+**Marchiafava-Bignami — dropped entirely.** Main linked the same exposure to the
+same node using a better sentence from the *same* paper: "The main
+pathophysiological mechanisms involve alcohol consumption, which leads to thiamine
+depletion and disrupts various metabolic pathways." That names thiamine depletion,
+so main's `TRIGGERS` / `directness: DIRECT` is justified where this pass had
+`PREDISPOSES` / `INDIRECT` — graded down precisely because the quote it used
+("predominantly afflicts individuals with chronic alcohol abuse and malnutrition")
+did not name the node. Better evidence beats an earlier claim.
+
+**Heart Failure — edge kept, evidence added.** Main created the same edge with a
+fuller description and no evidence; this attaches the citation to it.
+
+The history record written for the Marchiafava-Bignami session is left untouched,
+since history is append-only and it accurately describes what that session did. A
+later record notes the supersession.
 
 ## Proposed, not added — these need a curator's ruling (8)
 
