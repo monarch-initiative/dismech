@@ -85,10 +85,19 @@ jobs:
           list-files: shell
           filters: |
             python:
+              # Globs, because the repo-wide guard in tests/test_dragon_ai_workflow.py
+              # scans every workflow and composite action, so an edit to any of them
+              # must run this lane. The individually named files below are redundant
+              # against these globs and kept deliberately: other guard tests assert
+              # those exact entries, and each records why that file needs this lane.
+              - '.github/actions/**'
+              - '.github/workflows/**'
               - '.github/actions/approve-regen-pr/action.yml'
               - '.github/cron-profiles.yaml'
+              - '.github/scripts/**'
               - '.github/workflows/claude-code-review.yml'
               - '.github/workflows/curation-scanner.yml'
+              - '.github/workflows/dragon-ai.yml'
               - '.github/workflows/generate-grouping-pages.yaml'
               - '.github/workflows/generate-pages.yaml'
               - '.github/workflows/generate-project-pages.yaml'
@@ -152,6 +161,7 @@ jobs:
               - 'project.justfile'
             app:
               - 'app/**'
+              - '.github/scripts/**'
               - 'tests/js/**'
               - 'package.json'
               - 'package-lock.json'
@@ -292,9 +302,30 @@ jobs:
       - name: Cache OAK ontology databases
         uses: ./.github/actions/oak-cache
 
+      # --offline on merge_group, on purpose. This step resolves the schema's
+      # dynamic-enum terms against EBI OLS, so it depends on a third-party
+      # service being reachable. On a PR that is a fair trade: the PR touched
+      # the schema or the OAK config, so the remote check is the point. On a
+      # merge group it is not -- the step is forced on for every queue build
+      # (see "Check for changes"), which made every merge depend on EBI
+      # availability, and two queue builds were ejected in four hours by read
+      # timeouts the validator itself labels "not a data error"
+      # (PRs #10677, #10700). A false ejection costs a ~45-minute build and a
+      # re-enqueue round trip.
+      #
+      # --offline validates against the committed cache/ instead, which is
+      # deterministic, needs no network, and is exactly the artifact a
+      # schema-touching PR had to update to pass its own PR run. So coverage
+      # is retained where it can differ and the network dependency is
+      # dropped where it cannot.
       - name: Validate schema term references
         if: github.event_name == 'merge_group' || steps.changes.outputs.schema_terms == 'true'
-        run: just validate-terms-schema
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            just validate-terms-schema --offline
+          else
+            just validate-terms-schema
+          fi
 
       - name: Lint with ruff
         run: uvx ruff check .
