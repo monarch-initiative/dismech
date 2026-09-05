@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFNAR2 Deficiency · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>IFNAR2 Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>IFNAR2 Deficiency</h1>
+                
+                <p class="report-subtitle">IFNAR2 Deficiency (Immunodeficiency-45, IMD45): Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014727" target="_blank" rel="noopener noreferrer">MONDO:0014727</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>IFNAR2 Deficiency (Immunodeficiency-45, IMD45): Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>IFNAR2 deficiency is a rare, life-threatening autosomal recessive (and, per one recently described dominant-negative allele family in COVID-19, potentially oligogenic/dominant-modifying) primary immunodeficiency of the innate immune system caused by biallelic loss-of-function variants in <em>IFNAR2</em>, the gene encoding the high-affinity subunit of the type I interferon (IFN-α/β/ω) receptor. Loss of IFNAR2 abolishes cellular responsiveness to all type I interferons, leaving affected individuals unable to mount an antiviral interferon-stimulated gene (ISG) response. Clinically, the disorder is characterized by an essentially normal phenotype until exposure to a virus — whether wild-type (influenza, SARS-CoV-2) or live-attenuated vaccine strain (measles-mumps-rubella [MMR], yellow fever) — at which point patients can develop fulminant, often fatal, viral disease: encephalitis/meningoencephalitis, hemophagocytic lymphohistiocytosis (HLH), viscerotropic disease, or severe pneumonia (Duncan et al. 2015; Bastard et al. 2022; Hernandez et al. 2020).</p>
+<blockquote>
+<p>"Autosomal recessive deficiency of the IFNAR2 chain of the human type I IFN receptor abolishes cellular responses to IFN-α, -β, and -ω, underlies severe viral diseases, and is globally very rare, except for IFNAR2 deficiency in the Arctic." (Bastard et al. 2022, <em>J Exp Med</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/35442417/" target="_blank" rel="noopener noreferrer">PMID:35442417</a>)</p>
+</blockquote>
+<h3>Key Identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gene (HGNC)</td>
+<td>IFNAR2, <a href="https://bioregistry.io/HGNC:5433" target="_blank" rel="noopener noreferrer">HGNC:5433</a></td>
+</tr>
+<tr>
+<td>OMIM gene</td>
+<td>*602376 — Interferon-alpha, -beta, and -omega receptor 2</td>
+</tr>
+<tr>
+<td>OMIM phenotype</td>
+<td>#616669 — Immunodeficiency 45 (IMD45) <em>(note: search results also referenced #614889, which corresponds to IMD28/ISG15 deficiency — verify the correct OMIM phenotype MIM number, 616669, directly before curation; there is some inconsistency across secondary sources)</em></td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Listed as a major genetic susceptibility factor for "Primary immunodeficiency with post-measles-mumps-rubella vaccine viral infection" (<a href="https://bioregistry.io/ORPHA:431166" target="_blank" rel="noopener noreferrer">ORPHA:431166</a>)</td>
+</tr>
+<tr>
+<td>Gene location</td>
+<td>Chromosome 21q22.11</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Autosomal recessive (biallelic null/loss-of-function)</td>
+</tr>
+<tr>
+<td>NCBI Gene / Ensembl</td>
+<td>IFNAR2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Synonyms</h3>
+<ul>
+<li>Type I interferon receptor 2 deficiency</li>
+<li>IFN-α/β receptor subunit 2 deficiency</li>
+<li>Interferon alpha/beta receptor chain 2 deficiency</li>
+<li>IMD45 (Immunodeficiency 45)</li>
+<li>Complete IFNAR2 deficiency (vs. the milder, common hypomorphic/partial deficiencies seen as COVID-19 severity risk variants)</li>
+</ul>
+<h3>Data Source Character</h3>
+<p>Nearly all clinical knowledge derives from <strong>individual patient case reports and small case series</strong> (single families, or clustered founder-variant cohorts in the Canadian/Greenlandic/Alaskan Arctic and Inuit populations), rather than large aggregated disease-level registries — this is a genuinely ultra-rare monogenic disorder. Population-level genomic data (gnomAD, biobank cohorts) contribute allele-frequency and severe-COVID-19-association evidence for common hypomorphic <em>IFNAR2</em> variants, which is a related but distinct body of evidence from the complete/biallelic-null Mendelian disease.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>IFNAR2 deficiency is a <strong>monogenic, purely genetic</strong> disorder: biallelic (homozygous or compound heterozygous) loss-of-function variants in <em>IFNAR2</em> that abolish or markedly impair surface expression/function of the IFNAR2 receptor chain. The disease is fundamentally one of <strong>gene-environment interaction</strong>: the genetic lesion is clinically silent until a viral trigger (wild-type virus or live-attenuated vaccine) is encountered, at which point uncontrolled viral replication precipitates the phenotype.</p>
+<h3>Genetic Risk Factors</h3>
+<p>Reported pathogenic variants include:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Type</th>
+<th>Population/Case</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Homozygous mutation (index case) rendering cells IFN-α/β-unresponsive</td>
+<td>Loss-of-function</td>
+<td>UK child, fatal post-MMR encephalitis (Duncan et al. 2015)</td>
+<td>PMID (STM 2015, 7(307):307ra154, <a href="https://doi.org/10.1126/scitranslmed.aac4227" target="_blank" rel="noopener noreferrer">DOI:10.1126/scitranslmed.aac4227</a>)</td>
+</tr>
+<tr>
+<td>c.234delT (p.Leu79Ter, rs1310889473) + c.555_559delAAAAG (p.Ile185MetfsTer12, rs1312285586)</td>
+<td>Compound heterozygous frameshift/nonsense</td>
+<td>Caucasian boy, post-MMR HLH</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33193576/" target="_blank" rel="noopener noreferrer">PMID:33193576</a> (Hernandez et al. 2020, <em>Front Genet</em>)</td>
+</tr>
+<tr>
+<td>c.157T&gt;C, p.Ser53Pro (NM_207585.2)</td>
+<td>Homozygous missense — founder variant</td>
+<td>5 patients, Greenland/Canada/Alaska (Inuit ancestry); MAF 0.034 in Inuit reference cohort, 0.026 (23/448 heterozygous carriers, no homozygotes) in unpublished Greenlandic WGS</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35442417/" target="_blank" rel="noopener noreferrer">PMID:35442417</a> (Bastard et al. 2022, <em>J Exp Med</em>)</td>
+</tr>
+<tr>
+<td>Homozygous missense (VUS)</td>
+<td>Missense</td>
+<td>10-month-old female, severe post-measles-vaccine reaction, viremia/meningoencephalitis/multi-organ failure</td>
+<td><em>J Clin Immunol</em> 2024/2025;45:30, <a href="https://doi.org/10.1007/s10875-024-01814-6" target="_blank" rel="noopener noreferrer">DOI:10.1007/s10875-024-01814-6</a></td>
+</tr>
+<tr>
+<td>c.157T&gt;C, p.Ser53Pro (same founder allele)</td>
+<td>Homozygous</td>
+<td>13-month-old Inuit boy, northern Quebec — post-vaccination drug-resistant infantile epileptic spasms (West syndrome)</td>
+<td><em>Seizure — Eur J Epilepsy</em> 2022, PMID/DOI S1059-1311(22)00175-3</td>
+</tr>
+<tr>
+<td>Rare stop-gain variant (NM_000874:exon9:c.C966A, p.Y322X) and other predicted LOF <em>IFNAR2</em> variants</td>
+<td>Heterozygous/burden-tested</td>
+<td>COVID-19 severity cohort (ODYSSEY phase 3)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34273592/" target="_blank" rel="noopener noreferrer">PMID:34273592</a> / PMC8279933 (Smieszek et al. 2021)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Mechanistic consequence of key variants:</strong> The Ser53Pro substitution "prevented cell surface expression of IFNAR2 protein, small amounts of which persisted intracellularly in an aberrantly glycosylated state" (Bastard et al. 2022). The frameshift/nonsense compound-heterozygous variants are predicted to cause "complete lack of the protein" (Hernandez et al. 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/33193576/" target="_blank" rel="noopener noreferrer">PMID:33193576</a>).</p>
+<p><strong>Common (non-Mendelian) genetic risk modifiers:</strong> Independent of the rare Mendelian disease, common <em>IFNAR2</em> polymorphisms (rs2236757, rs3153, rs1051393, rs2834158) have been associated with COVID-19 mortality risk in hospitalized cohorts, and soluble IFNAR2 plasma levels differ between survivors and non-survivors (Rodrigues et al. 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35967349/" target="_blank" rel="noopener noreferrer">PMID:35967349</a>, <em>Front Immunol</em>). This is a distinct, quantitative-trait/complex-disease association layer, not equivalent to biallelic loss-of-function.</p>
+<h3>Environmental / Triggering Risk Factors</h3>
+<ul>
+<li><strong>Live-attenuated viral vaccination</strong> — MMR (measles, mumps, rubella components) and yellow fever vaccine (YFV) are the dominant identified triggers, causing meningoencephalitis, HLH, or viscerotropic disease.</li>
+<li><strong>Wild-type viral infection</strong> — influenza and SARS-CoV-2 (COVID-19) have caused life-threatening disease in IFNAR2-deficient patients.</li>
+<li>Bastard et al. (2022) also reported IFNAR1/IFNAR2 deficiency and neutralizing type I IFN autoantibodies together accounting for "more than half the cases of life-threatening yellow fever vaccine-associated disease" in a broader cohort (related autoantibody-mediated phenocopy — see below).</li>
+</ul>
+<h3>Protective Factors</h3>
+<p>No specific genetic or environmental protective factor has been documented for the rare biallelic-null disease; heterozygous carriers (parents, siblings) are consistently reported as asymptomatic, "without history of major infection or hyperinflammatory episodes, nor vaccination reactions" (Hernandez et al. 2020), consistent with recessive inheritance and adequate residual function from a single normal allele.</p>
+<h3>Gene-Environment Interactions</h3>
+<p>This disease is a paradigm case of gene-environment interaction in inborn errors of immunity: the genotype is necessary but not sufficient — clinical disease requires viral (wild-type or vaccine-strain) exposure as the precipitating "second hit." This is analogous to, and mechanistically continuous with, the broader class of "inborn errors of type I IFN immunity" (which also includes IFNAR1, STAT1, STAT2, TYK2, IRF7, IRF9 deficiencies, and autoantibody-mediated type I IFN neutralization) recognized as a unifying mechanism for severe/critical viral pneumonia including COVID-19, influenza, and adverse reactions to live vaccines (Zhang et al.; Bastard et al., multiple JEM papers 2019–2022).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Symptoms, Signs, and Manifestations (by clinical context)</h3>
+<p><strong>Post-live-vaccine reactions:</strong>
+- Fever, lethargy, irritability (<a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" rel="noopener noreferrer">HP:0025143</a> lethargy)
+- Myoclonic movements / seizures, evolving in one case to infantile epileptic spasms syndrome (West syndrome) — drug-resistant
+- Cervical lymphadenopathy
+- Maculopapular rash
+- Meningoencephalitis / fatal encephalitis
+- Multi-organ failure
+- Viscerotropic disease (yellow-fever vaccine): hepatic dysfunction, coagulopathy</p>
+<p><strong>HLH-associated laboratory/clinical findings</strong> (from the compound-heterozygous frameshift case, <a href="https://pubmed.ncbi.nlm.nih.gov/33193576/" target="_blank" rel="noopener noreferrer">PMID:33193576</a>):
+- Hyperferritinemia (4008 μg/L)
+- Transaminitis: AST 360 U/L, ALT 550 U/L
+- Elevated LDH: 3155 U/L
+- Hypertriglyceridemia: 338 mg/dL
+- Hypofibrinogenemia: 92.2 mg/dL
+- Progressive cytopenias</p>
+<p><strong>Wild-type viral infection:</strong>
+- Life-threatening/critical COVID-19 pneumonia
+- Life-threatening influenza</p>
+<h3>Phenotype Characteristics</h3>
+<ul>
+<li><strong>Age of onset:</strong> Typically infancy to early childhood (10 months–2 years in the reported cases), coinciding with the standard MMR vaccination schedule (12 months) or first serious wild-type viral exposure. The disorder is otherwise clinically silent (asymptomatic at baseline).</li>
+<li><strong>Severity:</strong> Highly severe/life-threatening at presentation — several index cases were fatal (the original Duncan et al. index patient died; a sibling case was also affected).</li>
+<li><strong>Progression:</strong> Acute, fulminant onset following the triggering exposure; not a chronic progressive disease between triggering events.</li>
+<li><strong>Frequency among affected individuals:</strong> Based on the small number of reported kindreds (fewer than ~10 published families/individuals worldwide as complete biallelic deficiency, plus the Arctic founder-variant cluster of 5 patients), most reported patients present with either (a) post-live-vaccine encephalitis/HLH, or (b) life-threatening wild-type viral disease (influenza, COVID-19).</li>
+</ul>
+<h3>Suggested HPO Terms</h3>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank" rel="noopener noreferrer">HP:0002383</a> — Encephalitis (or <a href="http://purl.obolibrary.org/obo/HP_0002264" target="_blank" rel="noopener noreferrer">HP:0002264</a> Meningoencephalitis)</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0005537" target="_blank" rel="noopener noreferrer">HP:0005537</a> — Hemophagocytosis / <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a> Splenomegaly / features of HLH</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> — Fever</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> — Diarrhea (nonspecific, if present)</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" rel="noopener noreferrer">HP:0002133</a> — Status epilepticus / <a href="http://purl.obolibrary.org/obo/HP_0032792" target="_blank" rel="noopener noreferrer">HP:0032792</a> Infantile spasms</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" rel="noopener noreferrer">HP:0025143</a> — Lethargy</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0025047" target="_blank" rel="noopener noreferrer">HP:0025047</a> — Maculopapular rash</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a> — Hepatomegaly</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> — Recurrent/severe viral infections — consider <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" rel="noopener noreferrer">HP:0002718</a> (Recurrent infections) or <a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" rel="noopener noreferrer">HP:0004429</a> (susceptibility to viral infections, if available in HPO)</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" rel="noopener noreferrer">HP:0011024</a> — Abnormality of the gastrointestinal system (viscerotropic disease)</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0011893" target="_blank" rel="noopener noreferrer">HP:0011893</a> — Abnormal leukocyte count / cytopenias</li>
+</ul>
+<h3>Quality of Life Impact</h3>
+<p>Not formally studied via standardized instruments (no EQ-5D/SF-36 data identified) given disease rarity; qualitatively, survivors of severe episodes (e.g., the epileptic-spasms case) face long-term neurodevelopmental sequelae from drug-resistant epilepsy, while patients successfully treated for HLH (e.g., the compound-heterozygous case managed with corticosteroids) have been reported as developing normally at follow-up (4 years old, "in good general condition," normal growth) (<a href="https://pubmed.ncbi.nlm.nih.gov/33193576/" target="_blank" rel="noopener noreferrer">PMID:33193576</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Causal Gene</h3>
+<ul>
+<li><strong>IFNAR2</strong> (<a href="https://bioregistry.io/HGNC:5433" target="_blank" rel="noopener noreferrer">HGNC:5433</a>), chromosome 21q22.11, OMIM *602376. Encodes the high-affinity ligand-binding subunit of the type I interferon receptor.</li>
+</ul>
+<h3>Gene/Protein Structure</h3>
+<ul>
+<li>IFNAR2 encodes a <strong>487-residue type II cytokine-receptor-family transmembrane protein</strong> with an N-terminal extracellular ligand-binding domain composed of <strong>two fibronectin type III (FnIII)-like subdomains</strong> (in contrast to IFNAR1's four FnIII repeats), a single transmembrane domain, and a cytoplasmic tail.</li>
+<li>IFNAR2 constitutively associates with <strong>STAT2</strong> via its cytoplasmic domain (STAT2-binding site within the C-terminal ~110 amino acids); STAT2 recruits STAT1 upon activation.</li>
+</ul>
+<h3>Variant Classification / Types</h3>
+<ul>
+<li>Nonsense (p.Leu79Ter), frameshift (p.Ile185MetfsTer12), and missense (p.Ser53Pro) variants have all been reported causing complete loss of IFNAR2 surface expression.</li>
+<li>All confirmed pathogenic variants for the complete Mendelian disease are recessive (require biallelic hit — homozygous or compound heterozygous).</li>
+<li>Population databases (gnomAD): the frameshift variants are extremely rare (allele frequencies 0.000004–0.000016); the Ser53Pro founder variant is essentially absent from global gnomAD but reaches MAF 0.026–0.034 in Arctic Inuit reference populations — a striking example of a population-specific founder allele with major clinical relevance in that population.</li>
+</ul>
+<h3>Functional Consequences (mechanistically demonstrated)</h3>
+<ul>
+<li><strong>Loss of cell-surface IFNAR2 expression</strong> on patient leukocytes (flow cytometry) — confirmed across multiple case reports.</li>
+<li><strong>Abolished STAT1 phosphorylation</strong> upon IFN-α stimulation of monocytes, while IFN-γ (type II)-induced STAT1 phosphorylation remains intact — confirms selective type I IFN pathway defect with preserved type II (IFN-γ) signaling.</li>
+<li><strong>Failure to induce type I interferon-stimulated genes</strong> (ISGs) — IFI27, IFI44L, CXCL10, ISG15, RSAD2, SIGLEC1 all fail to be induced upon ex vivo IFN-α stimulation of whole blood.</li>
+<li><strong>No CXCL10 chemokine production</strong> upon IFN-α stimulation of PBMCs (IFN-γ-induced CXCL10 normal).</li>
+<li><strong>NK cell dysfunction:</strong> patient NK cells fail to upregulate CD107a degranulation marker upon IFN-α pre-incubation (~3-fold increase seen in controls/parents, absent in patient), and fail to show the normal IFN-α-mediated <em>suppression</em> of intracellular IFN-γ production — proposed as a mechanistic link between IFNAR2 loss and HLH development via NK cell dysregulation.</li>
+<li><strong>In vitro increased vulnerability to multiple viruses</strong> — patient cells show enhanced viral replication/susceptibility compared to controls.</li>
+<li>Reconstitution of patient cells with wild-type IFNAR2 restores IFN-α/β responsiveness and antiviral control (Duncan et al. 2015), functionally confirming causality.</li>
+</ul>
+<h3>Modifier Genes / Related Disease Mechanisms (phenocopies)</h3>
+<p>IFNAR2 deficiency sits within a broader group of "inborn errors of type I IFN immunity" with overlapping phenotypes, useful for differential diagnosis and pathway context:
+- <strong>IFNAR1</strong> deficiency (its receptor-partner subunit) — clinically near-identical phenotype (HLH, encephalitis, severe COVID-19/influenza, adverse vaccine reactions); a common Polynesian/Pacific founder loss-of-function allele has been characterized (PMC9026234).
+- <strong>STAT2</strong> deficiency — complete deficiency causes similar inflammatory viral disease (PMC10266780); a distinct STAT2 gain-of-function/loss-of-negative-regulation form causes a type I interferonopathy.
+- <strong>STAT1</strong>, <strong>TYK2</strong>, <strong>IRF7</strong>, <strong>IRF9</strong> deficiencies — related type I/III IFN pathway inborn errors.
+- <strong>Autoantibodies neutralizing type I IFN</strong> — a phenocopy mechanism (not genetic) producing an equivalent functional block, notably implicated in adult critical COVID-19 and yellow-fever-vaccine-associated disease.</p>
+<h3>Epigenetics / Chromosomal Abnormalities</h3>
+<p>No epigenetic regulation studies or chromosomal structural abnormalities (aneuploidy, translocation) have been reported specific to IFNAR2 deficiency; the gene lies in the cytokine-receptor gene cluster on 21q22.11 alongside IFNAR1, IL10RB, IFNGR2, and IL10RB, all part of the ancestral interferon-receptor cluster on chromosome 21.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Live-attenuated viral vaccines</strong> (MMR, yellow fever) are the principal, well-documented environmental trigger precipitating fulminant disease in genetically susceptible individuals — this is the dominant "environmental factor" for this disorder rather than toxins or occupational exposures.</li>
+<li><strong>Wild-type respiratory/systemic viruses</strong>: influenza virus and SARS-CoV-2 are documented triggers of life-threatening disease.</li>
+<li>No infectious <em>co-trigger</em>, toxin, or lifestyle/dietary risk factor has been reported; this is not a disease with a classical toxicological or occupational-exposure etiology axis — its "environmental" dimension is essentially virological.</li>
+<li><strong>Infectious agents directly relevant:</strong> measles virus (vaccine strain), mumps virus (vaccine strain), rubella virus (vaccine strain), yellow fever virus (vaccine strain 17D), influenza A virus, SARS-CoV-2.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal Chain (ordered)</h3>
+<ol>
+<li>Biallelic loss-of-function variant in <em>IFNAR2</em> (nonsense, frameshift, or a destabilizing missense such as p.Ser53Pro) <strong>leads to</strong> absent or non-functional IFNAR2 protein, either through nonsense-mediated decay/truncation or failure of the mutant protein to traffic to the cell surface (retained intracellularly in an aberrantly glycosylated state for Ser53Pro).</li>
+<li>Absent surface IFNAR2 <strong>results in</strong> failure to form a functional IFNAR1–IFNAR2 heterodimeric type I interferon receptor complex upon IFN-α/β/ω binding.</li>
+<li>Without receptor dimerization, the receptor-associated Janus kinases — TYK2 (bound to IFNAR1) and JAK1 (bound to IFNAR2) — <strong>fail to be recruited/cross-phosphorylate</strong>; because STAT2 is constitutively docked on the IFNAR2 cytoplasmic tail (via its C-terminal ~110 aa), loss of IFNAR2 specifically eliminates the STAT2 docking site required for downstream signaling. (Demonstrated experimentally: this is inferred from the receptor biology and is directly supported by loss of STAT1 phosphorylation in patient cells.)</li>
+<li>This <strong>leads to</strong> absent STAT1/STAT2 phosphorylation and failure of ISGF3 (STAT1–STAT2–IRF9) complex formation and nuclear translocation — directly demonstrated by absent STAT1 phosphorylation upon IFN-α stimulation of patient monocytes, while IFN-γ→STAT1 phosphorylation (a JAK1/JAK2, IFNGR-dependent, IFNAR-independent pathway) remains intact, confirming pathway selectivity.</li>
+<li>Failure of ISGF3 formation <strong>results in</strong> failure to transactivate interferon-stimulated response elements (ISREs), demonstrated as absent induction of ISGs (IFI27, IFI44L, CXCL10, ISG15, RSAD2, SIGLEC1) and absent CXCL10 protein secretion upon ex vivo IFN-α challenge.</li>
+<li>Loss of the cell-intrinsic antiviral ISG program <strong>leads to</strong> unrestrained viral replication in infected cells upon exposure to IFN-sensitive viruses — demonstrated in vitro as increased viral susceptibility of patient cells and functionally rescued by IFNAR2 reconstitution (Duncan et al. 2015).</li>
+<li>In parallel, loss of IFN-α signaling in <strong>NK cells</strong> specifically <strong>abolishes</strong> the normal IFN-α-induced upregulation of degranulation (CD107a) and the normal IFN-α-mediated <em>suppression</em> of NK-cell IFN-γ production — this dysregulated, unrestrained NK-cell IFN-γ output is proposed (branch point) to <strong>drive</strong> the macrophage-activation/hyperinflammatory state that manifests as hemophagocytic lymphohistiocytosis (HLH) in a subset of patients — this branch is mechanistically plausible and evidence-supported at the cellular level but the causal link to clinical HLH onset remains partly inferential.</li>
+<li>Unrestrained viral replication (branch A) and/or NK-cell-driven hyperinflammation (branch B) together <strong>culminate in</strong> the clinical syndromes observed: fulminant viral encephalitis/meningoencephalitis, viscerotropic disease, HLH with multi-organ dysfunction, or severe/critical viral pneumonia (influenza, COVID-19), depending on the triggering virus, tissue tropism, and host inflammatory response.</li>
+</ol>
+<h3>Molecular Pathways</h3>
+<ul>
+<li><strong>Type I interferon / JAK-STAT signaling (ISGF3 pathway)</strong>: IFNAR1–IFNAR2 → TYK2/JAK1 → STAT1/STAT2 → ISGF3 (with IRF9) → ISRE-driven ISG transcription. This is the central, disrupted pathway. (KEGG: hsa04630 Jak-STAT signaling pathway; Reactome: Interferon alpha/beta signaling, R-HSA-909733.)</li>
+</ul>
+<h3>Cellular Processes</h3>
+<ul>
+<li>Antiviral restriction-factor induction (failure)</li>
+<li>NK cell cytotoxic degranulation regulation (failure of IFN-α-mediated enhancement)</li>
+<li>NK cell cytokine (IFN-γ) output regulation (failure of IFN-α-mediated suppression) — implicated in HLH pathogenesis</li>
+<li>Monocyte/macrophage activation — secondary hyperinflammatory state in HLH</li>
+</ul>
+<h3>Protein Dysfunction</h3>
+<ul>
+<li>Loss-of-function via truncation (nonsense/frameshift) or via a folding/trafficking defect that traps mutant protein intracellularly (Ser53Pro missense) — a form of "hypomorphic/complete LOF via mislocalization" rather than catalytic-site disruption, since IFNAR2 itself has no enzymatic activity but serves as a scaffold/docking subunit.</li>
+</ul>
+<h3>Immune System Involvement</h3>
+<p>This is fundamentally an <strong>innate antiviral immunodeficiency</strong> with a <strong>secondary hyperinflammatory (HLH-like) phenotype</strong> — an unusual combination in which immunodeficiency and immune dysregulation coexist, mediated respectively by loss of direct antiviral ISG induction and by NK-cell dysregulation.</p>
+<h3>Suggested GO Terms</h3>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/GO_0038196" target="_blank" rel="noopener noreferrer">GO:0038196</a> — interferon-alpha-beta receptor complex / <a href="http://purl.obolibrary.org/obo/GO_0004905" target="_blank" rel="noopener noreferrer">GO:0004905</a> type I interferon receptor activity</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" rel="noopener noreferrer">GO:0060337</a> — type I interferon-mediated signaling pathway</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0060333" target="_blank" rel="noopener noreferrer">GO:0060333</a> — interferon-gamma-mediated signaling pathway (preserved, contrast)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" rel="noopener noreferrer">GO:0007259</a> — cell surface receptor signaling pathway via JAK-STAT</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0032481" target="_blank" rel="noopener noreferrer">GO:0032481</a> — positive regulation of type I interferon production</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0002323" target="_blank" rel="noopener noreferrer">GO:0002323</a> — natural killer cell activation involved in immune response</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0001916" target="_blank" rel="noopener noreferrer">GO:0001916</a> — positive regulation of T cell mediated cytotoxicity (NK degranulation context — CL/GO adjacent)</li>
+</ul>
+<h3>Suggested CL Terms</h3>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a> — monocyte</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" rel="noopener noreferrer">CL:0000623</a> — natural killer cell</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" rel="noopener noreferrer">CL:0000542</a> — lymphocyte</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> — macrophage (HLH effector)</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary):</strong> Central nervous system (encephalitis/meningoencephalitis — the dominant severe presentation), liver (transaminitis, viscerotropic hepatic involvement, hepatomegaly), spleen (HLH-associated splenomegaly, reported elsewhere in interferonopathy literature), bone marrow/hematopoietic system (cytopenias, hemophagocytosis), respiratory system (viral pneumonia in influenza/COVID-19 presentations).</li>
+<li><strong>Secondary/systemic:</strong> Multi-organ failure in severe cases (viscerotropic yellow-fever disease, fulminant HLH).</li>
+<li><strong>Body systems involved:</strong> Immune system (primary defect), nervous system, hepatobiliary system, hematologic system, respiratory system.</li>
+<li><strong>Tissue/cell level:</strong> Leukocytes broadly (monocytes, NK cells, lymphocytes) fail to express surface IFNAR2 and fail to respond to type I IFN — this is a systemic, hematopoietic-lineage-wide receptor defect, not tissue-restricted.</li>
+<li><strong>Subcellular level:</strong> Plasma membrane (absent receptor localization); for Ser53Pro, intracellular retention (likely ER/Golgi, aberrant glycosylation) rather than normal trafficking to the cell surface — GO Cellular Component: <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> (plasma membrane), <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a> (endoplasmic reticulum, for the trafficking-defective mutant).</li>
+<li><strong>UBERON suggestions:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> (brain), <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> (liver), <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a> (spleen), <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a> (bone marrow), <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> (lung).</li>
+<li><strong>Localization:</strong> No lateralization; systemic/multi-organ, virus-tropism-dependent.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Infancy/early childhood, precipitated by the routine vaccination schedule (MMR typically given ~12 months) or first severe wild-type viral exposure. The disease itself is congenital (genetic), but clinical onset is event-triggered rather than present at birth.</li>
+<li><strong>Onset pattern:</strong> Acute/fulminant following the triggering exposure — days after vaccination in the classic cases (e.g., "5 days after MMR vaccination").</li>
+<li><strong>Progression:</strong> Rapid, severe deterioration once triggered (encephalitis, HLH, multi-organ failure over days).</li>
+<li><strong>Disease course pattern:</strong> Episodic/event-triggered rather than continuously progressive — between triggering viral exposures patients are reported as clinically well. However, a single severe episode can leave lasting sequelae (e.g., drug-resistant epilepsy/infantile spasms following an encephalopathic episode).</li>
+<li><strong>Critical periods:</strong> The period surrounding live-vaccine administration is a recognized critical window of vulnerability; this underlies proposals for <strong>pre-vaccination genetic screening</strong> in populations with known founder alleles (e.g., Arctic Inuit communities) or in infants with a family history of severe vaccine reactions.</li>
+<li><strong>Remission:</strong> With prompt recognition and treatment (e.g., corticosteroids for HLH), patients can recover and remain well; the compound-heterozygous HLH case was reported in good health and normally growing at 4 years follow-up, having subsequently tolerated additional infections (febrile seizure, influenza A/HSV coinfection) without HLH recurrence.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li>Extremely rare globally; fewer than ten published kindreds/individuals with confirmed complete biallelic IFNAR2 deficiency as of the most recent literature identified (2015–2025).</li>
+<li><strong>Notable exception — Arctic/Inuit founder effect:</strong> the p.Ser53Pro allele reaches a minor allele frequency of ~0.026–0.034 in Inuit reference populations from Greenland/Canada/Alaska, making IFNAR2 deficiency a locally non-negligible cause of severe pediatric viral/vaccine-associated disease in this population, with an estimated homozygote (affected) frequency on the order of 1 in ~1,000–2,000 in Inuit communities based on Hardy-Weinberg expectation from the reported carrier frequency (this is an approximation derived from the reported allele frequency, not a directly reported incidence figure, and should be validated against the primary source before use as a curated statistic).</li>
+</ul>
+<h3>Inheritance Pattern</h3>
+<ul>
+<li><strong>Autosomal recessive</strong> for the complete/Mendelian disease (biallelic homozygous or compound heterozygous loss-of-function).</li>
+<li>Common hypomorphic <em>IFNAR2</em> variants associated with COVID-19 severity behave as complex-trait risk alleles (not simple recessive Mendelian disease).</li>
+</ul>
+<h3>Penetrance / Expressivity</h3>
+<ul>
+<li>Penetrance for severe disease is <strong>incomplete and exposure-dependent</strong>: genotype alone does not predict a clinical event; a specific viral (or live-vaccine) exposure is required to trigger disease. Among the founder-variant homozygotes ascertained through clinical presentation, expressivity varies (encephalitis vs. HLH vs. epileptic spasms vs. severe COVID-19/influenza), indicating pleiotropic/variable expressivity depending on the triggering pathogen and host factors.</li>
+<li>No reported genetic anticipation, germline mosaicism, or imprinting phenomena.</li>
+</ul>
+<h3>Founder Effects / Consanguinity</h3>
+<ul>
+<li>Strong, well-documented <strong>founder effect</strong> for p.Ser53Pro in circumpolar Inuit populations (Greenland, Arctic Canada, Alaska).</li>
+<li>Consanguinity is not specifically emphasized in the literature relative to the founder-population homozygosity mechanism, though standard recessive-disease logic (increased homozygosity risk with shared ancestry) applies.</li>
+</ul>
+<h3>Population Demographics</h3>
+<ul>
+<li>Affected populations: Reported cases span European/Caucasian (index UK case), and importantly Inuit/circumpolar Arctic populations (Greenland, northern Quebec/Canada, Alaska) where the founder allele is common.</li>
+<li>No formal sex-ratio or age-distribution registry data exists given the rarity and case-report-based evidence base.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Laboratory / Functional Tests</h3>
+<ul>
+<li><strong>Flow cytometry</strong> for IFNAR2 surface expression on leukocytes (monocytes, lymphocytes) — absent or markedly reduced in affected patients; this is a key functional screening assay.</li>
+<li><strong>STAT1 phosphorylation assay</strong> (phospho-flow or immunoblot) after ex vivo IFN-α stimulation of PBMCs/monocytes — absent in patients, normal after IFN-γ stimulation (differentiates type I from type II IFN pathway defects — critical for distinguishing IFNAR1/IFNAR2/STAT2/TYK2 defects from IFNGR/STAT1-only defects).</li>
+<li><strong>ISG induction assay</strong> — qPCR for IFI27, IFI44L, CXCL10, ISG15, RSAD2, SIGLEC1 transcripts after ex vivo IFN-α stimulation of whole blood; failure to induce is diagnostic.</li>
+<li><strong>CXCL10 (IP-10) protein assay</strong> (ELISA/Luminex) after IFN-α stimulation of PBMCs.</li>
+<li><strong>NK cell functional assays</strong>: CD107a degranulation assay with/without IFN-α pre-incubation; intracellular IFN-γ staining.</li>
+<li><strong>HLH-directed labs</strong> when clinically indicated: ferritin, triglycerides, fibrinogen, soluble CD25 (sIL-2R), AST/ALT/LDH, cytopenia panel — per HLH-2004 diagnostic criteria.</li>
+</ul>
+<h3>Genetic Testing</h3>
+<ul>
+<li><strong>Targeted single-gene sequencing</strong> of <em>IFNAR2</em>, or more commonly, ascertainment through <strong>broader gene panels</strong> for primary immunodeficiency, HLH-associated genes, or (as in the epileptic-spasms case) a "comprehensive developmental disorders gene panel."</li>
+<li><strong>Whole exome/genome sequencing</strong> — used in most reported cases, given the initially unclear differential diagnosis (encephalitis, HLH, or epilepsy of unknown cause).</li>
+<li><strong>Population/founder screening</strong> — proposed pre-vaccination genetic screening for the p.Ser53Pro allele has been suggested for Arctic Inuit populations given the relatively high carrier frequency and severe/fatal consequences of missed diagnosis before live-vaccine administration.</li>
+<li>Standard variant interpretation follows ACMG/AMP criteria; the 2024 measles-vaccine case report specifically flagged its causal variant as a <strong>Variant of Uncertain Significance (VUS)</strong> pending confirmatory functional studies, illustrating that not every case yields an unambiguous ClinVar "pathogenic" classification without functional workup.</li>
+</ul>
+<h3>Clinical/Differential Diagnosis</h3>
+<ul>
+<li>Differential diagnosis for the acute presentation includes other inborn errors of type I/III IFN immunity (IFNAR1, STAT1, STAT2, TYK2, IRF7, IRF9 deficiencies), primary HLH (perforin pathway defects: PRF1, UNC13D, STX11, STXBP2), and autoantibody-mediated type I IFN neutralization (an important phenocopy, especially in adults with critical COVID-19 or yellow-fever vaccine-associated disease) — anti-IFN autoantibody testing should be considered as a parallel or alternative diagnostic pathway when genetic testing is negative.</li>
+<li>Standard HLH-2004 clinical criteria apply for the hyperinflammatory phenotype.</li>
+</ul>
+<h3>Screening</h3>
+<ul>
+<li>No newborn screening program currently exists for IFNAR2 deficiency; targeted carrier/pre-vaccination screening has been proposed specifically for high-risk founder populations (Arctic Inuit) and for infants with a family history of severe vaccine reactions, paralleling published clinical guidance for the analogous IFNAR1 Oceania founder allele ("Guideline for the Diagnosis and Management of Heritable IFNAR1 Deficiency in Oceania," PMID cited in search but exact number should be verified against PubMed directly).</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> Case-fatality is substantial among reported index cases — the original 2015 index patient died of fatal encephalitis; other reported patients have died from viscerotropic yellow-fever-vaccine disease or fulminant viral disease. No formal population-level mortality rate exists given the small numbers.</li>
+<li><strong>Morbidity:</strong> Survivors can have significant long-term morbidity — e.g., drug-resistant infantile epileptic spasms/West syndrome with attendant neurodevelopmental impairment following a post-vaccination encephalopathic episode.</li>
+<li><strong>Recovery potential with treatment:</strong> Prompt recognition and immunosuppressive treatment of the HLH phenotype (e.g., high-dose corticosteroids) has achieved good outcomes in at least one reported case, with the patient healthy and developing normally at 4-year follow-up and subsequently tolerating further infections without recurrence — suggesting that outcome is highly dependent on early recognition and supportive/immunomodulatory management of the hyperinflammatory complication, even though the underlying antiviral defect is not itself correctable outside of gene/receptor reconstitution research settings.</li>
+<li><strong>Prognostic factors:</strong> Speed of diagnosis/treatment initiation for HLH; specific triggering virus and organ tropism (CNS involvement carries the worst prognosis); possibly variant type (complete null vs. partial/hypomorphic), though this has not been systematically studied given the small case numbers.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<ul>
+<li><strong>No disease-specific curative therapy exists.</strong> Management is reactive/supportive, directed at the triggering viral infection and any resulting hyperinflammatory (HLH) complication, since IFNAR2 loss cannot currently be pharmacologically corrected.</li>
+<li><strong>HLH-directed immunosuppression:</strong> IV methylprednisolone pulse therapy (30 mg/kg/day × 3 days) followed by tapering high-dose glucocorticoids (2 mg/kg) achieved clinical improvement in the reported compound-heterozygous case (NCIT:C2977 Corticosteroid; NCIT:C15632 or NCIT:C15986 for broader HLH-directed chemo-immunotherapy such as etoposide-based HLH-94/HLH-2004 protocols in more severe cases, though etoposide use was not specifically reported in the identified cases).</li>
+<li><strong>Antimicrobial/antiviral supportive therapy</strong> for subsequent infections (e.g., standard antimicrobial therapy for febrile seizure and combined influenza A/HSV infection in the same patient, without recurrence of HLH).</li>
+<li><strong>Avoidance of live-attenuated vaccines</strong> is the central preventive/management principle once the diagnosis is established or strongly suspected (family history, founder-population ancestry) — i.e., contraindicating MMR and yellow fever vaccines, and considering alternative protection strategies (e.g., passive immunoprophylaxis, isolation/exposure precautions) for measles/rubella/mumps/yellow-fever risk.</li>
+<li><strong>No approved gene therapy, cell therapy, or receptor-reconstitution therapy</strong> exists for this condition in humans; Duncan et al. (2015) demonstrated <strong>experimental reconstitution of patient cells with wild-type IFNAR2</strong> in vitro restores antiviral responsiveness, establishing proof-of-concept for a gene-replacement approach, but this remains a research-only finding, not a clinical therapy (NCIT:C15238 Gene Therapy would be the relevant NCIT term for any future translational approach).</li>
+<li><strong>Hematopoietic stem cell transplantation (HSCT)</strong> has been used for other severe inborn errors of type I IFN immunity/HLH-associated primary immunodeficiencies in general practice, though it was not specifically reported as used in the identified IFNAR2 case reports; it represents a plausible but unconfirmed option for refractory/recurrent cases (NCIT:C15431 Hematopoietic Cell Transplantation).</li>
+<li><strong>Genetic counseling</strong> (NCIT:C15240) is indicated for families, especially in founder populations, given the autosomal recessive inheritance and the severity of the phenotype.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> The principal actionable primary-prevention strategy identified in the literature is <strong>avoidance of live-attenuated viral vaccines</strong> (MMR, yellow fever) in known or suspected IFNAR2-deficient individuals — analogous published guidance exists for IFNAR1 deficiency ("Guideline for the Diagnosis and Management of Heritable IFNAR1 Deficiency in Oceania").</li>
+<li><strong>Pre-vaccination genetic screening</strong> in high-risk founder populations (Arctic Inuit communities carrying p.Ser53Pro) has been explicitly proposed by the primary literature as a means to identify at-risk infants before routine MMR administration.</li>
+<li><strong>Secondary prevention:</strong> Early recognition of post-vaccination or post-infection fever/lethargy/rash in at-risk families, with rapid clinical evaluation for encephalitis/HLH, to enable prompt immunomodulatory treatment.</li>
+<li><strong>Genetic counseling</strong> for families of affected individuals and for carrier identification in founder populations.</li>
+<li><strong>No vaccine (for the disease itself, obviously not applicable) or chemoprophylactic agent</strong> exists; general public-health measures (standard infection control) apply but are not disease-specific.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li>No naturally occurring veterinary/companion-animal disease analog of IFNAR2 deficiency has been identified in the literature reviewed (no OMIA entries surfaced in this search).</li>
+<li><strong>Orthology:</strong> Mouse ortholog <em>Ifnar2</em> (<a href="https://bioregistry.io/MGI:1098243" target="_blank" rel="noopener noreferrer">MGI:1098243</a>), located on mouse chromosome 16, is the standard model-organism counterpart used extensively in engineered (not naturally occurring) knockout studies (see Model Organisms, below).</li>
+<li><strong>Comparative biology:</strong> The IFNAR1/IFNAR2 receptor system and downstream JAK-STAT (ISGF3) signaling pathway is deeply conserved across mammals, supporting strong translational relevance of mouse knockout data, though mice differ from humans in interferon subtype repertoire and some aspects of receptor biology.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Ifnar2 knockout mice (Ifnar2⁻/⁻)</strong> are a long-established and widely used model (<a href="https://bioregistry.io/MGI:1098243" target="_blank" rel="noopener noreferrer">MGI:1098243</a>; e.g., commercially available strains such as Cyagen's C57BL/6NCya-Ifnar2^em1/Cya). Reported phenotypes include:</li>
+<li>Defects in NK cell, CD4+ and CD8+ T cell, and B cell responses to induced/transplanted tumors, viruses, and dsDNA challenge.</li>
+<li>Diminished secretion of both type I and (secondarily) type II interferons.</li>
+<li>Altered/differential susceptibility to post-influenza bacterial superinfection compared with Ifnar1⁻/⁻ mice, indicating that despite forming an obligate heterodimer, the two receptor chains are not perfectly functionally redundant in every downstream context — a nuance relevant to interpreting human IFNAR1 vs. IFNAR2 deficiency phenotypic overlap/differences.</li>
+<li>Broadly recapitulates loss of antiviral, antiproliferative, antiangiogenic, and immunomodulatory type-I-IFN-dependent responses.</li>
+<li><strong>Humanized IFNAR mouse models</strong>: an "extracellular humanized IFNAR immunocompetent mouse model" has been developed for analysis of human IFN-α and its subtypes (<a href="https://pubmed.ncbi.nlm.nih.gov/37994664/" target="_blank" rel="noopener noreferrer">PMID:37994664</a>; PMC10810641), useful for testing human-specific interferon pharmacology and potentially for future receptor-reconstitution/gene-therapy proof-of-concept work.</li>
+<li><strong>Ifnar1⁻/Ifnar2⁻ double and single knockouts</strong> are broadly used across virology as standard "type I IFN receptor knockout" models for high-consequence/BSL3-4 pathogens (e.g., flaviviruses, alphaviruses) precisely because they phenocopy the profound susceptibility to IFN-sensitive viruses seen in human patients — directly modeling the "increased vulnerability to multiple viruses" phenotype documented in human patient cells.</li>
+<li>No induced/environmental (non-genetic) animal models specific to this disease were identified; all model-organism evidence is from targeted genetic (knockout/humanized) engineering, not spontaneous natural disease.</li>
+</ul>
+<hr />
+<h2>Summary of Key Primary Literature (PMIDs / DOIs)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Citation</th>
+<th>PMID / DOI</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Duncan CJA et al., <em>Sci Transl Med</em> 2015;7(307):307ra154</td>
+<td><a href="https://doi.org/10.1126/scitranslmed.aac4227" target="_blank" rel="noopener noreferrer">DOI:10.1126/scitranslmed.aac4227</a></td>
+<td>Index human IFNAR2 deficiency report; fatal post-MMR encephalitis; functional reconstitution rescue</td>
+</tr>
+<tr>
+<td>Hernandez N et al., <em>Front Genet</em> 2020</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33193576/" target="_blank" rel="noopener noreferrer">PMID:33193576</a></td>
+<td>Compound heterozygous frameshift variants; HLH post-MMR; detailed STAT1/ISG/NK functional workup; corticosteroid treatment and favorable outcome</td>
+</tr>
+<tr>
+<td>Bastard P et al., <em>J Exp Med</em> 2022;219(6):e20212427</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35442417/" target="_blank" rel="noopener noreferrer">PMID:35442417</a></td>
+<td>Arctic/Inuit founder variant p.Ser53Pro; 5 patients; population allele-frequency data; life-threatening COVID-19/influenza/vaccine-associated disease</td>
+</tr>
+<tr>
+<td>Seizure–Eur J Epilepsy 2022</td>
+<td><a href="https://doi.org/10.1016/j.seizure.2022.06.013" target="_blank" rel="noopener noreferrer">DOI:10.1016/j.seizure.2022.06.013</a> (S1059-1311(22)00175-3)</td>
+<td>Same founder variant; post-vaccination drug-resistant infantile epileptic spasms</td>
+</tr>
+<tr>
+<td><em>J Clin Immunol</em> 2024/2025;45:30</td>
+<td><a href="https://doi.org/10.1007/s10875-024-01814-6" target="_blank" rel="noopener noreferrer">DOI:10.1007/s10875-024-01814-6</a></td>
+<td>Homozygous VUS; severe post-measles-vaccine reaction with viremia/meningoencephalitis/multi-organ failure; literature review</td>
+</tr>
+<tr>
+<td>Smieszek SP et al., <em>EBioMedicine</em>/PMC8279933, 2021</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34273592/" target="_blank" rel="noopener noreferrer">PMID:34273592</a></td>
+<td>Rare/common LOF <em>IFNAR2</em> variant burden association with severe COVID-19</td>
+</tr>
+<tr>
+<td>Rodrigues Prestes TR et al. (or similar), <em>Front Immunol</em> 2022</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35967349/" target="_blank" rel="noopener noreferrer">PMID:35967349</a></td>
+<td>Common <em>IFNAR2</em> variants and soluble IFNAR2 levels associated with COVID-19 mortality</td>
+</tr>
+<tr>
+<td>Bastard P et al. (yellow fever vaccine cohort)</td>
+<td>(French National Reference Center series; JEM-adjacent)</td>
+<td>IFNAR1/IFNAR2 deficiency and anti-IFN autoantibodies together account for &gt;half of life-threatening yellow-fever-vaccine-associated disease</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Note on curation caveats:</strong> OMIM phenotype MIM numbering for IMD45 should be independently confirmed directly at omim.org (this session's OMIM WebFetch calls failed due to a proxy connectivity error, so identifiers above rely on secondary-source search snippets and carry residual uncertainty — particularly the #614889 vs. #616669 MIM number discrepancy, which must be resolved against the primary OMIM record before being written into a knowledge-base entry). Similarly, several PMIDs above (e.g., for the Rockefeller <em>J Exp Med</em> Arctic paper, PMC9026249) were resolved via secondary aggregator search snippets rather than direct primary-source fetch; both should be verified against PubMed/PMC directly during KB curation, per this repository's evidence-verification workflow (<code>just fetch-reference</code>, <code>just validate-kb-references</code>).</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<ul>
+<li><code>PMID:35442417</code>: "Autosomal recessive deficiency of the IFNAR2 chain of the human type I IFN receptor abolishes cellular responses to IFN-α, -β, and -ω, underlies severe viral diseases, and is globally very rare, except for IFNAR2 deficiency in the Arctic."</li>
+<li>closest text in source: "Patients with autosomal recessive (AR) deficiency of IFNAR2 and subsequently IFNAR1 were first recognized by their susceptibility to severe viral diseases precipitated by the exposure to live-attenuated viral vaccines (LAV)—specifically, the measles, mumps, and rubella (MMR) and yellow fever vaccines (Bastard et al., 2021b; Duncan et al., 2015; Gothe et al., 2020; Hernandez et al., 2019; Passarelli et al., 2020)"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>43</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0025143</code> (2 mentions) - the report calls it "Lethargy"; HP calls it <strong>Chills</strong></li>
+<li><code>HP:0025047</code> (1 mention) - the report calls it "Maculopapular rash"; HP calls it <strong>Abnormal brain choline level by MRS</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0002264</code> (1 mention) - HP does not contain this term</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0002383</code> (1 mention) - the report calls it "Encephalitis"; HP calls it <strong>Infectious encephalitis</strong></li>
+<li><code>HP:0002718</code> (1 mention) - the report calls it "Recurrent infections"; HP calls it <strong>Recurrent bacterial infections</strong>, and lists "Recurrent pyogenic infections" among its other names</li>
+<li><code>HP:0004429</code> (1 mention) - the report calls it "susceptibility to viral infections, if available in HPO"; HP calls it <strong>Recurrent viral infections</strong></li>
+<li><code>HP:0011024</code> (1 mention) - the report calls it "Abnormality of the gastrointestinal system"; HP calls it <strong>Abnormality of the gastrointestinal tract</strong></li>
+<li><code>HP:0011893</code> (1 mention) - the report calls it "Abnormal leukocyte count / cytopenias"; HP calls it <strong>Abnormal leukocyte count</strong></li>
+<li><code>GO:0005783</code> (1 mention) - the report calls it "endoplasmic reticulum, for the trafficking-defective mutant"; GO calls it <strong>endoplasmic reticulum</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MGI:1098243</code> - called "Ifnar2", "Orthology:*<em> Mouse ortholog </em>Ifnar2"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>MGI</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="IFAP_Syndrome_2-claude_code.html">← IFAP Syndrome 2 (Claude Code)</a>
+                
+                
+                <a href="IgA_Nephropathy-cyberian-codex.html">IgA Nephropathy (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/IFNAR2_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/IFNAR2_Deficiency-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -619,6 +619,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#whether-the-term-is-still-a-term" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Whether the term is still a term
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -24139,6 +24150,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#whether-the-term-is-still-a-term" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Whether the term is still a term
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -24368,8 +24390,9 @@ where it belongs.</p>
 <code>src/dismech/schema/curation_stub.yaml</code>; the filename is the label slugged into
 the <code>Title_Case_With_Underscores</code> style <code>kb/disorders/</code> uses.</p>
 <h3 id="mondo-context-in-the-file">MONDO context in the file</h3>
-<p><code>just enrich-stubs</code> adds three blocks from MONDO, so the lump/split call can be
-made by reading the stub rather than by querying an ontology mid-task:</p>
+<p><code>just enrich-stubs</code> adds three context blocks from MONDO, so the lump/split
+call can be made by reading the stub rather than by querying an ontology
+mid-task:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">mondo_parents</span><span class="p">:</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MONDO:0003321</span>
 <span class="w">  </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">hereditary Wilms tumor</span>
@@ -24394,9 +24417,54 @@ made by reading the stub rather than by querying an ontology mid-task:</p>
 <p>Across the current queue: 1,866 stubs have a parent, 1,331 have a causal gene,
 and only 181 have any descendants at all — so the queue is mostly leaf diseases,
 and the 181 are where the grouping question actually lives.</p>
+<h3 id="whether-the-term-is-still-a-term">Whether the term is still a term</h3>
+<p>Enrichment also asks MONDO whether it has retired the stub's term, or decided
+to, and writes the answer into the file so the check that reads it needs no
+ontology:</p>
+<p>A term MONDO has already retired is no longer <em>scheduled</em> to be, so a stub
+carries one case or the other, never both. Already retired, and merged into a
+survivor:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">mondo_obsolete</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="nt">mondo_replaced_by</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MONDO:0859003</span>
+</code></pre></div>
+<p>Scheduled but still live, carrying MONDO's own note verbatim (emitted as one
+long line — the writer does not fold):</p>
+<div class="highlight"><pre><span></span><code><span class="nt">mondo_obsoletion_candidate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">This term is scheduled to be merged with MONDO:0859003 PAICS deficiency, based on the fact that the concept of these 2 terms are the same. This ID will therefore be obsoleted and replaced with MONDO:0859003 https://github.com/monarch-initiative/mondo/issues/9884</span>
+</code></pre></div>
+<p>The signal this replaces was a heuristic on the label. MONDO prefixes a retired
+concept's label with the word "obsolete", so a stub whose <code>label</code> starts that
+way names a dead term — but that only works when the nominating export captured
+the label <em>after</em> the retirement. A stub is normally seeded from a list that
+predates it, keeps the clean label forever, and the check stays silent. <strong>Zero
+of the 1,333 committed stubs match the heuristic</strong>, while three name terms MONDO
+has ruled on (issue #10785). The heuristic is kept as a backstop for stubs the
+enrichment pass has not reached; the ontology's own answer takes precedence.</p>
+<p>Two facts are read, and the second is the one that catches things:</p>
+<ul>
+<li><strong><code>mondo_obsolete</code></strong> — <code>owl:deprecated true</code>, with <code>mondo_replaced_by</code> from
+  <code>IAO:0100001</code> when the retirement was a merge.</li>
+<li><strong><code>mondo_obsoletion_candidate</code></strong> — MONDO's own note, verbatim, about a
+  retirement it has decided on but not yet made. The deprecation flag only
+  appears in a MONDO release built <em>after</em> the merge lands, which can be months
+  later; the term enters MONDO's <code>obsoletion_candidate</code> subset the moment the
+  decision is taken. <code>MONDO:0859244</code> has carried its note since 2026-04 and is
+  still not deprecated in the release the repository pins.</li>
+</ul>
+<p>To ask the ontology directly rather than reading the committed answer:</p>
+<div class="highlight"><pre><span></span><code>just<span class="w"> </span>stub-obsolescence<span class="w">           </span><span class="c1"># census over the queue</span>
+just<span class="w"> </span>stub-obsolescence<span class="w"> </span>--json
+</code></pre></div>
+<p>It needs the MONDO database; without it, it says so and exits 0. This is a
+census for a person, never a gate.</p>
+<p><strong>A merged term is repointed, not deleted.</strong> <code>mondo_replaced_by</code> is the
+difference between the two: the identifier moved, but the disease is still
+uncurated, so deleting the stub would drop real queue content. Those are
+reported as <code>obsolete_term_replaced</code> and <code>tidy</code> lists them separately instead of
+sweeping them. An <code>obsoletion_candidate</code> is not stale at all — the term is still
+live — but whoever picks the stub up should know where it is going.</p>
 <p>Enrichment is a separate pass from seeding because it needs the MONDO database
 (<code>just fetch-ontology-dbs mondo</code>) while seeding stays offline. It is idempotent,
-replaces only its own three blocks, and never touches anything a person wrote.</p>
+replaces only its own blocks, and never touches anything a person wrote.</p>
 <p>It records which MONDO release it read in <code>data/mondo/MANIFEST.yaml</code>, the same
 way <code>data/orphadata/</code> and <code>data/icees-kg/</code> pin their bulk sources. Without that,
 a re-run on a machine holding a different <code>mondo.db</code> produces
@@ -24564,7 +24632,7 @@ already done correctly. A bit of overlap and a bit of lag are fine.</p>
 </tr>
 <tr>
 <td><strong>advisory</strong></td>
-<td>the <em>queue</em> has drifted — <code>already_curated</code>, <code>obsolete_term</code>, <code>possible_kb_duplicate</code></td>
+<td>the <em>queue</em> has drifted — <code>already_curated</code>, <code>obsolete_term</code>, <code>obsolete_term_replaced</code>, <code>obsoletion_candidate</code>, <code>possible_kb_duplicate</code></td>
 <td>never</td>
 </tr>
 </tbody>
@@ -24576,9 +24644,13 @@ just<span class="w"> </span>tidy-stubs<span class="w"> </span>--apply<span class
 </code></pre></div>
 <p><code>tidy</code> removes stubs whose MONDO ID a committed <code>kb/disorders/</code> or
 <code>kb/groupings/</code> entry now covers, and stubs naming a MONDO term that has since
-been retired. It does <strong>not</strong> touch <code>possible_kb_duplicate</code> advisories — those
-are a judgement call about two different MONDO IDs, and a script should not be
-making it.</p>
+been retired with nothing to replace it. It does <strong>not</strong> touch
+<code>possible_kb_duplicate</code> advisories — those are a judgement call about two
+different MONDO IDs, and a script should not be making it.</p>
+<p>It also does not delete a stub whose term was <strong>merged</strong> into a live one
+(<code>obsolete_term_replaced</code>), or one MONDO has only scheduled for retirement
+(<code>obsoletion_candidate</code>). Both name a disease nobody has curated; the remedy is
+to repoint <code>mondo_id</code>, and <code>tidy</code> lists them for a person to do that.</p>
 <p>Coverage means the entry's <code>disease_term</code>, any <code>has_subtypes[].subtype_term</code>, and
 any exact/narrow <code>mondo_mappings</code>.</p>
 <p>It also means <strong>any</strong> mapping on a <code>kb/groupings/</code> entry, whatever the predicate

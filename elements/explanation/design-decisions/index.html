@@ -24796,6 +24796,89 @@ Splitting the measure out, banding coarsely (Orphanet-aligned), and keeping one 
 rate gives a value that is always fillable (the band), precise when the source supports it
 (the rate), and never conflates incompatible epidemiological measures. Because prevalence
 is not yet rendered on disorder pages, the remodel carries no display-breakage risk.</p>
+<p><strong>Amendment (2026-09): prevalence vs. incidence — what a band means.</strong> The
+<code>measure_type</code> discriminator above was necessary but not sufficient. Nothing below it
+respected the distinction it drew: <code>rate_per_100000</code> carried no dimension (a point
+prevalence of <code>5.0</code> is a dimensionless proportion; an annual incidence of <code>5.0</code> is
+5 per 100,000 <em>per year</em>), <code>_band_from_rate()</code> assigned Orphanet <strong>prevalence</strong> classes
+purely as a function of the number, and no test or QC plugin read <code>measure_type</code> at all.
+The KB drifted accordingly — 118 of 140 <code>ANNUAL_INCIDENCE</code> and 41 of 45
+<code>CARRIER_FREQUENCY</code> records carry numeric prevalence bands (issue #8431).</p>
+<p><em>Counts in this amendment are a snapshot taken on the branch that landed it
+(<code>c5496675ec</code>, 2026-09-04), over <code>kb/disorders/</code>, <code>kb/comorbidities/</code>, and
+<code>kb/modules/</code>. This repository merges fast enough that they drift within days —
+they are recorded to show the scale of the problem the decision addresses, not
+as figures to re-derive against a later tree. The audit is reproducible: walk
+each <code>prevalence:</code> record and cross-tabulate <code>measure_type</code> against
+<code>prevalence_class</code>.</em></p>
+<p><strong>Decision.</strong> A <code>prevalence_class</code> band reports <strong>magnitude only</strong>; <code>measure_type</code>
+supplies the semantics. <code>BAND_1_9_PER_100000</code> means "1-9 per 100,000 of whatever this
+record measures" — people with the disease, new cases per year, or carriers — and is
+meaningless read alone. Consumers <strong>must</strong> read <code>measure_type</code> alongside the band, and
+should prefer the new <code>rate_denominator</code> slot (<code>RateDenominatorEnum</code>: <code>POPULATION</code>,
+<code>LIVE_BIRTHS</code>, <code>PERSON_YEARS</code>, <code>POPULATION_PER_YEAR</code>) where present, which pins the
+dimension explicitly instead of leaving it implied.</p>
+<p><code>ANNUAL_INCIDENCE</code> deliberately has <strong>no</strong> implied fallback. A published "annual incidence
+per 100,000" is usually computed against a mid-year population, while person-year
+denominators are standard in cohort studies, and the two are interchangeable only when the
+population is stable. Neither is right often enough to assume, and assuming would assert a
+dimension for all 138 existing incidence records, none of which were migrated with
+denominator information. An unstated default costs a consumer one branch; a usually-wrong
+default costs it correctness.</p>
+<p>The qualitative tiers are the exception: <code>COMMON</code>, <code>RARE</code>, and <code>ULTRA_RARE</code> are each
+defined by a <em>prevalence</em> threshold and each presuppose that the source gave no numeric
+estimate. They are therefore invalid on the two measures that are definitely not
+prevalence — <code>ANNUAL_INCIDENCE</code> and <code>CARRIER_FREQUENCY</code> — and should not sit alongside a
+populated <code>rate_per_100000</code>. They remain correct on the prevalence measures, on
+<code>CASES_IN_LITERATURE</code>, and on <code>UNKNOWN</code>, which is the ordinary prose-only case: a source
+that says only "rare" without naming its measure. Scoping the rule this way matters — 82
+of the 90 records pairing a qualitative tier with a non-prevalence measure are <code>UNKNOWN</code>
+and legitimate; only 8 (all <code>ANNUAL_INCIDENCE</code>) are errors.</p>
+<p><strong>Rationale for this reading over the alternative.</strong> The alternative — treating bands as
+strictly prevalence-typed and stripping them from incidence and carrier records — would
+have required rewriting 159 KB records against a queue of 100+ open curation PRs, and
+would have <em>lost</em> information: the only landing place for those records is a qualitative
+tier, which is both less precise and itself prevalence-semantic, so the category error
+would survive in a less detectable form. Worked counterexample:
+<code>2-Methylbutyryl-CoA_Dehydrogenase_Deficiency</code> records a 21.8% Hmong carrier frequency
+alongside a 1-in-227,571 Zhejiang birth prevalence; demoting the carrier record's band to
+its nearest tier (<code>COMMON</code>) would make one file assert both that the disease is common and
+that it is 1-9 per million.</p>
+<p>The magnitude reading costs one thing: a band is no longer self-describing. There is
+exactly <strong>one</strong> consumer to hold to that rule — <code>src/dismech/templates/disorder.html.j2</code>,
+which has rendered <code>measure_type</code>, <code>rate_per_100000</code>, and <code>prevalence_class</code> on every
+disorder page since "Render nine curated sections that no page showed" (#9510). It did not
+honour the rule: it printed <code>1.2 per 100,000</code> for an annual incidence with no time
+dimension, and mapped a band to a standalone self-describing label, so a carrier-frequency
+record showed a tag reading "1–9 per 100,000" that a reader would take as disease
+prevalence. This decision fixes that template alongside the schema — the band label is now
+qualified by <code>measure_type</code> ("per year", "(carriers)") and <code>rate_denominator</code> is rendered
+rather than silently dropped.</p>
+<p>(An earlier draft of this amendment asserted the fields had <em>no</em> consumer. That was a
+stale-base error: the grep behind it predated #9510 by ~1,100 commits. Recorded here
+because the false premise was load-bearing for the decision, and the corrected fact —
+one existing consumer, already mis-rendering — argues <em>more</em> strongly against a
+157-record rewrite, not less.)</p>
+<h1 id="7520-render-structured-epidemiology-on-disorder-pages-remains-open-and-covers-the">7520 (render structured epidemiology on disorder pages) remains open and covers the</h1>
+<p>broader epidemiology sections; the prevalence part shipped ahead of it.</p>
+<p><strong>Accepted debt.</strong> The slot is still named <code>prevalence_class</code> and the class is still
+<code>Prevalence</code>, so the names remain prevalence-flavored while the semantics are now
+occurrence-general. Renaming would touch every KB record carrying a prevalence block and
+was judged not worth the churn; the enum documentation carries the meaning instead.</p>
+<p><strong>Deferred to follow-ups.</strong> (a) A QC check gating qualitative tiers to prevalence-shaped
+measure types, landing alongside the band-vs-rate check proposed in #7005 — <strong>23</strong>
+records to fix, not 8. The rule has two halves and only the first was counted initially:
+8 records carry a qualitative tier on <code>ANNUAL_INCIDENCE</code>/<code>CARRIER_FREQUENCY</code>, and 20 carry
+one alongside a populated numeric estimate (counting <code>rate_low</code>/<code>rate_high</code>, not just
+<code>rate_per_100000</code>), overlapping in 5 (22 distinct files — <code>Specific_Antibody_Deficiency</code>
+carries two such records). Five of the 18 are a distinct pre-existing data bug
+— <code>rate_per_100000: 0.0</code> on <code>CASES_IN_LITERATURE</code> records, where zero is not a rate. (b) Backfilling the 286 records that set no <code>measure_type</code> (a further 218 are
+<code>UNKNOWN</code>), after which the slot can become required. (c) Whether <code>CARRIER_FREQUENCY</code>
+belongs on <code>Prevalence</code> at all — it is a genotype frequency among unaffected people, and
+<code>GeneCaseFraction</code> is structurally closer; moving it would remove 41 of the flagged
+records from this class entirely.
+(d) <code>SCREEN_POSITIVE_RATE</code> is still missing from <code>PrevalenceMeasureEnum</code> (#7003), the same
+modeling gap one level up.</p>
 <p><strong>Per-gene case fractions (the genetic-spectrum analog).</strong> For a genetically
 heterogeneous disease, "what share of cases does each gene explain?" is a <em>different axis</em>
 from population occurrence — it is cohort/ancestry-dependent (e.g. BBS1 dominates European
