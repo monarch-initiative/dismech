@@ -1841,39 +1841,103 @@ enums:
 
   EnvironmentalEffectEnum:
     description: >-
-      How an environmental factor or exposure acts on a pathophysiology
-      mechanism node. The environmental analogue of TreatmentEffectEnum,
-      used to keep causative, aggravating, and protective exposures visually
-      and semantically distinct in the pathograph.
+      How an environmental factor or exposure acts on its subject. The
+      environmental analogue of TreatmentEffectEnum, used to keep causative,
+      aggravating, and protective exposures visually and semantically distinct
+      in the pathograph.
+    comments:
+      - >-
+        Used at two scopes, and the value means the same thing at both. On
+        EnvironmentalMechanismTarget.environmental_effect the subject is one
+        pathophysiology or phenotype node; on Environmental.disease_effect it is
+        the disease as a whole. An exposure may legitimately carry a different
+        value at each scope -- one that PROTECTS_AGAINST a mechanism while it
+        PREDISPOSES to the disease is a real pattern, not a contradiction.
+      - >-
+        Direction only. How strongly the exposure determines the outcome is
+        Environmental.causal_role, a separate axis.
     permissible_values:
       TRIGGERS:
         title: Triggers
         description: >-
-          The exposure initiates the mechanism, which would not otherwise
-          occur in its absence (e.g., inorganic arsenic ingestion initiating
-          systemic arsenic exposure; allergen contact initiating sensitization).
+          The exposure initiates the mechanism or disease, which would not
+          otherwise occur in its absence (e.g., inorganic arsenic ingestion
+          initiating systemic arsenic exposure; allergen contact initiating
+          sensitization; gluten ingestion initiating coeliac enteropathy).
       EXACERBATES:
         title: Exacerbates
         description: >-
-          The exposure worsens or amplifies a mechanism that is already
-          present or can arise independently (e.g., tobacco smoke amplifying
-          airway inflammation).
+          The exposure worsens or amplifies a mechanism or disease that is
+          already present or can arise independently (e.g., tobacco smoke
+          amplifying airway inflammation).
       PREDISPOSES:
         title: Predisposes
         description: >-
-          The exposure increases susceptibility to the mechanism without
-          being sufficient to produce it (e.g., a risk-factor exposure that
-          requires additional genetic or environmental hits).
+          The exposure increases susceptibility to the mechanism or disease
+          without being sufficient to produce it (e.g., a risk-factor exposure
+          that requires additional genetic or environmental hits).
       PROTECTS_AGAINST:
         title: Protects against
         description: >-
-          The exposure reduces the occurrence or severity of the mechanism
-          (e.g., early-life microbial exposure and allergic sensitization).
+          The exposure reduces the occurrence or severity of the mechanism or
+          disease (e.g., early-life microbial exposure and allergic
+          sensitization).
       MODULATES:
         title: Modulates
         description: >-
-          The exposure alters the mechanism without a clear unidirectional
-          effect, or the direction is context dependent.
+          The exposure alters the mechanism or disease without a clear
+          unidirectional effect, or the direction is context dependent.
+
+  EnvironmentalCausalRoleEnum:
+    description: >-
+      How strongly an environmental exposure determines the disease, as distinct
+      from which way it acts. Pairs with Environmental.disease_effect, which
+      carries the direction.
+    comments:
+      - >-
+        PROPOSED, not yet ratified -- see issue #11112. The value set borrows
+        epidemiological framing and may be heavier than the KB needs; settle it
+        before populating at scale, since narrowing an enum later is the
+        merge-shaped failure recorded in issue #10061.
+      - >-
+        ASSOCIATED_ONLY is a first-class answer, not a placeholder. Most curated
+        exposures rest on observational cohort evidence that establishes a risk
+        association and never reaches a mechanism, and recording that honestly is
+        better than either inflating it or leaving the exposure unlinked.
+    permissible_values:
+      NECESSARY:
+        title: Necessary cause
+        description: >-
+          The disease does not occur without this exposure, though the exposure
+          alone is not sufficient (e.g., gluten in coeliac disease; grass pea
+          overconsumption in neurolathyrism).
+      SUFFICIENT:
+        title: Sufficient cause
+        description: >-
+          The exposure alone produces the disease in a susceptible host, without
+          requiring a further hit (e.g., a high enough acute dose of a poison).
+      COMPONENT_CAUSE:
+        title: Component cause
+        description: >-
+          The exposure is one required member of a set of causes that together
+          produce the disease; neither necessary nor sufficient on its own.
+      RISK_FACTOR:
+        title: Risk factor
+        description: >-
+          The exposure raises or lowers disease incidence in populations, with a
+          causal reading supported but no claim about necessity or sufficiency
+          (e.g., alcohol and breast carcinoma).
+      MODIFIER:
+        title: Modifier
+        description: >-
+          The exposure alters the course, severity, or expression of disease that
+          is already established, rather than its occurrence.
+      ASSOCIATED_ONLY:
+        title: Associated only
+        description: >-
+          A reported statistical association whose causal status is unsettled or
+          unevidenced in the cited source. Use when the evidence measures
+          co-occurrence or incidence and the entry makes no causal claim beyond it.
 
   ImagingModalityEnum:
     description: >-
@@ -3612,9 +3676,43 @@ slots:
       - value: Human
     range: string
   effect:
+    description: >-
+      Free-text summary of what the exposure does. Superseded by the structured
+      pair disease_effect (direction) and causal_role (strength).
     examples:
       - value: Potential trigger for flare-ups
     range: string
+    deprecated: >-
+      Prefer disease_effect and causal_role. Retained for the 285 entries that
+      already populate it, ~64 of which carry enum-shaped values (HARMFUL,
+      TRIGGERS, RISK_FACTOR, CAUSATIVE, EXACERBATES) written into a string slot
+      because no controlled vocabulary existed at this scope. See issue #11112.
+  disease_effect:
+    description: >-
+      How this exposure acts on the disease as a whole, as opposed to on any one
+      mechanism node.
+    range: EnvironmentalEffectEnum
+    comments:
+      - >-
+        Independent of influences_mechanisms. An exposure may carry a
+        disease_effect with no mechanism links at all -- that is the normal shape
+        when the evidence is a population risk estimate that never names a node.
+      - >-
+        Where both are present they are separate assertions and need not agree;
+        see the EnvironmentalEffectEnum comments.
+      - >-
+        Supported by the entry's own evidence block, which already holds the
+        disease-level claim in curated entries.
+  causal_role:
+    description: >-
+      How strongly this exposure determines the disease. The strength axis
+      paired with disease_effect, which carries the direction.
+    range: EnvironmentalCausalRoleEnum
+    comments:
+      - >-
+        Answers "is this an environmental determinant" separately from "which way
+        does it act". An exposure can be PREDISPOSES + RISK_FACTOR (alcohol and
+        breast carcinoma) or TRIGGERS + NECESSARY (gluten and coeliac disease).
   parents:
     examples:
       - value: '[''Bacterial Infection'']'
@@ -6839,6 +6937,12 @@ classes:
       - examples
   Environmental:
     description: An environmental factor, exposure, or context relevant to disease
+    comments:
+      - >-
+        Carries claims at two independent scopes. disease_effect + causal_role
+        state how the exposure acts on the disease; influences_mechanisms states
+        how it acts on named mechanism nodes. Either may be present without the
+        other.
     slots:
       - name
       - presence
@@ -6848,6 +6952,8 @@ classes:
       - chemicals
       - synonyms
       - effect
+      - disease_effect
+      - causal_role
       - examples
       - review_notes
       - exposure_term

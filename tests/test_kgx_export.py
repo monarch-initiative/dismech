@@ -450,6 +450,54 @@ class TestExposureToEdge:
         assert edge.predicate == "biolink:contributes_to"
 
 
+    def test_disease_effect_outranks_mechanism_links(self):
+        """A declared disease_effect wins over the mechanism-link reading (#11112).
+
+        This is the case the unanimity rule could not decide: the exposure
+        protects against the disease while driving one of its mechanisms.
+        """
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": "PROTECTS_AGAINST",
+            "influences_mechanisms": [
+                {"target": "Mechanism A", "environmental_effect": "TRIGGERS"},
+                {"target": "Mechanism B", "environmental_effect": "PROTECTS_AGAINST"},
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+    def test_disease_effect_outranks_protective_free_text(self):
+        """Declared direction beats prose that says the opposite (#11112)."""
+        environmental = {
+            "effect": "Reduces risk of flares.",
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+            "disease_effect": "PREDISPOSES",
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:contributes_to"
+
+    def test_disease_effect_alone_needs_no_mechanism_link(self):
+        """The shape this slot exists for: a risk claim that names no node (#11112)."""
+        environmental = {
+            "name": "Alcohol exposure",
+            "exposure_term": {"term": {"id": "ECTO:0001082"}},
+            "disease_effect": "PREDISPOSES",
+            "causal_role": "RISK_FACTOR",
+        }
+        edge = exposure_to_edge("MONDO:0007254", environmental)
+        assert edge.predicate == "biolink:contributes_to"
+
+    def test_absent_disease_effect_preserves_legacy_behaviour(self):
+        """Entries without the new slot must read exactly as before (#11112)."""
+        environmental = {
+            "effect": "Reduces risk of severe disease.",
+            "exposure_term": {"term": {"id": "ECTO:0000001"}},
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+
+
 class TestMolecularFunctionToEdge:
     """Tests for molecular_function_to_edge function."""
 
