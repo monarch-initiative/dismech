@@ -1220,3 +1220,37 @@ References
 ## Artifacts
 
 - [Edison artifact artifact-00](Idiopathic_Pulmonary_Arterial_Hypertension-deep-research-falcon_artifacts/artifact-00.md)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.2.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 10 |
+| Resolved | 10 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 10 |
+| On topic | 8 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 39 |
+| Resolved | 38 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 1 |
+
+### Prefixes with no resolver
+
+Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: `ORPHA`.
+
+38 of 39 terms resolved to a current term; the rest could not be looked up either way.
