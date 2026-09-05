@@ -883,6 +883,18 @@ environmental-term-audit *args="":
 model-scale-audit *args="":
     uv run python scripts/model_scale_audit.py {{args}}
 
+# Census of how diet is represented, on its two INDEPENDENT tracks: causal
+# (environmental[] food_source/exposure_term -> influences_mechanisms) and
+# intervention (treatments[] dietary_modifications -> target_mechanisms). The
+# headline is not binding coverage but the evidence-backed entries that are OFF
+# the pathograph, since a diet annotation earns a mechanism edge only when the
+# evidence supports one. FREE_TEXT is reported as a state to review, never an
+# error -- food components and dietary patterns have no home in FoodTerm.
+# Advisory by default; --strict exits non-zero on a linked-but-uncited entry.
+[group('QC')]
+diet-audit *args="":
+    uv run python scripts/diet_audit.py {{args}}
+
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
