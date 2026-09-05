@@ -836,7 +836,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1143,6 +1143,34 @@ list-causal-targets *files:
 [group('QC')]
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
+
+# Derive each neoplasm entry's cell of origin from its own pathograph, and
+# report where the derivation fails. There is no `cell_of_origin:` slot: a node
+# carrying `genetic_context.variant_origin: SOMATIC` is where the transforming
+# lesion happened, and that node's `cell_types` are the cell it happened in.
+# Advisory -- most of the corpus is unmarked, so this reports rather than gates.
+# The finding worth reading is MULTI_ORIGIN_CELL: more than one derived cell of
+# origin is the lump/split signal (grouping vs. cell-of-origin subtypes vs. an
+# unsettled origin). See docs/cancer-cell-of-origin.md.
+[group('QC')]
+check-cancer-origin *args="":
+    uv run python scripts/check_cancer_origin.py {{args}}
+
+# Full census: every neoplasm entry, the rule that identified its origin node,
+# and the cell of origin derived from it. --format tsv/json for machine use.
+[group('QC')]
+list-cancer-origin *args="":
+    uv run python scripts/check_cancer_origin.py --format list {{args}}
+
+# Propose (and with --apply, write) the somatic-origin marking on neoplasm
+# entries whose prose already states the lesion. Marks only nodes whose NAME
+# says mutation/fusion/translocation/amplification/inactivation, never a pathway
+# state, a germline variant, a microenvironment node, or an acquired-resistance
+# node. --bind-single-cell also copies the entry's cell type onto the lesion node
+# when the entry names exactly one. Re-validate the changed files afterwards.
+[group('QC')]
+backfill-cancer-origin *args="":
+    uv run python scripts/backfill_cancer_origin.py {{args}}
 
 # Check ontology labels on terms nested inside `qualifiers` (#10197).
 # `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;
