@@ -488,7 +488,8 @@ def test_real_errors_are_not_benign(message):
 
 
 def _run_main(
-    monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None
+    monkeypatch, tmp_path, *, view, listed=None, extra_args=(), queue_payload=None,
+    ejection_payload=None,
 ):
     """Drive main() against a stubbed gh, returning (exit code, gh calls)."""
     if listed is None:
@@ -506,6 +507,17 @@ def _run_main(
             payload = views[min(view_index, len(views) - 1)]
             view_index += 1
             return json.dumps(payload)
+        if args[:2] == ["api", "graphql"] and any(
+            "pullRequest(number:" in a for a in args
+        ):
+            return ejection_payload or json.dumps(
+                {"data": {"repository": {"pullRequest": {
+                    "commits": {"nodes": [
+                        {"commit": {"committedDate": "2026-09-04T00:00:00Z"}}
+                    ]},
+                    "timelineItems": {"nodes": []},
+                }}}}
+            )
         if args[:2] == ["api", "graphql"]:
             # No queue by default, so existing tests keep the direct-merge path.
             return queue_payload or json.dumps(
@@ -1438,3 +1450,124 @@ def test_summary_reports_queue_state_so_an_inert_fix_is_visible():
         queue_state=auto_merge.QueueState(True, frozenset({1}), truncated=99),
     )
     assert "99" in truncated and "may be reselected" in truncated
+
+
+def _ejection_payload(head_written, events):
+    return json.dumps({"data": {"repository": {"pullRequest": {
+        "commits": {"nodes": [{"commit": {"committedDate": head_written}}]},
+        "timelineItems": {"nodes": events},
+    }}}})
+
+
+def test_one_ejection_does_not_block(monkeypatch):
+    """A single failure is not evidence of guilt: it may be collateral damage
+    from a PR ahead in the speculative stack, or a third-party outage."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [{"createdAt": "2026-09-04T13:00:00Z", "reason": "failed_checks"}],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is False
+    assert memory.strikes == 1
+
+
+def test_repeated_ejection_on_unchanged_content_blocks(monkeypatch):
+    """Collateral and infrastructure failures do not reproduce once the queue
+    has moved on; a defect in the PR itself does."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    memory = auto_merge.ejection_memory("o/r", 7)
+    assert memory.blocked is True
+    assert "push a fix to retry" in memory.reason
+
+
+def test_a_push_resets_the_strike_count(monkeypatch):
+    """The content under test changed, so prior failures say nothing about it."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-04T20:00:00Z",
+            [
+                {"createdAt": "2026-09-04T01:56:00Z", "reason": "failed_checks"},
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "failed_checks"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_non_failure_removals_are_not_strikes(monkeypatch):
+    """A manual dequeue or a merge_conflict removal is not a failed build."""
+    monkeypatch.setattr(
+        auto_merge, "_gh",
+        lambda a, token=None: _ejection_payload(
+            "2026-09-03T10:00:00Z",
+            [
+                {"createdAt": "2026-09-04T13:33:00Z", "reason": "merge_conflict"},
+                {"createdAt": "2026-09-04T16:57:00Z", "reason": "manual"},
+            ],
+        ),
+    )
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_ejection_lookup_failure_fails_open(monkeypatch):
+    """A lookup failure must not hold back an otherwise ready PR."""
+    def boom(args, token=None):
+        raise subprocess.CalledProcessError(1, ["gh"], stderr="nope")
+
+    monkeypatch.setattr(auto_merge, "_gh", boom)
+    assert auto_merge.ejection_memory("o/r", 7).blocked is False
+
+
+def test_main_holds_a_repeatedly_failing_pr_and_never_marks_it_ready(
+    monkeypatch, tmp_path
+):
+    """End-to-end guard for the wiring, not just the predicate.
+
+    Deleting the ejection_memory call in main() must fail a test. It must also
+    fail if the check is moved back after the draft transition: a held draft
+    would then be marked ready, skipped, and re-drafted on every run.
+    """
+    acted, drafted = [], []
+    monkeypatch.setattr(
+        auto_merge, "merge_pr",
+        lambda *a, **k: acted.append(a[1]) or False,
+    )
+    monkeypatch.setattr(
+        auto_merge, "mark_pr_ready",
+        lambda *a, **k: drafted.append(("ready", a[1])),
+    )
+    monkeypatch.setattr(
+        auto_merge, "mark_pr_draft",
+        lambda *a, **k: drafted.append(("draft", a[1])),
+    )
+    held = make_pr(number=42, mergeable="MERGEABLE")
+    held["isDraft"] = True
+    two_strikes = json.dumps({"data": {"repository": {"pullRequest": {
+        "commits": {"nodes": [{"commit": {"committedDate": "2026-09-01T00:00:00Z"}}]},
+        "timelineItems": {"nodes": [
+            {"createdAt": "2026-09-03T01:00:00Z", "reason": "failed_checks"},
+            {"createdAt": "2026-09-03T02:00:00Z", "reason": "failed_checks"},
+        ]},
+    }}}})
+    code, _calls = _run_main(
+        monkeypatch, tmp_path, view=held, listed=[held],
+        ejection_payload=two_strikes,
+    )
+    assert code == 0
+    assert acted == [], "a held PR must not be enqueued or merged"
+    assert drafted == [], (
+        "a held draft must not be marked ready (and then re-drafted) every run"
+    )
