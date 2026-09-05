@@ -322,12 +322,8 @@ def _classify_intervention(tx: dict) -> _DietItem | None:
     """Classify one ``treatments[]`` entry, or None if it is not diet-related."""
     term = tx.get("treatment_term")
     term = term if isinstance(term, dict) else {}
-    tid = str(
-        ((term.get("term") or {}) if isinstance(term.get("term"), dict) else {}).get(
-            "id"
-        )
-        or ""
-    )
+    inner = term.get("term")
+    tid = str((inner if isinstance(inner, dict) else {}).get("id") or "")
     name = str(tx.get("name") or "(unnamed)")
     mods = term.get("dietary_modifications")
     has_mods = bool(mods) and isinstance(mods, list)
@@ -630,7 +626,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Wrote {args.out}", file=sys.stderr)
 
     if args.strict:
-        bad = [i for i in all_items if i.unevidenced_link]
+        # summary_scope, not all_items: --track causal --strict must not fail on
+        # an intervention defect the caller asked not to be shown.
+        bad = [i for i in summary_scope if i.unevidenced_link]
         if bad:
             print(
                 f"STRICT: {len(bad)} diet entries are on the pathograph with no "

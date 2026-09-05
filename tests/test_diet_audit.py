@@ -387,3 +387,22 @@ def test_audit_is_advisory_by_default(monkeypatch, capsys):
     monkeypatch.setattr(audit, "_REPO_ROOT", ROOT)
     assert audit.main([]) == 0
     assert "CAUSAL track" in capsys.readouterr().out
+
+
+def test_strict_honours_the_track_filter(monkeypatch, tmp_path, capsys):
+    # An unevidenced link on the intervention track only. `--track causal
+    # --strict` must not fail on a defect the caller asked not to be shown.
+    _write(
+        tmp_path,
+        "Example",
+        """treatments:
+- name: Ketogenic Diet
+  target_mechanisms:
+  - target: Seizure Threshold
+""",
+    )
+    monkeypatch.setattr(audit, "_REPO_ROOT", tmp_path)
+    assert audit.main(["--track", "causal", "--strict"]) == 0
+    capsys.readouterr()
+    assert audit.main(["--track", "intervention", "--strict"]) == 1
+    assert "STRICT: 1" in capsys.readouterr().err

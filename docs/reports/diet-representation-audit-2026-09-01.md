@@ -95,9 +95,12 @@ neither is a curation failure:
 1. **`FoodTerm` excludes food components.** It is reachable only from
    `FOODON:00001002` (food product) and `CHEBI:33284` (nutrient). Gluten
    (`FOODON:03420177`) sits under `food material` instead and is correctly
-   rejected — as `conf/oak_config.yaml` documents deliberately. So Celiac's three
-   grain vehicles are bound while its actual trigger, "Gluten Exposure", cannot
-   be. The same will apply to casein, purines, and oxalate.
+   rejected. `conf/oak_config.yaml` confirms that exclusion is intended
+   behaviour rather than an adapter artifact — it uses two other `food material`
+   terms as worked examples of CURIEs both adapters agree are not `FoodTerm`
+   values. So Celiac's three grain vehicles are bound while its actual trigger,
+   "Gluten Exposure", cannot be. The same will apply to casein, purines, and
+   oxalate.
 2. **Dietary patterns have no ontology home at all.** FOODON describes food
    products, not eating patterns.
 
@@ -186,8 +189,11 @@ curator, not automated fixes.
    retiring the bare `XCO:0000013` catch-all.
 4. **Widen the `FoodTerm` root** to admit the FOODON `food material` branch, so
    food components (gluten, casein) become bindable. This is a schema change with
-   a cache rebuild, and needs its own decision-register entry — the current narrow
-   root is deliberate, and `conf/oak_config.yaml` explains why.
+   a cache rebuild, and needs its own decision-register entry. Note that *why*
+   the root was drawn at `FOODON:00001002` is not recorded anywhere —
+   `conf/oak_config.yaml` documents only that the resulting exclusion is
+   intended, not the reasoning behind the root itself. That missing rationale is
+   a reason to take the decision deliberately, not a licence to widen it.
 5. **Leave `dietary_modifications` alone for now.** At 5 files it is barely load
    bearing, and populating it is only worth doing after item 4 settles what can be
    bound.
