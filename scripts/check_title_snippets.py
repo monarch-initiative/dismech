@@ -121,6 +121,7 @@ if str(ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT))
 
 from dismech.frontmatter import split_frontmatter
+from dismech.kb_cache import load_document
 from dismech.reference_snippet_audit import (
     DEFAULT_SCHEMA,
     CachedReferenceIndex,
@@ -260,8 +261,7 @@ def scan_repo(
     findings = []
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
-            with path.open(encoding="utf-8") as handle:
-                data = safe_load(handle)
+            data = load_document(path)
         except Exception as exc:
             # Gating on malformed YAML is `validate-all`'s job; skipping silently
             # would make the file invisible here rather than merely unchecked.

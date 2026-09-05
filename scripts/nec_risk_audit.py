@@ -37,6 +37,7 @@ import glob
 import os
 from collections import defaultdict
 
+from dismech.kb_cache import load_document
 from dismech.nec_risk import (
     ACRONYM_RE,
     NON_EPONYM_WORDS,
@@ -47,7 +48,6 @@ from dismech.nec_risk import (
     eponyms_in,
     series_hits,
 )
-from dismech.yaml_io import safe_load
 
 # The detection logic itself lives in ``dismech.nec_risk`` so the priority
 # dashboard can reuse it against *uncurated* MONDO candidates. This script is
@@ -75,8 +75,7 @@ def load_entries():
         if path.endswith(".history.yaml"):
             continue
         try:
-            with open(path) as fh:
-                data = safe_load(fh)
+            data = load_document(path)
         except Exception:
             continue
         if not isinstance(data, dict):

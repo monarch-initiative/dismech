@@ -128,6 +128,18 @@ HGNC gene CURIEs use lowercase `hgnc:` in this repository (for example,
 `hgnc:746`, not `HGNC:746`). This is the canonical form that passes term
 validation; do not flag lowercase `hgnc:` as an error in reviews.
 
+### Parsed-KB Cache (`src/dismech/kb_cache.py`)
+Many code paths walk `kb/disorders/` and parse every file to build a small
+index. One walk parses ~2,700 files (~17 s). `kb_cache.load_document(path)`
+keeps one parsed copy per file per process, keyed on the file's content hash,
+so later walks cost a read and a hash. The returned object is **shared and
+read-only**: code that decorates or edits a document must parse its own copy
+(`dismech.yaml_io.safe_load_path`), which is what `render.load_disorder` does
+for the page being rendered while the index walks use `load_disorder_shared`.
+Holding the parsed disorder corpus costs ~450 MB per process;
+`DISMECH_KB_CACHE=0` turns the cache off. Route a new corpus walk through it
+rather than adding another `glob` + `safe_load` loop (issue #11003).
+
 ### HTML Rendering (`src/dismech/render.py`)
 - Jinja2 templates in `src/dismech/templates/`
 - Generates browsable HTML pages in `pages/disorders/`
