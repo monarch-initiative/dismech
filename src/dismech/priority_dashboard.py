@@ -1007,7 +1007,7 @@ def _render_priority_report_page(payload: dict[str, Any]) -> str:
         }
         /* Scoped to rows the click handler actually accepts (it selects
            `tr[data-mondo-id]`). An unscoped `tbody tr` rule also styled the
-           Category View, promising a click that nothing handles. */
+           per-category summary rows, promising a click nothing handles. */
         tbody tr[data-mondo-id] {
             cursor: pointer;
         }

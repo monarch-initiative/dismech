@@ -1484,11 +1484,14 @@ from one curation session, all written fluently and none hesitated over:
 | `NCIT:C101293` "Whole Exome Sequencing" | Next Generation Sequencing |
 
 The failure gives no internal signal, so no amount of care catches it — only a
-lookup does. Term validation caught all four, which is the system working; but
-each cost a validation round, and two of them surfaced only as `WARN` (label
-mismatch) rather than `ERROR`, because severity there tracks dynamic-enum
-membership rather than whether the binding is right. A fabricated CURIE that
-happens to land inside its enum produces the *softer* signal.
+lookup does. Term validation caught all four, which is the system working, and
+**all four fail the recipe**, so the gate holds regardless of severity. But the
+severity itself is worth reading carefully: three of the four raise a hard
+`ERROR` because they fall outside the `TreatmentActionTerm` dynamic enum, while
+`NCIT:C101293` — the one of the four that happens to be *in* that enum — raises
+only a label-mismatch `WARN`. Severity tracks enum membership, not whether the
+binding is right, so a fabricated CURIE landing inside its enum produces the
+*softer* signal on an equally wrong binding.
 
 **When you cannot source an identifier, omit the field and say why in `notes`.**
 An absent binding with a recorded reason is a curation gap someone can close. A
