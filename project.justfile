@@ -872,6 +872,16 @@ environmental-term-audit *args="":
 model-scale-audit *args="":
     uv run python scripts/model_scale_audit.py {{args}}
 
+# Find quantitative figures (percentages, 1-in-N, rates, N-fold) written into
+# description:/notes: prose that do NOT appear in the references cited beside
+# them. Every other anti-hallucination check reads evidence[].snippet, so a
+# claim that never becomes a snippet is checked by nothing (#7791).
+# ADVISORY and heuristic -- deliberately not in `just qc` and not gated in CI.
+# --dr-only limits to entries with a deep-research report in research/.
+[group('QC')]
+prose-figure-audit *args="":
+    uv run python scripts/prose_figure_audit.py {{args}}
+
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:
