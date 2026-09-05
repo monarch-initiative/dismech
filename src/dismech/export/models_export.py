@@ -19,8 +19,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from dismech import kb_cache
 from dismech.export.utils import slugify
-from dismech.yaml_io import safe_load
 
 #: Repository hosts we recognise, so "where does this model live?" is a facet
 #: rather than something a reader has to infer from a raw URL.
@@ -108,8 +108,8 @@ class ModelsExporter:
                 self.runnable_model_ids.add(config.name[: -len(".config.yaml")])
 
     def load_entry(self, file_path: Path) -> dict[str, Any]:
-        with open(file_path) as f:
-            return safe_load(f) or {}
+        """Parsed entry, shared through :mod:`dismech.kb_cache` (read-only)."""
+        return kb_cache.load_document(file_path) or {}
 
     def extract_models(
         self,
