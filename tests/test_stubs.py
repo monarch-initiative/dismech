@@ -167,6 +167,246 @@ def test_obsolete_terms_are_reported_for_tidying(issues):
             assert issue.severity == "advisory"
 
 
+# --- Obsolescence read from MONDO, not guessed from the label ----------------
+#
+# The label heuristic only fires when the nominating export captured the label
+# after MONDO prefixed it with "obsolete", which is the unusual case — it
+# matches none of the committed stubs while at least one names a term MONDO has
+# ruled on (issue #10785). These cover the ontology-backed replacement: the
+# SQLite reader against a fixture database, and the offline check that reads
+# what the reader wrote into the stub.
+
+
+def _fixture_mondo_db(tmp_path):
+    """A semantic-SQL-shaped `statements` table holding four terms.
+
+    A fixture rather than the live ontology: the real build is a ~1.2 GB
+    download, and its contents move under us — `MONDO:0859244` is an obsoletion
+    candidate in the pinned release and will be plainly obsolete in some later
+    one, so a test asserting either against the real file has a scheduled
+    failure in it.
+    """
+    import sqlite3
+
+    path = tmp_path / "mondo.db"
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "create table statements "
+        "(subject text, predicate text, object text, value text, datatype text)"
+    )
+    conn.executemany(
+        "insert into statements (subject, predicate, object, value) values (?,?,?,?)",
+        [
+            (
+                "obo:mondo.owl",
+                "owl:versionIRI",
+                "obo:mondo/releases/2026-05-05/mondo.owl",
+                None,
+            ),
+            # Merged away, with a successor.
+            ("MONDO:0000001", "owl:deprecated", None, "true"),
+            ("MONDO:0000001", "IAO:0100001", "MONDO:0000002", None),
+            # Retired with nothing to point at.
+            ("MONDO:0000003", "owl:deprecated", None, "true"),
+            # Decided but not yet done: still live, no deprecation flag.
+            ("MONDO:0000004", "oio:inSubset", "obo:mondo#obsoletion_candidate", None),
+            (
+                "MONDO:0000004",
+                "rdfs:comment",
+                None,
+                (
+                    "This term is scheduled to be merged with MONDO:0000005 "
+                    "other disease ... and replaced with MONDO:0000005"
+                ),
+            ),
+            (
+                "MONDO:0000004",
+                "IAO:0000233",
+                None,
+                "https://github.com/monarch-initiative/mondo/issues/1",
+            ),
+            # Explicitly not retired. `owl:deprecated false` exists in the wild.
+            ("MONDO:0000006", "owl:deprecated", None, "false"),
+        ],
+    )
+    conn.commit()
+    conn.close()
+    return path
+
+
+def test_obsolescence_is_read_from_the_ontology(tmp_path):
+    from dismech.stubs.obsolescence import load_obsolescence
+
+    index = load_obsolescence(_fixture_mondo_db(tmp_path))
+    assert index is not None
+    assert index.version == "2026-05-05"
+
+    merged = index.get("MONDO:0000001")
+    assert merged.obsolete and merged.replaced_by == "MONDO:0000002"
+    assert "replaced by MONDO:0000002" in merged.describe()
+
+    orphaned = index.get("MONDO:0000003")
+    assert orphaned.obsolete and orphaned.replaced_by is None
+
+    scheduled = index.get("MONDO:0000004")
+    assert not scheduled.obsolete
+    assert scheduled.obsoletion_candidate
+    assert scheduled.proposed_replacement == "MONDO:0000005"
+    assert "issues/1" in scheduled.obsoletion_note
+
+    # A live term is absent from the mapping, not present and empty — including
+    # one carrying an explicit `owl:deprecated false`.
+    assert index.get("MONDO:0000006") is None
+    assert index.get("MONDO:0000009") is None
+
+
+def test_obsolescence_query_can_be_restricted_to_the_queue(tmp_path):
+    """The census asks about the stub IDs, not all 30,000 MONDO terms."""
+    from dismech.stubs.obsolescence import load_obsolescence
+
+    db = _fixture_mondo_db(tmp_path)
+    assert set(load_obsolescence(db, ["MONDO:0000003"]).terms) == {"MONDO:0000003"}
+    assert load_obsolescence(db, []).terms == {}
+
+
+def test_obsolescence_degrades_when_mondo_is_absent(tmp_path):
+    """`check-stubs` must never require a 1.2 GB download to answer."""
+    from dismech.stubs.obsolescence import load_obsolescence
+
+    assert load_obsolescence(tmp_path / "no-such.db") is None
+
+
+def test_replaced_term_is_repointed_rather_than_swept(tmp_path):
+    """A merged term still names an uncurated disease — deleting loses the work.
+
+    `tidy` keys on the finding kind, so the merge case has to be a kind of its
+    own rather than a longer `obsolete_term` message, or the sweep would delete
+    a stub whose only defect is that its identifier moved.
+    """
+    from dismech.stubs.cli import REPOINT_KINDS, STALE_KINDS
+
+    (tmp_path / "Merged_Away.yaml").write_text(
+        "mondo_id: MONDO:0000001\nlabel: merged away\n"
+        "mondo_obsolete: true\nmondo_replaced_by: MONDO:0000002\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Retired_Outright.yaml").write_text(
+        "mondo_id: MONDO:0000003\nlabel: retired outright\nmondo_obsolete: true\n",
+        encoding="utf-8",
+    )
+
+    found = {
+        i.path.name: i for i in check_stubs(tmp_path) if i.kind != "already_curated"
+    }
+    assert found["Merged_Away.yaml"].kind == "obsolete_term_replaced"
+    assert "MONDO:0000002" in found["Merged_Away.yaml"].message
+    assert found["Merged_Away.yaml"].kind in REPOINT_KINDS
+    assert found["Merged_Away.yaml"].kind not in STALE_KINDS
+    assert found["Retired_Outright.yaml"].kind == "obsolete_term"
+    assert found["Retired_Outright.yaml"].kind in STALE_KINDS
+    for issue in found.values():
+        assert issue.severity == "advisory", "staleness never gates"
+
+
+def test_scheduled_obsoletion_is_reported_while_the_term_is_still_live(tmp_path):
+    """The signal that actually catches things, months before deprecation does."""
+    (tmp_path / "Phosphoribosylaminoimidazole_Carboxylase_Deficiency.yaml").write_text(
+        "mondo_id: MONDO:0859244\n"
+        "label: phosphoribosylaminoimidazole carboxylase deficiency\n"
+        "mondo_obsoletion_candidate: >-\n"
+        "  This term is scheduled to be merged with MONDO:0859003 PAICS deficiency\n",
+        encoding="utf-8",
+    )
+    found = [i for i in check_stubs(tmp_path) if i.kind == "obsoletion_candidate"]
+    assert len(found) == 1
+    assert found[0].severity == "advisory"
+    assert "MONDO:0859003" in found[0].message
+
+
+def test_the_label_heuristic_survives_as_a_backstop(tmp_path):
+    """A stub the enrichment pass has not reached still gets the old signal."""
+    (tmp_path / "Obsolete_Thing.yaml").write_text(
+        "mondo_id: MONDO:0000009\nlabel: obsolete thing\n", encoding="utf-8"
+    )
+    kinds = [
+        i.kind for i in check_stubs(tmp_path) if i.path.name == "Obsolete_Thing.yaml"
+    ]
+    assert "obsolete_term" in kinds
+
+
+def test_ontology_answer_wins_over_the_label(tmp_path):
+    """A live term whose label happens to start with the word is not reported."""
+    (tmp_path / "Obsolete_Sounding_Disease.yaml").write_text(
+        "mondo_id: MONDO:0000009\nlabel: obsolete sounding disease\n"
+        "mondo_obsoletion_candidate: scheduled for merge into MONDO:0000010\n",
+        encoding="utf-8",
+    )
+    kinds = {i.kind for i in check_stubs(tmp_path)}
+    assert "obsoletion_candidate" in kinds
+    assert "obsolete_term" not in kinds, "the ontology already answered"
+
+
+def test_term_iri_and_curie_forms_both_normalize():
+    """`term_replaced_by` is a CURIE in some releases and a full IRI in others."""
+    from dismech.stubs.obsolescence import normalize_term
+
+    assert normalize_term("MONDO:0859003") == "MONDO:0859003"
+    assert (
+        normalize_term("http://purl.obolibrary.org/obo/MONDO_0859003")
+        == "MONDO:0859003"
+    )
+    assert normalize_term(None) == ""
+
+    # `mondo_replaced_by` is pattern-constrained in the schema, so a successor
+    # outside MONDO is dropped here rather than written into a stub that then
+    # fails `just validate-stubs`.
+    for outside in ("DOID:1234", "http://example.org/whatever", "MONDO:12"):
+        assert normalize_term(outside) == "", outside
+
+
+def test_the_replacement_triple_beats_the_scheduled_merge_prose(tmp_path):
+    """A scheduled term may carry `IAO:0100001`; the triple is authoritative.
+
+    It is also the case that a term can carry several `rdfs:comment` rows, and
+    keeping only one of them can drop the scheduled-obsoletion note entirely.
+    """
+    import sqlite3
+
+    from dismech.stubs.obsolescence import load_obsolescence
+
+    path = tmp_path / "mondo.db"
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "create table statements "
+        "(subject text, predicate text, object text, value text, datatype text)"
+    )
+    conn.executemany(
+        "insert into statements (subject, predicate, object, value) values (?,?,?,?)",
+        [
+            ("MONDO:0000004", "oio:inSubset", "obo:mondo#obsoletion_candidate", None),
+            ("MONDO:0000004", "rdfs:comment", None, "An unrelated editor note."),
+            (
+                "MONDO:0000004",
+                "rdfs:comment",
+                None,
+                "... and replaced with MONDO:0000009",
+            ),
+            ("MONDO:0000004", "IAO:0100001", "MONDO:0000005", None),
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+    scheduled = load_obsolescence(path).get("MONDO:0000004")
+    assert scheduled.proposed_replacement == "MONDO:0000005", (
+        "the IAO:0100001 triple should win over the prose"
+    )
+    # Both comments survive, so the scheduled-merge note is not lost to whichever
+    # row the database happened to return last.
+    assert "unrelated editor note" in scheduled.obsoletion_note
+    assert "MONDO:0000009" in scheduled.obsoletion_note
+
+
 def test_duplicate_detection_matches_synonyms_not_acronyms():
     """`Wilms tumor 1` must match a curated `Wilms' tumor`; `AIP` must not match."""
     from dismech.stubs.model import is_informative_label, normalize_label
