@@ -1460,6 +1460,51 @@ cell_types:
     label: regulatory T cell
 ```
 
+#### Every CURIE is read from a source in the same step it is written
+
+**Never write an ontology identifier from memory.** A CURIE and its label come
+out of an actual lookup — `runoak`, the relevant `cache/<prefix>/terms.csv`, or
+an ontology browser — performed as part of writing the line, not recalled and
+not reconstructed from a paper you have just read. The same applies to the
+identifier's label: `term.label` is copied from what the lookup returned.
+
+This holds even when you are confident. Especially when you are confident.
+
+**Why this is a rule and not advice.** An agent (and, less often, a person) can
+produce a well-formed, plausible, entirely fictional CURIE with no sense of
+having guessed. It does not feel like invention; it feels like recall, because
+the shape is familiar and the label describes the right concept. Four examples
+from one curation session, all written fluently and none hesitated over:
+
+| Written as | Actually is |
+|---|---|
+| `NCIT:C171192` "Chromosomal Microarray Analysis" | Electronic File Size |
+| `NCIT:C16512` "Fluorescence In Situ Hybridization" | DNA-directed DNA Polymerase |
+| `NCIT:C38031` "Auditory Brainstem Response Test" | Tearing |
+| `NCIT:C101293` "Whole Exome Sequencing" | Next Generation Sequencing |
+
+The failure gives no internal signal, so no amount of care catches it — only a
+lookup does. Term validation caught all four, which is the system working, and
+**all four fail the recipe**, so the gate holds regardless of severity. But the
+severity itself is worth reading carefully: three of the four raise a hard
+`ERROR` because they fall outside the `TreatmentActionTerm` dynamic enum, while
+`NCIT:C101293` — the one of the four that happens to be *in* that enum — raises
+only a label-mismatch `WARN`. Severity tracks enum membership, not whether the
+binding is right, so a fabricated CURIE landing inside its enum produces the
+*softer* signal on an equally wrong binding.
+
+**When you cannot source an identifier, omit the field and say why in `notes`.**
+An absent binding with a recorded reason is a curation gap someone can close. A
+fabricated one that validates is a false statement about an ontology.
+
+**The same rule governs citation strings**, which have the same failure shape:
+`reference_title` is copied from the `title:` frontmatter of the
+`references_cache/` file, never written from having read the abstract. A title
+composed to describe what a paper is about reads exactly like a title and is not
+one — `check-reference-titles` exists because three such strings reached a
+commit in the session above, one at 0.41 similarity to the real title. See the
+`dismech-references` skill for the evidence-side workflow.
+
 For MONDO coverage and epic-checklist synchronization, an entry's primary
 `disease_term` and `has_subtypes` terms count as curated. A
 `mappings.mondo_mappings` term counts only when its `mapping_predicate` is
