@@ -1,6 +1,6 @@
 # OpenScientist assessment: ras_on_inhibitor_acquired_resistance
 
-Updated 4 September 2026; supersedes and expands the 31 July assessment. The structured YAML is authoritative.
+Updated 5 September 2026; supersedes and expands the 31 July assessment. The structured YAML is authoritative.
 
 The multi-route resistance hypothesis is partially supported, with strong direct PDAC evidence now available for KRAS amplification and MAPK/RTK pathway alterations at acquired resistance. The report overgeneralizes selective-G12C NSCLC, combination-treatment and metabolic-vulnerability findings, omits primary MYC/YAP work, and inconsistently distinguishes genetic from pharmacologic combinations. Newly published August paired clinical data supersede its broad clinical-data gap without validating every proposed escape route. This September review retains and expands the useful July assessment, reviews the complete report and citation sidecar, and distinguishes contemporaneous omissions from subsequently published evidence. Literature findings were independently verified and the disease YAML revised; no provider computation was reproduced.
 
@@ -12,7 +12,7 @@ PMID:42223072 reports a median progression-free survival, whose endpoint is prog
 
 ## clinical-route-gap — QUALIFIED
 
-The original July review correctly distinguished efficacy trials from molecular profiling. PMID:42581230 appeared on August 11 and now provides paired ctDNA in 44 acquired-resistant patients from phase I/II NCT05379985, not RASolute 302. KRAS amplification was detected in 16/44 and RAS-pathway changes in 26/44. Molecular origin, undetected/non-genetic routes and population-wide prevalence remain unresolved; the old categorical absence must no longer drive the disease model.
+The original July review correctly distinguished efficacy trials from molecular profiling. PMID:42581230 appeared on August 11 and now provides paired ctDNA in 44 acquired-resistant patients from phase I/II NCT05379985, not RASolute 302. KRAS amplification was detected in 16/44 and RAS-pathway changes in 26/44. Molecular origin, undetected/non-genetic routes and population-wide prevalence remain unresolved; the old categorical absence must no longer drive the disease model. KRAS amplification calls are distinct from allele identity: assignment to the pre-existing mutant allele used exploratory relative-VAF inference, explicitly unconfirmed in Supplementary Table 3, rather than direct phasing in every case.
 
 [PMID:42581230](https://pubmed.ncbi.nlm.nih.gov/42581230/), [PMID:42223072](https://pubmed.ncbi.nlm.nih.gov/42223072/), [PMID:42465401](https://pubmed.ncbi.nlm.nih.gov/42465401/)
 
@@ -54,13 +54,13 @@ The original scope caveat remains correct for MEK and G12C-selective analog stud
 
 ## august-clinical-update — QUALIFIED
 
-Reasonable as a dated July search result, but superseded by PMID:42581230, published August 11. Paired ctDNA from 44 phase I/II patients selected for prior response or stable disease over three months followed by progression found emergent RAS-pathway alterations in 26/44, including KRAS amplification in 16/44. This is not a RASolute 302 phase III cohort or prevalence among all treated patients. RTK 4/44, MAPK 11/44 and PI3K 4/44 categories overlap. Eighteen cases lacked detected RAS-pathway events; ctDNA cannot exclude non-genetic, spatial or undetected resistance.
+Reasonable as a dated July search result, but superseded by PMID:42581230, published August 11. Paired ctDNA from 44 phase I/II patients selected for prior response or stable disease over three months followed by progression found emergent RAS-pathway alterations in 26/44, including KRAS amplification in 16/44. This is not a RASolute 302 phase III cohort or prevalence among all treated patients. RTK 4/44, MAPK 11/44 and PI3K 4/44 categories overlap. Eighteen cases lacked detected RAS-pathway events; ctDNA cannot exclude non-genetic, spatial or undetected resistance. KRAS amplification calls are distinct from allele identity: assignment to the pre-existing mutant allele used exploratory relative-VAF inference, explicitly unconfirmed in Supplementary Table 3, rather than direct phasing in every case.
 
 [PMID:42581230](https://pubmed.ncbi.nlm.nih.gov/42581230/), [PMID:42223072](https://pubmed.ncbi.nlm.nih.gov/42223072/)
 
 ## secondary-ras-mutation-spectrum — QUALIFIED
 
-The July absence should remain dated. The August PDAC clinical/preclinical study found no acquired secondary KRAS mutations in its 44 clinical cases or models, while KRAS amplification was common. Absence within a selected finite cohort does not exclude all on-target mutations, variants in other cancers, or later evolution. The YAML no longer lists secondary RAS mutations as an established PDAC route.
+The July statement is now too broad. PMID:42581230 found no acquired secondary KRAS mutations in the 44 PDAC clinical cases or PDAC models selected under long-term inhibitor exposure, but its engineered Ba/F3 deep mutational scan did identify resistance-conferring second-site variants at E37, Y64, Y71, L56, T58 and R68, among other residues. The same paper discusses treatment-emergent Y64 variants reported in non-PDAC patients. Thus a published experimental spectrum exists without establishing a frequent acquired second-site route in PDAC. Negative findings in the selected PDAC series do not exclude later evolution or unsampled variants.
 
 [PMID:42581230](https://pubmed.ncbi.nlm.nih.gov/42581230/)
 
