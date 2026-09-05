@@ -1,0 +1,19 @@
+| DFNB120 evidence summary | Key finding | Evidence type | Citation |
+|---|---|---|---|
+| Identifiers / synonyms | Hearing loss, autosomal recessive 120; autosomal recessive deafness-120; DFNB120; OMIM 620238; MONDO:0859374 | Disease-level curated + primary human report | (pqac-00000000, pqac-00000006) |
+| Causal gene | **MINAR2** (membrane integral NOTCH2-associated receptor 2) is the established causal gene | Human genetic + curated association | (pqac-00000000, pqac-00000005, pqac-00000006) |
+| Inheritance | Autosomal recessive; biallelic loss-of-function/missense-splice-disrupting variants segregate with disease | Human family data | (pqac-00000005, pqac-00000006, pqac-00000007) |
+| Known human cohort | Original report: **13 patients from 4 unrelated families** (2022); independent confirmation: **2 clinically affected siblings** (2025) | Human clinical genetics | (pqac-00000001, pqac-00000005, pqac-00000006) |
+| Core phenotype | Bilateral **severe-to-profound nonsyndromic sensorineural hearing loss**; original cohort included **9 congenital** and **4 prelingual** cases | Human clinical | (pqac-00000001, pqac-00000006) |
+| Progression | Progressive SNHL reported in **4/13** patients in the original cohort; model data also support progressive hearing loss | Human + model | (pqac-00000001, pqac-00000006, pqac-00000009) |
+| Newest reported variant | **NM_001257308.2:c.319A>T; p.Lys107\***, homozygous nonsense, predicted loss-of-function via nonsense-mediated decay; parents heterozygous; classified likely pathogenic | Human molecular genetics | (pqac-00000003, pqac-00000006, pqac-00000007) |
+| Population frequency | p.Lys107\* observed as **2/767,859 heterozygotes** in **gnomAD v4.1**; no homozygotes reported in the cited report | Human population genetics | (pqac-00000003, pqac-00000006) |
+| Mechanism | MINAR2 regulates **cholesterol distribution/homeostasis** in hair bundles; loss reduces stereociliary cholesterol, impairs mechanotransduction, and is associated with longer/thinner bundles and enlarged apical lysosomes | Model/mechanistic | (pqac-00000008, pqac-00000009) |
+| Models | **Mouse:** loss of Minar2 causes degeneration of hair cells and progressive SNHL; **zebrafish:** hearing loss with mechanotransduction defects and progressive reduction of inner-ear hair cells (to ~30% in adults) | Model organism | (pqac-00000008, pqac-00000009) |
+| Diagnostics used | Trio **whole-exome sequencing** with average **30×** depth, variant calling including SNV/CNV pipelines, and **Sanger confirmation** in the 2025 family; phenotype-driven interpretation under ACMG/ClinGen guidance | Human diagnostic evidence | (pqac-00000006, pqac-00000007) |
+| Treatments / trials | No DFNB120-specific approved molecular therapy identified in cited evidence; **no disease-specific trials found** in the tool search; current care is inferred from general severe-profound SNHL management rather than disease-specific studies | Evidence gap / clinical practice extrapolation | (pqac-00000004) |
+| Epidemiology | Disease-specific prevalence/incidence are **not available**; currently documented human evidence is limited to **4 families/13 patients** in 2022 plus **1 additional family with 2 affected siblings** in 2025 | Human evidence summary | (pqac-00000001, pqac-00000006) |
+| Key evidence gaps | Missing/limited: robust prevalence, penetrance, founder effects, standardized natural history, genotype-phenotype correlations, long-term outcomes, and disease-specific therapeutic studies | Evidence gap | (pqac-00000001, pqac-00000004, pqac-00000005) |
+
+
+*Table: This table condenses the core human, molecular, and model-organism evidence for hearing loss autosomal recessive 120 (DFNB120). It highlights what is established versus what remains unknown, which is useful for rapid knowledge-base population.*

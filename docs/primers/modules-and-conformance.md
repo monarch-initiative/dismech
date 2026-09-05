@@ -72,12 +72,18 @@ There are many modules (conserved fibrosis, lysosomal storage, aortopathy
 TGF-β dysregulation, ciliopathy, cardiac ion-channel repolarization, and a large
 family of "disease-like phenotype" final-common-pathway modules such as
 osteoporosis, glaucoma, cataract, PAH, and more). The authoritative, current
-list — with each module's key conformance target — lives in the project
-`CLAUDE.md` under **"Mechanism Modules"**, alongside the module YAML in
-`kb/modules/`.
+list *is* `kb/modules/` itself — there is no hand-maintained catalog to consult,
+because one drifted out of date. To see every module with its description and
+its `module#Node Name` conformance targets:
+
+```bash
+just list-modules            # all modules
+just list-modules inflamm    # filter by name, description, or node
+```
 
 ## Go deeper
 
-- `CLAUDE.md` → "Mechanism Modules" (full module catalog + conformance targets).
+- `CLAUDE.md` → "Mechanism Modules" (conformance mechanics + thematic module families).
+- `just list-modules` → the live module catalog with conformance targets.
 - [Schema: Pathophysiology](../schema/classes/Pathophysiology.md) · [CausalEdge](../schema/classes/CausalEdge.md) · [MechanisticHypothesis](../schema/classes/MechanisticHypothesis.md)
 - [Data Model overview](../data-model.md)

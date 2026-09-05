@@ -1,0 +1,229 @@
+id: https://w3id.org/monarch-initiative/dismech/curation_stub
+name: dismech_curation_stub
+title: Disorder Mechanisms Curation Stub Schema
+description: >-
+  A curation stub is a one-file placeholder for a disease that the project
+  intends to curate but has not curated yet. Stubs live in `stubs/`, one YAML
+  per disease, and are edited by pull request like any other repository content.
+  A curation PR deletes the stub and adds the corresponding `kb/disorders/`
+  entry, so the stub directory is the outstanding curation queue and its size is
+  the remaining work.
+license: BSD-3-Clause
+
+imports:
+  - linkml:types
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  dismech: https://w3id.org/monarch-initiative/dismech/
+  MONDO: http://purl.obolibrary.org/obo/MONDO_
+  xsd: http://www.w3.org/2001/XMLSchema#
+
+default_prefix: dismech
+default_range: string
+
+enums:
+  StubStatusEnum:
+    description: >-
+      A durable judgement about whether this disease is available to curate.
+
+      Deliberately NOT a claim. Who is working on what is live state that
+      changes many times a day, and a YAML file in a pull request is the wrong
+      instrument for it — the claim would only become visible on merge, which
+      is far too late to stop two agents picking the same disease. Claims live
+      on GitHub, as an open issue labelled `claim` (see docs/curation-stubs.md).
+    permissible_values:
+      OPEN:
+        description: >-
+          Available. This is the default and the only status a seeded stub
+          carries. It says nothing about whether somebody has claimed it.
+      BLOCKED:
+        description: >-
+          Curation cannot proceed until something else is resolved. Say what in
+          `notes`.
+      DEFERRED:
+        description: >-
+          Deliberately postponed rather than blocked — for example a cancer
+          entry held back pending a lump/split decision. Say why in `notes`.
+
+  StubEntryTypeEnum:
+    description: >-
+      What this MONDO concept should become in the repository, once somebody has
+      decided. Recording a decision of GROUPING or OUT_OF_SCOPE here is a real
+      curation outcome: it means the stub can be closed without a
+      `kb/disorders/` entry ever being written.
+    permissible_values:
+      UNDECIDED:
+        description: >-
+          Nobody has ruled on Disease vs Grouping vs subtype yet. The default
+          for a seeded stub. Deciding is the curator's first job, not the
+          seeder's.
+      DISEASE:
+        description: >-
+          A discrete disease entity with one reasonably conserved pathograph.
+          Becomes a `kb/disorders/` entry.
+      GROUPING:
+        description: >-
+          A union of distinct diseases rather than one entity. Becomes a
+          `kb/groupings/` entry; see the Disease Groupings section of CLAUDE.md.
+      SUBTYPE:
+        description: >-
+          Best modelled as a `has_subtypes` entry inside an existing or
+          planned disorder file. Name the parent in `notes`.
+      OUT_OF_SCOPE:
+        description: >-
+          Not a dismech entry at all — a phenotype, a susceptibility term, an
+          obsolete concept, or a category too abstract to carry a mechanism.
+          Say why in `notes`.
+
+  StubPriorityEnum:
+    description: >-
+      Coarse, hand-set curation priority. Deliberately a three-value band and
+      not a computed score: the point of the stub queue is that priority is
+      asserted by people in pull requests, not derived from MONDO structure.
+    permissible_values:
+      HIGH:
+        description: Curate ahead of the rest of the queue.
+      NORMAL:
+        description: Ordinary queue member. The default.
+      LOW:
+        description: Keep in the queue but do not pick it next.
+
+slots:
+  mondo_id:
+    description: MONDO identifier for the disease this stub stands for.
+    required: true
+    identifier: true
+    pattern: "^MONDO:[0-9]{7}$"
+  label:
+    description: MONDO label for the disease, copied at seed time.
+    required: true
+  proposed_name:
+    description: >-
+      Suggested `name` / filename stem for the eventual KB entry, in the
+      Title_Case_With_Underscores style used by `kb/disorders/`. Advisory — the
+      curator may rename.
+  status:
+    description: Where this stub sits in the curation queue.
+    range: StubStatusEnum
+    ifabsent: "string(OPEN)"
+  entry_type:
+    description: What this concept should become in the repository.
+    range: StubEntryTypeEnum
+    ifabsent: "string(UNDECIDED)"
+  priority:
+    description: Hand-set curation priority band.
+    range: StubPriorityEnum
+    ifabsent: "string(NORMAL)"
+  rationale:
+    description: >-
+      Why this disease is worth curating, in plain language. For seeded stubs
+      this is the source list's own justification.
+  synonyms:
+    description: MONDO synonyms, copied at seed time to help duplicate checks.
+    multivalued: true
+  mondo_parents:
+    description: >-
+      Direct MONDO superclasses. Context, not a judgement: a stub whose parent is
+      already a `kb/disorders/` entry is usually a subtype question rather than a
+      new-entry question, and this is what lets a curator see that at a glance.
+    range: TermRef
+    multivalued: true
+    inlined_as_list: true
+  mondo_descendants:
+    description: >-
+      MONDO subclass descendants. A long list is the strongest available hint
+      that the concept is a grouping rather than one disease — but it is a hint
+      for a person to weigh, not a rule. The old dashboard scored child count
+      directly and got the sign wrong (issue #8969); this slot deliberately
+      reports the terms instead of scoring them.
+    range: TermRef
+    multivalued: true
+    inlined_as_list: true
+  mondo_descendant_count:
+    description: >-
+      Total number of MONDO subclass descendants. `mondo_descendants` is capped,
+      so this is the honest total when the list is truncated.
+    range: integer
+  genes:
+    description: >-
+      Genes MONDO records as causing this disease (`RO:0004003`), as lowercase
+      `hgnc:` CURIEs per repository convention. Empty for a disease MONDO does
+      not gene-associate, which is itself informative.
+    range: TermRef
+    multivalued: true
+    inlined_as_list: true
+  sources:
+    description: Where the nomination came from.
+    range: StubSource
+    multivalued: true
+    inlined_as_list: true
+  added_date:
+    description: >-
+      When the stub entered the queue, as an ISO 8601 date or datetime. Quote it
+      in YAML — unquoted, PyYAML resolves it to a date object and validation
+      rejects it as a non-string.
+    pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}([T ].*)?$"
+  notes:
+    description: >-
+      Free text. The place for lump/split reasoning, scope objections, and any
+      decision recorded in `entry_type`.
+  id:
+    description: CURIE of the referenced term.
+    required: true
+  source_name:
+    description: Short name of the nominating list, person, or process.
+    required: true
+  source_url:
+    description: URL of the nominating list or issue.
+  source_identifier:
+    description: Identifier this source uses for the disease, if it has its own.
+  source_tags:
+    description: Verbatim tags the source attached to this nomination.
+    multivalued: true
+
+classes:
+  CurationStub:
+    description: >-
+      One outstanding curation target. Delete the file when the disease is
+      curated (or when `entry_type` resolves it as a grouping, a subtype, or out
+      of scope).
+    tree_root: true
+    slots:
+      - mondo_id
+      - label
+      - proposed_name
+      - status
+      - entry_type
+      - priority
+      - rationale
+      - synonyms
+      - mondo_parents
+      - mondo_descendants
+      - mondo_descendant_count
+      - genes
+      - sources
+      - added_date
+      - notes
+
+  TermRef:
+    description: An ontology term, as an identifier plus its label at seed time.
+    slots:
+      - id
+      - label
+    slot_usage:
+      label:
+        description: >-
+          Label at the time the reference was written. Optional here, unlike on
+          the stub itself: a label lookup can miss (a gene outside the committed
+          HGNC term cache), and when it does, recording the identifier without a
+          label keeps a true fact rather than dropping the association.
+        required: false
+
+  StubSource:
+    description: A nomination of this disease for curation.
+    slots:
+      - source_name
+      - source_url
+      - source_identifier
+      - source_tags

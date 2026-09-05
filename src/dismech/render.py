@@ -18,6 +18,13 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from dismech.entity_refs import (
+    DISEASE_KIND,
+    SECTION_KEYS,
+    SINGLETON_SECTIONS,
+    canonical_kind,
+    section_items,
+)
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
@@ -26,6 +33,11 @@ from dismech.graph import (
     generate_mermaid,
     graph_to_json,
     iter_variant_items,
+)
+from dismech.module_collections import (
+    build_module_collection_tree,
+    load_module_collections,
+    module_collection_reference_errors,
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
@@ -37,6 +49,14 @@ from dismech.yaml_io import safe_load, safe_load_path
 # libyaml-vs-pure-Python loader choice now lives in dismech.yaml_io
 # (introduced in issue #5198, consolidated in #7502).
 _fast_yaml_load = safe_load
+
+
+#: Non-canonical entity-reference prefixes, mapped to the schema slot name.
+#: Handed to the templates so client-side code canonicalises a prefix the same
+#: way :func:`dismech.entity_refs.canonical_kind` does.
+ENTITY_REF_KIND_ALIASES: dict[str, str] = {
+    kind: canonical_kind(kind) for kind in SECTION_KEYS if canonical_kind(kind) != kind
+}
 
 
 @lru_cache(maxsize=8)
@@ -64,6 +84,22 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # (issue #8402). A global for the same reason: it depends only on the two
     # strings, never on which page is being rendered.
     env.globals["label_restates_title"] = label_restates_title
+    # Whether a curated free-text identifier is CURIE-shaped, so it can be
+    # rendered as a resolver chip instead of dead text (issue #8044). Also
+    # depends only on its argument.
+    env.globals["is_curie"] = is_curie
+    # Whether a reference (PMID/DOI) is a preprint, so the UI can flag it as not
+    # peer-reviewed. A global for the same reason: it depends only on the
+    # reference identifier, never on which page is being rendered.
+    env.globals["is_preprint"] = _reference_is_preprint
+    # Alias -> schema-slot map for the pathograph's jump-to-card fallback
+    # (issue #9394). A card advertises its section in the singular
+    # (`data-dismech-type="phenotype"`), while a normalised reference carries
+    # the schema slot (`phenotypes#Name`), so the JS has to canonicalise both
+    # sides before comparing them or the section-preference step silently
+    # degrades to a name-only match. Derived from SECTION_KEYS so the JS cannot
+    # drift from the resolver. Page-independent, hence a global.
+    env.globals["entity_ref_kind_aliases"] = ENTITY_REF_KIND_ALIASES
     return env
 
 
@@ -167,6 +203,26 @@ def _load_prefix_map() -> dict:
         for prefix, base in prefixes.items()
         if isinstance(prefix, str) and isinstance(base, str)
     }
+
+
+_CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._-]*:[^\s]+$")
+
+
+def is_curie(value: object) -> bool:
+    """Whether a string is CURIE-shaped, so it is worth handing to a resolver.
+
+    Used for identifiers curated as free text -- an ``ExternalAssertion``'s
+    ``external_id`` is ``ORPHA:558`` on one record and an opaque ClinGen
+    ``assertion_<uuid>-<timestamp>`` on the next, and only the former should
+    become a resolver link.
+
+    Shape is all this can promise. ``curie_to_url`` never fails: a prefix the
+    schema map does not carry (``ORPHA``, ``OMIM`` and ``CGGV`` are all absent)
+    falls through to ``https://bioregistry.io/{curie}``, which resolves for a
+    registered prefix and 404s otherwise. That is the same treatment these
+    identifiers already get as evidence references elsewhere on the page.
+    """
+    return bool(value) and bool(_CURIE_RE.match(str(value)))
 
 
 def curie_to_url(curie: str) -> str:
@@ -469,23 +525,233 @@ def _annotate_variant_anchors(disorder: dict) -> None:
         )
 
 
-def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
-    """Resolve YAML semantic refs to in-page HTML fragment links."""
-    ref_index: dict[str, str] = {}
+# Sections that are the *target* of a hash-anchor entity reference
+# (`attaches_to`, `would_support`, `would_refute`, perturbation/readout
+# `target`) but are not pathograph nodes, so their cards carry no
+# `data-dismech-node` pair -- the anchor exists purely so a reference chip can
+# link to the card (issue #9193). The second element is the anchor-ID prefix;
+# the third names the slots an entity reference matches on, mirroring
+# `entity_refs.SECTION_KEYS` for these sections.
+#
+# Only sections the disorder template actually renders are listed. `diagnosis`,
+# `prevalence`, `progression`, `imaging_findings`, `epidemiology`,
+# `transmission`, `infectious_agent` and `stages` are referenced in content but
+# have no card on the page at all, so there is nothing to link to; those refs
+# stay plain chips until the page renders them.
+#: Section slot -> the `id` its card already carries in the template, for
+#: resolving a whole-section reference (`treatments#`). Only sections the page
+#: actually renders a card for appear here; `prevalence`, `progression`,
+#: `diagnosis`, `clinical_burden` and friends have no card, so a whole-section
+#: reference to them stays a plain chip (issue #9394).
+_SECTION_CARD_ANCHORS: dict[str, str] = {
+    "definitions": "definitions",
+    "inheritance": "inheritance",
+    "has_subtypes": "subtypes",
+    "mechanistic_hypotheses": "mechanistic-hypotheses",
+    "discussions": "discussions",
+    "pathophysiology": "pathophysiology",
+    "histopathology": "histopathology",
+    "phenotypes": "phenotypes",
+    "genetic": "genetic",
+    "variants": "variants",
+    "external_assertions": "external-assertions",
+    "treatments": "treatments",
+    "differential_diagnoses": "differentials",
+    "datasets": "datasets",
+    "clinical_trials": "trials",
+    # These two have *dedicated* anchor divs immediately above their cards --
+    # `<div id="experimental-models"></div>` and `<div id="animal-models"></div>`
+    # -- each inside `{% if <section> %}`, exactly the guard below. Prefer them
+    # over the `models` id the cards also carry: that one is shared, and lands
+    # on whichever model card renders first (`{% if not experimental_models %}`
+    # on the animal card, and likewise for computational), so it is not a
+    # per-section anchor at all.
+    "experimental_models": "experimental-models",
+    "animal_models": "animal-models",
+    # Cards added in #9505.
+    "clinical_burden": "clinical-burden",
+    "diagnosis": "diagnosis",
+    "imaging_findings": "imaging-findings",
+    "progression": "progression",
+    "stages": "stages",
+    "prevalence": "prevalence",
+    "epidemiology": "epidemiology",
+    "infectious_agent": "infectious-agent",
+    "transmission": "transmission",
+    # `computational_models` has no dedicated anchor -- only the shared,
+    # conditional `models` id -- so there is nothing a per-section guard can
+    # safely point at, and pointing it at a card showing *other* models would be
+    # a wrong target rather than a missing one. `comorbidities` is absent
+    # because it is not a Disease slot and so never appears in SECTION_KEYS.
+}
 
-    pathophysiology_items = disorder.get("pathophysiology") or []
-    if isinstance(pathophysiology_items, list):
-        for item in pathophysiology_items:
+#: HTML id on the page header, the target of a `disease#<name>` reference.
+_DISEASE_ANCHOR_ID = "disease-entry"
+
+_REF_TARGET_ANCHOR_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("definitions", "definition"),
+    ("inheritance", "inheritance"),
+    ("has_subtypes", "subtype"),
+    ("histopathology", "histopathology"),
+    ("differential_diagnoses", "differential-diagnosis"),
+    ("datasets", "dataset"),
+    ("clinical_trials", "clinical-trial"),
+    # Sections the page gained cards for in #9505. Their key slot is not always
+    # `name` -- `progression` is keyed on `phase` and `prevalence` on
+    # `population` -- but `_section_key_slots` reads that from `SECTION_KEYS`
+    # rather than restating it.
+    ("diagnosis", "diagnosis"),
+    ("imaging_findings", "imaging-finding"),
+    ("progression", "progression"),
+    ("stages", "stage"),
+    ("prevalence", "prevalence"),
+    ("epidemiology", "epidemiology"),
+    ("infectious_agent", "infectious-agent"),
+    ("transmission", "transmission"),
+)
+
+
+def _section_key_slots(section_key: str) -> tuple[str, ...]:
+    """The slots an entity reference matches on, per ``SECTION_KEYS``.
+
+    Read out of that map rather than restated here: two maps that must agree
+    eventually disagree, and `SECTION_KEYS` being the single source of truth is
+    the whole point of `entity_refs`.
+    """
+    for slot, key_slots in SECTION_KEYS.values():
+        if slot == section_key:
+            return key_slots
+    return ("name",)
+
+
+def _annotate_ref_target_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to cards that entity references point at.
+
+    The ID is derived from the first key slot the item actually carries, so a
+    dataset referenced by accession and one referenced by title both land on
+    their own card. IDs are de-duplicated within a section because two items
+    may slugify to the same value.
+    """
+    for section_key, prefix in _REF_TARGET_ANCHOR_SECTIONS:
+        key_slots = _section_key_slots(section_key)
+        items = disorder.get(section_key) or []
+        if not isinstance(items, list):
+            continue
+        used: set[str] = set()
+        for item in items:
             if not isinstance(item, dict):
                 continue
-            name = item.get("name")
-            if not name:
-                continue
-            anchor_id = item.get("_anchor_id") or _make_anchor_id(
-                "pathophysiology", str(name)
+            value = next(
+                (
+                    item.get(k)
+                    for k in key_slots
+                    if isinstance(item.get(k), str) and item.get(k)
+                ),
+                None,
             )
-            item.setdefault("_anchor_id", anchor_id)
-            ref_index[f"pathophysiology#{name}"] = f"#{anchor_id}"
+            if not value:
+                continue
+            item["_anchor_id"] = _claim_anchor_id(
+                _make_anchor_id(prefix, str(value)), used
+            )
+
+
+def _annotate_external_assertion_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to disease-level external assertions (issue #8044).
+
+    These are not pathograph nodes -- ``dismech.graph`` emits none -- so the
+    cards carry no ``data-dismech-node`` pair; the anchor exists so the section
+    can be deep-linked and so future cross-references have a target. IDs are
+    de-duplicated because two registry records may slugify to the same value.
+    """
+    assertions = disorder.get("external_assertions") or []
+    if not isinstance(assertions, list):
+        return
+    used: set[str] = set()
+    for assertion in assertions:
+        if not isinstance(assertion, dict):
+            continue
+        name = assertion.get("name") or assertion.get("external_id")
+        if not name:
+            continue
+        assertion["_anchor_id"] = _claim_anchor_id(
+            _make_anchor_id("external-assertion", str(name)), used
+        )
+
+
+def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
+    """Resolve YAML semantic refs to in-page HTML fragment links.
+
+    Driven by ``entity_refs.SECTION_KEYS`` -- the same map the foreign-key test
+    resolves against -- so a reference that the test says points at a real
+    object becomes a live in-page link rather than a dead chip (issue #9193).
+    Both the singular and plural spelling of a section resolve, because content
+    uses both.
+
+    A section whose cards carry no ``_anchor_id`` is skipped: the page has no
+    target for it, and emitting a link to an anchor that does not exist is
+    worse than leaving the chip plain. Call this after the ``_annotate_*``
+    anchor passes.
+    """
+    ref_index: dict[str, str] = {}
+
+    # `disease#<name>` is a virtual whole-entry anchor rather than a section, so
+    # it is absent from SECTION_KEYS by design (see entity_refs) and has to be
+    # indexed on its own. It points at the page header.
+    disease_name = disorder.get("name")
+    if isinstance(disease_name, str) and disease_name:
+        ref_index[f"{DISEASE_KIND}#{disease_name}"] = f"#{_DISEASE_ANCHOR_ID}"
+    # `disease#` with an empty anchor is the same target.
+    ref_index[f"{DISEASE_KIND}#"] = f"#{_DISEASE_ANCHOR_ID}"
+
+    # Whole-section references (`treatments#`), for the sections that have a
+    # card to jump to. Both spellings of a section resolve to the same card.
+    #
+    # Note this is deliberately stricter than *resolution*: `treatments#`
+    # resolves in an entry curating no treatments (that is the point -- a
+    # KNOWLEDGE_GAP attached to a section because it is empty), but the card is
+    # only rendered when the section has content, so linking to `#treatments`
+    # there would point at an anchor that does not exist on the page. Resolution
+    # answers "is this a real section"; the link answers "is there somewhere to
+    # jump to", and they are not the same question.
+    for kind, (section_key, _keys) in SECTION_KEYS.items():
+        card = _SECTION_CARD_ANCHORS.get(section_key)
+        if card and disorder.get(section_key):
+            ref_index.setdefault(f"{kind}#", f"#{card}")
+
+    # Singleton sections are absent from SECTION_KEYS by design -- they carry no
+    # `name` to key on, so `clinical_burden#` is the only form they take (see
+    # entity_refs). They still get a card, so index the whole-section form here
+    # rather than leaving the one reference shape they have unlinked.
+    for section_key in SINGLETON_SECTIONS:
+        card = _SECTION_CARD_ANCHORS.get(section_key)
+        if card and disorder.get(section_key):
+            ref_index.setdefault(f"{section_key}#", f"#{card}")
+
+    for kind, (section_key, key_slots) in SECTION_KEYS.items():
+        for item in section_items(disorder, section_key):
+            if not isinstance(item, dict):
+                continue
+            if section_key == "pathophysiology":
+                # The only section whose anchor is derivable without an
+                # annotate pass, and the one every other page feature already
+                # assumes is present.
+                name = item.get("name")
+                if not name:
+                    continue
+                item.setdefault(
+                    "_anchor_id", _make_anchor_id("pathophysiology", str(name))
+                )
+            elif section_key == "discussions":
+                # Discussion cards use the raw discussion_id as their HTML id.
+                item.setdefault("_anchor_id", item.get("discussion_id"))
+            anchor_id = item.get("_anchor_id")
+            if not anchor_id:
+                continue
+            for key in key_slots:
+                value = item.get(key)
+                if isinstance(value, str) and value:
+                    ref_index.setdefault(f"{kind}#{value}", f"#{anchor_id}")
 
     return ref_index
 
@@ -762,9 +1028,7 @@ def _coerce_string_list(value: object) -> list[str]:
 #: Order in which evidence-balance chips are shown on a hypothesis box.
 _HYPOTHESIS_EVIDENCE_ORDER = (
     "SUPPORT",
-    "PARTIAL",
     "REFUTE",
-    "WRONG_STATEMENT",
     "NO_EVIDENCE",
 )
 
@@ -1010,6 +1274,107 @@ def load_comorbidity(yaml_path: Path) -> dict:
         return _fast_yaml_load(f)
 
 
+# Module-category pill hues are generated, not hand-picked: each category takes
+# the next step of the golden angle around the colour wheel, so the palette
+# spreads itself and nobody has to choose or maintain a hex value. Stepping by
+# an irrational fraction of a turn means appending a category to the end of
+# ModuleCategoryEnum leaves every existing hue untouched — only reordering or
+# removing a value reshuffles. A plain hash of the key would also be
+# maintenance-free but does not spread: it put Oncology and Infectious disease
+# three degrees apart, which is one colour with two names.
+_CATEGORY_HUE_STEP = 137.508
+_CATEGORY_HUE_OFFSET = 15.0
+_UNKNOWN_CATEGORY_PALETTE = {
+    "hue": "",
+    "background": "var(--gray-100, #f1f5f9)",
+    "border": "var(--gray-300, #cbd5e1)",
+    "text": "var(--gray-600, #475569)",
+}
+
+
+def _category_palette(index: int) -> dict[str, str]:
+    """Build the pill colours for the category at ``index`` in the enum.
+
+    Saturation and lightness are held fixed across every category, which is what
+    keeps nine independently generated hues reading as one family rather than as
+    nine unrelated stickers. The fixed pair also settles legibility for any
+    category added later: the worst contrast ratio between this text and this
+    background over all 360 hues is 5.4:1, clearing WCAG AA by construction
+    rather than by luck (the yellow-green band near hue 60 is the weak spot).
+    """
+    hue = round((_CATEGORY_HUE_OFFSET + index * _CATEGORY_HUE_STEP) % 360)
+    return {
+        "hue": str(hue),
+        "background": f"hsl({hue}, 68%, 96%)",
+        "border": f"hsl({hue}, 52%, 78%)",
+        "text": f"hsl({hue}, 62%, 26%)",
+    }
+
+
+@lru_cache(maxsize=1)
+def _module_category_display() -> dict[str, dict]:
+    """Map each ModuleCategoryEnum key to its display label, blurb, and colours.
+
+    Labels and descriptions come from the enum's own ``title``/``description``
+    in ``schema/dismech.yaml``, so the vocabulary has exactly one home and a
+    category cannot be renamed on a page without being renamed in the schema.
+    """
+    permissible_values = (_load_schema().get("enums") or {}).get(
+        "ModuleCategoryEnum", {}
+    ).get("permissible_values") or {}
+    display: dict[str, dict] = {}
+    for index, (key, meta) in enumerate(permissible_values.items()):
+        meta = meta if isinstance(meta, dict) else {}
+        key_text = str(key)
+        display[key_text] = {
+            "key": key_text,
+            "label": str(meta.get("title") or key_text.replace("_", " ").title()),
+            "description": _collapse_whitespace(meta.get("description")),
+            **_category_palette(index),
+        }
+    return display
+
+
+def _collapse_whitespace(value: object) -> str:
+    """Flatten a folded YAML block to a single line for use in a tooltip."""
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def _resolve_module_categories(module: dict) -> list[dict]:
+    """Resolve a module's ``module_categories`` values to display records.
+
+    An unrecognized value is still rendered — dropping it would hide a curation
+    error behind a page that looks fine — but it gets a neutral label derived
+    from the key and no blurb, so it is visibly not part of the vocabulary.
+    """
+    display = _module_category_display()
+    resolved: list[dict] = []
+    seen: set[str] = set()
+    for raw in module.get("module_categories") or []:
+        key = str(raw).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        resolved.append(
+            display.get(key)
+            or {
+                "key": key,
+                "label": key.replace("_", " ").title(),
+                "description": "",
+                **_UNKNOWN_CATEGORY_PALETTE,
+            }
+        )
+    # Pills follow the enum's declaration order rather than the order a curator
+    # typed them, so a category always appears in the same slot across modules
+    # and in the same order as the index legend. Values outside the vocabulary
+    # sort last.
+    order = {key: index for index, key in enumerate(display)}
+    resolved.sort(key=lambda record: order.get(record["key"], len(order)))
+    return resolved
+
+
 def _parse_module_reference(value: str | None) -> tuple[str, str] | None:
     """Split a conforms_to reference into (module_id, module_node_name)."""
     if not isinstance(value, str) or "#" not in value:
@@ -1239,6 +1604,7 @@ def _load_module_context(
             )
 
     module["_module_id"] = module_id
+    module["_categories"] = _resolve_module_categories(module)
     module["_pathophysiology_count"] = len(
         [node for node in pathophysiology_items if isinstance(node, dict)]
     )
@@ -1256,7 +1622,7 @@ def _load_module_context(
 
 
 def _build_module_summary(module: dict) -> dict:
-    """Build a compact card payload for the module index page."""
+    """Build a compact row payload for the module index page."""
     module_id = str(module.get("_module_id") or "")
     used_by_disorders = module.get("_used_by_disorders") or []
     return {
@@ -1264,12 +1630,89 @@ def _build_module_summary(module: dict) -> dict:
         "name": module.get("name") or module_id,
         "description": module.get("description"),
         "href": f"{module_id}.html",
+        "categories": module.get("_categories") or [],
         "pathophysiology_count": module.get("_pathophysiology_count") or 0,
         "cell_type_count": len(module.get("_cell_types") or []),
         "biological_process_count": len(module.get("_biological_processes") or []),
         "disorder_count": len(used_by_disorders),
         "used_by_disorders": used_by_disorders,
+        "collections": module.get("_module_collections") or [],
     }
+
+
+def _build_module_collection_context(
+    collections_dir: Path,
+    module_summaries_by_id: dict[str, dict],
+) -> tuple[list[dict], dict[str, list[dict]]]:
+    """Resolve collection members and build module-to-collection backlinks."""
+    collections: list[dict] = []
+    reverse: dict[str, list[dict]] = defaultdict(list)
+
+    for yaml_path, data in load_module_collections(collections_dir):
+        name = str(data.get("name") or yaml_path.stem)
+        page_name = f"{slugify(name)}.html"
+        members: list[dict] = []
+        for member in data.get("module_members") or []:
+            if not isinstance(member, dict):
+                continue
+            module_id = str(member.get("module") or "").strip()
+            module_summary = module_summaries_by_id.get(module_id, {})
+            resolved = {
+                "id": module_id,
+                "name": module_summary.get("name") or module_id,
+                "href": f"../modules/{module_id}.html",
+                "description": member.get("description"),
+                "framework_terms": member.get("framework_terms") or [],
+                "pathophysiology_count": module_summary.get("pathophysiology_count", 0),
+                "disorder_count": module_summary.get("disorder_count", 0),
+            }
+            members.append(resolved)
+            reverse[module_id].append(
+                {
+                    "name": name,
+                    "display_name": data.get("display_name"),
+                    "collection_type": data.get("collection_type"),
+                    "href": f"../module-collections/{page_name}",
+                    "framework_terms": resolved["framework_terms"],
+                }
+            )
+
+        collections.append(
+            {
+                "name": name,
+                "display_name": data.get("display_name"),
+                "description": data.get("description"),
+                "collection_type": data.get("collection_type"),
+                "creation_date": data.get("creation_date"),
+                "evidence": data.get("evidence") or [],
+                "notes": data.get("notes"),
+                "members": members,
+                "module_count": len(members),
+                "framework_term_count": sum(
+                    len(member["framework_terms"]) for member in members
+                ),
+                "child_collection_names": data.get("child_collections") or [],
+                "href": f"../module-collections/{page_name}",
+                "page_name": page_name,
+                "source_file": (
+                    "https://github.com/monarch-initiative/dismech/blob/main/"
+                    f"kb/module_collections/{yaml_path.name}"
+                ),
+            }
+        )
+
+    for memberships in reverse.values():
+        memberships.sort(
+            key=lambda item: str(
+                item.get("display_name") or item.get("name") or ""
+            ).casefold()
+        )
+    collections.sort(
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold()
+    )
+    return collections, dict(reverse)
 
 
 def _build_comorbidity_summary(
@@ -1997,6 +2440,8 @@ def render_disorder(
     _annotate_model_links(disorder)
     _annotate_card_anchors(disorder)
     _annotate_variant_anchors(disorder)
+    _annotate_external_assertion_anchors(disorder)
+    _annotate_ref_target_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 
@@ -2013,8 +2458,8 @@ def render_disorder(
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
     env.filters["curie_to_url"] = curie_to_url
-    env.filters["semantic_ref_href"] = (
-        lambda ref: semantic_ref_index.get(str(ref), "") if ref is not None else ""
+    env.filters["semantic_ref_href"] = lambda ref: (
+        semantic_ref_index.get(str(ref), "") if ref is not None else ""
     )
     env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
@@ -2250,6 +2695,7 @@ def render_module(
     *,
     disorders_dir: Path = Path("kb/disorders"),
     usage_index: dict[str, list[dict]] | None = None,
+    collections: list[dict] | None = None,
 ) -> Path:
     """Render a single shared module YAML file to HTML."""
     module, disorder_usage = _load_module_context(
@@ -2257,6 +2703,13 @@ def render_module(
         disorders_dir=disorders_dir,
         usage_index=usage_index,
     )
+    if collections is None:
+        _, reverse = _build_module_collection_context(
+            yaml_path.parent.parent / "module_collections",
+            {yaml_path.stem: _build_module_summary(module)},
+        )
+        collections = reverse.get(yaml_path.stem, [])
+    module["_module_collections"] = collections
     # Module hypothesis boxes show the same support/refute balance as disorder
     # pages. Only the tally is computed here: modules do not render hypothesis
     # chips on pathophysiology nodes, so the rest of
@@ -2311,19 +2764,86 @@ def render_module(
 def render_module_index(
     modules: list[dict],
     output_path: Path = Path("pages/modules/index.html"),
+    *,
+    collections: list[dict] | None = None,
 ) -> Path:
     """Render the shared-module index page."""
     template_dir = Path(__file__).parent / "templates"
     env = _get_shared_env(str(template_dir))
     template = env.get_template("module_index.html.j2")
 
+    sorted_modules = sorted(
+        modules,
+        key=lambda module: str(module.get("name") or "").casefold(),
+    )
+    sorted_collections = sorted(
+        collections or [],
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold(),
+    )
+    # The legend lists only categories actually used by the rendered modules.
+    categories_in_use = {
+        category["key"]: category
+        for module in sorted_modules
+        for category in module.get("categories") or []
+    }
     html = template.render(
-        modules=sorted(
-            modules,
-            key=lambda module: str(module.get("name") or "").casefold(),
-        )
+        modules=sorted_modules,
+        collections=sorted_collections,
+        collection_tree=build_module_collection_tree(sorted_collections),
+        collected_module_count=sum(
+            1 for module in sorted_modules if module.get("collections")
+        ),
+        category_legend=[
+            categories_in_use[key]
+            for key in _module_category_display()
+            if key in categories_in_use
+        ],
     )
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_module_collection(
+    collection: dict,
+    output_path: Path,
+    template_path: Path | None = None,
+) -> Path:
+    """Render one curated module-collection page."""
+    if template_path is None:
+        template_dir = Path(__file__).parent / "templates"
+        template_name = "module_collection.html.j2"
+    else:
+        template_dir = template_path.parent
+        template_name = template_path.name
+    env = _get_shared_env(str(template_dir))
+    env.filters["curie_to_url"] = curie_to_url
+    html = env.get_template(template_name).render(collection=collection)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    return output_path
+
+
+def render_module_collection_index(
+    collections: list[dict],
+    output_path: Path = Path("pages/module-collections/index.html"),
+) -> Path:
+    """Render the standalone module-collection index."""
+    template_dir = Path(__file__).parent / "templates"
+    env = _get_shared_env(str(template_dir))
+    sorted_collections = sorted(
+        collections,
+        key=lambda item: str(
+            item.get("display_name") or item.get("name") or ""
+        ).casefold(),
+    )
+    html = env.get_template("module_collection_index.html.j2").render(
+        collections=sorted_collections,
+        collection_tree=build_module_collection_tree(sorted_collections),
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
     return output_path
@@ -2621,6 +3141,68 @@ def _curie_url(curie: str | None) -> str | None:
     return f"https://bioregistry.io/{prefix}:{local}"
 
 
+# Preprint-server DOI patterns. Each is unambiguous: a bioRxiv/medRxiv work
+# carries the dated `YYYY.MM.DD.` local part (Cold Spring Harbor *journal* DOIs
+# under 10.1101 never do), and the other prefixes are single-purpose preprint
+# servers. Used to flag "not peer-reviewed" in the UI even when a reference cache
+# file predates the fetcher writing an `is_preprint` flag.
+_PREPRINT_DOI_RE = re.compile(
+    r"""^10\.(
+        (1101|64898)/\d{4}\.\d{2}\.\d{2}\.   # bioRxiv / medRxiv (dated)
+        | 21203/                              # Research Square
+        | 20944/preprints                     # Preprints.org
+        | 2139/ssrn                           # SSRN
+    )
+    | ^10\.48550/arxiv                        # arXiv
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# Anchor to the repo root, not the process CWD: render is imported and called
+# from many working directories, and a CWD-relative path would silently drop
+# every preprint badge (the OSError below would swallow the miss). Mirrors the
+# `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
+_REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
+
+#: Frontmatter key a research recipe writes to record which revision of the
+#: prompt produced a report (issue #10183).
+STAMP_KEY_TEMPLATE_SHA = "template_sha"
+
+
+@lru_cache(maxsize=4096)
+def _reference_is_preprint(reference: str | None) -> bool:
+    """Whether a reference CURIE denotes a preprint (not peer-reviewed).
+
+    Two signals, in order of cost. First, a DOI whose shape is a known
+    preprint-server pattern (no I/O). Second, the reference's cache file
+    frontmatter, which the fetcher stamps with ``is_preprint``/
+    ``peer_review_status`` for records it fetched — the authoritative signal for
+    anything the pattern misses (e.g. a preprint indexed only under a PMID).
+    """
+    if not reference or ":" not in reference:
+        return False
+    prefix, local = reference.split(":", 1)
+    prefix, local = prefix.strip(), local.strip()
+    if prefix.upper() == "DOI" and _PREPRINT_DOI_RE.match(local):
+        return True
+    cache_path = (
+        _REFERENCES_CACHE_DIR / f"{prefix.upper()}_{local.replace('/', '_')}.md"
+    )
+    try:
+        with cache_path.open(encoding="utf-8") as handle:
+            if handle.readline().strip() != "---":
+                return False
+            for line in handle:
+                stripped = line.strip()
+                if stripped == "---":
+                    break
+                if stripped in ("is_preprint: true", "peer_review_status: preprint"):
+                    return True
+    except OSError:
+        return False
+    return False
+
+
 def _external_link(href: str, label: str) -> str:
     """Build an external anchor tag (labels are already HTML-escaped text nodes)."""
     return f'<a href="{href}" target="_blank" rel="noopener noreferrer">{label}</a>'
@@ -2750,6 +3332,66 @@ def _research_report_template():
     return env.get_template("research_report.html.j2")
 
 
+def _prompt_provenance(metadata: dict) -> dict | None:
+    """Describe the prompt revision a report records, for the report page.
+
+    Args:
+        metadata: The report's parsed YAML frontmatter.
+
+    Returns:
+        A dict with ``sha``, ``short``, ``name`` and ``url``, or ``None`` when
+        the report carries no ``template_sha``.
+
+    Note:
+        Only a *stamped* hash is shown. Older reports predate stamping and their
+        revision is inferable from ``start_time`` against the template's commit
+        history, but inference is a reconstruction rather than a record -- see
+        issue #10183 -- and a page chip has no room to say which it is showing.
+        Displaying only what the generator recorded keeps the chip a fact.
+
+        ``name`` links to the template at ``main``, which is the file's *current*
+        content and so may differ from the revision the hash names. That is the
+        point of showing the hash beside it; the tooltip carries the lookup that
+        resolves it. The link can also 404 outright when a template has since
+        been deleted -- two committed reports name
+        ``disease_pathophysiology_research_scanner.md``, which no longer exists.
+        Nothing better is available: GitHub's ``/blob/<ref>/<path>`` needs a
+        commit-ish and a blob hash is not one, and the git-blobs API returns
+        base64 JSON rather than a page.
+
+        The unlinked branches are defensive rather than expected. ``stamp_report``
+        declines unless ``template_file`` resolves to a file on disk, so a
+        free-text label or an ephemeral ``/tmp`` path is never stamped by the
+        pipeline; reaching them takes a hand-written stamp. They are handled
+        anyway so that a hand-written one degrades to "shown but not linked"
+        rather than to a 404 dressed up as provenance.
+    """
+    raw = metadata.get(STAMP_KEY_TEMPLATE_SHA)
+    sha = raw.strip() if isinstance(raw, str) else ""
+    if not sha:
+        return None
+
+    template_file = metadata.get("template_file")
+    name = None
+    url = None
+    if isinstance(template_file, str) and template_file.strip():
+        # Reports written on Windows record backslashes; they name the same file.
+        normalized = template_file.strip().replace("\\", "/")
+        # A free-text label (``manual_curation``) is not a path and gets no link.
+        if normalized.startswith("templates/"):
+            name = normalized.rsplit("/", 1)[-1]
+            url = _github_blob_url(Path(normalized))
+        else:
+            name = normalized
+
+    return {
+        "sha": sha,
+        "short": sha[:12],
+        "name": name,
+        "url": url,
+    }
+
+
 def render_research_report(
     report: dict,
     siblings: list[dict],
@@ -2780,6 +3422,7 @@ def render_research_report(
             "mondo_url": _curie_url(report.get("mondo_id")),
             "model": metadata.get("model"),
             "citation_count": metadata.get("citation_count"),
+            "prompt": _prompt_provenance(metadata),
             "date": _format_report_date(
                 metadata.get("end_time") or metadata.get("start_time")
             ),
@@ -2999,16 +3642,22 @@ def render_all_modules(
     template_path: Path | None = None,
     *,
     disorders_dir: Path = Path("kb/disorders"),
+    collections_dir: Path | None = None,
+    collections_output_dir: Path | None = None,
 ) -> list[Path]:
-    """Render all shared mechanism modules plus their index page."""
+    """Render mechanism modules, their collections, and both index pages."""
     if not input_dir.exists():
         return []
 
     output_dir.mkdir(parents=True, exist_ok=True)
     usage_index = _collect_module_usage(disorders_dir)
+    if collections_dir is None:
+        collections_dir = input_dir.parent / "module_collections"
+    if collections_output_dir is None:
+        collections_output_dir = output_dir.parent / "module-collections"
 
     output_files: list[Path] = []
-    module_summaries: list[dict] = []
+    module_contexts: dict[str, dict] = {}
 
     for yaml_path in sorted(input_dir.glob("*.yaml")):
         module, _ = _load_module_context(
@@ -3016,6 +3665,28 @@ def render_all_modules(
             disorders_dir=disorders_dir,
             usage_index=usage_index,
         )
+        module_contexts[yaml_path.stem] = module
+
+    initial_summaries = {
+        module_id: _build_module_summary(module)
+        for module_id, module in module_contexts.items()
+    }
+    collection_records = load_module_collections(collections_dir)
+    collection_errors = module_collection_reference_errors(
+        collection_records,
+        set(module_contexts),
+    )
+    if collection_errors:
+        raise ValueError("Invalid module collections:\n" + "\n".join(collection_errors))
+    collections, collections_by_module = _build_module_collection_context(
+        collections_dir,
+        initial_summaries,
+    )
+
+    module_summaries: list[dict] = []
+    for yaml_path in sorted(input_dir.glob("*.yaml")):
+        module = module_contexts[yaml_path.stem]
+        module["_module_collections"] = collections_by_module.get(yaml_path.stem, [])
         output_path = output_dir / f"{yaml_path.stem}.html"
         render_module(
             yaml_path,
@@ -3023,15 +3694,39 @@ def render_all_modules(
             template_path,
             disorders_dir=disorders_dir,
             usage_index=usage_index,
+            collections=module["_module_collections"],
         )
         output_files.append(output_path)
         module_summaries.append(_build_module_summary(module))
         print(f"Rendered module: {yaml_path.stem} -> {output_path}")
 
-    index_path = render_module_index(module_summaries, output_dir / "index.html")
+    index_path = render_module_index(
+        module_summaries,
+        output_dir / "index.html",
+        collections=collections,
+    )
     output_files.append(index_path)
     print(f"Rendered module index -> {index_path}")
     _prune_orphan_pages(output_dir, output_files, label="module")
+
+    collection_output_files: list[Path] = []
+    for collection in collections:
+        output_path = collections_output_dir / collection["page_name"]
+        render_module_collection(collection, output_path)
+        collection_output_files.append(output_path)
+        print(f"Rendered module collection: {collection['name']} -> {output_path}")
+    collection_index_path = render_module_collection_index(
+        collections,
+        collections_output_dir / "index.html",
+    )
+    collection_output_files.append(collection_index_path)
+    print(f"Rendered module collection index -> {collection_index_path}")
+    _prune_orphan_pages(
+        collections_output_dir,
+        collection_output_files,
+        label="module collection",
+    )
+    output_files.extend(collection_output_files)
     return output_files
 
 
@@ -3156,8 +3851,6 @@ def _resolve_member_href(member: dict, by_name: dict[str, str]) -> str | None:
     if mtype in ("DISEASE", "SUBTYPE"):
         page = by_name.get(_normalize_disorder_lookup(ref))
         return f"../disorders/{page}" if page else None
-    if mtype == "MODULE":
-        return f"../modules/{ref.split('#', 1)[0].strip()}.html"
     if mtype == "GROUPING":
         return f"{slugify(ref)}.html"
     return None
@@ -3560,13 +4253,19 @@ def _mondo_scope_state(row: dict, exact_scope_ids: set[str]) -> dict:
 def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
     has_dismech = bool(row["dismech_entries"])
     has_mondo = row["mondo"] is not None
-    is_listed = any(e["member_state"] == "listed" for e in row["dismech_entries"])
-    is_candidate = any(e["member_state"] == "candidate" for e in row["dismech_entries"])
-    is_not_listed = any(
-        e["member_state"] == "not_listed" for e in row["dismech_entries"]
-    )
+    states = {e["member_state"] for e in row["dismech_entries"]}
+    # A disease held through a nested GROUPING member is a member of this
+    # grouping too; it is "listed" for every status below, and the label says
+    # "nested" only when no entry on the row is a direct member.
+    is_listed = bool(states & {"listed", "nested"})
+    nested_only = is_listed and "listed" not in states
+    is_candidate = "candidate" in states
+    is_not_listed = "not_listed" in states
     mondo_id = row["mondo"]["id"] if row["mondo"] else None
     has_exact_scope = bool(exact_scope_ids)
+
+    def _label(text: str) -> str:
+        return text.replace("listed", "nested", 1) if nested_only else text
 
     if (
         has_exact_scope
@@ -3575,7 +4274,7 @@ def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
         and mondo_id not in exact_scope_ids
     ):
         if is_listed:
-            return "outside_scope", "listed outside grouping MONDO"
+            return "outside_scope", _label("listed outside grouping MONDO")
         if is_candidate:
             return "outside_scope", "candidate outside grouping MONDO"
         if is_not_listed:
@@ -3583,8 +4282,8 @@ def _coverage_status(row: dict, exact_scope_ids: set[str]) -> tuple[str, str]:
         return "outside_scope", "outside grouping MONDO"
     if has_dismech and has_mondo and is_listed:
         if has_exact_scope:
-            return "mapped", "listed in scope"
-        return "mapped", "listed with MONDO ID"
+            return "mapped", _label("listed in scope")
+        return "mapped", _label("listed with MONDO ID")
     if has_dismech and has_mondo and is_candidate:
         if has_exact_scope:
             return "candidate", "candidate in scope"
@@ -3608,8 +4307,17 @@ def _build_grouping_coverage_rows(
     criteria_columns: list[dict],
     identity_by_name: dict[str, dict],
     by_mondo: dict[str, list[dict]],
+    nested_members: dict[str, dict] | None = None,
 ) -> tuple[list[dict], dict]:
-    """Build a unified DisMech/MONDO coverage table for a grouping page."""
+    """Build a unified DisMech/MONDO coverage table for a grouping page.
+
+    ``nested_members`` maps a disease held through a nested ``GROUPING``
+    member to ``{"via": <grouping name>, "via_href": ..., "row": <the member
+    row in that nested grouping>}``. Such a disease is a member of this
+    grouping — it renders as ``nested`` (with the grouping it arrived
+    through), counts toward coverage, and is never reported as ``not listed``.
+    """
+    nested_members = nested_members or {}
     mondo_mappings = _grouping_mondo_mappings(grouping)
     exact_roots = [m["id"] for m in mondo_mappings if m["is_exact"]]
     descendant_terms, exact_scope_ids, shadowed_ids, note = (
@@ -3654,8 +4362,12 @@ def _build_grouping_coverage_rows(
         name = entry["name"]
         if any(existing["name"] == name for existing in row["dismech_entries"]):
             return
+        nested = nested_members.get(name)
         if name in listed_names:
             state = "listed"
+        elif nested is not None:
+            state = "nested"
+            member = member or nested.get("row")
         elif name in candidate_names:
             state = "candidate"
         else:
@@ -3668,6 +4380,10 @@ def _build_grouping_coverage_rows(
                 "member_state": state,
                 "member_type": (member or {}).get("member_type", "DISEASE"),
                 "mechanisms": (member or {}).get("differentiating_mechanisms") or [],
+                "via": (nested or {}).get("via") if state == "nested" else None,
+                "via_href": (nested or {}).get("via_href")
+                if state == "nested"
+                else None,
             }
         )
 
@@ -3693,7 +4409,7 @@ def _build_grouping_coverage_rows(
 
     # Add all listed members and advisory candidates, including DisMech-only or
     # outside-MONDO-scope rows.
-    for name in sorted(listed_names | candidate_names):
+    for name in sorted(listed_names | candidate_names | set(nested_members)):
         entry = identity_by_name.get(_normalize_disorder_lookup(name))
         if entry is None:
             entry = {
@@ -3725,7 +4441,8 @@ def _build_grouping_coverage_rows(
             names,
             audit,
             is_listed=any(
-                entry["member_state"] == "listed" for entry in row["dismech_entries"]
+                entry["member_state"] in ("listed", "nested")
+                for entry in row["dismech_entries"]
             ),
         )
         row["mondo_scope"] = _mondo_scope_state(row, exact_scope_ids)
@@ -3753,7 +4470,10 @@ def _build_grouping_coverage_rows(
     scope_listed = sum(
         1
         for row in scope_rows
-        if any(entry["member_state"] == "listed" for entry in row["dismech_entries"])
+        if any(
+            entry["member_state"] in ("listed", "nested")
+            for entry in row["dismech_entries"]
+        )
     )
     scope_dismech = sum(1 for row in scope_rows if row["dismech_entries"])
     scope_total = len(scope_rows)
@@ -3784,6 +4504,11 @@ def _build_grouping_coverage_rows(
             "mapped": sum(1 for r in sorted_rows if r["status"] == "mapped"),
             "mondo_gap": sum(1 for r in sorted_rows if r["status"] == "mondo_gap"),
             "not_listed": sum(1 for r in sorted_rows if r["status"] == "not_listed"),
+            "nested": sum(
+                1
+                for r in sorted_rows
+                if any(e["member_state"] == "nested" for e in r["dismech_entries"])
+            ),
             "dismech_only": sum(
                 1
                 for r in sorted_rows
@@ -3794,17 +4519,100 @@ def _build_grouping_coverage_rows(
     return sorted_rows, coverage
 
 
+def _load_sibling_groupings(groupings_dir: Path) -> dict[str, dict]:
+    """Load every grouping in ``groupings_dir`` keyed by name (for nesting)."""
+    from .groupings import load_groupings_by_name
+
+    if not groupings_dir.exists():
+        return {}
+    return load_groupings_by_name(sorted(groupings_dir.glob("*.yaml")))
+
+
+def _grouping_hierarchy(
+    grouping: dict, groupings_by_name: dict[str, dict]
+) -> tuple[dict, dict[str, dict]]:
+    """Describe where a grouping sits in the declared grouping-of-grouping tree.
+
+    Returns the ``_hierarchy`` view (parents that list this grouping as a
+    ``GROUPING`` member, the nested groupings it lists, and how many diseases
+    arrive through them) plus the ``nested_members`` map consumed by the
+    coverage table.
+    """
+    from .groupings import nested_disease_members
+
+    name = str(grouping.get("name") or "")
+    parents = [
+        {"name": parent, "href": f"{slugify(parent)}.html"}
+        for parent, data in sorted(
+            groupings_by_name.items(), key=lambda kv: kv[0].casefold()
+        )
+        if parent != name
+        and any(
+            m.get("member_type") == "GROUPING" and m.get("member") == name
+            for m in data.get("members") or []
+        )
+    ]
+    children = []
+    for member in grouping.get("members") or []:
+        if member.get("member_type") != "GROUPING" or not member.get("member"):
+            continue
+        child = str(member["member"])
+        child_data = groupings_by_name.get(child)
+        children.append(
+            {
+                "name": child,
+                "display_name": (child_data or {}).get("display_name") or child,
+                "href": f"{slugify(child)}.html",
+                "resolved": child_data is not None,
+                "member_count": len((child_data or {}).get("members") or []),
+            }
+        )
+
+    nested_members: dict[str, dict] = {}
+    for disease, via in nested_disease_members(grouping, groupings_by_name).items():
+        via_rows = {
+            m.get("member"): m
+            for m in (groupings_by_name.get(via) or {}).get("members") or []
+            if isinstance(m, dict) and m.get("member")
+        }
+        nested_members[disease] = {
+            "via": via,
+            "via_href": f"{slugify(via)}.html",
+            "row": via_rows.get(disease),
+        }
+    hierarchy = {
+        "parents": parents,
+        "children": children,
+        "nested_member_count": len(nested_members),
+    }
+    return hierarchy, nested_members
+
+
 def _annotate_grouping(
     grouping: dict,
     *,
     disorders_dir: Path = Path("kb/disorders"),
+    groupings_by_name: dict[str, dict] | None = None,
 ) -> dict:
     """Decorate a grouping with member hrefs, criteria views, and an advisory
-    membership audit, returning summary metadata used by the page templates."""
+    membership audit, returning summary metadata used by the page templates.
+
+    ``groupings_by_name`` is every grouping the nesting tree may reach (the
+    sibling files of the one being rendered); it defaults to ``kb/groupings/``.
+    """
     disorder_context = _build_grouping_disorder_context(str(disorders_dir.resolve()))
     by_name = disorder_context["page_by_name"]
     mondo_mappings = _grouping_mondo_mappings(grouping)
     criteria_columns = _grouping_criteria_columns(grouping)
+    if groupings_by_name is None:
+        from .groupings import GROUPINGS_DIR
+
+        groupings_by_name = _load_sibling_groupings(GROUPINGS_DIR)
+    groupings_by_name = dict(groupings_by_name)
+    if grouping.get("name"):
+        groupings_by_name[str(grouping["name"])] = grouping
+    hierarchy, nested_members = _grouping_hierarchy(grouping, groupings_by_name)
+    grouping["_hierarchy"] = hierarchy
 
     # Criteria views (recursive logic trees).
     for criteria in grouping.get("membership_criteria") or []:
@@ -3836,7 +4644,7 @@ def _annotate_grouping(
         )
 
         index = disorder_context["disease_index"]
-        for ev in evaluate_grouping(grouping, index):
+        for ev in evaluate_grouping(grouping, index, groupings_by_name):
             audit.setdefault(ev.member, []).append(
                 {
                     "criteria_index": ev.criteria_index,
@@ -3853,7 +4661,7 @@ def _annotate_grouping(
                     "unmet": [d for d, r in ev.leaves if r.value != "SATISFIED"],
                 }
             )
-        for name in find_candidate_members(grouping, index):
+        for name in find_candidate_members(grouping, index, groupings_by_name):
             page = by_name.get(_normalize_disorder_lookup(name))
             candidates.append(
                 {"name": name, "href": f"../disorders/{page}" if page else None}
@@ -3873,6 +4681,7 @@ def _annotate_grouping(
             criteria_columns=criteria_columns,
             identity_by_name=disorder_context["identity_by_name"],
             by_mondo=disorder_context["by_mondo"],
+            nested_members=nested_members,
         )
     except Exception:
         coverage_rows = []
@@ -3899,12 +4708,27 @@ def _annotate_grouping(
     grouping["_coverage_rows"] = coverage_rows
     grouping["_coverage"] = coverage
 
+    from .groupings import grouping_disease_members
+
     member_count = len(grouping.get("members") or [])
     child_grouping_names = [
         str(member["member"])
         for member in grouping.get("members") or []
         if member.get("member_type") == "GROUPING" and member.get("member")
     ]
+    try:
+        disease_member_names = sorted(
+            grouping_disease_members(grouping, groupings_by_name)
+        )
+    except (KeyError, ValueError):
+        # A dangling GROUPING reference or a nesting cycle: fall back to the
+        # direct members so the index still renders; the tree flags the cycle.
+        disease_member_names = sorted(
+            str(m["member"])
+            for m in grouping.get("members") or []
+            if m.get("member")
+            and m.get("member_type", "DISEASE") in ("DISEASE", "SUBTYPE")
+        )
     return {
         "id": slugify(str(grouping.get("name") or "")),
         "name": grouping.get("name"),
@@ -3915,6 +4739,9 @@ def _annotate_grouping(
         "coverage": coverage,
         "member_count": member_count,
         "child_grouping_names": child_grouping_names,
+        "parent_grouping_names": [p["name"] for p in hierarchy["parents"]],
+        "disease_member_names": disease_member_names,
+        "nested_member_count": hierarchy["nested_member_count"],
         "criteria_count": len(grouping.get("membership_criteria") or []),
         "candidate_count": len(candidates),
         "href": f"{slugify(str(grouping.get('name') or ''))}.html",
@@ -3971,14 +4798,76 @@ def render_grouping(
 ) -> Path:
     """Render a single disease grouping YAML file to HTML."""
     grouping = load_grouping(yaml_path)
-    summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+    summary = _annotate_grouping(
+        grouping,
+        disorders_dir=disorders_dir,
+        groupings_by_name=_load_sibling_groupings(Path(yaml_path).parent),
+    )
     return _render_grouping_document(
         grouping, summary, yaml_path, output_path, template_path
     )
 
 
+def _undeclared_containments(
+    groupings: list[dict], declared: set[tuple[str, str]]
+) -> list[dict]:
+    """Pairs where every expanded disease member of ``child`` is also held by
+    ``parent`` but ``parent`` does not list ``child`` as a nested grouping.
+
+    Mirrors :func:`dismech.groupings.compute_nesting_report` over index
+    summaries so the index can show the same advisory offline. Equal member
+    sets are reported once, in name order, and flagged.
+    """
+    sets = {
+        str(g["name"]): set(g.get("disease_member_names") or [])
+        for g in groupings
+        if g.get("name")
+    }
+    hrefs = {str(g["name"]): g.get("href") for g in groupings if g.get("name")}
+    display = {
+        str(g["name"]): g.get("display_name") or g["name"]
+        for g in groupings
+        if g.get("name")
+    }
+    names = sorted(sets, key=str.casefold)
+    out: list[dict] = []
+    for parent in names:
+        parent_set = sets[parent]
+        for child in names:
+            child_set = sets[child]
+            if child == parent or not child_set or (parent, child) in declared:
+                continue
+            if not child_set <= parent_set or len(parent_set) < len(child_set):
+                continue
+            equal = child_set == parent_set
+            if equal and child.casefold() < parent.casefold():
+                continue
+            out.append(
+                {
+                    "parent": parent,
+                    "parent_display_name": display[parent],
+                    "parent_href": hrefs[parent],
+                    "parent_count": len(parent_set),
+                    "child": child,
+                    "child_display_name": display[child],
+                    "child_href": hrefs[child],
+                    "child_count": len(child_set),
+                    "equal_sets": equal,
+                }
+            )
+    return out
+
+
 def _build_grouping_tree(groupings: list[dict]) -> dict:
-    """Build a forest from explicit GROUPING members on grouping summaries."""
+    """Build a forest from explicit GROUPING members on grouping summaries.
+
+    Only a ``member_type: GROUPING`` member creates an edge; the tree is the
+    curated nesting, nothing inferred. Because most groupings are deliberately
+    orthogonal cross-cuts that nest in nothing, the result separates the roots
+    that actually have children (``nested_roots``) from the ``standalone``
+    groupings, and adds the offline containment advisory so an undeclared
+    parent/child pair is visible next to the declared ones.
+    """
     by_name = {str(g.get("name")): g for g in groupings if g.get("name")}
     children_by_parent: dict[str, list[str]] = {}
     parents_by_child: dict[str, list[str]] = defaultdict(list)
@@ -4017,11 +4906,24 @@ def _build_grouping_tree(groupings: list[dict]) -> dict:
 
     edge_count = sum(len(children) for children in children_by_parent.values())
     nested_count = len(parents_by_child)
+    root_nodes = [make_node(name) for name in roots]
+    nested_roots = [node for node in root_nodes if node["children"]]
+    standalone = [node for node in root_nodes if not node["children"]]
+    declared = {
+        (parent, child)
+        for parent, children in children_by_parent.items()
+        for child in children
+    }
     return {
-        "roots": [make_node(name) for name in roots],
+        "roots": root_nodes,
+        "nested_roots": nested_roots,
+        "standalone": standalone,
         "edge_count": edge_count,
         "nested_count": nested_count,
         "root_count": len(roots),
+        "nested_root_count": len(nested_roots),
+        "standalone_count": len(standalone),
+        "undeclared_containments": _undeclared_containments(groupings, declared),
     }
 
 
@@ -4059,10 +4961,14 @@ def render_all_groupings(
 
     output_files: list[Path] = []
     summaries: list[dict] = []
+    # Nesting (parents, nested members, containment) needs every sibling.
+    groupings_by_name = _load_sibling_groupings(input_dir)
     for yaml_path in sorted(input_dir.glob("*.yaml")):
         # Load once per file so the index summary matches the rendered grouping.
         grouping = load_grouping(yaml_path)
-        summary = _annotate_grouping(grouping, disorders_dir=disorders_dir)
+        summary = _annotate_grouping(
+            grouping, disorders_dir=disorders_dir, groupings_by_name=groupings_by_name
+        )
         output_path = output_dir / summary["href"]
         _render_grouping_document(
             grouping, summary, yaml_path, output_path, template_path
