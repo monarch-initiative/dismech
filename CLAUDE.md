@@ -194,12 +194,30 @@ database, is idempotent, and pins the release it read in
 `data/mondo/MANIFEST.yaml`. These are **reported, never scored** — scoring child
 count is what the old dashboard did, with the sign backwards.
 
+Enrichment also records whether MONDO has retired the term (`mondo_obsolete` +
+`mondo_replaced_by`, from `owl:deprecated` / `IAO:0100001`) or decided to
+(`mondo_obsoletion_candidate`, MONDO's own scheduled-merge note). This is the
+exact signal; the old one was a heuristic on the label — MONDO prefixes a
+retired concept's label with "obsolete" — which fires only if the nominating
+export captured the label after the retirement, and matches **zero** of the
+1,333 committed stubs (#10785). The heuristic remains a backstop for stubs the
+enrichment pass has not reached. `just stub-obsolescence` asks MONDO directly
+instead of reading the committed answer, and exits 0 with a message when the
+MONDO build is absent — `check-stubs` never depends on a 1.2 GB download.
+
+**A merged term is repointed, not deleted.** `mondo_replaced_by` present means
+the identifier moved but the disease is still uncurated, so `tidy-stubs` lists
+it (`obsolete_term_replaced`) instead of sweeping it; the same goes for a term
+MONDO has only scheduled (`obsoletion_candidate`), which is still live. Only a
+term retired with no successor is stale.
+
 ```bash
 just next-stubs 5          # what to curate next (see the caveat below)
-just enrich-stubs          # refresh MONDO parents/descendants/genes
+just enrich-stubs          # refresh MONDO parents/descendants/genes/obsolescence
 just next-stubs 5 --json   # machine-readable
 just stub-stats            # queue summary
 just check-stubs           # file well-formedness; runs in `just qc`
+just stub-obsolescence     # ask MONDO which stub terms it has retired/scheduled
 just tidy-stubs            # list stale stubs (curated elsewhere, or obsolete)
 just tidy-stubs --apply    # and delete them
 just validate-stubs        # schema validation (src/dismech/schema/curation_stub.yaml)
