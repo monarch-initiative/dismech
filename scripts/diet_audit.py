@@ -94,8 +94,8 @@ _DIET_TREATMENT_TERMS = frozenset({"NCIT:C15447", "NCIT:C15433"})
 #: carried through to the output so a reviewer can spot a false positive rather
 #: than having to trust the regex.
 #:
-#: Bare "sodium" is deliberately ABSENT. It matched 48 entries, almost all of
-#: them drugs -- sodium channel blockers, sodium valproate, dantrolene sodium,
+#: Bare "sodium" is deliberately ABSENT. Adding it back pulls in 40 more entries,
+#: almost all of them drugs -- sodium channel blockers, sodium valproate,
 #: sodium phenylbutyrate. Every genuinely dietary one ("Low-Sodium Diet",
 #: "Dietary sodium restriction") carries "diet"/"dietary"/"salt"/"intake" as
 #: well, so removing it costs no recall.

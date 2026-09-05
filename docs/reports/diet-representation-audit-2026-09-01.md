@@ -15,6 +15,8 @@ assertions with different evidence. The audit therefore never reconciles the two
 tracks against each other.
 
 Reproduce with `just diet-audit` (`--format tsv` for the per-entry table).
+Figures below were last regenerated against `main` on 2026-09-05; the KB moves,
+so re-run rather than quoting these.
 
 ## Headline
 
@@ -23,17 +25,18 @@ mechanism graph**, not unbound terms.
 
 | | Causal | Intervention |
 |---|---|---|
-| Diet-related entries | 183 in 132 files | 614 in 449 files |
-| On the pathograph | 128 (69.9%) | 316 (51.5%) |
-| **Cited but off the pathograph** | **53** (40 after dropping weak matches) | **264** |
-| …of those, `CITED_HUMAN` | 37 | 205 |
+| Diet-related entries | 191 in 139 files | 648 in 474 files |
+| On the pathograph | 139 (72.8%) | 331 (51.1%) |
+| **Cited but off the pathograph** | **50** (38 after dropping weak matches) | **282** |
+| …of those, `CITED_HUMAN` | 36 | 223 |
 | On the pathograph but uncited | 0 | 3 |
 | Evidenced only by `REFUTE` | 1 | 10 |
 
-The causal track is in good shape: two thirds of its diet entries already carry
-`influences_mechanisms`, and the residue is 40 entries — a reviewable list, not a
-programme. The intervention track is the weaker half: half of dietary treatments
-never link to a mechanism node, leaving 264 cited-but-unlinked treatments.
+The causal track is in good shape: nearly three quarters of its diet entries
+already carry `influences_mechanisms`, and the residue is 38 entries — a
+reviewable list, not a programme. The intervention track is the weaker half: half
+of dietary treatments never link to a mechanism node, leaving 282
+cited-but-unlinked treatments.
 
 **Three entries are on the pathograph with no evidence anywhere** — the dietary
 protein restriction in Chronic Kidney Disease, the ketogenic diet in Dravet
@@ -56,15 +59,16 @@ the mechanism it targets: a treatment recorded as failing against a node is a
 real, useful annotation, and an earlier draft of this audit wrongly flagged it as
 uncited.
 
-### The 40 strong causal candidates
+### The 38 strong causal candidates
 
 Concentrated in entries where diet is central: Gout (beer, fructose-sweetened
 soft drink, red/organ meat, shellfish — all `CITED_HUMAN`, none linked),
 Phenylketonuria (dairy, meat, nuts), Celiac Disease (gluten, wheat, barley, rye),
-plus alcohol across a dozen carcinomas and cardiovascular entries, and single
-entries in Coronary Artery Disease (high-fat diet), Hyperlipidemia (high
-saturated fat), Obesity and Type 2 Diabetes (high-calorie diet), Osteoporosis
-(vitamin D deficiency), Thyroid Follicular Carcinoma (iodine deficiency).
+plus alcohol across eleven carcinoma, hepatic and cardiovascular entries, and
+single entries in Hyperlipidemia (high saturated fat), Obesity and Type 2
+Diabetes (high-calorie diet), Osteoporosis (vitamin D deficiency), Scurvy
+(vitamin C deficiency), Thyroid Follicular Carcinoma (iodine deficiency), and
+Wilson Disease (dietary copper).
 
 A `CITED_HUMAN` row is a candidate, not a verdict. Most of these citations are
 observational cohort associations, and an association is not a mechanism — read
@@ -76,13 +80,13 @@ its own `explanation` already says.
 
 | State | Causal | Intervention |
 |---|---|---|
-| `BOUND` | 116 (63.4%) | 3 (0.5%) |
+| `BOUND` | 120 (62.8%) | 3 (0.5%) |
 | `PARTIAL` (block present, no `term:`) | 5 | 2 |
-| `FREE_TEXT` | 62 (33.9%) | 609 (99.2%) |
+| `FREE_TEXT` | 66 (34.6%) | 643 (99.2%) |
 
 `dietary_modifications` is effectively unused: 5 files in the whole KB (Celiac,
 ECHS1 Deficiency, Konzo, Lathyrism, Phenylketonuria), 11 modification records,
-against 614 dietary treatments. Only 19 FOODON bindings exist KB-wide across 11
+against 648 dietary treatments. Only 19 FOODON bindings exist KB-wide across 11
 distinct terms.
 
 **Free text is a legitimate outcome, not a backlog.** Two structural reasons, and
@@ -101,7 +105,7 @@ Where no term fits, free text is the right answer per `.claude/skills/dismech-te
 — *no term beats a bad one*. The audit reports `FREE_TEXT` as a state to review,
 never as an error.
 
-Worth noting separately: **42 causal entries are pathograph-linked *and* free
+Worth noting separately: **47 causal entries are pathograph-linked *and* free
 text**, so they render as ungrounded nodes in an otherwise grounded graph. That
 is the subset where a binding, if a good one exists, buys the most.
 
@@ -110,14 +114,14 @@ is the subset where a binding, if a good one exists, buys the most.
 The same pattern concept is bound inconsistently across entries:
 
 ```
+alcohol:  ECTO:0001082 x12, ECTO:0300001 x1, ECTO:0000509 x1
+dietary:  ECTO:0090010, ECTO:9000950, ECTO:9000084, FOODON:03303171, ECTO:0400019
 diet:     ECTO:0090010 x3, XCO:0000013 x1, ECTO:9001347 x1
-dietary:  ECTO:0090010, ECTO:9000950, ECTO:9000084, ECTO:0400019, FOODON:03303171
-alcohol:  ECTO:0001082 x12, ECTO:0300001 x1
 ```
 
 `XCO:0000013` is a bare "diet" catch-all used where a specific pattern was meant.
 Alcohol is the healthy case — `ECTO:0001082` dominates, with `ECTO:0300001`
-correctly reserved for the maternal route.
+correctly reserved for the maternal route and a single `ECTO:0000509`.
 
 Standardizing on one ECTO CURIE per named pattern is the cheap win here, and
 needs no schema change.
@@ -126,8 +130,8 @@ needs no schema change.
 
 Dietary treatments scatter across NCIT action terms — `NCIT:C15747` (supportive
 care), `NCIT:C15447` (dietary intervention), `NCIT:C15433` (nutritional support),
-`NCIT:C15986` (pharmacotherapy) — and **235 of 614 carry no
-`therapeutic_modality` at all**, with 233 `BEHAVIORAL` and 92 `SMALL_MOLECULE`.
+`NCIT:C15986` (pharmacotherapy) — and **235 of 648 carry no
+`therapeutic_modality` at all**, with 244 `BEHAVIORAL` and 106 `SMALL_MOLECULE`.
 
 Do not mechanically backfill this. CLAUDE.md already records that
 `NCIT:C15433` names a specific vitamin or compound far more often than a diet
@@ -143,16 +147,17 @@ false-positive tail. Two mitigations, both visible in the output:
   description is a clinical paragraph that mentions diet incidentally — searching
   it pulled in ACE inhibitors (on "sodium"), cleft palate repair (on "feeding"),
   and beta blockers. The intervention track therefore matches `name` only, which
-  cut it from 1,262 entries to 614.
+  cut it from 1,244 entries to 648.
 - **Match provenance is recorded** (`matched_in`: `food_source` / `name` /
   `term_label` / `description`). A causal entry matched only in description prose
-  is the weak tail — 13 of the 53 causal gap rows, including Ependymoma
+  is the weak tail — 12 of the 50 causal gap rows, including Ependymoma
   ("high-dose ionizing radiation", whose description mentions diet) and CKD
   tobacco smoking (on "glycemic"). Filter with `--strong-only`.
 
-Bare `sodium` was dropped from the keyword list: it matched 48 entries that were
-almost all drugs (sodium channel blockers, sodium valproate, dantrolene sodium),
-and every genuinely dietary one carries "diet"/"dietary"/"salt"/"intake" anyway.
+Bare `sodium` was dropped from the keyword list: adding it back pulls in 40 more
+entries that are almost all drugs (sodium channel blockers, sodium valproate,
+sodium phenylbutyrate, sodium oxybate), and every genuinely dietary one carries
+"diet"/"dietary"/"salt"/"intake" anyway.
 `septal ablation`, `vitamin K antagonist`, and `radioactive iodine` are excluded
 by name.
 
@@ -170,10 +175,13 @@ curator, not automated fixes.
 
 1. **Cite or unlink the three uncited pathograph edges** (Chronic Kidney Disease,
    Dravet syndrome, Inherited Threoninemia). They already render.
-2. **Work the 40 strong causal candidates**, reading each snippet before adding
+2. **Work the 38 strong causal candidates**, reading each snippet before adding
    `influences_mechanisms`. Gout, Phenylketonuria, and Celiac Disease alone are 11
    of them and are the natural pilot, since all three already model diet well on
-   the other track.
+   the other track. A first tranche is already proposed separately in
+   [PR #10359](https://github.com/monarch-initiative/dismech/pull/10359), which
+   works 42 candidates from an earlier run of this audit and adds 19 of them;
+   merging it will shrink this list.
 3. **Standardize the dietary-pattern CURIEs**, one ECTO term per named pattern,
    retiring the bare `XCO:0000013` catch-all.
 4. **Widen the `FoodTerm` root** to admit the FOODON `food material` branch, so
