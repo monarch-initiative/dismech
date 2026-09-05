@@ -1799,6 +1799,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-verification-results-are-stored" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where verification results are stored
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Where verification results are stored">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geo-records-are-validated-not-skipped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GEO records are validated, not skipped
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cachedataset_accessionsjson-is-frozen-never-touch-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cache/dataset_accessions.json is frozen — never touch it
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#verification-statuses" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -24106,6 +24145,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-verification-results-are-stored" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where verification results are stored
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Where verification results are stored">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geo-records-are-validated-not-skipped" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GEO records are validated, not skipped
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cachedataset_accessionsjson-is-frozen-never-touch-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cache/dataset_accessions.json is frozen — never touch it
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#verification-statuses" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -24261,9 +24339,11 @@ uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </sp
 <span class="c1"># 6. Confirm only `datasets:` moved</span>
 git<span class="w"> </span>diff<span class="w"> </span>kb/disorders/Asthma.yaml
 
-<span class="c1"># 7. Validate</span>
+<span class="c1"># 7. Validate. For geo: accessions this also fetches</span>
+<span class="c1">#    references_cache/GEO_&lt;ID&gt;.md -- stage those with the entry.</span>
 just<span class="w"> </span>verify-datasets<span class="w"> </span>kb/disorders/Asthma.yaml
 just<span class="w"> </span>validate<span class="w"> </span>kb/disorders/Asthma.yaml
+git<span class="w"> </span>add<span class="w"> </span>kb/disorders/Asthma.yaml<span class="w"> </span>references_cache/GEO_*.md
 
 <span class="c1"># 8. Record the change (CLAUDE.md requires a history record per KB edit)</span>
 uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/new_history.py<span class="w"> </span>--kind<span class="w"> </span>disorder<span class="w"> </span>--slug<span class="w"> </span>Asthma<span class="w"> </span><span class="se">\</span>
@@ -24337,6 +24417,65 @@ Generating those in bulk is exactly where fabrication enters — it is the
 central warning. Bulk-generated dataset records therefore carry <code>publication:</code>
 and provenance <code>notes</code> instead, and evidence enrichment is left as a deliberate
 follow-up for a curator or a targeted, verified agent pass.</p>
+<p>What has changed is that the quote now <em>exists</em>: the GEO summary is cached at
+<code>references_cache/GEO_&lt;ID&gt;.md</code>, so a curator can quote it and cite <code>GEO:&lt;ID&gt;</code>
+(worked example: <code>Acne_Vulgaris</code>). That makes evidence enrichment possible
+per-record; it does not make it safe in bulk, and the rule above is unchanged.</p>
+<h2 id="where-verification-results-are-stored">Where verification results are stored</h2>
+<p><code>Dataset.accession</code> carries <code>implements: linkml:authoritative_reference</code> — it is
+a reference slot, and always was. <code>conf/reference_validator_config.yaml</code> merely
+lists the dataset prefixes under <code>skip_prefixes</code>.</p>
+<p>For <code>geo:</code>, <strong>verification and caching are now one operation</strong>.
+<code>just verify-datasets</code> asks the reference fetcher for the record; the fetcher
+writes <code>references_cache/GEO_&lt;ID&gt;.md</code> carrying GEO's title and summary, and
+writes it only if the repository returned something. So:</p>
+<ul>
+<li>a cache file present <em>is</em> the proof the accession resolves;</li>
+<li>commit it with the <code>datasets:</code> block, exactly like a <code>PMID_*.md</code>;</li>
+<li>every later run, and CI, verifies offline.</li>
+</ul>
+<p>All 919 <code>geo:</code> accessions in <code>kb/</code> are backfilled, so a run over an untouched
+file makes no network calls.</p>
+<h3 id="geo-records-are-validated-not-skipped">GEO records are validated, not skipped</h3>
+<p><code>geo</code> and <code>GEO</code> have been removed from <code>skip_prefixes</code>, so
+<code>linkml-reference-validator</code> now checks a GEO dataset record like any other
+reference. Two rules follow, and both are enforced:</p>
+<p><strong><code>datasets[].title</code> is the repository's title, copied exactly.</strong> It is a title
+slot adjacent to a reference field, so the validator compares it with the
+fetched record. Your own summary of what the dataset contains goes in
+<code>description</code>. Copy the title even when it is wrong — <code>geo:GSE301492</code> carries
+GEO's misspelled "Reed-Stenberg" — for the same reason an evidence snippet never
+"corrects" the source it quotes.</p>
+<p><strong>A <code>GEO:</code>-cited snippet must be an exact quote from the cached summary.</strong> The
+summary is the abstract-length text in <code>references_cache/GEO_&lt;ID&gt;.md</code>; GEO's
+"overall design" field is <em>not</em> cached, so a quote taken from the GEO web page
+may not be quotable here. Pick a sentence from the cache file.</p>
+<p>Enabling this was a curation pass, not a config change. It required correcting
+<strong>30 dataset titles</strong> that paraphrased or replaced GEO's own (of 951 records;
+e.g. <code>Bbs8-deficient mouse retinal pigment epithelium transcriptomics</code> against
+GEO's <code>Transcriptome profile of Bbs8/TTC8 Knockout mouse RPE Tissue</code>), and <strong>2
+evidence snippets</strong> — one a reordered paraphrase of a sentence that was in the
+cache all along, one quoting the uncached "overall design" field. Expect the
+same shape of work when migrating the next prefix.</p>
+<p>Other prefixes (EGA, MassIVE, dbGaP, PRIDE, MetaboLights, …) still resolve
+against their repository API on every run and cache nothing. Migrating one means
+writing a reference fetcher for it and adding it to <code>REFERENCE_CACHED_PREFIXES</code>
+in <code>scripts/verify_dataset_accessions.py</code>.</p>
+<h3 id="cachedataset_accessionsjson-is-frozen-never-touch-it"><code>cache/dataset_accessions.json</code> is frozen — never touch it</h3>
+<p>Verification results used to go into one shared JSON object. Every run rewrote
+that file <strong>in full</strong>, including a run over a single disorder file, so every
+curation PR touching a <code>datasets:</code> block churned the same 1.8 MB file — and with
+919 <code>geo:</code> keys sorted into one contiguous region, two PRs adding neighbouring
+accessions collided.</p>
+<p>Nothing reads or writes it now, and
+<code>test_no_automation_touches_the_frozen_dataset_cache</code> keeps it that way. It stays
+in git only until the open PRs carrying edits to it have drained. Do not stage
+it, and do not regenerate it.</p>
+<p>Why not a <code>datasets/</code> folder instead, one file per dataset shared across
+entries? Because de-duplication is not the problem: of 1,747 dataset records,
+1,696 accessions are distinct, and the 49 that repeat (2.9%, maximum fan-out 3)
+are all pairs of sibling entries. See
+<a href="../explanation/design-decisions/#6c-a-dataset-accession-is-a-reference-cached-one-file-per-record-2026-08-27">design decision 6c</a>.</p>
 <h2 id="verification-statuses">Verification statuses</h2>
 <table>
 <thead>
@@ -24373,9 +24512,14 @@ follow-up for a curator or a targeted, verified agent pass.</p>
 They are reported rather than failed because fixing them needs a human.</p>
 <h2 id="supported-repositories">Supported repositories</h2>
 <p>NCBI GEO / SRA / BioProject / dbGaP, EBI BioStudies (ArrayExpress) / PRIDE /
-MetaboLights / MGnify, EGA, MassIVE, NASA OSDR, and Metabolomics Workbench.
-Adding another means writing a resolver in
-<code>scripts/verify_dataset_accessions.py</code> and registering its accession shape.</p>
+MetaboLights / MGnify, EGA, MassIVE, NASA OSDR, and Metabolomics Workbench.</p>
+<p>Adding another means writing a resolver in <code>scripts/verify_dataset_accessions.py</code>
+and registering its accession shape. Migrating an existing one to the reference
+cache (the <code>geo:</code> treatment) means instead giving it a <code>linkml-reference-validator</code>
+source and adding it to <code>REFERENCE_CACHED_PREFIXES</code>. Worth doing next by volume:
+<code>ega</code> (382 accessions), <code>massive</code> (120), <code>metabolomics_workbench</code> (81), <code>dbgap</code>
+(71). lrv already ships a <code>BIOPROJECT</code> source, and its generic <code>json_api</code> source
+may cover others with configuration rather than code.</p>
 <p>For discovery, the ArrayExpress and EGA study indexes resolve offline against
 committed retrieval metadata. Their bulk archives are gitignored and rebuilt with
 <code>--refresh</code>; only the derived index or a retrieval stamp is committed.</p>

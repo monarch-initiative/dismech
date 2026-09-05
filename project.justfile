@@ -45,6 +45,10 @@ validate-all:
 
     just fix-references-cache "${files[@]}"
 
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
     exit_code=0
     echo "Validating ${#files[@]} disorder files (batched)..."
     echo "Schema validation (batch)..."
@@ -59,7 +63,7 @@ validate-all:
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} || exit_code=1
     echo ""
 
-    just normalize-cache || exit_code=1
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
     if [ $exit_code -ne 0 ]; then
         echo "✗ Validation completed with errors (see above)"
         exit $exit_code
@@ -90,14 +94,18 @@ validate-all:
 validate file:
     #!/usr/bin/env bash
     set -e
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
     echo "Schema validation..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    lv_config=$(just _linkml-validate-config Disease)
+    uv run linkml-validate --config "$lv_config" {{file}}
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
-    just normalize-cache
+    just _normalize-cache-if-changed "$cache_stamp"
     echo "✓ All validations passed for {{file}}"
 
 # Fast, non-mutating validation of a single disorder file, for the pre-edit hook
@@ -127,7 +135,8 @@ validate-pre-edit file:
     #!/usr/bin/env bash
     set -e
     echo "Schema validation..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    lv_config=$(just _linkml-validate-config Disease)
+    uv run linkml-validate --config "$lv_config" {{file}}
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation (advisory, cache-bound)..."
@@ -162,6 +171,10 @@ validate-disorders *files:
         exit 0
     fi
 
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
     exit_code=0
     echo "Validating ${#existing[@]} disorder file(s) (batched)..."
     echo "Schema validation (batch)..."
@@ -177,7 +190,7 @@ validate-disorders *files:
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
-    just normalize-cache || exit_code=1
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
     if [ $exit_code -ne 0 ]; then
         echo "✗ Validation failed for one or more disorder files (see above)"
         exit $exit_code
@@ -187,7 +200,50 @@ validate-disorders *files:
 # Schema-only validation (fast, structure check)
 [group('QC')]
 validate-schema file:
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    #!/usr/bin/env bash
+    set -e
+    lv_config=$(just _linkml-validate-config Disease)
+    uv run linkml-validate --config "$lv_config" {{file}}
+
+# Print the path of a `linkml-validate --config` file that points at a
+# pre-generated JSON Schema for `target_class`.
+#
+# Generating the JSON Schema from dismech.yaml is about a third of a single-file
+# `linkml-validate` call (~0.7 s of ~2.2 s) and produces the same document every
+# time, so it is generated once into tmp/linkml-validate/ and regenerated only
+# when something under the schema directory, or uv.lock (which pins the
+# generator), is newer than the cached copy. The cached document is byte-identical
+# to what `JsonschemaValidationPlugin(closed=True)` builds in memory, so results
+# do not change. Used by the single-file recipes, where the per-call cost is felt;
+# the batched recipes pay it once per run and keep the plain form. (#11005)
+#
+# Two things about the generated config are load-bearing. It must not carry a
+# `data_sources` key: linkml-validate lets the config override the command line,
+# so that key would make it ignore its file arguments and report "No issues
+# found" for everything. And `closed: true` is documentary only: with
+# `json_schema_path` set the plugin takes the document's own openness, which is
+# closed because it was generated with --closed. Callers should assign the
+# printed path to a variable before use so a generation failure aborts there
+# rather than as a confusing empty `--config`.
+[private]
+_linkml-validate-config target_class="Disease":
+    #!/usr/bin/env bash
+    set -e
+    dir=tmp/linkml-validate
+    json="$dir/{{target_class}}.closed.json"
+    cfg="$dir/{{target_class}}.yaml"
+    mkdir -p "$dir"
+    if [ ! -s "$json" ] || [ ! -s "$cfg" ] \
+       || [ -n "$(find {{parent_directory(schema_path)}} uv.lock -newer "$json" -print -quit)" ]; then
+        echo "Regenerating cached JSON Schema for {{target_class}} -> $json" >&2
+        # Private temp name: two concurrent runs (the pre-edit hook can overlap)
+        # must not truncate each other's half-written document into place.
+        tmp_json=$(mktemp "$dir/{{target_class}}.closed.json.XXXXXX")
+        uv run gen-json-schema --closed --top-class {{target_class}} --include-range-class-descendants --indent 0 {{schema_path}} > "$tmp_json"
+        mv "$tmp_json" "$json"
+        printf 'schema: %s\ntarget_class: %s\nplugins:\n  JsonschemaValidationPlugin:\n    closed: true\n    json_schema_path: %s\n' "{{schema_path}}" "{{target_class}}" "$json" > "$cfg"
+    fi
+    echo "$cfg"
 
 # Scaffold a new append-only history record (pass-through to scripts/new_history.py).
 # Run `just new-history --help` for all options. Prints the created path.
@@ -1888,10 +1944,10 @@ research-datasets provider disorder *args="":
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
-    mondo_id=$(grep -A3 "^disease_term:" "$yaml_file" | grep -o "MONDO:[0-9]*" | head -1 || echo "")
+    mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
     requested_provider="{{provider}}"
-    echo "Dataset discovery: $disease_name ({{provider}}) -> $output_file"
+    echo "Dataset discovery: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
         --template {{templates_dir}}/disease_datasets_research.md \
@@ -2001,16 +2057,17 @@ research-disorder provider disorder *args="":
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
-    echo "Researching: $disease_name ({{provider}}) -> $output_file"
+    echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
         --template "$template_file" \
         --var "disease_name=$disease_name" \
-        --var "mondo_id=" \
+        --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         $provider_arg \
         --output "$output_file" \
@@ -2235,14 +2292,15 @@ research-disorder-cyberian-codex disorder *args="":
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     requested_provider="cyberian-codex"
-    echo "Researching: $disease_name (cyberian-codex) -> $output_file"
+    echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] (cyberian-codex) -> $output_file"
     {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
         --var "disease_name=$disease_name" \
-        --var "mondo_id=" \
+        --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         --provider cyberian \
         --param agent_type=codex \
@@ -3029,6 +3087,33 @@ normalize-cache:
         cat "$tmp" >> "$f"
     done
     echo "✓ All caches normalized"
+
+# Run `normalize-cache` only if something under cache/ changed since `stamp`
+# was created (`mktemp tmp/dismech_cache_stamp.XXXXXX` at the top of the calling
+# recipe). The term validator writes to cache/ only when it learns a new term,
+# so on a typical single-entry run nothing changed and the ~3 s re-sort of every
+# cache file is skipped.
+#
+# What this gives up: before, every `validate*` run re-sorted the caches whether
+# or not it had touched them, which quietly repaired ordering broken some other
+# way, most often by a merge of two branches that each appended rows to the same
+# cache file. That case is no longer self-healed here. Ordering is audited only
+# by `check-cache-order`, which is advisory and not part of `qc` or CI;
+# `check-term-cache-integrity` checks row structure, not order. Run
+# `just normalize-cache` by hand after such a merge. A missing or unreadable
+# stamp falls back to normalizing, so a degraded run fails safe. (#11005)
+[private]
+_normalize-cache-if-changed stamp:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -f "{{stamp}}" ]; then
+        echo "No cache stamp at '{{stamp}}'; normalizing caches to be safe"
+        just normalize-cache
+    elif [ -n "$(find cache -type f -newer "{{stamp}}" -print -quit)" ]; then
+        just normalize-cache
+    else
+        echo "Caches unchanged since validation started; skipping normalize-cache"
+    fi
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
