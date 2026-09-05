@@ -9,7 +9,7 @@ KNOWLEDGE_GAP hangs off a node that no longer exists.
 
 Why this needs its own ungated, whole-KB pass
 ---------------------------------------------
-The rules are already checked by ``test_entity_ref_foreign_keys`` in
+The rules are already checked by ``check_entity_ref_foreign_keys`` in
 ``tests/test_data.py`` -- but that test never runs on the PRs that can break
 them. ``.github/workflows/main.yaml`` selects pytest by changed path:
 
