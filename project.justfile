@@ -1040,8 +1040,11 @@ node-role-audit *args:
 # tree whose leaves have drifted from the KB is worse than no tree because it
 # still looks grounded. Bare invocation checks the
 # grammar only (instant); --verify-kb also resolves every cited leaf against
-# kb/ (slow: parses the whole KB). --format yaml|json|text emits the tree,
-# `text` being a stable round-trip of the compact form.
+# kb/ (slow: parses the whole KB); --check-definitions verifies every `=`
+# line's term labels against the caches (--online: against OLS); --evaluate
+# runs each logical definition over its own examples and the whole KB (needs
+# the local OAK GO sqlite). --format yaml|json|text emits the tree, `text`
+# being a stable round-trip of the compact form.
 [group('QC')]
 node-classes *args:
     uv run python -m dismech.node_classes {{args}}

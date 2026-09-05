@@ -19,7 +19,7 @@ tags: [SCHEMA_EVOLUTION, PATHOGRAPH, PATHOPHYSIOLOGY, BRAINSTORM]
 
 The authoritative tree is
 [`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt), which carries
-the glosses and ~1,600 worked `<node name> [Disease]` examples. Reproduced here
+the glosses and ~1,600 worked `[Disease] <node name>` examples. Reproduced here
 is only its top level, which is what the proposal actually is; do not treat this
 copy as the tree, and regenerate it rather than editing it:
 
@@ -530,6 +530,100 @@ bacterial GO terms fall outside the top-200 seed table. That is a seed-coverage
 gap, and an argument for extending the table to 500 terms before leaning on
 module shape.
 
+## The tree's grammar, and which classes have logical definitions
+
+The tree is curated content (`kb/node_classes/`), and its text form is a
+grammar rather than a convention. Every line is classified by its **first
+non-space character**, so a line's kind never depends on invisible spacing --
+the earlier form separated a node name from its `[Disease]` with "two or more
+spaces", which is exactly the kind of thing a hand edit breaks:
+
+| first character | line kind | example |
+|---|---|---|
+| `#` | comment | `# ---- NOTES FROM BUILDING THIS` |
+| `[` | worked example: `[Disease_Entry] Node name` | `[Fanconi_Anemia] Genomic Instability` |
+| `:` | attribute of the enclosing class or example | `:split ACTIVITY = the enzyme` |
+| `=` | the class's logical definition | `= biological_processes some GO:0008219 'cell death'` |
+| anything else | a class, with an optional ` -- gloss` | `cell death -- the cell is lost` |
+
+`just node-classes` checks the grammar, `--verify-kb` resolves every example,
+`--format text` renders the tree back to its own bytes (a test enforces it),
+and the YAML/JSON forms are the migration path when the design settles.
+
+### Logical definitions: 45 classes, 41 of the 84 leaves
+
+A definition is a **sufficient condition** over the ontology-bound slots a node
+already carries -- `slot some TERM ['label'] [modifier V|W]`, joined by `and`
+and `or`, where `some TERM` closes over `is_a` and `modifier` pins the same
+descriptor's `ModifierEnum` value. Three shapes cover everything written so far:
+
+| shape | example |
+|---|---|
+| intrinsic: one term names the leaf | `senescence = biological_processes some GO:0090398 'cellular senescence'` |
+| polar: a family plus the curated direction | `signalling increased = biological_processes some GO:0007165 'signal transduction' modifier INCREASED` |
+| tier-level: slot presence | `MOLECULAR ACTIVITY EFFECT = molecular_functions some GO`; `metabolite accumulation = chemical_entities some CHEBI modifier INCREASED` |
+
+Which classes carry none is the informative part. **DISPOSITION, OUTCOME,
+COMPENSATION, INTERVENTION POINT, DEBUNDLE TARGETS and STILL UNPLACED carry no
+definition** (a test keeps it that way): each is a curatorial judgement that no
+term on the node can decide. Within the cascade, `pathogenic sequence variant`,
+`dosage`, `structural variant`, `pathological structure formed`,
+`degeneration / atrophy`, `mechanical obstruction`, `material deposition`,
+`organ failure` and the `infectious agent` / `pathogen spread` pair are also
+undefined -- the first three because a gene annotation cannot say which kind of
+lesion it is, the last pair because both sides use the same `symbiont entry into
+host` GO terms and the agent/host distinction the tree draws is not one GO draws.
+
+```bash
+just node-classes --check-definitions            # labels vs cache/<prefix>/terms.csv (offline)
+just node-classes --check-definitions --online   # labels vs the ontology (OLS)
+just node-classes --evaluate                     # each definition vs its examples and the KB
+```
+
+### What the evaluation says
+
+`--evaluate` runs every definition over its own worked examples (does it
+capture what the curator meant?), over the whole KB (how many nodes would it
+classify?), and reports **cross-hits**: examples of *other* classes it also
+captures. Regenerate rather than quote; the headline at the time of writing:
+
+| | |
+|---|---:|
+| examples under defined classes | 899 |
+| of which carry any GO / CHEBI / CC / ECTO term | 753 |
+| satisfied by their own class's definition | **384 (43%)** |
+
+So the gap is not grounding: 84% of those examples carry a usable term, and
+the definitions are narrow on purpose. Recall runs from 76% (`cell death`) down
+to 13-18% for leaves whose examples are grounded in a cell type and a site
+rather than a process (`barrier failure`, `haematological deficit`,
+`autoimmune response`, `receptor / adaptor activity`). Those are honest floors
+for a term-based definition, not targets to hit by loosening it.
+
+The cross-hits are the debundle detector in a new form, and three of them are
+findings about the *tree*:
+
+- `cell death` captures **12** `degeneration / atrophy` examples. The tree
+  separates the cellular event from the tissue-level loss; the curated GO
+  terms do not, because a degenerating neuron carries `neuron apoptotic
+  process` either way. Whether that boundary belongs in the tree or in a
+  `locations` qualifier is the open question the numbers pose.
+- `functional disturbance` captures **7** `channel conductance` examples --
+  channel nodes are curated with the ion-transport process, not the channel
+  activity, so at the term level a broken channel and an excitability disorder
+  look alike.
+- `organelle dysfunction`, defined partly by `cellular_components some
+  organelle`, captures 7 `catalytic activity` and 7 `metabolite accumulation`
+  examples: a mitochondrial enzyme deficiency names the mitochondrion. That is
+  the same MF-vs-BP discrimination problem the scanner already records as
+  unsolved, seen from the other side.
+
+Because a definition is sufficient rather than necessary, the seed table is not
+yet redundant: `just node-class-scan` still classifies from the 640 hand-labelled
+GO terms, and the definitions are the check on the tree, not yet the classifier.
+Turning them into the classifier means deriving the seed rows from the
+definitions and measuring what is lost, which is the natural next step.
+
 ## Migrating `role`: what the edges already say
 
 The first version of this document found `role` -- a free-text `string` slot with
@@ -752,8 +846,8 @@ absence from our tree is correct, not an oversight.
 
 ## Next step
 
-Started: [`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt) — the tree as a plain text file, leaves being real `<node name> [Disease]`
-pairs, representatives only. No schema, no enum, nothing in `kb/` depends on it.
+Started: [`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt) — the tree as a plain text file, leaves being real `[Disease] <node name>`
+pairs, representatives only. No schema slot and no enum yet; the tree is curated content under `kb/node_classes/`.
 Its `STILL UNPLACED` section is where the design is already failing and is the
 most useful part to argue with.
 
