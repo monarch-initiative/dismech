@@ -96,20 +96,82 @@ Conventions used, which later tranches should keep:
   quoted elsewhere in the same file, the new item keeps that grade
   (`check-snippet-grading` is keyed on the sentence).
 
-## Deliberately not assigned: contested mechanisms
+## Contested mechanisms: recorded, not skipped
 
-These had a mechanism sentence in cache but the literature disagrees on the category.
-They should carry `UNKNOWN` only after someone reads both sides; assigning one side by
-default would be worse than leaving the slot empty.
+Five entries had a mechanism sentence in cache but the literature disagrees on which
+category it supports. Leaving the slot empty would make them indistinguishable from the
+hundreds of entries nobody has looked at yet, so each is now recorded structurally in
+three linked places:
 
-| Entry | Gene | Why it is contested |
-|---|---|---|
-| Weaver Syndrome | EZH2 | Long presumed hypomorphic loss of function (PMID:26694085); a 2025 structural and functional study argues dominant-negative (PMID:40846643). |
-| Bainbridge-Ropers Syndrome | ASXL3 | Truncating alleles; NMD-driven loss of function vs a stable truncated protein acting dominant-negatively is unresolved (PMID:23383720). |
-| Bohring-Opitz Syndrome | ASXL1 | Same truncated-protein question as ASXL3. |
-| Arboleda-Tham Syndrome | KAT6A | Early truncations → NMD/haploinsufficiency; late (exon 16–17) truncations may be gain of function via HOX upregulation (PMID:30245513, PMID:37861717). Could be modelled as two contexts once the split is curated. |
-| ADNP-Related Syndrome | ADNP | Truncations cluster and escape NMD; haploinsufficiency vs dominant-negative debated. |
-| KCNQ2-related BFNS vs DEE | KCNQ2 | Not contested, but a trap: the *same gene* is haploinsufficient in benign familial neonatal seizures and dominant-negative in the encephalopathy. Do not copy the DEE category onto a BFNS entry. |
+1. **`functional_impact_category: UNKNOWN`** on the variant-level node, with a
+   `description` naming both readings and pointing at the discussion. `UNKNOWN` here
+   means *assessed and contested*, not *unassessed* — the description carries that
+   distinction, and the audit's category breakdown makes it countable.
+2. **Competing `mechanistic_hypotheses` entries**, one per position, each with its own
+   `status` and its own evidence quoting the sentence that states that position.
+3. **A `CONTROVERSY` (or, where the entry already framed it that way, `KNOWLEDGE_GAP`)
+   discussion** attached to the node *and* to both hypotheses, carrying a
+   `proposed_experiments` entry with the discriminating experiment, its
+   `decision_criterion`, and `would_support` / `would_refute` pointing back at the
+   hypotheses.
+
+| Entry | Gene | Competing hypotheses | Discussion |
+|---|---|---|---|
+| Weaver Syndrome | EZH2 | `loss_of_function_prc2` (CANONICAL) vs `dominant_negative_prc2` (EMERGING) | `weaver_ezh2_variant_mechanism_controversy` (CONTROVERSY, new) |
+| Bainbridge-Ropers Syndrome | ASXL3 | `asxl3_nmd_haploinsufficiency` (CANONICAL) vs `asxl3_nmd_escaping_truncated_protein` (ALTERNATIVE), both new | `brps_truncated_protein_mechanism_controversy` (CONTROVERSY, new) |
+| Bohring-Opitz Syndrome | ASXL1 | `asxl1_loss_of_full_length_function` (CANONICAL) vs `asxl1_truncated_protein_dominant_or_gain` (ALTERNATIVE), both new | existing `bos_truncation_molecular_consequence`, extended with the hypothesis links and an experiment |
+| Arboleda-Tham Syndrome | KAT6A | existing `early_truncating_nmd_haploinsufficiency` (CANONICAL) vs `late_truncating_nmd_escape` (ALTERNATIVE) | `kat6a_truncation_position_mechanism_controversy` (CONTROVERSY, new) |
+| ADNP-Related Syndrome | ADNP | existing `allele_specific_haploinsufficiency_branch` (CANONICAL) vs `nmd_escape_truncation_branch` (ALTERNATIVE) | existing `gap_adnp_allele_specific_molecular_mechanism`, extended to attach the node and both hypotheses |
+
+Two of the five (ADNP, Arboleda-Tham) already had the competing hypotheses curated and
+needed only the category and the links; Bainbridge-Ropers and Bohring-Opitz needed the
+hypotheses written. In every case the discriminating experiment is the same shape,
+because the disagreement is the same one: **an isogenic comparison of the disease allele
+against a heterozygous null in one genetic background**, which no published study has
+run for any of these genes. Where the allele class is truncating, the experiment is
+preceded by a protein-detection step, since "does the truncated protein exist in patient
+cells" is unanswered for ASXL1, ASXL3 and KAT6A alike.
+
+`KCNQ2` is worth keeping in view as a trap rather than a controversy: the *same gene* is
+haploinsufficient in benign familial neonatal seizures and dominant-negative in the
+developmental and epileptic encephalopathy, so a category must never be copied from one
+entry to the other. The DEE entry is curated as `DOMINANT_NEGATIVE` in this branch; no
+BFNS entry exists yet.
+
+## Can a deep-research provider resolve these?
+
+Partly, and the limit is worth stating precisely. The repository already has the
+plumbing: `just research-hypothesis <provider> <disorder> <hypothesis_group_id>` runs a
+focused hypothesis search whose template asks, among other things, for competing
+mechanistic hypotheses, explicit knowledge gaps, and the experiments that would
+distinguish them, and writes to
+`kb/hypotheses/<Disorder>/<hypothesis_group_id>/<provider>.md`.
+
+```bash
+just research-hypothesis openscientist Weaver_Syndrome dominant_negative_prc2
+just research-hypothesis openscientist Bainbridge-Ropers_Syndrome asxl3_nmd_escaping_truncated_protein
+just research-hypothesis openscientist Bohring-Opitz_syndrome asxl1_truncated_protein_dominant_or_gain
+just research-hypothesis openscientist Arboleda-Tham_Syndrome late_truncating_nmd_escape
+just research-hypothesis openscientist ADNP-Related_Syndrome nmd_escape_truncation_branch
+```
+
+The hypothesis blocks added above are what make these runnable: the runner seeds the
+provider with the hypothesis YAML, so a controversy that exists only as prose in a node
+description cannot be searched, while one curated as two competing hypotheses can.
+
+What a provider run can realistically deliver here is **completeness of the evidence
+matrix** — a functional study this audit's cache-first method missed, a preprint, a
+cohort that stratified by allele class — and a sharper statement of the discriminating
+experiment. What it cannot deliver is the experiment itself. Every one of these five
+controversies is open because a specific comparison has not been performed, not because
+the literature is hard to find; a search that returns the same two positions more
+thoroughly does not move the category off `UNKNOWN`.
+
+So the runs are worth doing as evidence sweeps, and their output is a lead, not curated
+content: a report lands under `kb/hypotheses/`, is assessed with the
+`review-hypothesis-exploration` skill into an assessment sidecar, and only claims that
+survive that review reach the disease YAML. See
+[Hypothesis Report Assessments](../hypothesis-report-assessments.md).
 
 ## Worklist for the next tranches
 
