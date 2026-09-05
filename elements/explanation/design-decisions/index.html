@@ -24645,6 +24645,69 @@ means the evidence bears on the claim without favouring a side, whereas <code>NO
 means it does not bear on the claim at all. The old mapping of <code>NO_EVIDENCE</code> to <code>NEUTRAL</code>
 asserted something the curator did not and was removed; such lines now carry no
 <code>direction_of_evidence_provided</code> and retain the raw value on <code>dismech_supports</code>.</p>
+<h3 id="6c-a-dataset-accession-is-a-reference-cached-one-file-per-record-2026-08-27">6c. A dataset accession is a reference, cached one file per record (2026-08-27)</h3>
+<p><strong>Decision.</strong> A <code>Dataset.accession</code> is verified by <strong>fetching its repository record into
+<code>references_cache/</code></strong>, the same mechanism that backs a PMID — not by a separate shared
+verification cache. <code>geo:</code> is migrated; the remaining prefixes follow one at a time.</p>
+<ul>
+<li><code>Dataset.accession</code> already declares <code>implements: linkml:authoritative_reference</code>. It
+  was always a reference slot; <code>conf/reference_validator_config.yaml</code> merely lists the
+  dataset prefixes under <code>skip_prefixes</code>.</li>
+<li><code>just verify-datasets &lt;file&gt;</code> resolves a <code>geo:</code> accession through the reference fetcher,
+  which writes <code>references_cache/GEO_&lt;ID&gt;.md</code> (GEO's own title and summary). <strong>The cache
+  file is the verification</strong> — the fetcher writes one only after the repository returned a
+  record — and it is committed with the <code>datasets:</code> block.</li>
+<li>All 919 <code>geo:</code> accessions in <code>kb/</code> were backfilled, so the check is offline in CI.</li>
+<li><strong><code>geo</code> and <code>GEO</code> have been removed from <code>skip_prefixes</code></strong>, so the validator now checks
+  GEO records like any other reference — the accession must resolve, a <code>GEO:</code>-cited
+  snippet must be an exact quote from the cached summary, and <code>datasets[].title</code> must be
+  the repository's own title (a title slot adjacent to a reference field is compared with
+  the fetched record). <strong><code>datasets[].title</code> is the repository's title, copied exactly</strong> —
+  the curator's summary belongs in <code>description</code>, and the title keeps the repository's
+  typos, for the same reason a snippet never corrects its source. Turning this on was a
+  curation pass, not a config change: it required fixing 32 records — 30 titles that
+  paraphrased or replaced GEO's own (of 951; now 951/951 match) and 2 evidence snippets,
+  one a reordered paraphrase of a sentence that was in the cache all along
+  (<code>GEO:GSE289185</code>) and one quoting GEO's uncached "overall design" field
+  (<code>GEO:GSE316127</code>). KB-wide, 133,610 of 138,867 snippets verify with zero GEO failures.</li>
+<li><strong><code>cache/dataset_accessions.json</code> is frozen.</strong> No script, module, test, workflow, or
+  recipe reads or writes it, enforced by
+  <code>test_no_automation_touches_the_frozen_dataset_cache</code>. It remains in git only until the
+  open PRs carrying edits to it have drained.</li>
+</ul>
+<p><strong>Rationale — the storage shape, not the checking, was the defect.</strong> The old cache was one
+sorted JSON object rewritten <em>in full</em> on every run, including a run over a single
+disorder file. So every curation PR that touched a <code>datasets:</code> block churned the same
+1.8 MB file, and with 919 <code>geo:</code> keys sorted into one contiguous region, two PRs adding
+neighbouring accessions landed inside each other's diff context and conflicted. It also
+bought nothing that justified being committed: no CI job and no test read it, unlike
+<code>references_cache/</code> and <code>cache/**/*.csv</code>, which are committed precisely because
+validation determinism requires them. Its 1,800 entries were all status <code>OK</code> (the
+negative-cache machinery held nothing), and its payload — a title — duplicated the
+<code>datasets[].title</code> already in the entry. Per-record files are add-only, so two PRs adding
+datasets touch disjoint paths.</p>
+<p><strong>A <code>datasets/</code> folder was considered and rejected.</strong> As a de-duplication layer it does
+not pay: of 1,747 dataset records, 1,696 accessions are distinct and only <strong>49 (2.9%)</strong>
+appear in more than one entry, maximum fan-out 3 — and every one of those is a pair of
+sibling entries (<code>MED13</code>/<code>MED13L</code>, <code>Ehlers-Danlos</code>/<code>Hypermobile_EDS</code>,
+<code>Schwannoma</code>/<code>Schwannomatosis</code>), which is a lump/split question rather than a storage one.
+Inline <code>datasets:</code> records stay inline. A genuine <em>catalog</em> layer — access tier, file
+manifests, checksums, local mirror paths for a lakehouse — is a different argument and
+still open; if it is built, its home is the existing structured-source framework
+(<code>src/dismech/structured_sources/</code> + <code>data/&lt;source&gt;/MANIFEST.yaml</code>), which is already
+"one generated file per entity, checked into git", not a third mechanism.</p>
+<p><strong>Consequence for evidence.</strong> Bulk-generated dataset records carry no <code>evidence:</code> because
+an evidence item needs an exact quote and there was nothing quotable. With the GEO summary
+cached there now is, so a dataset record <em>may</em> carry evidence quoting it and citing
+<code>GEO:&lt;ID&gt;</code> (worked example: <code>Acne_Vulgaris</code>). This does not license bulk evidence
+generation; the §6 exact-quote rule is unchanged.</p>
+<p><strong>Follow-ups.</strong> (1) Give the remaining prefixes a fetcher, highest-volume first (<code>ega</code>
+382, <code>massive</code> 120, <code>metabolomics_workbench</code> 81, <code>dbgap</code> 71), adding each to
+<code>REFERENCE_CACHED_PREFIXES</code> and removing it from <code>skip_prefixes</code>; lrv ships a
+<code>BIOPROJECT</code> source already, and its generic <code>json_api</code> source may cover others without
+new code. Budget each migration as a backfill <em>plus</em> whatever the newly-enabled title and
+snippet checks surface — it is a curation pass, not a config edit. (2) Delete the frozen
+blob once open PRs have drained.</p>
 <h2 id="7-curation-process-governance">7. Curation process &amp; governance</h2>
 <p><strong>Decision.</strong> DisMech is <strong>agent-forward</strong>: most curation is performed by AI agents,
 initiated either by humans or by GitHub Actions.</p>
@@ -25074,6 +25137,11 @@ browsing session, plus the non-dismissible footer line).</p>
 <td>Heteroplasmy and genome of origin for mtDNA disease</td>
 <td><strong>Undecided — proposed, not enacted.</strong> Gene assignment binds HGNC CURIEs on <code>GeneDescriptor.gene_term</code> with no <code>reachable_from</code> constraint. That is <em>complete</em> for mitochondrial genetics at the identifier level — all 37 mtDNA-encoded genes resolve in HGNC with correct labels and SO types — but two things it cannot express. (1) <strong>Genome of origin.</strong> No HGNC gene group unites the 37 (<code>hgnc.genegroup:1974</code> covers only the 13 protein-coding genes; tRNAs sit in <code>843</code>, rRNAs in <code>1378</code>), and in the OAK sqlite build every gene-group node is a label-less <code>rdf:type</code> stub, so a <code>reachable_from</code> enum on it would be unlabeled and incomplete. SO type does not separate genomes either (<code>MT-ND1</code> and <code>NDUFS4</code> are both <code>SO:0001217</code>). The only current signal is the <code>MT-</code> symbol prefix — a naming convention, not an assertion. (2) <strong>Heteroplasmy.</strong> <code>ZygosityEnum</code> has no homoplasmic/heteroplasmic values, and heteroplasmy is orthogonal to zygosity in any case; the fraction and its tissue-specific threshold are what determine penetrance and severity for an mtDNA disease. The concept appears in 20 files as free text only. Proposed shape: an optional <code>Genetic.genome</code> (<code>GenomeEnum: NUCLEAR | MITOCHONDRIAL</code>) plus an optional <code>Genetic.heteroplasmy</code> block (<code>state: HOMOPLASMIC | HETEROPLASMIC | BOTH</code>, <code>threshold_percent</code>, <code>threshold_tissue</code>, standard <code>evidence</code>). <code>genome</code> is mechanically backfillable over a closed 37-gene set; <code>heteroplasmy</code> needs per-entry curation from the 20 prose files. Both additive and optional, so legacy entries validate unchanged.</td>
 <td><a href="../../reports/mitochondrial-disease-genetics-review-2026-08-27/">report</a></td>
+</tr>
+<tr>
+<td>Quantity kind: analyte <strong>amount</strong> vs catalytic <strong>activity</strong></td>
+<td><strong>Deferred (2026-08-26).</strong> MP splits these into two disjoint upper-level branches — abnormal <em>level</em> terms under <code>MP:0001764</code> abnormal homeostasis (e.g. <code>MP:0005319</code> <em>abnormal enzyme/coenzyme level</em>), abnormal <em>activity</em> terms under <code>MP:0005266</code> abnormal metabolism (e.g. <code>MP:0005584</code> <em>abnormal enzyme/coenzyme activity</em>). HPO does not: both live under <code>HP:0001939</code> (Abnormality of metabolism/homeostasis), and the merge is explicit in the labels — <code>HP:0034684</code> <em>Abnormal enzyme concentration </em><em>or</em><em> activity</em> ("Concentration or activity of an enzyme is above or below the limits of normal"), with <code>HP:0012379</code> its circulating child. HPO will even file an activity term <em>under</em> a level term: <code>HP:0003282</code> <em>Decreased circulating alkaline phosphatase activity</em> has parent <code>HP:0004379</code> <em>Abnormality of alkaline phosphatase level</em>. That is faithful to clinical chemistry (ALP is assayed as an activity in U/L and reported as a "level") but is not reasonable over. <strong>Why the axis matters mechanistically:</strong> amount and activity dissociate in all four combinations and the combination <em>is</em> the lesion — normal amount / low activity (catalytically dead missense, cofactor deficiency, inhibitor present); low amount / normal specific activity (nonsense, unstable protein); high amount / low activity (accumulated misfolded protein, compensatory upregulation). It bears directly on curated content: pseudodeficiency alleles (ARSA/HEXA — low in-vitro activity, no disease; <code>Metachromatic_Leukodystrophy</code>, <code>Krabbe_Disease</code>, <code>Late-Onset_Pompe_Disease</code>, <code>Hurler_syndrome</code>, <code>Multiple_Sulfatase_Deficiency</code>), pharmacological chaperones (migalastat) whose whole mechanism is restoring activity of protein that is already present, ERT raising activity without changing endogenous level, cofactor-responsive disorders, and the residual-enzyme-activity genotype-severity question raised in 173 disorder entries. <strong>What DisMech does today:</strong> draws the distinction by <strong>slot</strong>, not by subsumption — amount in <code>biochemical:</code> (<code>presence</code>, <code>reference_ranges</code> + unit), catalytic capability as a GO molecular function on a pathophysiology node carrying <code>modifier:</code> (PATO-bound <code>PATO:0002300</code>/<code>PATO:0002301</code>). That is the compositional form of what MP encodes as a branch split, and it is orthogonal to the quantitative-vs-qualitative axis (<code>INCREASED</code> vs <code>GAIN_OF_FUNCTION</code>, see CLAUDE.md). <strong>Residual gap:</strong> <code>biochemical:</code> is DisMech's own <code>HP:0012379</code> — it holds enzyme <em>activity assays</em> alongside analyte concentrations, distinguished only by free-text <code>name</code> and <code>reference_ranges.unit</code> (U/L vs nmol/mg protein/hr vs mg/dL). <code>Farber_Disease</code> ("Reduced acid ceramidase activity") and <code>Alpha_Mannosidosis</code> ("Reduced acid alpha-mannosidase activity") each carry such a record (<code>presence: DECREASED</code>, no bound <code>biomarker_term.term</code>) <em>and</em> a same-named GO MF node with <code>modifier: DECREASED</code>; those are two different assertions — an assay result and a mechanism claim — and should not be collapsed into one. <strong>Deferred decision:</strong> do not add a level/activity enum or restructure anything. The candidate, if the axis ever needs to be queryable, is an optional <em>quantity kind</em> slot (amount / catalytic activity / flux) on <code>Biochemical</code> and <code>ExperimentalReadout</code> — the one thing MP gets from its branch split and HPO discards. Until then the distinction rides on unit discipline in <code>reference_ranges</code> and on binding a GO molecular function for every activity claim. <strong>Worked examples (2026-08-28).</strong> Mouse models were curated from the MGI genotype annotations that sit on each MP branch, chosen from genes annotated on <em>both</em>: <code>Hypophosphatasia</code> (the <code>Alpl</code> null on the level branch vs. the <code>Alpl</code> A116T knock-in on the activity branch, 50% residual plasma activity with a normal postcranial skeleton), <code>Mucolipidosis_Type_II</code> (<code>Gnptab</code> gene-trap — serum hydrolase levels <em>up</em> while M6P tagging is abolished, the two directions curated as readouts on one link), <code>Menkes_Disease</code> (<code>Atp7a</code> brindled — SOD3 specific activity down, partially restored by adding copper, with SOD1 unaffected), and <code>Gaucher_Disease_Due_To_Saposin_C_Deficiency</code> (activator loss with a <code>FAILS_TO_RECAPITULATE</code> link: no glucosylceramide accumulation, no organomegaly).</td>
+<td>schema follow-up (no issue yet)</td>
 </tr>
 <tr>
 <td>Computed indices and composite endpoints in aging biology</td>
