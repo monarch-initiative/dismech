@@ -2,9 +2,9 @@
 provider: openscientist
 model: openscientist-autonomous
 cached: false
-start_time: '2026-09-05T07:09:38.342854'
-end_time: '2026-09-05T07:44:12.384224'
-duration_seconds: 2074.04
+start_time: '2026-09-05T07:29:27.940681'
+end_time: '2026-09-05T08:01:28.382904'
+duration_seconds: 1920.44
 template_file: templates/disease_pathophysiology_research.md
 template_sha: "1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666"
 template_variables:
@@ -34,75 +34,47 @@ provider_attempts:
   retryable: false
 - provider: openscientist
   succeeded: true
-citation_count: 16
+citation_count: 20
 reference_validation:
-  total_references: 16
-  verified: 16
+  total_references: 20
+  verified: 20
   not_found: 0
   unverifiable: 0
   confabulation_rate: 0.0
-  relevance_assessed: 16
-  on_topic: 10
-  off_topic: 1
-  off_topic_references:
-  - PMID:24022823
+  quotes_checked: 12
+  quotes_valid: 10
+  quotes_unsupported: 2
+  unsupported_quote_references:
+  - PMID:10362015
+  - PMID:29198724
+  relevance_assessed: 20
+  on_topic: 8
   needs_review: true
   validator_version: 0.2.1
 term_validation:
-  total_terms: 36
-  verified: 33
+  total_terms: 57
+  verified: 56
   not_found: 0
-  obsolete: 2
+  obsolete: 0
   unverifiable: 1
   confabulation_rate: 0.0
-  labels_checked: 11
-  labels_matching: 0
-  labels_mismatched: 9
+  labels_checked: 4
+  labels_matching: 1
+  labels_mismatched: 3
   mislabelled_terms:
-  - term_id: HP:0004322
+  - term_id: MONDO:0100297
     reported_labels:
-    - Physical/growth
-    ontology_label: Short stature
-  - term_id: HP:0000175
+    - MONDO
+    ontology_label: short stature, facial dysmorphism, and skeletal anomalies with
+      or without cardiac anomalies 1
+  - term_id: NCIT:C15192
     reported_labels:
-    - Physical
-    ontology_label: Cleft palate
-  - term_id: HP:0000201
+    - Speech Therapy
+    ontology_label: Blood Transfusion
+  - term_id: NCIT:C15266
     reported_labels:
-    - Physical
-    ontology_label: Pierre-Robin sequence
-  - term_id: HP:0011387
-    reported_labels:
-    - Clinical sign
-    ontology_label: Enlarged vestibular aqueduct
-  - term_id: HP:0001627
-    reported_labels:
-    - Physical
-    ontology_label: Abnormal heart morphology
-  - term_id: HP:0001651
-    reported_labels:
-    - Physical
-    ontology_label: Dextrocardia
-  - term_id: HP:0001999
-    reported_labels:
-    - Physical
-    ontology_label: Abnormal facial shape
-  - term_id: HP:0011842
-    reported_labels:
-    - Physical
-    ontology_label: Abnormal skeletal morphology
-  - term_id: UBERON:0006618
-    reported_labels:
-    - UBERON localization:** growth plate
-    ontology_label: atrium auricular region
-  labels_variant: 2
-  obsolete_terms:
-  - term_id: GO:0010862
-    ontology_label: obsolete positive regulation of pathway-restricted SMAD protein
-      phosphorylation
-  - term_id: GO:0005615
-    ontology_label: obsolete extracellular space
-    replaced_by: GO:0005576
+    - Genetic Counseling
+    ontology_label: Laparotomy
   needs_review: true
   adapter: 'ols:'
   validator_version: 0.4.5
@@ -111,13 +83,13 @@ artifact_sources:
   openscientist_artifacts_zip: 2
 artifacts:
 - filename: final_report.html
-  path: BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome-deep-research-openscientist_artifacts/final_report.html
+  path: BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome-deep-research-falcon_artifacts/final_report.html
   media_type: text/html
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist final report
 - filename: final_report.pdf
-  path: BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome-deep-research-openscientist_artifacts/final_report.pdf
+  path: BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome-deep-research-falcon_artifacts/final_report.pdf
   media_type: application/pdf
   source: openscientist_artifacts_zip
   data_storage_id: null
@@ -585,304 +557,348 @@ This report will be used to populate a disease knowledge base entry with:
 
 ## Output
 
-# BMP2-Related Short Stature–Facial Dysmorphism–Skeletal Anomalies Syndrome (SSFSC Syndrome)
-### A Comprehensive Disease Characteristics Report
+# BMP2-Related Short Stature–Facial Dysmorphism–Skeletal Anomalies Syndrome (SSFSC1)
 
-**Disease:** BMP2-Related Short Stature–Facial Dysmorphism–Skeletal Anomalies Syndrome (SSFSC syndrome)
-**MONDO ID:** MONDO:0100297 · **OMIM:** #617877 · **Gene:** *BMP2* (HGNC:1069, 20p12.3) · **Category:** Mendelian, autosomal dominant
+**MONDO:0100297 · OMIM #617877 · Gene: *BMP2* (20p12.3) · Category: Mendelian, autosomal dominant**
 
 ---
 
 ## Summary
 
-BMP2-Related Short Stature–Facial Dysmorphism–Skeletal Anomalies Syndrome (SSFSC syndrome; OMIM #617877, MONDO:0100297) is an **ultra-rare autosomal-dominant Mendelian disorder** caused by **heterozygous loss-of-function of *BMP2*** on chromosome 20p12.3. The causative lesions are monoallelic truncating, frameshift, or splice-altering sequence variants, or contiguous 20p12.3 deletions that remove the gene. All converge on a single mechanism: **haploinsufficiency** of Bone Morphogenetic Protein 2, a secreted TGF-β-superfamily morphogen. Because a ~50% reduction in gene dosage is sufficient to cause disease, and because complete loss is embryonic-lethal in mouse models, *BMP2* is one of the most loss-of-function-intolerant genes in the genome (gnomAD pLI ≈ 1.0, LOEUF 0.22).
+BMP2-Related Short Stature–Facial Dysmorphism–Skeletal Anomalies Syndrome (abbreviated **SSFSC1**, and also called **BMP2-related skeletal dysplasia spectrum**) is a rare autosomal-dominant multiple-congenital-anomaly disorder caused by **haploinsufficiency of *BMP2***, the gene encoding Bone Morphogenetic Protein 2, a TGF-β superfamily morphogen located on chromosome 20p12.3. The disease is produced either by heterozygous loss-of-function (LOF) sequence variants — truncating, frameshift, splice-altering, or missense — or by contiguous 20p12 microdeletions that encompass *BMP2*. In every case the shared consequence is a ~50% reduction in functional BMP2 ligand, which attenuates canonical SMAD1/5/8 signaling during embryonic morphogenesis of the skeleton, face, and heart ([PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/); [PMID: 37125634](https://pubmed.ncbi.nlm.nih.gov/37125634/)).
 
-The disorder was delineated as a recognizable syndrome by Tan et al. (2017), who reported 12 individuals from 8 unrelated families sharing four cardinal features: **short stature, a recognizable craniofacial gestalt, skeletal anomalies, and congenital heart disease.** Subsequent case series and reports (Sahoo 2011; Williams 2012; Yogi 2023; Stavrén-Eriksson 2025) have refined the spectrum to include cleft palate/Pierre Robin sequence, secretory otitis media, delayed language development, minor digital anomalies, and cardiac laterality defects (e.g., isolated dextrocardia). Cognition is generally preserved; global developmental delay is either rare or not part of the core phenotype. Penetrance is high but expressivity is variable, even within a single family.
+The clinical picture is defined by four cardinal domains: (1) a recognizable **craniofacial gestalt** (broad forehead with temporal narrowing, flat/retruded midface, short nose with anteverted nares, long philtrum, thin upper lip, high-arched or cleft palate, micrognathia); (2) **proportionate, non-endocrine short stature**; (3) **distinctive skeletal anomalies** (fifth-ray brachydactyly/clinodactyly, 11 pairs of ribs, sandal gap); and (4) variable, **outflow-tract–predominant congenital heart disease** with a predisposition to arrhythmia. Later cohorts expanded the spectrum to include neural tube defects, structural brain anomalies, endocrinopathies, secretory otitis media with conductive hearing loss, and selective (mainly language) developmental delay, while establishing that global developmental delay is *not* a core feature. Intelligence and life expectancy are generally normal.
 
-Mechanistically, reduced BMP2 → SMAD1/5/8 signaling impairs three developmental programs that map cleanly onto the three clinical branches: (1) **chondrocyte proliferation and osteoblast differentiation** in the growth plate and skeleton → short stature and skeletal anomalies; (2) **cranial neural crest–derived facial mesenchyme** patterning → micrognathia, cleft palate, and Pierre Robin sequence; and (3) **cardiac neural crest, second-heart-field, and endocardial cushion** development → outflow-tract, septal, valve, and laterality defects. Mouse (null-lethal, heterozygous short stature, tissue-specific conditional knockouts) and zebrafish models recapitulate these programs and confirm deep evolutionary conservation. There is no disease-specific or curative therapy; management is multidisciplinary, supportive, and surveillance-based, and the overall prognosis is favorable when structural anomalies are corrected.
-
----
-
-## Key Findings
-
-### Finding 1 — SSFSC is an autosomal-dominant syndrome caused by *BMP2* haploinsufficiency
-
-The syndrome was defined by the foundational cohort of **Tan et al. (2017, *American Journal of Human Genetics*)**, which described 12 individuals from 8 unrelated families carrying monoallelic truncating/frameshift *BMP2* variants or 20p12 deletions. All shared the tetrad of **short stature, a recognizable craniofacial gestalt, skeletal anomalies, and congenital heart disease**. The authors reported: *"we report a cranioskeletal phenotype due to monoallelic truncating and frameshift BMP2 variants and deletions in 12 individuals from eight unrelated families that share features of short stature, a recognizable craniofacial gestalt, skeletal anomalies, and congenital heart disease"* [PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/).
-
-Inheritance is autosomal dominant, with both de novo occurrence and vertical transmission: *"De novo occurrence and autosomal-dominant inheritance of variants, including paternal mosaicism in two affected sisters who inherited a BMP2 splice-altering variant, were observed across all reported families."* The mechanism is haploinsufficiency: *"haploinsufficiency of BMP2 could be the primary phenotypic determinant in individuals with predicted truncating variants and deletions encompassing BMP2."* This maps to **OMIM #617877** (SSFSC syndrome), **MONDO:0100297**, gene ***BMP2*** (HGNC:1069) on **20p12.3**.
-
-### Finding 2 — The phenotypic spectrum is broad and variably expressed
-
-Beyond the cardinal tetrad, the phenotype extends to **delayed language development, secretory otitis media, cleft palate, minor skeletal/digital anomalies, and cardiac laterality defects**. Stavrén-Eriksson et al. (2025) characterized 7 additional individuals (1 frameshift, 6 microdeletions of 1.3–3.7 Mb) and found *"delayed language development (4/5) and secretory otitis media (4/5) were common"* [PMID: 39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/). Importantly, they clarified the cognitive profile: *"We propose that global developmental delay is either a rare part or not part of the phenotype"* — severe intellectual disability is not characteristic.
-
-Expressivity is variable even within families. Williams et al. (2012) described a multigenerational 2.3 Mb 20p12.3 deletion with cleft palate and failure to thrive in which the transmitting father was mildly affected: *"The father was otherwise healthy with no history of FTT or DD, suggesting high penetrance, yet variable expressivity for haploinsufficiency of BMP2"* [PMID: 22965927](https://pubmed.ncbi.nlm.nih.gov/22965927/). Yogi et al. (2023) reported a novel frameshift associated with isolated cardiac laterality: *"the proband exhibited isolated dextrocardia situs solitus without cardiac anomalies and abnormal locations of other visceral organs"* [PMID: 37572998](https://pubmed.ncbi.nlm.nih.gov/37572998/), implicating BMP2 in cardiac axis determination.
-
-**Suggested HPO terms:** Short stature (HP:0004322); Micrognathia (HP:0000347); Cleft palate (HP:0000175); Pierre Robin sequence (HP:0000201); Secretory otitis media (HP:0011387); Delayed speech and language development (HP:0000750); Abnormal heart morphology / Congenital heart disease (HP:0001627); Dextrocardia (HP:0001651); Abnormality of the dentition (HP:0000164).
-
-### Finding 3 — Mechanism: BMP2 → SMAD1/5/8 drives chondrocyte and osteoblast programs; dosage is critical
-
-BMP2 is a **TGF-β superfamily ligand** that signals through type I/II BMP receptors and **phosphorylated SMAD1/5/8**, inducing RUNX2 and cyclin D1 to promote chondrocyte proliferation, hypertrophic differentiation, and osteoblast commitment. Jung et al. (2013) showed BMP2 links to SMAD signaling in chondrocytes — *"activated STAT-3 and the Smad1/5/8 and ERK-1/2 MAP kinase pathways and induced the expression of bone morphogenetic protein 2 (BMP-2)"* — and that *"the blocking of BMP signaling attenuated the IL-10-mediated induction of cyclin D1 and RUNX-2 in primary chondrocytes"* [PMID: 24022823](https://pubmed.ncbi.nlm.nih.gov/24022823/).
-
-The dosage sensitivity that underlies the disease is confirmed by mouse genetics. Complete loss is embryonic lethal — *"Bmp2 null mice is fetal lethal"* [PMID: 37572998](https://pubmed.ncbi.nlm.nih.gov/37572998/) — whereas the heterozygous state genocopies the human growth phenotype: *"we observed similarity to the human phenotype of short stature and skeletal anomalies in a heterozygous Bmp2-knockout mouse model"* [PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/). This intermediate heterozygous phenotype is the hallmark of a haploinsufficient, dosage-sensitive developmental gene.
-
-**Suggested GO terms:** BMP signaling pathway (GO:0030509); SMAD protein signal transduction (GO:0060395); chondrocyte differentiation (GO:0002062); osteoblast differentiation (GO:0001649); ossification (GO:0001503); positive regulation of pathway-restricted SMAD protein phosphorylation (GO:0010862).
-
-### Finding 4 — BMP2 dosage in cardiac progenitors explains the congenital heart disease branch
-
-The congenital heart disease component reflects BMP2's dosage-sensitive roles across multiple cardiac progenitor pools. Goldman et al. (2009) showed with Bmp2/Bmp4 compound heterozygotes that *"BMP2 and BMP4 function coordinately to direct normal lengthening of the outflow tract, proper positioning of the outflow vessels, and septation of the atria, ventricle and atrioventricular canal"* [PMID: 19116164](https://pubmed.ncbi.nlm.nih.gov/19116164/). MacGrogan et al. (2011) placed BMP2 at the center of valve formation via a Notch circuit: *"a Hey-Bmp2 regulatory circuit restricts Bmp2 expression to presumptive valve myocardium (atrioventricular canal and outflow tract)"* [PMID: 21563298](https://pubmed.ncbi.nlm.nih.gov/21563298/).
-
-Second-heart-field proliferation and outflow-tract morphogenesis are governed by a feedback loop — *"feedback repression of Bmp2/Smad1 signaling by Nkx2-5 critically regulates SHF proliferation and outflow tract (OFT) morphology"* [PMID: 17350578](https://pubmed.ncbi.nlm.nih.gov/17350578/) — and septation requires BMP2/4 in cardiac neural crest: *"BMP-2/4 function is required for the migration of neural crest cells into the developing OFT to form the aortopulmonary septum"* [PMID: 11412030](https://pubmed.ncbi.nlm.nih.gov/11412030/). These dosage-sensitive circuits explain why halving BMP2 produces outflow-tract, septal, valve, and laterality (dextrocardia) defects in patients.
-
-**Suggested GO/CL terms:** outflow tract morphogenesis (GO:0003151); cardiac septum morphogenesis (GO:0003279); endocardial cushion development (GO:0003197); cardiac neural crest cell (CL:0010007); second heart field cardioblast (CL:0002673).
-
-### Finding 5 — The craniofacial branch arises from reduced BMP2 in cranial neural crest–derived facial mesenchyme
-
-Chen et al. (2019) provided direct mechanistic proof by conditionally deleting *Bmp2* in cranial neural crest cells (Wnt1-Cre; Bmp2-flox), reproducing **Pierre Robin sequence**: *"Mutant mice exhibit severe PRS with a significantly reduced size of craniofacial bones, cleft palate, malformed tongue and micrognathia"* [PMID: 30413887](https://pubmed.ncbi.nlm.nih.gov/30413887/). The clefting is a secondary consequence of the mandibular defect: *"Palate clefting is caused by the undescended tongue that prevents palatal shelf elevation."* Crucially, the authors attributed the human phenotype to the same lesion: PRS *"caused by heterozygous loss of BMP2."*
-
-This is corroborated by human deletion cases in which BMP2 is the sole or critical gene (Sahoo 2011; Williams 2012), and by the finding that BMP2 acts downstream of VEGFa to drive ossification of palatal mesenchyme (Hill et al. 2015, PMID: 25759071).
-
-**Suggested terms:** Cleft palate (HP:0000175); Pierre Robin sequence (HP:0000201); Micrognathia (HP:0000347); cranial neural crest cell (CL:0000333/CL:0010007); palatal shelf (UBERON:0005872); roof of mouth (UBERON:0003216).
-
-### Finding 6 — BMP2 is extremely loss-of-function-intolerant in population data
-
-Quantitative population-genetic constraint independently confirms the haploinsufficiency mechanism. In gnomAD v2.1.1, *BMP2* (ENSG00000125845; GRCh38 chr20:6,767,686–6,780,246) shows **pLI = 0.99999**, an **observed/expected LoF ratio of 0.069 (90% CI 0.028–0.218; LOEUF = 0.218)**, with only **2 LoF variants observed versus 28.8 expected** (LoF constraint Z = 4.24). Missense constraint is only modest (mis_z = 1.51, o/e = 0.84). The extreme depletion of loss-of-function alleles in the general population indicates strong purifying selection — exactly what is expected if losing one functional copy of *BMP2* causes a penetrant developmental disorder. This also implies there is essentially **no asymptomatic carrier state**.
-
-### Finding 7 — Variant spectrum is predominantly loss-of-function; diagnosis needs both sequencing and CMA
-
-Pathogenic alleles fall into two classes that both produce haploinsufficiency: (1) **intragenic truncating/frameshift/splice variants**, and (2) **20p12.3 deletions**. Tan et al. (2017) reported *"monoallelic truncating and frameshift BMP2 variants and deletions in 12 individuals from eight unrelated families"* [PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/). A representative ACMG-classified allele is the frameshift *"NM_001200.4: c.231dup (p.Tyr78Leufs*38) which was predicted to be 'pathogenic'"* [PMID: 37572998](https://pubmed.ncbi.nlm.nih.gov/37572998/). Deletions range from **~600 kb with BMP2 as the sole gene** — *"the deletion was almost identical at ∼600 kb in size, and BMP2 was the only gene deleted"* [PMID: 21671386](https://pubmed.ncbi.nlm.nih.gov/21671386/) — up to 2.3–5.5 Mb and 1.3–3.7 Mb microdeletions.
-
-Because both small intragenic variants and larger copy-number losses cause disease, **diagnosis requires both sequence analysis (exome/genome or single-gene sequencing) and copy-number detection (chromosomal microarray/CMA).** No recurrent gain-of-function or dominant-negative missense mechanism has been described.
-
-### Finding 8 — Cross-species models recapitulate BMP2 skeletal biology
-
-Model organisms confirm evolutionary conservation and dissect tissue-specific roles:
-
-| Model | Genetic manipulation | Phenotype | PMID |
-|---|---|---|---|
-| Mouse (homozygous null) | *Bmp2⁻/⁻* | Embryonic lethal (~E7.5–10.5; cardiac/amnion/chorion defects) | 37572998 |
-| Mouse (heterozygous) | *Bmp2⁺/⁻* | Short stature, skeletal anomalies (genocopy of human) | 29198724 |
-| Mouse (conditional CNC) | Wnt1-Cre; Bmp2-flox | Pierre Robin sequence, cleft palate, micrognathia | 30413887 |
-| Mouse (conditional limb) | Prx1-Cre; Bmp2-flox | Bones form but spontaneous, non-healing fractures | 17099713 |
-| Mouse (compound het) | *Bmp2⁺/⁻; Bmp4⁺/⁻* | Dosage-sensitive skeleton/heart/body-wall/eye defects | 19116164 |
-| Zebrafish | *bmp2b* | Dermal bone differentiation in fin regeneration | 17619793 |
-
-The limb-specific knockout is particularly instructive: *"Mice lacking the ability to produce BMP2 in their limb bones have spontaneous fractures that do not resolve with time"* [PMID: 17099713](https://pubmed.ncbi.nlm.nih.gov/17099713/) — establishing BMP2 as required for the initiation of fracture repair. Zebrafish work shows *"bone morphogenetic protein-2b (BMP2b) is involved in the induction of dermal bone differentiation during fin regeneration"* [PMID: 17619793](https://pubmed.ncbi.nlm.nih.gov/17619793/), supporting deep conservation of BMP2 skeletal function across tetrapods and fish.
-
-### Finding 9 — Protein architecture explains why truncating variants abolish the ligand
-
-BMP2 (UniProt **P12643**, 396 aa) is synthesized as a precursor with an N-terminal **signal peptide (aa 1–23)**, a **prodomain/propeptide (aa 24–282)** cleaved by furin-family proprotein convertases, and a C-terminal **mature chain (aa 283–396)** that forms the bioactive TGF-β **cystine-knot** domain. The mature domain is stabilized by intrachain disulfide bonds (Cys296–361, 325–393, 329–395) and an interchain disulfide (Cys360) that covalently dimerizes two monomers into the secreted homodimer. Reported pathogenic frameshift/truncating variants (e.g., p.Tyr78Leufs*38 in the prodomain) lie upstream of, or within, the coding sequence such that they **trigger nonsense-mediated decay or eliminate/disrupt the mature cystine-knot ligand** — mechanistically the same endpoint as whole-gene deletion, consistent with a unified loss-of-function model.
-
-### Finding 10 — Prognosis is favorable; management is supportive and surveillance-based
-
-There is no pharmacologic or curative therapy targeting BMP2 haploinsufficiency. Prognosis is generally favorable: affected individuals show *"a consistent distinct phenotype characterized by short stature and skeletal and cardiac anomalies without neurological deficits"* [PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/), indicating preserved cognition and no intrinsic reduction in survival from the core syndrome. Prognosis is chiefly modified by the severity of congenital heart disease and, for large 20p12.3 deletions, by additional contiguous-gene effects.
-
-Evidence-based surveillance was proposed by Stavrén-Eriksson et al. (2025): *"evaluation of language development and regular controls of the middle ear should be included in the surveillance of these individuals"* [PMID: 39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/), reflecting the high frequency of secretory otitis media (4/5) and language delay (4/5). Management components inferred from the phenotype: cardiology/echocardiography for CHD; surgical repair and airway management for cleft palate/Pierre Robin sequence; audiology with myringotomy/grommets for otitis media; orthopedic monitoring for skeletal anomalies; and growth monitoring.
-
-### Finding 11 — Epidemiology and inheritance
-
-Fewer than ~40 affected individuals are reported in total (Tan 2017: 12; Stavrén-Eriksson 2025: 7; plus scattered deletion case reports), so no formal prevalence or incidence exists; the disorder is classified as **ultra-rare/orphan**. Inheritance is autosomal dominant, with de novo and inherited alleles and documented **paternal germline mosaicism**: *"De novo occurrence and autosomal-dominant inheritance of variants, including paternal mosaicism in two affected sisters who inherited a BMP2 splice-altering variant, were observed across all reported families"* [PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/). Penetrance is high but expressivity variable [PMID: 22965927](https://pubmed.ncbi.nlm.nih.gov/22965927/). Because population LoF variants are essentially absent (gnomAD pLI ≈ 1.0), there is no carrier state in unaffected individuals and no reported founder effect, ethnic predilection, or sex bias.
+*BMP2* is an exemplar of a **dosage-sensitive** developmental gene: reduced dosage (haploinsufficiency) causes SSFSC1, whereas duplication of a conserved cis-regulatory element ~110 kb downstream of *BMP2* causes the reciprocal allelic disorder **brachydactyly type A2 (BDA2, OMIM #112600)**. There is no disease-specific therapy; management is anticipatory and multidisciplinary, guided by molecular diagnosis (sequencing **plus** copy-number analysis) and organ-system surveillance. This report synthesizes 10 confirmed findings drawn from ~24 primary papers spanning the delineating human cohorts, developmental-biology mechanistic studies, and model-organism work.
 
 ---
 
-## Section-by-Section Report
+## 1. Disease Information
 
-### 1. Disease Information
-- **Overview:** An autosomal-dominant Mendelian malformation syndrome caused by *BMP2* haploinsufficiency, defined by short stature, a recognizable craniofacial gestalt, skeletal anomalies, and congenital heart disease.
-- **Identifiers:** OMIM #617877; MONDO:0100297; Gene *BMP2* (HGNC:1069); locus 20p12.3. Orphanet lists it among 20p12.3 microdeletion / BMP2-related conditions; no dedicated ICD-10 code (coded under congenital malformation syndromes, e.g., ICD-10 Q87.x).
-- **Synonyms:** SSFSC syndrome; Short stature, facial dysmorphism, and skeletal anomalies with or without cardiac anomalies; BMP2 haploinsufficiency; 20p12.3 microdeletion syndrome (when BMP2 is the critical gene).
-- **Data source:** Aggregated from individual patient reports and small case series (disease-level literature), not EHR-derived.
+**Overview.** SSFSC1 is a Mendelian multiple-congenital-anomaly / dysmorphism syndrome caused by *BMP2* haploinsufficiency. It was formally delineated as a single nosological entity by Tan et al. in 2017, who reported 12 individuals from 8 unrelated families carrying monoallelic truncating/frameshift/splice *BMP2* variants or 20p12.3 deletions and sharing "features of short stature, a recognizable craniofacial gestalt, skeletal anomalies, and congenital heart disease" ([PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/)).
 
-### 2. Etiology
-- **Causal factor:** Genetic — heterozygous loss-of-function of *BMP2* (truncating/frameshift/splice variants or 20p12.3 deletions) producing haploinsufficiency.
-- **Genetic risk:** The causal variant is itself the disorder; no separate susceptibility loci or modifier genes are established. No environmental, infectious, or lifestyle cause.
-- **Protective factors:** None identified; given near-complete LoF intolerance there is no known protective allele.
-- **Gene–environment interactions:** None documented.
+**Key identifiers.**
 
-### 3. Phenotypes
-Cardinal features (with representative frequencies where reported):
+| Resource | Identifier |
+|---|---|
+| OMIM (disease) | **#617877** — "Short stature, facial dysmorphism, and skeletal anomalies with or without cardiac anomalies 1" |
+| MONDO | **MONDO:0100297** |
+| Gene | ***BMP2*** — OMIM *112261; HGNC:1069; NCBI Gene 650; UniProt **P12643**; Ensembl ENSG00000125845; locus **20p12.3** |
+| Allelic disorder | Brachydactyly type A2 (**BDA2**), OMIM #112600 |
+| ICD-11 | Best mapped to structural developmental-anomaly categories; no unique code |
+| ICD-10 | No specific code (grouped under Q87.x multiple-anomaly syndromes) |
 
-| Phenotype | Type | HPO | Notes / frequency |
-|---|---|---|---|
-| Short stature | Physical/growth | HP:0004322 | Core, congenital/childhood onset |
-| Craniofacial gestalt (dysmorphism) | Physical | HP:0001999 | Core, recognizable |
-| Micrognathia | Physical | HP:0000347 | Common; part of PRS |
-| Cleft palate | Physical | HP:0000175 | Recurrent in deletion cases |
-| Pierre Robin sequence | Physical | HP:0000201 | Modeled in CNC-Bmp2 KO |
-| Skeletal/digital anomalies | Physical | HP:0011842 | Core; minor deformities |
-| Congenital heart disease | Physical | HP:0001627 | Core; septal/OFT/valve/laterality |
-| Dextrocardia | Physical | HP:0001651 | Isolated laterality (Yogi 2023) |
-| Secretory otitis media | Clinical sign | HP:0011387 | 4/5 (Stavrén-Eriksson 2025) |
-| Delayed language development | Behavioral/developmental | HP:0000750 | 4/5; global DD rare/absent |
+**Synonyms / alternative names:** SSFSC syndrome; SSFSC1; BMP2-related skeletal dysplasia spectrum; BMP2 haploinsufficiency; 20p12.3 microdeletion syndrome (BMP2-related, when deletion is the mechanism).
 
-Onset is congenital/neonatal to childhood; severity is variable; course is generally stable/non-progressive. Quality-of-life impact stems from short stature, surgical burden of cleft/cardiac repair, hearing/speech issues, and cosmetic concerns; cognition and lifespan are typically preserved.
+**Source of information.** The knowledge base for this disease is derived from **aggregated disease-level resources** (OMIM, Orphanet, MONDO) and from **individual-patient case series** published in the primary literature (Tan 2017; Priestley 2023; Stavrén-Eriksson 2025; plus single/small case reports). There is no EHR-scale or population-registry dataset for this ultra-rare condition.
 
-### 4. Genetic / Molecular Information
-- **Causal gene:** *BMP2* (HGNC:1069; NCBI Gene 650; OMIM *112261), 20p12.3.
-- **Variant types:** Nonsense, frameshift, splice-site; whole-gene/contiguous 20p12.3 deletions (~600 kb to 5.5 Mb). Representative: NM_001200.4:c.231dup (p.Tyr78Leufs*38), ACMG "pathogenic."
-- **Classification:** Pathogenic/likely pathogenic per ACMG; mechanism uniformly **loss of function/haploinsufficiency**. No gain-of-function or dominant-negative mechanism reported.
-- **Allele frequency:** Essentially absent from gnomAD (pLI≈1.0; only 2 LoF observed vs 28.8 expected).
-- **Origin:** Germline; de novo or inherited; paternal germline mosaicism documented.
-- **Modifier genes / epigenetics:** None established. *BMP4* is a functionally related paralog (compound-heterozygote studies) but not a formal modifier in humans.
-- **Chromosomal abnormalities:** 20p12.3 interstitial deletions (detectable by CMA).
+---
 
-### 5. Environmental Information
-Not applicable. This is a monogenic disorder with no established environmental, lifestyle, toxic, or infectious contribution.
+## 2. Etiology
 
-### 6. Mechanism / Pathophysiology
+**Primary cause — genetic.** SSFSC1 is a monogenic disorder caused by reduced *BMP2* dosage. Two mechanistic classes converge on the same haploinsufficient state:
 
-**Ordered causal chain (initiating lesion → clinical manifestation):**
+- **Intragenic loss-of-function variants** — truncating (nonsense), frameshift, splice-altering, and (functionally validated) missense variants. Example ClinVar/literature variants: `NM_001200.4:c.460C>T (p.Arg154Ter)`; `c.231dup (p.Tyr78Leufs*38)`.
+- **Contiguous gene deletions** — 1.3–5.5 Mb 20p12 deletions encompassing *BMP2* ([PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/); [PMID: 39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/)).
 
-1. A heterozygous loss-of-function lesion (truncating/frameshift/splice variant, or 20p12.3 deletion) **reduces functional *BMP2* to ~50% of normal dosage** (via NMD of the mutant allele or loss of the mature cystine-knot ligand).
-2. Reduced secreted BMP2 homodimer **decreases activation of type I/II BMP receptors**, which **lowers phosphorylation of SMAD1/5/8** (and modulates ERK/MAPK).
-3. Diminished pSMAD1/5/8 signaling **reduces induction of RUNX2 and cyclin D1** in target progenitors.
-4. The signaling deficit then **branches** across three developmental fields:
-   - **Skeletal branch:** impaired chondrocyte proliferation/hypertrophy and osteoblast differentiation in growth plates → **short stature and skeletal/digital anomalies**; postnatally, reduced fracture-repair capacity (inferred from limb-specific KO).
-   - **Craniofacial branch:** reduced BMP2 in cranial neural crest–derived facial mesenchyme → reduced mandibular bone size → **micrognathia**; the undescended tongue prevents palatal-shelf elevation → **cleft palate / Pierre Robin sequence**.
-   - **Cardiac branch:** reduced BMP2 in cardiac neural crest, second-heart-field progenitors, and endocardial-cushion/valve myocardium → defective OFT lengthening, aortopulmonary septation, and valve/endocardial-cushion formation → **congenital heart disease**; disrupted laterality signaling → **dextrocardia/situs anomalies** (inferred).
+Tan et al. concluded that "haploinsufficiency of BMP2 could be the primary phenotypic determinant in individuals with predicted truncating variants and deletions encompassing BMP2" ([PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/)). Missense variants were later shown to be LOF by modeling in zebrafish ([PMID: 37125634](https://pubmed.ncbi.nlm.nih.gov/37125634/)).
 
-Upstream: the mutation and dosage reduction. Downstream: tissue-specific morphogenetic failures. Cell types: chondrocytes, osteoblasts, cranial and cardiac neural crest cells, second-heart-field cardioblasts, endocardial cushion cells. Key pathway: **BMP/SMAD1/5/8** (TGF-β superfamily), intersecting with Notch (Hey-Bmp2 valve circuit), Nkx2-5 feedback, and VEGFa (palatal ossification).
+**Genetic risk factors.** The causal variant *is* the risk factor; there are no established susceptibility loci or modifier genes with proven effect on SSFSC1 expression. The wide inter- and intrafamilial variability suggests as-yet-unidentified genetic and/or stochastic modifiers.
 
-**Suggested GO/CL/UBERON:** BMP signaling pathway (GO:0030509); SMAD signal transduction (GO:0060395); endochondral ossification (GO:0001958); outflow tract morphogenesis (GO:0003151); roof of palate development (GO:0060021); cardiac neural crest cell (CL:0010007); chondrocyte (CL:0000138); osteoblast (CL:0000062); growth plate (UBERON:0006618); extracellular space (GO:0005615, secreted ligand).
+**Environmental risk factors.** None identified. There is no evidence for toxin, teratogen, infection, or lifestyle contribution to disease occurrence. (Note: BMP2/SMAD1-5-8 biology is modulated by estrogen and hyperglycemia in *unrelated* disease models — e.g., vascular calcification [PMID: 32089109] and diabetic-pregnancy growth-plate effects [PMID: 34934622] — but these are not implicated in SSFSC1.)
 
-### 7. Anatomical Structures Affected
-- **Organ/system level:** Skeleton (musculoskeletal system), craniofacial complex (palate, mandible, middle ear), and heart (cardiovascular system); secondary: airway (Pierre Robin obstruction), auditory system (conductive hearing loss from otitis media).
-- **Tissue/cell level:** Cartilage (chondrocytes), bone (osteoblasts), cranial and cardiac neural-crest-derived mesenchyme, endocardial cushions/valve myocardium.
-- **Subcellular:** BMP2 is a secreted protein; relevant compartments include the secretory pathway/ER-Golgi (processing) and extracellular space (GO:0005615) where the ligand acts on cell-surface receptors.
-- **UBERON localization:** growth plate (UBERON:0006618); palatal shelf (UBERON:0005872); mandible (UBERON:0001684); cardiac outflow tract (UBERON:0004145); middle ear (UBERON:0001756). Cardiac laterality defects are by definition lateralized (dextrocardia); skeletal/facial features are typically bilateral.
+**Protective factors / gene-environment interactions.** No genetic protective alleles or gene-environment interactions are documented for this disorder. This is expected for a highly penetrant dominant developmental syndrome.
 
-### 8. Temporal Development
-- **Onset:** Congenital (structural anomalies present at birth); growth deficit and facial gestalt recognizable in infancy/childhood.
-- **Course:** Generally stable/non-progressive after developmental period; not episodic or relapsing. Language delay and otitis media are childhood issues amenable to intervention.
-- **Critical periods:** Embryonic organogenesis (neural crest migration, palatogenesis, cardiac septation) is the window of vulnerability; postnatally, growth-plate activity and (in models) fracture repair remain BMP2-dependent.
+---
 
-### 9. Inheritance and Population
-- **Inheritance:** Autosomal dominant; de novo and inherited; paternal germline mosaicism documented.
-- **Penetrance/expressivity:** High penetrance, variable expressivity (intrafamilial variability reported).
-- **Epidemiology:** Ultra-rare (<~40 reported individuals); no formal prevalence/incidence. No sex bias, no ethnic predilection, no founder effect. No carrier state in unaffected individuals (population LoF essentially absent).
-- **Anticipation:** Not applicable (not a repeat-expansion disorder).
-- **Consanguinity:** Not relevant (dominant, LoF).
+## 3. Phenotypes
 
-### 10. Diagnostics
-- **Genetic testing (definitive):** Combined **sequence analysis** (exome/genome or single-gene *BMP2* sequencing) **and copy-number analysis (chromosomal microarray/CMA)** — required because both intragenic variants and 20p12.3 deletions occur. Multigene panels for skeletal dysplasia/short stature/congenital heart disease that include *BMP2* are appropriate.
-- **Clinical/imaging:** Skeletal survey/X-ray for skeletal anomalies and bone age; echocardiography for congenital heart disease and laterality; audiometry/tympanometry for secretory otitis media; growth charting.
-- **Clinical criteria:** No formal consensus criteria; diagnosis is molecular, supported by the recognizable gestalt.
-- **Differential diagnosis:** Autosomal-dominant Robinow syndrome (short stature, craniofacial dysmorphism, digital anomalies — PMID: 32256301), Dubowitz syndrome (short stature, dysmorphism, developmental delay — PMID: 30580484), other 20p12 contiguous-gene deletion syndromes, and syndromic cleft palate/Pierre Robin sequence causes. Molecular testing distinguishes them.
-- **Screening:** No population newborn screening; cascade testing of at-risk relatives is appropriate once a familial variant is identified.
+The phenotype spans four core domains plus an expanded spectrum. Frequencies below are qualitative or drawn from the small published cohorts (Tan 2017, n=12; Priestley 2023, n=18; Stavrén-Eriksson 2025, n=7).
 
-### 11. Outcome / Prognosis
-- **Survival/mortality:** No intrinsic reduction in survival from the core syndrome; mortality risk is driven by severity of congenital heart disease.
-- **Morbidity/function:** Short stature, surgical burden (cleft/cardiac), conductive hearing impairment, and speech delay; cognition typically preserved ("without neurological deficits").
-- **Recovery:** Structural anomalies are correctable surgically with good outcomes; developmental issues respond to early intervention.
-- **Prognostic factors:** Severity of CHD; deletion size (larger 20p12.3 deletions may add contiguous-gene effects).
+### Craniofacial (physical manifestations / clinical signs)
+Recognizable gestalt: broad forehead with bitemporal narrowing, flat/retruded midface, short nose with anteverted nares, long philtrum, thin upper lip, crowded dentition, **high-arched or cleft palate**, micrognathia; Pierre-Robin sequence in some. Onset congenital; highly penetrant with variable severity.
+- Suggested HPO: **HP:0000337** (broad forehead), **HP:0011800** (midface retrusion), **HP:0000463** (anteverted nares), **HP:0000343** (long philtrum), **HP:0000219** (thin upper lip vermilion), **HP:0000175** (cleft palate), **HP:0000347** (micrognathia), **HP:0000201** (Pierre-Robin sequence).
 
-### 12. Treatment
-No disease-specific or curative therapy exists; management is **multidisciplinary and supportive**:
-- **Cardiac:** surgical/interventional correction of congenital heart defects as indicated (NCIT: Cardiac Surgery).
-- **Craniofacial/airway:** cleft-palate repair, mandibular/airway management for Pierre Robin sequence (NCIT: Cleft Palate Repair).
-- **ENT/audiology:** myringotomy with tympanostomy tubes (grommets) for recurrent secretory otitis media (NCIT: Myringotomy/Tympanostomy).
-- **Skeletal:** orthopedic surveillance and management of anomalies; growth monitoring (growth-hormone therapy not established for this indication).
-- **Developmental:** speech-language therapy for language delay.
-- No pharmacogenomic, gene, cell, or RNA-based therapies are available or in trials for this disorder. (Note: recombinant human BMP-2 is used clinically as an *osteoinductive agent for spinal fusion/bone repair* — PMIDs 38139194, 41315069, 38988089 — but this is unrelated to treating the germline haploinsufficiency syndrome.)
+### Growth (physical manifestation)
+**Proportionate short stature**, non-endocrine in most, congenital/early-childhood onset. Growth-hormone evaluation is recommended in some cases.
+- Suggested HPO: **HP:0004322** (short stature), **HP:0003508** (proportionate short stature).
 
-### 13. Prevention
-- **Primary prevention:** Not applicable (not preventable; largely de novo).
-- **Secondary/tertiary:** Early detection and surveillance (echocardiography, middle-ear and language monitoring) to prevent complications.
-- **Genetic counseling:** Autosomal-dominant recurrence risk (50% for an affected parent); account for de novo occurrence and germline mosaicism (empiric recurrence risk to siblings of a de novo proband is low but non-zero). **Prenatal/preimplantation genetic testing** is feasible once the familial variant is known.
+### Skeletal (clinical signs / imaging)
+**Fifth-ray brachydactyly** (short fifth-digit proximal phalanges) and clinodactyly; **11 pairs of ribs** (axial patterning defect); sandal gap; scoliosis, hip dysplasia/coxa vara, and osteopenia reported in expanded cohorts.
+- Suggested HPO: **HP:0009237** (short 5th finger), **HP:0004209** (clinodactyly of 5th finger), **HP:0000921** (rib abnormality / 11 pairs of ribs), **HP:0001177** (sandal gap), **HP:0002650** (scoliosis), **HP:0001385** (hip dysplasia), **HP:0000938** (osteopenia).
 
-### 14. Other Species / Natural Disease
-- **Taxonomy/orthologs:** Mouse *Bmp2* (NCBI Taxon 10090; Gene ID 12156); zebrafish *bmp2b* (NCBI Taxon 7955). Deep conservation of BMP2 skeletal/cardiac function.
-- **Natural disease:** No well-characterized naturally occurring companion-animal/wildlife orthologous disorder is established (OMIA); knowledge derives from engineered models.
-- **Comparative biology:** Homozygous null is lethal across species; heterozygous/conditional manipulations reproduce human-relevant skeletal, craniofacial, and cardiac phenotypes, underscoring evolutionary conservation of BMP2-driven morphogenesis.
+### Cardiac (physical manifestations / clinical signs)
+Congenital heart disease in ~4/12 in the delineating series, predominantly **outflow-tract** lesions: transposition of the great arteries, pulmonary valve stenosis, Ebstein anomaly, ventricular septal defect; expanded reports add **bicuspid aortic valve with aortic root/ascending aortic aneurysm** ([PMID: 33247540](https://pubmed.ncbi.nlm.nih.gov/33247540/)) and **isolated dextrocardia (situs solitus)** ([PMID: 37572998](https://pubmed.ncbi.nlm.nih.gov/37572998/)). Arrhythmias (Wolff-Parkinson-White, paroxysmal SVT, palpitations) in 3/12.
+- Suggested HPO: **HP:0001631** (VSD), **HP:0001642** (pulmonary valve stenosis), **HP:0001680** (coarctation/great-artery anomaly), **HP:0010316** (Ebstein anomaly), **HP:0001647** (bicuspid aortic valve), **HP:0002616** (aortic root aneurysm), **HP:0001696** (dextrocardia), **HP:0011675** (arrhythmia).
 
-### 15. Model Organisms
-- **Mouse (mammalian):** *Bmp2⁻/⁻* embryonic lethal; *Bmp2⁺/⁻* recapitulates short stature/skeletal anomalies; Wnt1-Cre conditional CNC KO recapitulates Pierre Robin sequence; Prx1-Cre limb KO shows non-healing fractures; *Bmp2/Bmp4* compound heterozygotes reveal dosage-sensitive multi-organ roles. Resources: MGI, IMPC/KOMP, IMSR.
-- **Zebrafish:** *bmp2b* required for dermal bone differentiation in fin regeneration (ZFIN).
-- **Phenotype recapitulation:** Excellent for skeletal (heterozygous mouse), craniofacial (CNC KO), and cardiac (compound het) branches.
-- **Limitations:** Complete-null lethality precludes study of full loss; species differences in growth-plate biology and facial morphology; laterality/cognitive features less directly modeled.
+### Expanded spectrum (later cohorts)
+Neural tube defects, structural brain anomalies, endocrinopathies (including a patient with hypercalcemia, hypercalciuria, nephrolithiasis, hypophosphatemia, suppressed PTH); **secretory otitis media (4/5) with conductive hearing loss**; **delayed language development (4/5)**. Global/intellectual developmental delay is **not** a core feature ([PMID: 37125634](https://pubmed.ncbi.nlm.nih.gov/37125634/); [PMID: 39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/)).
+- Suggested HPO: **HP:0012443** (structural brain anomaly), **HP:0045005** (neural tube defect), **HP:0000405** (conductive hearing impairment), **HP:0000388** (otitis media), **HP:0000750** (delayed speech and language development).
+
+**Quality-of-life impact.** No formal EQ-5D/SF-36/PROMIS data exist. Functional impact is driven mainly by feeding/airway compromise from cleft palate/Pierre-Robin in infancy, hearing loss affecting language, cardiac morbidity, and orthopedic issues; overall cognition and independence are typically preserved.
+
+---
+
+## 4. Genetic / Molecular Information
+
+**Causal gene.** ***BMP2*** (Bone Morphogenetic Protein 2), the sole causal gene. HGNC:1069; NCBI Gene 650; UniProt P12643; OMIM *112261; 20p12.3.
+
+**Pathogenic variants.**
+
+| Feature | Detail |
+|---|---|
+| Variant types | Nonsense, frameshift, splice-site, missense (all LOF); whole-gene deletions |
+| Classification | Pathogenic / likely pathogenic per ACMG/AMP (predicted LOF in a haploinsufficient gene = PVS1-supporting) |
+| Example variants | c.460C>T (p.Arg154Ter); c.231dup (p.Tyr78Leufs*38) |
+| Population frequency | Absent/ultra-rare in gnomAD (as expected for a highly penetrant dominant LOF) |
+| Origin | Germline; de novo or inherited; germline (paternal) mosaicism documented |
+| Functional consequence | **Loss of function → haploinsufficiency** (reduced ligand dosage) |
+
+Missense pathogenicity was validated functionally: "Missense variants modeled in zebrafish resulted in loss of protein function" (impaired *bmp2b*-driven embryonic ventralization) ([PMID: 37125634](https://pubmed.ncbi.nlm.nih.gov/37125634/)).
+
+**Modifier genes / epigenetics.** None established. Variable expressivity implies modifiers exist but they are uncharacterized. No disease-specific DNA-methylation or histone-modification signature is described.
+
+**Chromosomal abnormalities.** 20p12 microdeletions (1.3–5.5 Mb) encompassing *BMP2* are a recognized cause; detected by chromosomal microarray/karyotype ([PMID: 21671386](https://pubmed.ncbi.nlm.nih.gov/21671386/); [PMID: 22965927](https://pubmed.ncbi.nlm.nih.gov/22965927/); [PMID: 39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/)).
+
+**Dosage sensitivity (key concept).** OMIM links two reciprocal, allelic *BMP2* entities: **haploinsufficiency → SSFSC1 (#617877)** and **duplication of a downstream cis-regulatory element (~110 kb 3′ of *BMP2*) → BDA2 (#112600)**. The gene tolerates reduced but not absent dosage in humans (heterozygotes viable; complete loss embryonic-lethal in mouse) ([PMID: 37125634](https://pubmed.ncbi.nlm.nih.gov/37125634/); [PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/)).
+
+---
+
+## 5. Environmental Information
+
+No environmental, lifestyle, or infectious factors contribute to SSFSC1. It is a purely genetic developmental disorder. This section is **not applicable** except to note the negative: no toxin, radiation, occupational exposure, diet, or pathogen has been implicated in causation or triggering.
+
+---
+
+## 6. Mechanism / Pathophysiology
+
+### Causal chain (initiating lesion → clinical manifestation)
+
+1. A heterozygous LOF *BMP2* variant (truncating/frameshift/splice/missense) **or** a 20p12 deletion **removes one functional *BMP2* allele** → **leads to** ~50% reduction in secreted BMP2 ligand (**haploinsufficiency**).
+2. Reduced BMP2 ligand **results in** attenuated binding to BMP type I/II receptors → **leads to** reduced phosphorylation of the canonical effectors **SMAD1/5/8** (with reduced non-canonical MAPK/p38 signaling as an inferred parallel branch).
+3. Attenuated SMAD1/5/8 output **reduces transcription of BMP2 target genes** in multiple developing tissues simultaneously (the mechanism then **branches** by tissue):
+
+   **Branch A — Skeleton/growth plate:** Reduced BMP2 signaling **impairs growth-plate chondrocyte maturation/hypertrophy** (cross-talk with EGFR, Wnt/β-catenin, IHH, and IGF-I) → **results in** disordered endochondral ossification → **proportionate short stature and skeletal anomalies** (fifth-ray brachydactyly, 11 rib pairs; the last also reflecting an axial patterning defect).
+
+   **Branch B — Craniofacial:** Reduced BMP2 during **palatogenesis and midface development** → **leads to** cleft/high-arched palate, midface retrusion, and the recognizable facial gestalt (Pierre-Robin sequence in some).
+
+   **Branch C — Heart:** Reduced BMP2 in myocardium overlying the AV canal/outflow tract **impairs endocardial-cushion EMT and valvuloseptal morphogenesis**, and (via BMP-2/4) **impairs neural-crest migration into the outflow tract to form the aortopulmonary septum** → **results in** outflow-tract/septal defects, valve anomalies (including BAV → aortic aneurysm), Ebstein anomaly, and, via disturbed left-right/axis cues, dextrocardia; **arrhythmia** (WPW/SVT) is a downstream consequence of abnormal conduction-tissue/AV-junction development.
+
+4. Wide inter-individual variability (same variant, different severity) **is inferred** to reflect stochastic developmental noise plus unidentified genetic modifiers, since no genotype-phenotype correlation has been demonstrated.
+
+### Supporting molecular detail
+
+**Molecular pathway.** BMP2 is a TGF-β superfamily ligand signaling through BMP type I/II serine-threonine kinase receptors to SMAD1/5/8. Chen, Zhao & Mundy: "Smad1, 5 and 8 are the immediate downstream molecules of BMP receptors and play a central role in BMP signal transduction," and "BMP signaling plays critical roles in heart, neural and cartilage development" ([PMID: 15621726](https://pubmed.ncbi.nlm.nih.gov/15621726/)). Suggested pathway/GO terms: **GO:0030509** (BMP signaling pathway), **GO:0071773** (cellular response to BMP stimulus).
+
+**Cardiac cushion / neural-crest mechanism.** BMP2 is expressed in myocardium overlying the AV canal and OFT cushions and is required for endothelial-to-mesenchymal transformation (EMT). Yamagishi et al.: antisense BMP2 inhibited AV mesenchyme formation (rescued by recombinant BMP2), and "BMP2 … plays an important role in the formation of endocardial cushion tissue and … acts synergistically with TGFbeta3 in the regulation of this developmental event" ([PMID: 10362015](https://pubmed.ncbi.nlm.nih.gov/10362015/)). Abdelwahid et al. localized Bmp-2 to AV canal/junctional myocardium and maturing valves ([PMID: 11512673](https://pubmed.ncbi.nlm.nih.gov/11512673/)). Allen et al.: "BMP-2/4 function is required for the migration of neural crest cells into the developing OFT to form the aortopulmonary septum" ([PMID: 11412030](https://pubmed.ncbi.nlm.nih.gov/11412030/)). Dyer et al. confirmed BMP2 canonical SMAD/Sox9 regulation fine-tunes cushion EMT ([PMID: 26418455](https://pubmed.ncbi.nlm.nih.gov/26418455/)). Suggested terms: **GO:0003198** (epithelial-to-mesenchymal transition involved in endocardial cushion formation), **GO:0003203** (endocardial cushion morphogenesis), **CL:0002350** (endocardial cell), **CL:0000333** (migratory neural crest cell), **UBERON:0002062** (endocardial cushion), **UBERON:0004145** (cardiac outflow tract).
+
+**Growth-plate mechanism.** Lees-Shepard et al.: "Signals from the epidermal growth factor receptor (EGFR), and from bone morphogenetic protein-2 (BMP2), are required for normal chondrocyte maturation" ([PMID: 34773433](https://pubmed.ncbi.nlm.nih.gov/34773433/)). BMP2 promotes chondrocyte hypertrophy with Wnt/β-catenin ("chondrocyte maturation, possibly involving a bone morphogenic protein 2 (BMP2)-mediated mechanism," [PMID: 22508079](https://pubmed.ncbi.nlm.nih.gov/22508079/)) and IHH, and augments IGF-I anabolic action: "both BMP-2 and BMP-9 augmented the mitogenic action of IGF-I" ([PMID: 17549388](https://pubmed.ncbi.nlm.nih.gov/17549388/)). COX-2 cross-talk fine-tunes hypertrophy ([PMID: 22183916](https://pubmed.ncbi.nlm.nih.gov/22183916/)). Suggested terms: **GO:0001958** (endochondral ossification), **GO:0003413** (chondrocyte differentiation involved in endochondral bone morphogenesis), **CL:0000138** (chondrocyte), **CL:0000743** (hypertrophic chondrocyte), **UBERON:0002515** (growth plate of bone).
+
+**Cell types / compartments.** Chondrocytes (reserve/prehypertrophic/hypertrophic), endocardial/endothelial cells undergoing EMT, cardiac neural crest cells, palatal mesenchyme. Signaling is transmembrane-receptor → cytoplasmic SMAD → **nucleus** (GO:0005634) for transcriptional output; ligand is secreted (**GO:0005576**, extracellular region).
+
+---
+
+## 7. Anatomical Structures Affected
+
+**Organ level.**
+- Primary: **skeleton** (long bones/growth plates, ribs, digits, spine, hips), **craniofacial complex** (palate, midface, mandible), **heart** (outflow tract, valves, septa, conduction system).
+- Secondary: **middle ear** (secretory otitis media → conductive hearing loss); **brain/neural tube** (structural anomalies in a subset); **kidney** (nephrolithiasis in an endocrinopathy case); **endocrine** axes.
+- Body systems: musculoskeletal, cardiovascular, craniofacial/orofacial, auditory, nervous, endocrine.
+
+Suggested UBERON: **UBERON:0002481** (bone tissue), **UBERON:0002515** (growth plate), **UBERON:0002228** (rib), **UBERON:0002389** (manual digit), **UBERON:0001716** (secondary palate), **UBERON:0000948** (heart), **UBERON:0004145** (cardiac outflow tract), **UBERON:0002062** (endocardial cushion), **UBERON:0001756** (middle ear).
+
+**Tissue/cell level.** Connective/skeletal (cartilage, bone), cardiac (myocardium, endocardium, valve mesenchyme), neural crest–derived tissues. Cell Ontology: **CL:0000138** (chondrocyte), **CL:0000746** (cardiac muscle cell), **CL:0000333** (neural crest cell).
+
+**Subcellular level.** Signaling nodes at plasma membrane receptor (GO:0005886), cytoplasm/nucleus for SMAD shuttling (GO:0005634), and the extracellular region for the secreted ligand (GO:0005576).
+
+**Localization / lateralization.** Skeletal and cardiac defects are typically bilateral/midline (palate, septa) though laterality defects (dextrocardia, situs) reflect disturbed left-right axis determination; digit anomalies are usually bilateral.
+
+---
+
+## 8. Temporal Development
+
+- **Onset:** Congenital / prenatal (structural anomalies form during embryogenesis); recognized at birth or early childhood. Onset pattern is developmental/insidious rather than acute.
+- **Progression:** The malformations are largely **static/structural** (fixed at birth), but several features are **age-progressive or age-emergent**: short stature manifests over the growth years; scoliosis/hip issues and osteopenia can progress; aortic root dilatation associated with BAV can progress and requires monitoring; arrhythmias may present later; hearing loss and language delay emerge in early childhood.
+- **Disease course:** Chronic/lifelong but non-degenerative for most core features; no relapsing-remitting pattern.
+- **Critical periods / windows for intervention:** Infancy for airway/feeding (cleft palate/Pierre-Robin), early childhood for hearing and language surveillance, and lifelong cardiac/orthopedic monitoring.
+
+---
+
+## 9. Inheritance and Population
+
+**Inheritance.** **Autosomal dominant.** Tan et al. observed "De novo occurrence and autosomal-dominant inheritance of variants, including paternal mosaicism in two affected sisters who inherited a BMP2 splice-altering variant … across all reported families" ([PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/)) — documenting de novo events, vertical transmission, and **germline (paternal) mosaicism** relevant to recurrence-risk counseling.
+
+**Penetrance / expressivity.** High penetrance with **variable expressivity**: "suggesting high penetrance, yet variable expressivity for haploinsufficiency of BMP2" ([PMID: 22965927](https://pubmed.ncbi.nlm.nih.gov/22965927/)). No genotype-phenotype correlation established. No genetic anticipation (not a repeat-expansion disorder).
+
+**Epidemiology.** Ultra-rare. Approximately **40+ patients** reported cumulatively (Tan 2017 n=12; single/small reports ~4; Priestley 2023 n=18; Stavrén-Eriksson 2025 n=7). No established prevalence or incidence figures. No strong sex bias, founder effect, or geographic clustering reported. Consanguinity is **not relevant** (dominant disorder). Carrier frequency is not applicable in the recessive sense; affected parents transmit at 50% risk.
+
+---
+
+## 10. Diagnostics
+
+**Molecular diagnosis is definitive** and requires **two complementary approaches**, because both small variants and CNVs cause disease:
+
+1. **Sequence analysis of *BMP2*** (NM_001200.4) via exome/genome or targeted testing → detects truncating/frameshift/splice/missense variants (e.g., c.460C>T p.Arg154Ter; c.231dup p.Tyr78Leufs*38).
+2. **Copy-number analysis** — chromosomal microarray (CMA) or karyotype → detects 1.3–5.5 Mb 20p12 deletions.
+
+([PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/); [PMID: 39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/))
+
+**Supporting clinical evaluations (phenotype-driven):** echocardiography + ECG (outflow-tract defects, BAV/aortic root, WPW/arrhythmia); skeletal and spine radiographs (rib count, brachydactyly, scoliosis, hip dysplasia/coxa vara); bone densitometry (osteopenia); growth charting ± GH-axis evaluation; audiology and tympanometry (secretory otitis media, conductive loss); language/developmental assessment; brain/spine imaging and metabolic/endocrine work-up where indicated (a patient had hypercalcemia, hypercalciuria, nephrolithiasis, hypophosphatemia, suppressed PTH).
+
+**Clinical criteria / differential diagnosis.** No formal consensus diagnostic criteria; diagnosis rests on the recognizable gestalt plus molecular confirmation. Differential diagnoses include other short-stature/dysmorphism/brachydactyly syndromes such as autosomal-dominant Robinow syndrome ([PMID: 32256301](https://pubmed.ncbi.nlm.nih.gov/32256301/)) and BDA2 caused by *BMPR1B*/*GDF5*/*BMP2*-regulatory duplication ([PMID: 33486847](https://pubmed.ncbi.nlm.nih.gov/33486847/)); distinguishing features are the specific *BMP2* variant/deletion and the combination of 11 rib pairs, fifth-ray brachydactyly, and outflow-tract cardiac disease.
+
+**Screening.** Cascade genetic testing of at-risk relatives once a familial variant is identified. Prenatal/preimplantation testing feasible when the familial variant is known. No population newborn screening exists.
+
+---
+
+## 11. Outcome / Prognosis
+
+**Survival / life expectancy.** Generally **normal life expectancy** with appropriate management; no disease-specific mortality rate is established. The main mortality risk driver is severe congenital heart disease/aortic complications in the subset with cardiac involvement.
+
+**Morbidity / function.** Morbidity is driven by cleft palate/airway issues in infancy, cardiac disease and arrhythmia, orthopedic problems (scoliosis, hip dysplasia), hearing loss, and short stature. **Cognition is typically normal**; global developmental delay is not a core feature ([PMID: 39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/)). No standardized QoL data.
+
+**Complications.** Feeding/airway compromise (Pierre-Robin), progressive aortic root dilatation with BAV, arrhythmias (WPW/SVT), conductive hearing loss and its effect on language, nephrolithiasis in endocrinopathy cases.
+
+**Prognostic factors.** Severity of cardiac malformation and presence of aortic aneurysm are the principal determinants of serious outcomes. No molecular prognostic biomarker exists, and absence of genotype-phenotype correlation limits prediction.
+
+---
+
+## 12. Treatment
+
+There is **no disease-specific or curative therapy**; management is **symptomatic, anticipatory, and multidisciplinary**. Priestley et al. explicitly recommended this framework: "We use this expansion of reported phenotypes to suggest multidisciplinary medical monitoring and management of patients with BMP2-related skeletal dysplasia spectrum" ([PMID: 37125634](https://pubmed.ncbi.nlm.nih.gov/37125634/)).
+
+| Domain | Intervention | NCIT suggestion |
+|---|---|---|
+| Craniofacial | Cleft palate repair; airway/feeding management for Pierre-Robin | Cleft Palate Repair |
+| Cardiac | Surgical correction of structural defects; aortic surveillance/repair; arrhythmia management (ablation/medication) | NCIT Cardiac Surgery |
+| Orthopedic | Scoliosis/hip management; physical therapy | NCIT Orthopedic Surgery |
+| ENT/Audiology | Tympanostomy tubes for secretory otitis media; hearing aids | NCIT Myringotomy |
+| Speech/Development | Speech-language therapy | NCIT:C15192 (Speech Therapy) |
+| Growth | Consider GH evaluation/therapy in selected cases | NCIT Growth Hormone Therapy |
+| Genetics | Genetic counseling (AD, 50% transmission; fertility unaffected) | NCIT:C15266 (Genetic Counseling) |
+
+Stavrén-Eriksson et al. specifically recommended surveillance additions: "we propose that evaluation of language development and regular controls of the middle ear should be included in the surveillance of these individuals" ([PMID: 39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/)).
+
+**Advanced/experimental therapeutics, pharmacogenomics.** None specific to SSFSC1; no gene/cell/RNA therapy trials. No pharmacogenomic considerations beyond standard care of individual complications.
+
+---
+
+## 13. Prevention
+
+- **Primary prevention:** Not applicable to disease *occurrence* (genetic, largely de novo). Preventive value lies in **reproductive counseling**: for affected parents, 50% transmission risk; for families with an affected child and apparently unaffected parents, recurrence risk is low but non-zero due to demonstrated **germline mosaicism** ([PMID: 29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/)).
+- **Secondary prevention:** Cascade testing of relatives; prenatal/PGT when the familial variant is known; early echocardiography/audiology/growth surveillance to enable early intervention.
+- **Tertiary prevention:** Anticipatory organ-system surveillance to prevent complications (aortic monitoring, arrhythmia detection, hearing/language support, orthopedic care).
+- **Genetic counseling** is the central preventive intervention. Immunization, public-health/environmental measures, and prophylactic medication are not applicable.
+
+---
+
+## 14. Other Species / Natural Disease
+
+- **Taxonomy / orthologs:** *BMP2* is deeply conserved. Mouse *Bmp2* (NCBI Gene 12156), zebrafish *bmp2b* (used to validate human missense LOF), chick *Bmp2* (developmental studies). NCBI Taxon: *Mus musculus* (10090), *Danio rerio* (7955), *Gallus gallus* (9031).
+- **Natural disease / veterinary relevance:** No naturally occurring companion-animal or wildlife equivalent of SSFSC1 is catalogued (no specific OMIA entry mirroring this syndrome identified in this investigation).
+- **Comparative biology / conservation:** BMP2's roles in endocardial cushion EMT, outflow-tract septation, and chondrocyte maturation are conserved across chick, mouse, and zebrafish, providing strong cross-species mechanistic validation ([PMID: 10362015](https://pubmed.ncbi.nlm.nih.gov/10362015/); [PMID: 11512673](https://pubmed.ncbi.nlm.nih.gov/11512673/); [PMID: 11412030](https://pubmed.ncbi.nlm.nih.gov/11412030/)).
+- **Transmission / zoonosis:** Not applicable (non-infectious genetic disorder).
+
+---
+
+## 15. Model Organisms
+
+| Model | Type | Key finding | Recapitulation | PMID |
+|---|---|---|---|---|
+| *Bmp2* heterozygous knockout mouse | Mammalian, germline | Short stature + skeletal anomalies | Recapitulates growth/skeletal domains of human syndrome | [29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/) |
+| *Bmp2* homozygous null mouse | Mammalian | Embryonic lethal | Confirms dosage sensitivity; cannot model postnatal disease | [29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/) |
+| Cartilage-conditional *Bmp2* loss (Col2-Cre) mouse | Mammalian, conditional | BMP2 required for chondrocyte maturation; EGFR cross-talk | Models growth-plate mechanism | [34773433](https://pubmed.ncbi.nlm.nih.gov/34773433/) |
+| Zebrafish *bmp2b* ventralization assay | Vertebrate, in vivo functional | Human missense variants cause LOF | Validates variant pathogenicity | [37125634](https://pubmed.ncbi.nlm.nih.gov/37125634/) |
+| Chick/mouse embryo heart (in situ, antisense, noggin misexpression) | Developmental | BMP2 drives cushion EMT and OFT neural-crest septation | Models cardiac branch | [10362015](https://pubmed.ncbi.nlm.nih.gov/10362015/); [11412030](https://pubmed.ncbi.nlm.nih.gov/11412030/) |
+
+**Model limitations.** The heterozygous mouse captures growth/skeletal phenotypes but the full human craniofacial gestalt and the variable cardiac/laterality spectrum are incompletely modeled; homozygous lethality prevents study of complete loss postnatally. Resources: **MGI** (mouse *Bmp2*), **ZFIN** (*bmp2b*).
 
 ---
 
 ## Mechanistic Model / Interpretation
 
 ```
-   Heterozygous BMP2 LoF variant / 20p12.3 deletion
-                     │  (NMD of mutant allele OR loss of mature cystine-knot ligand)
-                     ▼
-        ~50% reduction in secreted BMP2 homodimer   ← gnomAD pLI≈1.0 (dosage-sensitive)
-                     │
-                     ▼
-     ↓ Type I/II BMP receptor activation → ↓ pSMAD1/5/8 → ↓ RUNX2, ↓ cyclin D1
-                     │
-        ┌────────────┼─────────────────────────────┐
-        ▼            ▼                             ▼
-  SKELETAL       CRANIOFACIAL                   CARDIAC
-  chondrocyte/   ↓BMP2 in cranial NC            ↓BMP2 in cardiac NC, SHF,
-  osteoblast     mesenchyme → small mandible    endocardial cushion/valve
-  program ↓      → micrognathia → undescended   → OFT/septation/valve defects
-        │        tongue → cleft palate/PRS      → laterality (dextrocardia)
-        ▼            ▼                             ▼
-  SHORT STATURE  CLEFT PALATE /               CONGENITAL HEART
-  SKELETAL       PIERRE ROBIN SEQUENCE        DISEASE (+ situs)
-  ANOMALIES      + secretory otitis media
-                 + language delay
+ Heterozygous BMP2 LOF variant  OR  20p12 deletion (encompassing BMP2)
+                          │
+                          ▼
+        ~50% reduction in secreted BMP2 ligand  (HAPLOINSUFFICIENCY)
+                          │
+                          ▼
+        Reduced BMP receptor engagement → ↓ SMAD1/5/8 phosphorylation
+             (± ↓ non-canonical MAPK/p38 — inferred)
+                          │
+          ┌───────────────┼───────────────────────────┐
+          ▼               ▼                           ▼
+   GROWTH PLATE      CRANIOFACIAL                    HEART
+ ↓ chondrocyte      ↓ palatogenesis /         ↓ endocardial cushion EMT
+ maturation &        midface growth            ↓ OFT neural-crest septation
+ hypertrophy         (Pierre-Robin)            ↓ valve/septum morphogenesis
+ (EGFR, Wnt/β-cat,        │                    ↓ L-R axis cues
+  IHH, IGF-I, COX-2)      │                          │
+          ▼               ▼                          ▼
+ Proportionate short   Cleft/high-arched    Outflow-tract CHD, BAV→aortic
+ stature; brachydactyly palate; facial      aneurysm, Ebstein, VSD, TGA,
+ (5th ray); 11 ribs     gestalt; micrognathia dextrocardia; WPW/arrhythmia
+          └───────────────┴───────────────────────────┘
+                          │
+                          ▼
+   Variable expressivity (unidentified modifiers + stochastic noise)
 ```
 
-The unifying theme is **dosage sensitivity of a secreted morphogen**. A single molecular lesion (loss of one functional allele) is transmitted through one signaling axis (BMP→SMAD1/5/8) but produces a multi-system phenotype because BMP2 is deployed independently in three distinct progenitor fields during a narrow embryonic window. Variable expressivity reflects the stochastic, threshold-dependent nature of morphogen signaling; high penetrance reflects the near-complete intolerance to LoF seen in population data. All variant classes — from a single-nucleotide frameshift to a multi-megabase deletion — funnel into the same haploinsufficient endpoint, which is why genotype poorly predicts which branch dominates in a given patient.
+**Dosage axis:** Loss (haploinsufficiency) → **SSFSC1**. Gain (downstream regulatory duplication) → **BDA2**. *BMP2* is thus a two-sided dosage-sensitive locus.
 
 ---
 
 ## Evidence Base
 
-| PMID | Study | Contribution |
+| PMID | Role | Contribution |
 |---|---|---|
-| [29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/) | Tan et al. 2017, *AJHG* — foundational cohort | Defines syndrome, gene, variant spectrum, AD inheritance, mosaicism, haploinsufficiency; heterozygous mouse genocopy |
-| [39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/) | Stavrén-Eriksson et al. 2025 — 7 individuals | Frequencies (language delay 4/5, otitis media 4/5); clarifies cognition; surveillance recommendations |
-| [22965927](https://pubmed.ncbi.nlm.nih.gov/22965927/) | Williams et al. 2012 — multigenerational deletion | High penetrance, variable expressivity; cleft palate |
-| [21671386](https://pubmed.ncbi.nlm.nih.gov/21671386/) | Sahoo et al. 2011 — 20p12.3 microdeletions | ~600 kb deletion isolates BMP2 as sole gene; syndromic cleft palate |
-| [37572998](https://pubmed.ncbi.nlm.nih.gov/37572998/) | Yogi et al. 2023 — novel frameshift | c.231dup (p.Tyr78Leufs*38); isolated dextrocardia; Bmp2-null lethality |
-| [24022823](https://pubmed.ncbi.nlm.nih.gov/24022823/) | Jung et al. 2013 | BMP2→SMAD1/5/8→RUNX2/cyclin D1 in chondrocytes |
-| [19116164](https://pubmed.ncbi.nlm.nih.gov/19116164/) | Goldman et al. 2009 | BMP2 dosage in OFT lengthening, septation (compound het) |
-| [21563298](https://pubmed.ncbi.nlm.nih.gov/21563298/) | MacGrogan et al. 2011 | Hey-Bmp2 circuit; valve myocardium |
-| [17350578](https://pubmed.ncbi.nlm.nih.gov/17350578/) | Prall et al. 2007 | Nkx2-5/Bmp2/Smad1 feedback; SHF proliferation |
-| [11412030](https://pubmed.ncbi.nlm.nih.gov/11412030/) | Allen et al. 2001 | BMP2/4 in cardiac neural crest, aortopulmonary septum |
-| [30413887](https://pubmed.ncbi.nlm.nih.gov/30413887/) | Chen et al. 2019 | CNC Bmp2 KO recapitulates Pierre Robin sequence; attributes human PRS to heterozygous BMP2 loss |
-| [25759071](https://pubmed.ncbi.nlm.nih.gov/25759071/) | Hill et al. 2015 | BMP2 downstream of VEGFa in palatal ossification |
-| [17099713](https://pubmed.ncbi.nlm.nih.gov/17099713/) | Tsuji et al. 2006 | Limb-specific Bmp2 KO — required to initiate fracture repair |
-| [17619793](https://pubmed.ncbi.nlm.nih.gov/17619793/) | Marí-Beffa et al. 2007 | Zebrafish bmp2b in dermal bone; conservation |
+| [29198724](https://pubmed.ncbi.nlm.nih.gov/29198724/) | Delineating cohort | Defines SSFSC1; establishes haploinsufficiency; heterozygous mouse recapitulation |
+| [37125634](https://pubmed.ncbi.nlm.nih.gov/37125634/) | Expansion + function | 18 missense cases; zebrafish LOF validation; neural tube/brain/endocrine features; surveillance framework |
+| [39970956](https://pubmed.ncbi.nlm.nih.gov/39970956/) | Expansion | 7 cases; language delay + secretory otitis media; global DD not core; surveillance additions |
+| [21671386](https://pubmed.ncbi.nlm.nih.gov/21671386/) | Precursor CNV | 20p12.3 deletion → syndromic cleft palate via BMP2 haploinsufficiency |
+| [22965927](https://pubmed.ncbi.nlm.nih.gov/22965927/) | Precursor CNV | High penetrance, variable expressivity |
+| [33247540](https://pubmed.ncbi.nlm.nih.gov/33247540/) | Cardiac expansion | BAV + aortic aneurysm |
+| [37572998](https://pubmed.ncbi.nlm.nih.gov/37572998/) | Cardiac/laterality | Isolated dextrocardia situs solitus |
+| [15621726](https://pubmed.ncbi.nlm.nih.gov/15621726/) | Pathway | SMAD1/5/8 canonical pathway; heart/neural/cartilage roles |
+| [10362015](https://pubmed.ncbi.nlm.nih.gov/10362015/) | Mechanism (heart) | BMP2 drives cushion EMT, synergy with TGFβ3 |
+| [11412030](https://pubmed.ncbi.nlm.nih.gov/11412030/) | Mechanism (heart) | BMP-2/4 required for neural-crest OFT septation |
+| [11512673](https://pubmed.ncbi.nlm.nih.gov/11512673/) | Mechanism (heart) | Bmp-2 localization in AV canal/valves |
+| [26418455](https://pubmed.ncbi.nlm.nih.gov/26418455/) | Mechanism (heart) | BMP2/SMAD/Sox9 fine-tunes cushion EMT |
+| [34773433](https://pubmed.ncbi.nlm.nih.gov/34773433/) | Mechanism (skeleton) | BMP2 required for chondrocyte maturation; EGFR cross-talk |
+| [22508079](https://pubmed.ncbi.nlm.nih.gov/22508079/) | Mechanism (skeleton) | β-catenin/BMP2 in chondrocyte maturation |
+| [17549388](https://pubmed.ncbi.nlm.nih.gov/17549388/) | Mechanism (skeleton) | BMP2 augments IGF-I mitogenic action |
 
 ---
 
 ## Limitations and Knowledge Gaps
 
-1. **Very small evidence base:** Fewer than ~40 individuals reported; no formal prevalence/incidence, no natural-history cohorts, no validated quality-of-life data specific to this syndrome.
-2. **Frequencies are approximate:** Phenotype frequencies (e.g., otitis media 4/5, language delay 4/5) derive from single small series and may not generalize.
-3. **Contiguous-gene confounding:** Larger 20p12.3 deletions remove neighboring genes, so some phenotypes in deletion patients may not be BMP2-specific; the cleanest genotype–phenotype inferences come from the ~600 kb (BMP2-only) deletions and intragenic variants.
-4. **Genotype–phenotype correlation is weak:** Variable expressivity is unexplained; no established modifier genes or epigenetic contributors.
-5. **Mechanistic inferences from models:** Fracture-repair deficit and laterality mechanisms are inferred from mouse/zebrafish; direct human evidence is limited.
-6. **No therapeutics:** No disease-directed treatment or trials; management is empirical/supportive.
-7. **Missing molecular profiling:** No transcriptomic, proteomic, metabolomic, or single-cell data specific to patient tissues are available.
+- **Small evidence base:** ~40+ total patients; no prevalence/incidence, survival, or formal QoL data. All frequencies are from small case series and may be biased by ascertainment.
+- **No genotype-phenotype correlation:** The basis of the wide variable expressivity (modifier genes, stochastic effects) is unknown, limiting prognostic prediction.
+- **Mechanism partly inferred in humans:** The causal chain is anchored in model-organism developmental biology (chick/mouse/zebrafish); the precise human tissue-level steps (e.g., non-canonical MAPK contribution) are inferred, not directly demonstrated in patient tissue.
+- **No SSFSC1-specific molecular profiling:** No patient transcriptomic, proteomic, metabolomic, or methylation signature exists.
+- **No natural animal disease equivalent** catalogued; no dedicated therapeutic development.
 
 ---
 
 ## Proposed Follow-up Experiments / Actions
 
-1. **Establish an international patient registry** to obtain reliable phenotype frequencies, penetrance estimates, and natural history, and to enable formal prevalence estimation via Orphanet/GA4GH-style data sharing.
-2. **Systematic genotype–phenotype analysis** stratifying intragenic LoF vs BMP2-only deletions vs larger contiguous-gene deletions to isolate BMP2-attributable features and identify potential modifiers.
-3. **Functional confirmation of NMD** for representative truncating/frameshift alleles (patient-derived fibroblasts/iPSCs; allele-specific expression, RT-qPCR ± NMD inhibition) to confirm haploinsufficiency at the transcript level.
-4. **iPSC-derived disease modeling:** Differentiate patient iPSCs into chondrocytes, cranial neural crest, and cardiac progenitors to quantify pSMAD1/5/8 output and test whether exogenous BMP2 or SMAD-pathway agonists restore signaling thresholds.
-5. **Deep cardiac phenotyping** (echocardiography ± cardiac MRI) across the cohort to define the full spectrum of CHD and laterality defects and their prognostic weight.
-6. **Prospective audiology and speech-language surveillance study** to validate the recommended monitoring protocol and quantify benefit of early intervention.
-7. **Explore dosage-restoration strategies** conceptually (e.g., allele-specific approaches to upregulate the wild-type allele) as long-term precision-medicine directions, while noting substantial delivery and developmental-timing barriers.
+1. **International registry & natural-history study** to establish penetrance-by-feature frequencies, prevalence, cardiac/aortic progression rates, and QoL using standardized instruments.
+2. **Modifier-gene search** via combined WGS + phenotyping across the growing cohort to explain variable expressivity.
+3. **Patient-derived iPSC models** (chondrocyte and cardiac-neural-crest differentiation) to directly quantify SMAD1/5/8 dosage effects in human cells and test whether pathway-augmenting agents rescue phenotypes.
+4. **Aortic surveillance protocol** for BAV-positive patients, given the demonstrated aneurysm risk, to standardize imaging intervals.
+5. **Systematic audiology/language screening** implementation, per Stavrén-Eriksson recommendations, to test whether early intervention improves outcomes.
+6. **Functional assays for VUS** using the validated zebrafish *bmp2b* ventralization readout to reclassify uncertain missense variants.
 
 ---
 
-*Report compiled from 5 iterations of autonomous investigation: 11 confirmed findings, 27 papers reviewed. Evidence types span human clinical (case series, deletion reports), model organism (mouse conditional/heterozygous knockouts, zebrafish), in vitro (chondrocyte signaling), and computational (gnomAD constraint, UniProt protein architecture).*
+*Report compiled from 10 confirmed findings and ~24 primary papers across the delineating human cohorts, developmental-biology mechanistic studies, and model-organism work. Evidence types are indicated throughout as human clinical, model organism, or in vitro.*
 
 
 ## Artifacts
 
-- [OpenScientist final report](BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome-deep-research-openscientist_artifacts/final_report.html)
-- [OpenScientist final report](BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome-deep-research-openscientist_artifacts/final_report.pdf)
+- [OpenScientist final report](BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome-deep-research-falcon_artifacts/final_report.html)
+- [OpenScientist final report](BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome-deep-research-falcon_artifacts/final_report.pdf)
 
 ## Reference Validation
 
@@ -890,25 +906,27 @@ Checked with `linkml-reference-validator` 0.2.1.
 
 | Outcome | Count |
 | --- | --- |
-| References checked | 16 |
-| Resolved | 16 |
+| References checked | 20 |
+| Resolved | 20 |
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
-| References weighed for topical relevance | 16 |
-| On topic | 10 |
-| Off topic | 1 |
+| Quoted claims checked | 12 |
+| Quoted claims found in source | 10 |
+| Quoted claims **not** found in source | 2 |
+| References weighed for topical relevance | 20 |
+| On topic | 8 |
+| Off topic | 0 |
 
-### References that may not be about this subject
+### Quotes not found in the cited source
 
-These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:
+Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:
 
-- `PMID:24022823` (4 mentions) - Role of interleukin-10 in endochondral bone formation in mice: anabolic effect via the bone morphogenetic protein/Smad pathway.
-  - shared terms: none
+Every one of these was searched against an abstract alone, with no full text retrieved - marked *abstract only* below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.
 
-Weighed against this report's own most characteristic terms: `bmp2`, `deletion`, `cardiac`, `skeletal`, `anomalie`, `disease`, `variant`, `stature`, `p12`, `gene`, `phenotype`, `heart`, `sequence`, `congenital`, `haploinsufficiency`, `syndrome`, `pierre`, `robin`, `palate`, `cleft`.
-
-All extracted references resolved successfully.
-Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.
+- `PMID:10362015` *(abstract only)*: "BMP2 … plays an important role in the formation of endocardial cushion tissue and … acts synergistically with TGFbeta3 in the regulation of this developmental event"
+  - closest text in source: "These results suggest that BMP2 1) plays an important role in the formation of endocardial cushion tissue and 2) acts synergistically with TGFbeta3 in the regulation of this developmental event."
+- `PMID:29198724` *(abstract only)*: "De novo occurrence and autosomal-dominant inheritance of variants, including paternal mosaicism in two affected sisters who inherited a BMP2 splice-altering variant … across all reported families"
+  - closest text in source: "De novo occurrence and autosomal-dominant inheritance of variants, including paternal mosaicism in two affected sisters who inherited a BMP2 splice-altering variant, were observed across all reported families"
 
 ## Term Validation
 
@@ -916,40 +934,19 @@ Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
 
 | Outcome | Count |
 | --- | --- |
-| Terms checked | 36 |
-| Resolved | 33 |
+| Terms checked | 57 |
+| Resolved | 56 |
 | Unresolved (possible confabulation) | 0 |
-| Obsolete | 2 |
+| Obsolete | 0 |
 | Unverifiable | 1 |
-| Terms whose name was checked | 11 |
-| Terms named correctly | 0 |
-| Terms named as a **different** term | 9 |
-| Terms whose name is worth a second look | 2 |
+| Terms whose name was checked | 4 |
+| Terms named correctly | 1 |
+| Terms named as a **different** term | 3 |
 
 ### Terms the report names something else
 
 These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
 
-- `HP:0004322` (2 mentions) - the report calls it "Physical/growth"; HP calls it **Short stature**
-- `HP:0000175` (3 mentions) - the report calls it "Physical"; HP calls it **Cleft palate**
-- `HP:0000201` (3 mentions) - the report calls it "Physical"; HP calls it **Pierre-Robin sequence**
-- `HP:0011387` (2 mentions) - the report calls it "Clinical sign"; HP calls it **Enlarged vestibular aqueduct**
-- `HP:0001627` (2 mentions) - the report calls it "Physical"; HP calls it **Abnormal heart morphology**
-- `HP:0001651` (2 mentions) - the report calls it "Physical"; HP calls it **Dextrocardia**
-- `HP:0001999` (1 mention) - the report calls it "Physical"; HP calls it **Abnormal facial shape**
-- `HP:0011842` (1 mention) - the report calls it "Physical"; HP calls it **Abnormal skeletal morphology**
-- `UBERON:0006618` (2 mentions) - the report calls it "UBERON localization:** growth plate"; UBERON calls it **atrium auricular region**
-
-### Obsolete terms
-
-These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:
-
-- `GO:0010862` (obsolete positive regulation of pathway-restricted SMAD protein phosphorylation) (1 mention)
-- `GO:0005615` (obsolete extracellular space) (2 mentions) - replaced by `GO:0005576`
-
-### Terms whose name is worth a second look
-
-The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
-
-- `HP:0000347` (3 mentions) - the report calls it "Physical"; HP calls it **Micrognathia**, and lists "Hypoplastic mandible" among its other names
-- `HP:0000750` (2 mentions) - the report calls it "Behavioral/developmental"; HP calls it **Delayed speech and language development**, and lists "Poor language development" among its other names
+- `MONDO:0100297` (2 mentions) - the report calls it "MONDO"; MONDO calls it **short stature, facial dysmorphism, and skeletal anomalies with or without cardiac anomalies 1**
+- `NCIT:C15192` (1 mention) - the report calls it "Speech Therapy"; NCIT calls it **Blood Transfusion**
+- `NCIT:C15266` (1 mention) - the report calls it "Genetic Counseling"; NCIT calls it **Laparotomy**
