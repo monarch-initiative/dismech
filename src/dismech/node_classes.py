@@ -1,6 +1,6 @@
 """Parser for the compact pathograph node-class tree.
 
-``docs/superpowers/pathograph_node_classes.txt`` holds a candidate
+``kb/node_classes/pathograph_node_classes.txt`` holds a candidate
 classification of pathograph nodes as an indented plain-text tree whose leaves
 are real ``(node name, disease)`` pairs from ``kb/disorders/``. The format was
 written by hand because compactness is the point: the whole classification is
@@ -9,7 +9,8 @@ single line. This module makes that text machine-readable without giving up the
 compactness, so the tree can be checked in CI and converted to YAML/JSON when
 the design settles.
 
-Nothing in ``kb/`` or the schema depends on this. It is a design artifact.
+The tree is curated content (it lives under ``kb/``) but has no schema slot
+yet, so no disorder entry references a class by name.
 
 Grammar
 -------
@@ -325,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "path",
         nargs="?",
-        default="docs/superpowers/pathograph_node_classes.txt",
+        default="kb/node_classes/pathograph_node_classes.txt",
         help="node-class text file (default: %(default)s)",
     )
     parser.add_argument(

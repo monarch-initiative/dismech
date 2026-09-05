@@ -19,7 +19,7 @@ from dismech.node_classes import (
 )
 
 ROOT = Path(__file__).parent.parent
-TREE = ROOT / "docs" / "superpowers" / "pathograph_node_classes.txt"
+TREE = ROOT / "kb" / "node_classes" / "pathograph_node_classes.txt"
 
 SAMPLE = """\
 # a comment, ignored

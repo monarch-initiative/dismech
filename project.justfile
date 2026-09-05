@@ -1016,7 +1016,7 @@ check-not4curation *args:
 # sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
 # in multiplies the mismatch rate several times over; pass --include-low to see
 # the rest, or `--format conformance-gates` for the current rate under each gate.
-# Design artifact -- nothing in kb/ or the schema depends on it.
+# Read-only: the tree and seed table under kb/node_classes/ are inputs.
 [group('QC')]
 node-class-scan *args:
     uv run python -m dismech.node_class_scan {{args}}
@@ -1028,17 +1028,17 @@ node-class-scan *args:
 # (checked against the linking slots), or a kind-of-thing claim that no
 # computation recovers. `summary` sizes the curated residue; `casing` lists
 # spellings that collapse; `crosstab` is role x computed position; `residue`
-# is the per-node worklist; `tsv` is everything. Design artifact -- writes
-# nothing to kb/.
+# is the per-node worklist; `tsv` is everything. Read-only -- writes nothing
+# to kb/.
 [group('QC')]
 node-role-audit *args:
     uv run python -m dismech.node_role_audit {{args}}
 
 # Parse and check the compact pathograph node-class tree
-# (docs/superpowers/pathograph_node_classes.txt). The tree is a DESIGN artifact
-# -- nothing in kb/ or the schema depends on it -- but its leaves are real
-# (node, disease) pairs, and a tree whose leaves have drifted from the KB is
-# worse than no tree because it still looks grounded. Bare invocation checks the
+# (kb/node_classes/pathograph_node_classes.txt). The tree is curated content
+# with no schema slot yet; its leaves are real (node, disease) pairs, and a
+# tree whose leaves have drifted from the KB is worse than no tree because it
+# still looks grounded. Bare invocation checks the
 # grammar only (instant); --verify-kb also resolves every cited leaf against
 # kb/ (slow: parses the whole KB). --format yaml|json|text emits the tree,
 # `text` being a stable round-trip of the compact form.

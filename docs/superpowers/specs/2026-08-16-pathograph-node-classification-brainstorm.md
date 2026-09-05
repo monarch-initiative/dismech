@@ -18,7 +18,7 @@ tags: [SCHEMA_EVOLUTION, PATHOGRAPH, PATHOPHYSIOLOGY, BRAINSTORM]
 ## The tree
 
 The authoritative tree is
-[`pathograph_node_classes.txt`](../pathograph_node_classes.txt), which carries
+[`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt), which carries
 the glosses and ~1,600 worked `<node name> [Disease]` examples. Reproduced here
 is only its top level, which is what the proposal actually is; do not treat this
 copy as the tree, and regenerate it rather than editing it:
@@ -142,7 +142,7 @@ silencing, transcriptional regulation.
 
 ## The GO seed table
 
-[`pathograph_node_class_go_seed.tsv`](../pathograph_node_class_go_seed.tsv)
+[`kb/node_classes/pathograph_node_class_go_seed.tsv`](../../../kb/node_classes/pathograph_node_class_go_seed.tsv)
 hand-classifies **640 GO BP terms** into the nine classes, with a `confidence`
 column so genuinely ambiguous terms (`inflammatory response`, `nervous system
 development`) are marked `LOW` and suggest rather than seed.
@@ -752,7 +752,7 @@ absence from our tree is correct, not an oversight.
 
 ## Next step
 
-Started: [`docs/superpowers/pathograph_node_classes.txt`](../pathograph_node_classes.txt) — the tree as a plain text file, leaves being real `<node name> [Disease]`
+Started: [`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt) — the tree as a plain text file, leaves being real `<node name> [Disease]`
 pairs, representatives only. No schema, no enum, nothing in `kb/` depends on it.
 Its `STILL UNPLACED` section is where the design is already failing and is the
 most useful part to argue with.
