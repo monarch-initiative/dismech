@@ -425,9 +425,9 @@ binding stale rather than manually rebinding it.
 
 ### Dataset Curation (`datasets:` records)
 
-Dataset accessions are the one identifier class with no validator in the core
-stack — `linkml-reference-validator` checks PMIDs/DOIs/NCTs, but nothing
-resolved `geo:GSE…`, so a fabricated accession used to pass `just qc`.
+Dataset accessions used to be the one identifier class with no validator in the
+core stack — a fabricated `geo:GSE…` passed `just qc`. They are now verified the
+same way a PMID is: by fetching the record into `references_cache/`.
 
 ```bash
 just datasets-coverage                    # which entries still need datasets
@@ -439,6 +439,44 @@ just research-datasets openscientist Marfan_Syndrome  # non-GEO repositories
 **Always run `just verify-datasets` on any file whose `datasets:` block you
 touched.** An offline pytest guard catches malformed/mis-prefixed accessions;
 only the verifier catches nonexistent ones.
+
+#### A dataset accession is a reference (`geo:` first)
+
+`Dataset.accession` carries `implements: linkml:authoritative_reference` — it
+always *was* a reference slot, and `geo:` is now treated as one end to end:
+
+- `just verify-datasets` resolves a `geo:` accession by asking the reference
+  fetcher for it, which writes `references_cache/GEO_<ID>.md` — one file per
+  dataset, holding GEO's title and summary. **Commit that file with the
+  `datasets:` block**, exactly as you would a `PMID_*.md`.
+- A cache file present *is* the verification. All 919 `geo:` accessions in `kb/`
+  are backfilled, so a run over an untouched file makes no network calls.
+- `geo` has been removed from `skip_prefixes`, so
+  `linkml-reference-validator` now checks GEO records like any other reference.
+  Two consequences:
+  - **`datasets[].title` must be the repository's own title, copied exactly** —
+    it is a title slot next to a reference field, so the validator compares it
+    with the fetched record. Your summary of what the dataset contains goes in
+    `description`. Copy the title even when it is wrong: `geo:GSE301492` carries
+    GEO's misspelled "Reed-Stenberg", for the same reason a snippet never
+    corrects the source it quotes.
+  - A dataset record **can** carry real `evidence:` quoting the cached summary
+    and citing `GEO:<ID>` (`Acne_Vulgaris` is the worked example), and that
+    snippet is now exact-quote validated. This does not license bulk-generated
+    evidence (see below).
+- Other prefixes (EGA, MassIVE, dbGaP, PRIDE…) still resolve against their
+  repository API on every run, cache nothing, and stay in `skip_prefixes`.
+  Migrating one means giving it a fetcher, adding it to
+  `REFERENCE_CACHED_PREFIXES` in `scripts/verify_dataset_accessions.py`,
+  backfilling the cache, and fixing what the newly-enabled checks surface.
+
+**`cache/dataset_accessions.json` is frozen. Never read, write, or edit it.**
+It was a single shared JSON blob rewritten in full by every verifier run — so
+every curation PR touching a `datasets:` block churned the same 1.8 MB file, and
+PRs adding neighbouring `geo:` keys collided. Nothing reads or writes it any
+more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this). It
+stays in git only until the open PRs carrying edits to it have drained; do not
+add it to a commit, and do not "helpfully" regenerate it.
 
 **The check that tooling cannot do for you:** verification proves a dataset
 *exists*, never that it is about the right disease. Searching a causal gene
@@ -896,7 +934,94 @@ the pathograph; that workaround is no longer needed (#8199).
 | `relationship` | what the model *does* to the node — `RECAPITULATES`, `PARTIALLY_RECAPITULATES`, `FAILS_TO_RECAPITULATE`, `PERTURBS`, `MEASURES`, `RESCUES` |
 | `fidelity` | how faithfully it captures the human mechanism — `HIGH` / `MODERATE` / `LOW` / `UNKNOWN` |
 | `limitations` | the specific translational caveat (species divergence, supraphysiological expression, missing compartments) |
+| `model_scale` | the biological scale the model actually **observes** (`BiologicalScaleEnum`) |
 | `readouts` | the **outcome measures** that ground the claim |
+
+**`model_scale` is what the model observes, not what it is cited for.** A model
+linked to a node is not necessarily operating at that node's scale: a Boolean
+signalling network whose output node is named "bone erosion" still observes only
+molecular or cellular state, and the tissue-level outcome is inferred. Record the
+observed scale in `model_scale`, using the same `BiologicalScaleEnum` as
+`Pathophysiology.biological_scale` so the two are directly comparable.
+
+Do **not** record the comparison — derive it with `just model-scale-audit`. The
+comparison is directional, and the directions are different claims:
+
+| Relation | Meaning |
+|---|---|
+| model scale **below** target scale | **Upward extrapolation.** The model cannot observe the outcome it is cited for; the claim is inferential. Requires `limitations` (`test_upward_extrapolating_links_are_caveated`). |
+| model scale **above** target scale | The model contains the target scale. Normally unremarkable — a whole animal can report a molecular readout. |
+| equal | No scale gap. |
+
+Both slots are optional, so a link with neither is `UNDETERMINED` rather than
+defective — that is the state of most existing links. `model_scale` is
+**orthogonal to `fidelity` and `relationship`**, not a restatement of them: a
+molecular model linked to a molecular node reports no scale gap even when it is
+a poor model for some unrelated reason. Read an aligned result as "no *scale*
+gap", never as "good model".
+
+Worked examples: the RA-FLS Boolean model (`CELLULAR`) linked to
+`Synovial Hyperplasia` (`TISSUE`) is a 1-step upward extrapolation; the type 1
+interferon Boolean model (`MOLECULAR`) linked to
+`Enhanced Viral Replication and Tissue Pathology` (`TISSUE`) is a 2-step one.
+
+**`divergences` types the caveat that `limitations` writes as prose.** `fidelity`
+compresses every translational concern into one tier, so `LOW` never says *which*
+problem it is, and a prose `limitations` string cannot answer "which models are limited
+by calibration provenance rather than by species". Each entry in `divergences` names a
+kind from `ModelDivergenceTypeEnum`, explains in the curator's own words why that kind of
+gap applies **here**, and optionally records `materiality` — whether it bears on this
+link's claim.
+
+```yaml
+  - target: Striatal Dopamine Deficiency
+    relationship: PARTIALLY_RECAPITULATES
+    fidelity: LOW
+    model_scale: MOLECULAR
+    divergences:
+    - divergence_type: PROXY_QUANTITY
+      materiality: INVALIDATING
+      description: >-
+        The model's quantity is transcriptional regulation of dopamine-synthesis
+        genes. The node's quantity is dopamine concentration in the striatum.
+    - divergence_type: BOUNDARY_OMISSION
+      materiality: QUALIFYING
+      description: >-
+        Nigrostriatal terminal loss and the presynaptic deficit are not in the model.
+```
+
+Background reading: [`docs/explanation/model-credibility.md`](docs/explanation/model-credibility.md)
+explains what a model-to-mechanism link does and does not claim, and how the design maps
+onto the ten rules of credible practice in healthcare modeling (PMID:32993675) and the
+ASME V&V 40 / FDA credibility frameworks. The taxonomy itself was fixed by reading all 50
+computational-model `limitations` strings in the KB and clustering them — see
+[`docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md`](docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md).
+Rules for using it:
+
+- **Multivalued on purpose.** A real caveat is usually several kinds at once; do not pick
+  the single "best" one.
+- **The type is never the argument.** `description` is required and must say *which*
+  component is outside the boundary, *which* quantity stands in for *which*. A description
+  that restates the enum value fails `test_model_divergences_are_typed_and_explained`.
+- **`PROXY_QUANTITY` vs `BOUNDARY_OMISSION`** is the distinction to get right. In a
+  boundary omission the thing is not in the model; in a proxy divergence it *is*, but as a
+  stand-in of a different quantity. Both can occur at the same scale, so neither follows
+  from `model_scale`.
+- **`materiality` is per-divergence**, where `fidelity` is per-link. `IMMATERIAL` is worth
+  recording — it stops a reader inferring that a known limitation of the model undermines
+  *this* use of it.
+- **A `SCALE_EXTRAPOLATION` divergence must agree with the scale slots**
+  (`test_scale_extrapolation_divergence_agrees_with_scales`, and
+  `just model-scale-audit --strict`).
+- `divergences` and `limitations` coexist: the prose slot is the summary and holds the 831
+  existing links' caveats. A typed divergence now satisfies the caveat requirement on a
+  `FAILS_TO_RECAPITULATE` or upward-extrapolating link wherever `limitations` did.
+
+Currently populated on computational models only. The taxonomy was chosen to extend to
+NAM and animal models unchanged — `BOUNDARY_OMISSION`, `PROXY_QUANTITY`,
+`CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH` all apply — and
+extending it would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and `INCOMPLETE_PHENOTYPE`,
+both already evidenced in the animal set.
 
 ```yaml
 animal_models:
@@ -2169,6 +2294,14 @@ Non-negotiable rules:
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- **Re-derive the cited-PMID list immediately before pruning uncited caches.** A
+  list built earlier in the session goes stale the moment you add a section, and
+  pruning against it deletes a cache the entry now cites. CI does not catch this:
+  `just validate-disorders` silently network-fetches an uncached reference and
+  reports every snippet verified, so the branch only fails for someone checking
+  it out. Re-run `just count-verified-snippets` on the pushed tree afterwards,
+  and re-read `notes:` for any sentence that called a pruned reference "cached" —
+  prose describing repository state is content, and it rots.
 
 Example:
 
@@ -2653,7 +2786,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | Path | Commit? | Reason |
 |------|---------|--------|
 | `kb/disorders/*.yaml`, `kb/modules/*.yaml`, `kb/module_collections/*.yaml` | YES | Core content |
-| `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
+| `references_cache/*.md` | YES | Required for deterministic `validate-references` CI — including the `GEO_*.md` written by `just verify-datasets` |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
 | `stubs/*.yaml` | YES | The curation queue. A curation PR **deletes** the stub it curates |
@@ -2671,6 +2804,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `docs/` HTML output | NO | Derived — regenerated by CI |
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
+| `cache/dataset_accessions.json` | **NEVER** | Frozen. Superseded by `references_cache/GEO_*.md`; nothing reads or writes it. Never stage it, in any change |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
@@ -2739,6 +2873,39 @@ them to facilitate.
 
 Note that sometimes it will appear that a review has stalled, but in fact this is usually because
 the PR is in conflict. Actively try and manage this, resolve conflicts carefully.
+
+#### Answer a review in one push
+
+`main` has `dismiss_stale_reviews` enabled, so **every push to a PR drops its
+approval**. A follow-up commit therefore costs a full re-review cycle, whatever
+its size — a two-line typo fix and a rewritten pathophysiology section are the
+same price.
+
+So the instruction above to address even "optional" changes is about *what* to
+address. This is about *when*: **the same push as the blocking findings**, never
+a chore commit afterwards. Before pushing a review round, gather all of it —
+
+- every blocking finding;
+- every optional suggestion you intend to take;
+- the `history/` record for the round;
+- any housekeeping the round exposed (a missing `references_cache` file, deep
+  research `_artifacts/`, a stale sentence in `notes:`).
+
+If you decide *not* to take a suggestion, say so in the same reply rather than
+deferring it. A deferred item you later change your mind about costs another
+round, and so does one you promised in a comment and pushed separately.
+
+Two corollaries worth knowing:
+
+- **A round that only re-verifies still costs a cycle.** Pushing housekeeping on
+  top of an approval makes the reviewer re-run everything to confirm nothing
+  regressed. That is cheap for them and slow for you.
+- **Don't push while a review is in flight.** The running review lands on the
+  commit it checked out, so it reports on a tree that no longer exists and a
+  further round is needed anyway. Wait for the verdict, then push once.
+
+Curating five entries in PRs #10142-#10146 took four cycles that a bundled push
+would have covered.
 
 #### Never dismiss a review
 
@@ -2826,12 +2993,18 @@ not a hold: anything opened as a PR is in the review queue. The controller marks
 an eligible draft ready, re-reads every guard, and restores draft state if that
 merge attempt aborts.
 
-Each run acts on at most one PR. Immediately before it does, the controller
-re-reads every PR guard and pins the merge request to that verified head SHA.
-It deliberately does not require that head to contain the latest `main` commit:
-loose branch protection permits an already-green PR to merge, while a required
-merge queue tests the latest-main combination on a temporary merge-group commit.
-Branch-freshness updates are therefore not part of deterministic eligibility.
+Immediately before each action, the controller re-reads every PR guard and pins
+the merge request to that verified head SHA. When a required merge queue is
+active, a run enqueues up to 50 eligible PRs and GitHub serializes their merges;
+the limit leaves headroom under GitHub's content-creation rate limit and the
+workflow's timeout. A manual dispatch can lower that budget. Any candidates left
+by it are listed explicitly in the run summary and reconsidered on the next
+hourly run. When no queue is active, the controller directly merges at most one
+PR per run. It deliberately does not require a PR head to contain the latest
+`main` commit: the merge queue tests the latest-main combination on a temporary
+merge-group commit, while loose branch protection permits an already-green PR
+to merge. Branch-freshness updates are therefore not part of deterministic
+eligibility.
 
 Do not enable GitHub auto-merge on ordinary PRs outside this controller: it is a
 separate server-side path that bypasses the controller's age and assignment
