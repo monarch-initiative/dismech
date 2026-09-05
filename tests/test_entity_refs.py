@@ -15,10 +15,12 @@ import yaml
 
 from dismech import render
 from dismech.entity_refs import (
+    DISEASE_KIND,
     SECTION_KEYS,
     SINGLETON_SECTIONS,
     EntityRef,
     canonical_kind,
+    entity_ref_errors,
     entity_ref_index,
     iter_entity_refs,
     parse_entity_ref,
@@ -340,8 +342,72 @@ def test_semantic_ref_index_covers_every_annotated_section(tmp_path):
         "inheritance",  # _annotate_ref_target_anchors
         "clinical_trials",  # _annotate_ref_target_anchors
         "mechanistic_hypotheses",  # _annotate_hypothesis_group_links
+        # Sections that gained cards in #9505. Both fixtures carry all three,
+        # and `diagnosis` alone accounted for 42 of the 69 dead chips.
+        "diagnosis",
+        "progression",
+        "prevalence",
     ):
         assert kind in seen_kinds, f"no semantic-ref index entries for {kind}#"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "kb/disorders/Heritable_Pulmonary_Arterial_Hypertension.yaml",
+        "kb/disorders/Chagas_Disease.yaml",
+        "kb/disorders/Acute_Flaccid_Myelitis.yaml",
+    ],
+)
+def test_no_reference_renders_as_a_dead_chip(tmp_path, source):
+    """Every resolvable reference must become a link, not a dead chip (#9505).
+
+    `test_semantic_ref_index_covers_every_annotated_section` checks the
+    converse — that each href the index emits exists on the page. It passes
+    happily when a whole section is missing from the index, which is exactly
+    what happened: the disorder template rendered no card for `diagnosis`,
+    `prevalence`, `progression`, `imaging_findings`, `epidemiology`,
+    `infectious_agent`, `transmission`, `clinical_burden` or `stages`, so 69
+    references across `kb/` resolved as foreign keys and still drew as inert
+    grey text.
+
+    These three fixtures between them carry all nine sections.
+
+    The one accepted exception is a *whole-section* reference to a section the
+    entry does not have — a KNOWLEDGE_GAP attached to `treatments#` precisely
+    *because* nothing is curated there. That resolves (the section is real) but
+    has no card to jump to, which `entity_refs` documents as the deliberate
+    difference between "is this a real section" and "is there somewhere to go".
+    """
+    src = pathlib.Path(source)
+    disorder = render.load_disorder(src)
+
+    render._annotate_model_links(disorder)
+    render._annotate_card_anchors(disorder)
+    render._annotate_variant_anchors(disorder)
+    render._annotate_external_assertion_anchors(disorder)
+    render._annotate_ref_target_anchors(disorder)
+    render._annotate_hypothesis_group_links(disorder)
+    index = render._build_semantic_ref_index(disorder)
+
+    dead = []
+    for site in iter_entity_refs(disorder):
+        parsed = parse_entity_ref(site.ref)
+        if parsed is None or parsed.file:
+            continue
+        known = (
+            parsed.kind == DISEASE_KIND
+            or parsed.kind in SECTION_KEYS
+            or parsed.kind in SINGLETON_SECTIONS
+        )
+        if not known or index.get(site.ref):
+            continue
+        slot = SECTION_KEYS.get(parsed.kind, (parsed.kind,))[0]
+        if not parsed.name and not disorder.get(slot):
+            continue  # the documented empty-section case
+        dead.append(f"{site.path}={site.ref!r}")
+
+    assert not dead, f"{src.stem}: references with no link target: {dead}"
 
 
 @pytest.mark.parametrize(
@@ -450,3 +516,126 @@ def test_jump_to_card_canonicalises_both_sides_of_the_section_comparison(tmp_pat
         # or the comparison silently never matches for that section.
         for card_type in set(re.findall(r'data-dismech-type="([^"]+)"', html)):
             assert canonical_kind(card_type) in SECTION_KEYS, card_type
+
+
+# --- entity_ref_errors: the rules the CI gate and the pytest sweep share ------
+#
+# These moved here from `tests/test_data.py` with `entity_ref_errors` itself
+# (#9473): the function is no longer test-local, since
+# `scripts/check_entity_refs.py` is a second caller. They exercise the rules
+# against a hand-built entry rather than against whatever `kb/` happens to
+# contain -- a gate whose backlog is zero passes just as happily once it has
+# stopped firing.
+
+def _experiment_entry(**experiment) -> dict:
+    """A minimal entry carrying one proposed experiment, for the checks below."""
+    return {
+        "name": "Test Disease",
+        "pathophysiology": [{"name": "Node A"}],
+        "discussions": [
+            {
+                "discussion_id": "gap_1",
+                "kind": "KNOWLEDGE_GAP",
+                "attaches_to": ["pathophysiology#Node A"],
+                "proposed_experiments": [{"experiment_id": "exp_1", **experiment}],
+            }
+        ],
+    }
+
+
+def test_would_support_accepts_an_anchor():
+    """The intended form: a reference naming the node the result bears on."""
+    data = _experiment_entry(
+        would_support=["pathophysiology#Node A"],
+        would_refute=["disease#Test Disease"],
+        supporting_outcome=["Increased apoptosis in patient organoids."],
+    )
+    assert entity_ref_errors(data) == []
+
+
+def test_would_support_rejects_prose():
+    """A sentence in the reference slot names its prose sibling (#9224).
+
+    This is the ~51-value pattern the two prose slots were added for: a
+    conditional inference with no referent, which resolves to nothing and
+    renders as a monospace block.
+    """
+    data = _experiment_entry(
+        would_refute=[
+            (
+                "No enrichment of these lesions in tissue would indicate that the "
+                "dominant clinical resistance mechanism lies outside the bypass "
+                "lesions currently modeled at this node."
+            )
+        ]
+    )
+    errors = entity_ref_errors(data)
+    assert len(errors) == 1
+    assert "is prose" in errors[0]
+    assert "`refuting_outcome`" in errors[0]
+    # The quoted value is abbreviated, so one finding stays one line.
+    assert "bypass" not in errors[0]
+
+
+def test_would_support_rejects_a_bare_name_as_a_bare_name():
+    """A real node name without its prefix is a mis-written pointer, not prose.
+
+    Reported in review of #9500: sending this to the prose message would have
+    a curator move a working pointer into `supporting_outcome`, which is the
+    migration this gate exists to prevent, run backwards.
+    """
+    errors = entity_ref_errors(_experiment_entry(would_support=["Node A"]))
+    assert len(errors) == 1
+    assert "is a bare name" in errors[0]
+    assert "supporting_outcome" not in errors[0]
+
+
+def test_attaches_to_rejects_an_unknown_section():
+    """The same unknown-section hole was open in `attaches_to` (#9500 review)."""
+    data = _experiment_entry(would_support=["pathophysiology#Node A"])
+    data["discussions"][0]["attaches_to"] = ["pathophys#Node A"]
+    errors = entity_ref_errors(data)
+    assert len(errors) == 1
+    assert "unknown section" in errors[0]
+    # `attaches_to` has no prose sibling, so none is suggested.
+    assert "prose outcome" not in errors[0]
+
+
+def test_plain_node_name_in_target_is_not_a_bare_name():
+    """`target` carries plain node names by design, in every one of its homes.
+
+    Regression guard: the bare-name rule above matches values that name a real
+    item, and every `ModelMechanismLink` / readout `target` in `kb/` does
+    exactly that. Applying it there flagged 2,329 files.
+    """
+    data = _experiment_entry(would_support=["pathophysiology#Node A"])
+    data["animal_models"] = [
+        {
+            "name": "Test mouse",
+            "species": "Mus musculus",
+            "modeled_mechanisms": [
+                {
+                    "target": "Node A",
+                    "relationship": "RECAPITULATES",
+                    "readouts": [{"name": "A readout", "target": "Node A"}],
+                }
+            ],
+        }
+    ]
+    assert entity_ref_errors(data) == []
+
+
+def test_would_support_rejects_an_unknown_section():
+    """A typo'd or invented prefix is skipped by the resolver, so gate it here."""
+    errors = entity_ref_errors(_experiment_entry(would_support=["pathophys#Node A"]))
+    assert len(errors) == 1
+    assert "unknown section" in errors[0]
+
+
+def test_would_support_still_gates_a_dangling_anchor():
+    """A well-formed reference to a node that does not exist is still a defect."""
+    errors = entity_ref_errors(
+        _experiment_entry(would_support=["pathophysiology#Node Z"])
+    )
+    assert len(errors) == 1
+    assert "does not resolve" in errors[0]

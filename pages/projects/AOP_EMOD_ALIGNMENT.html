@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AOP EMOD Framework Alignment - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>AOP EMOD Framework Alignment</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">FRAMEWORK_ALIGNMENT</span><span class="tag">EVIDENCE</span><span class="tag">EXTERNAL_COLLABORATION</span><span class="tag">ENVIRONMENTAL_EXPOSURE</span><span class="tag">SCHEMA_EVOLUTION</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>AOP EMOD Framework Alignment</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (3)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Lead_Poisoning.html">Lead Poisoning</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Liver_Cirrhosis.html">Liver Cirrhosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Idiopathic_Pulmonary_Fibrosis.html">Idiopathic Pulmonary Fibrosis</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (10)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/cardiac_ion_channel_repolarization.html">cardiac ion channel repolarization</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/cardiomyopathy_maladaptive_remodeling.html">cardiomyopathy maladaptive remodeling</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/glutamate_excitotoxicity.html">glutamate excitotoxicity</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/synaptic_vesicle_cycle.html">synaptic vesicle cycle</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/mitochondrial_dysfunction.html">mitochondrial dysfunction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/excitatory_synapse_scaffold_disruption.html">excitatory synapse scaffold disruption</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/drug_induced_liver_injury.html">drug induced liver injury</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/drug_induced_nephrotoxicity.html">drug induced nephrotoxicity</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/diabetic_vascular_complications.html">diabetic vascular complications</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/fibrotic_response.html">fibrotic response</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/AOP_EMOD_ALIGNMENT.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="aop-emod-framework-alignment">AOP EMOD Framework Alignment</h1>
+<h2 id="scope">Scope</h2>
+<p>This project started with issue <a href="https://github.com/monarch-initiative/dismech/issues/8309">#8309</a>, which
+asked <strong>to what extent</strong> dismech's environmental-exposure and evidence modeling approaches align with the Adverse
+Outcome Pathway (AOP) framework, including the AOP Evidence Model (EMOD) expansions. Iterative
+refinement of the questions that need to be asked led to the content of this project document.
+The project should be used to identify specific directions for dismech and AOP integration.</p>
+<p>There are <strong>two AOP reference categories</strong> describing the AOP framework and the data classes on a conceptual level.</p>
+<table>
+<thead>
+<tr>
+<th>Reference category</th>
+<th>What it is</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AOP-Wiki v2.8 data model</strong></td>
+<td>The current structure. The AOP Developers' Handbook presents it conceptually to humans; the bulk XML serializes it.</td>
+<td>Stable, citable</td>
+</tr>
+<tr>
+<td><strong>AOP EMOD</strong></td>
+<td>Computable expansion of v2.8, adding structure to fields that are currently free text.</td>
+<td>Being adopted by the AOP community; details not OECD-endorsed and open to change</td>
+</tr>
+</tbody>
+</table>
+<p><code>Lead_Poisoning</code> is the pilot comparator entry used to ground the comparison
+against a real dismech pathograph.</p>
+<h2 id="what-this-page-is">What this page is</h2>
+<p>It records an inventory of schema comparisons. It does <strong>not</strong> decide adoption. Whether dismech should
+sanction AOP-Wiki as a structured reference source or represent canonical AOPs as
+modules are separate calls belonging in their own issues.</p>
+<p><strong>Stability is a property of individual constructs, not of either framework.</strong> Both
+models mix settled and experimental elements, so how firmly a claim can be stated
+depends on which construct it describes — not on which side of the comparison it sits.</p>
+<ul>
+<li><strong>AOP side.</strong> Settled: Key Event Components, deployed since AOP-Wiki Release 2.2,
+  and the v2.8 serialization. Open: EMOD concepts are being adopted by the AOP
+  community, but the details have not been endorsed by the OECD as the AOP standard
+  and remain open to change.</li>
+<li><strong>dismech side.</strong> Settled: <code>EvidenceItem</code> and <code>CausalEdge</code>, exercised across ~2000
+  entries. Open: <code>biological_scale</code> is optional and barely populated, and OBI assay
+  grounding is unvalidated.</li>
+</ul>
+<h2 id="what-is-known-about-the-aop-schema">What is known about the AOP Schema</h2>
+<p>The record begins with each framework described on its own terms — what it defines,
+and how firmly — before any construct is mapped from one to the other.</p>
+<h3 id="the-aop-wiki-data-model-v28-and-emod-properties">The AOP-Wiki data model — v2.8 and EMOD properties</h3>
+<p>Normative reference: Villeneuve D, Meek B, Viviani B, Burgdorf T, LaLone C,
+O'Brien J, et al. <em>AOP Developers' Handbook v2.8</em>. AOP-Wiki; 2026
+(<a href="https://aopwiki.org/handbooks/6">aopwiki.org/handbooks/6</a>).</p>
+<p><strong>What was inspected here is the serialization, not the Handbook prose</strong> — the
+official bulk XML export dated 2026-08-06 (holding 595 AOPs, 2361 KERs), processed in
+@gingin77's <a href="https://github.com/gingin77/aop_wiki_cli"><code>aop_wiki_cli</code></a>. The Handbook
+outlines what AOP authors are instructed to do, whereas the XML shows which fields
+exist and what they contain.</p>
+<h4 id="backbone">Backbone</h4>
+<p><code>MIE → KE → KER → AO</code>, with <code>Prototypical Stressors</code> attached as a separate
+annotation layer. AOPs are <strong>stressor-agnostic by design</strong>: the stressor→MIE link is
+deliberately not part of an AOP. The reason is predictive toxicology — a mechanism
+characterized once, in studies using prototypical stressors, can then be used to
+screen thousands of chemicals against it.</p>
+<p>An <strong>Event</strong> is the first-class object; MIE, KE, and AO are roles an Event plays
+within a particular AOP. Events carry their own stable identifiers and exist
+independently of any one AOP.</p>
+<p>Re-using Events across AOPs is how AOP networks form. This is an explicit design
+goal rather than an emergent property: an Event appearing in several AOPs is what
+joins them into a network.</p>
+<p>The backbone is neither strictly linear nor necessarily fully connected. Two Events
+may sit in the same AOP without a KER pairing them, and a KER may itself record
+feedforward or feedback loops — AOP 17 carries a neuroinflammation ⇄ cell-injury
+loop.</p>
+<h4 id="key-event-components">Key Event Components</h4>
+<p>Key Event Components (KECs) were introduced in AOP-Wiki Release 2.2 to make Events
+computable by binding them to OBO Foundry terms. Each KEC defines a discrete <strong>action</strong>,
+<strong>object</strong>, and <strong>process</strong> term.</p>
+<p>Action terms come from an AOP-Wiki controlled vocabulary based on the Phenotypes and
+Traits Ontology (PATO). Object and process terms use selected bio-ontologies. Separate
+controlled vocabularies define levels of biological organization (LoBO), sex, and life
+stage; CL and UBERON give biological spatial context for Events; and NCBI Taxon labels
+species applicability for Events, KERs, and AOPs.</p>
+<p>EMOD adds <strong>phenotype</strong> as a fourth entity alongside action, object, and process. Its
+Observation and Assay classes each define a biological object, process, and/or
+phenotype, serving Events across all levels of biological organization from molecular to
+population. The phenotype property does work the other three cannot: paired with
+Experimental Effect it separates a chemical that induces an outcome from one that treats
+it — the difference between an Observation mapping to a Seizure Event and one mapping to
+a Decreased Seizure Event.</p>
+<h4 id="maturity-stages">Maturity stages</h4>
+<p>AOPs can be classified in ways that reflect maturity of knowledge associated with a
+pathway, how extensively they have been developed, and how much quantitative data is
+available to support their use for predictive toxicology.</p>
+<p>A 2014 paper on AOP development offers the following AOP classification options:</p>
+<ul>
+<li><strong>Putative AOP development</strong> — "Assembly of a hypothesized set of KEs and KERs
+  supported primarily through biological plausibility and/or statistical inference.
+  Assembly of partial AOPs with incomplete linkage between the MIE and AO as a result
+  of known gaps and uncertainties."</li>
+<li><strong>Qualitative formal AOP development</strong> — KEs supported by descriptions of how they
+  can be measured, and KERs supported by empirical evidence in addition to plausibility
+  or statistical inference, "along with qualitative evaluation of the overall weight of
+  evidence supporting the AOP." Formal in that the descriptions follow the
+  internationally harmonized OECD guidance.</li>
+<li><strong>Quantitative AOP development</strong> — KEs supported by descriptions of how they can be
+  measured "and the accuracy and precision with which the measurements are made", with
+  KERs supported by "quantitative understanding of what magnitude and/or duration of
+  change in the upstream KE is needed to evoke some magnitude of change in the
+  downstream KE."</li>
+</ul>
+<p>The paper is explicit that "categorization in a particular phase is neither entirely
+objective, nor absolute", and that all three stages have uses for regulatory decision
+support. AOPs "can evolve over time toward greater predictive sophistication (or toward
+obsolescence if rejected by subsequent evidence)".</p>
+<p>A partial AOP whose Events are not all known is explicitly useful — for setting
+priorities and identifying what to test next.</p>
+<p>Source: Villeneuve DL, Crump D, Garcia-Reyero N, Hecker M, Hutchinson TH, LaLone CA,
+Landesmann B, Lettieri T, Munn S, Nepelska M, Ottinger MA, Vergauwen L, Whelan M.
+<em>Adverse outcome pathway (AOP) development I: strategies and principles.</em> Toxicol Sci
+2014;142(2), Table 3. <a href="https://pubmed.ncbi.nlm.nih.gov/25466378/">PMID:25466378</a>.</p>
+<h3 id="evidence-structure">Evidence structure</h3>
+<h4 id="weight-of-evidence">Weight of Evidence</h4>
+<p>Evidence in v2.8 sits at two levels, and the split is easy to misread: the KER carries
+prose, while the ordinal grade sits on the AOP.</p>
+<p><strong>On the KER</strong> — five free-text fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;weight-of-evidence&gt;</code></td>
+<td>prose</td>
+</tr>
+<tr>
+<td><code>&lt;biological-plausibility&gt;</code></td>
+<td>prose</td>
+</tr>
+<tr>
+<td><code>&lt;empirical-support-linkage&gt;</code></td>
+<td>prose</td>
+</tr>
+<tr>
+<td><code>&lt;quantitative-understanding&gt;</code></td>
+<td>prose, with <code>&lt;description&gt;</code> and <code>&lt;response-response-relationship&gt;</code></td>
+</tr>
+<tr>
+<td><code>&lt;uncertainties-or-inconsistencies&gt;</code></td>
+<td>contradicting evidence, as a first-class field</td>
+</tr>
+</tbody>
+</table>
+<p>The KER also carries <code>evidence-collection-strategy</code>, <code>known-modulating-factors</code>,
+<code>feedforward-feedback-loops</code>, <code>time-scale</code>, <code>references</code>, and taxonomic applicability.</p>
+<p><strong>On the AOP</strong> — the ordinal grades and the summaries:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;evidence&gt;</code>, per relationship in the AOP's KER listing</td>
+<td>the ordinal weight-of-evidence grade</td>
+</tr>
+<tr>
+<td><code>&lt;quantitative-understanding-value&gt;</code></td>
+<td>ordinal grade</td>
+</tr>
+<tr>
+<td><code>&lt;key-event-essentiality-summary&gt;</code></td>
+<td>essentiality — assessed at AOP level, not on the KER</td>
+</tr>
+<tr>
+<td><code>&lt;weight-of-evidence-summary&gt;</code></td>
+<td>AOP-level narrative</td>
+</tr>
+<tr>
+<td><code>&lt;overall-assessment&gt;</code></td>
+<td>the Bradford-Hill-style criteria prompt: dose-response concordance, temporal concordance, strength, consistency, specificity</td>
+</tr>
+</tbody>
+</table>
+<p>The grade vocabulary is <strong>High / Moderate / Low / Not Specified</strong>. Counted across the
+2026-08-06 export (595 AOPs, 2361 KERs):</p>
+<pre><code>&lt;evidence&gt;                          High 2410 | Not Specified 1975 | Moderate 1120 | Low 239
+&lt;quantitative-understanding-value&gt;  Not Specified 1896 | Moderate 525 | Low 448 | High 444
+</code></pre>
+<p>Not Specified is ~34% of weight-of-evidence grades and ~57% of quantitative-understanding
+grades — a large share of the deployed corpus carries no grade at all.</p>
+<p><strong>Grade coverage is not evidence strength, because the grade and the evidence behind it are
+stored in different places.</strong> The grade sits on the AOP's relationship listing; the
+citations and the supporting prose sit on the KER. Nothing in the serialization couples
+them, so a fully graded AOP can sit on top of relationships that document nothing. Whether
+a grade carries weight has to be checked against that KER's <code>references</code>,
+<code>&lt;empirical-support-linkage&gt;</code>, and <code>&lt;biological-plausibility&gt;</code> fields, one relationship at
+a time.</p>
+<p>This is an observation about the deployed data, not about what the Handbook asks of AOP
+developers — the caveat above applies, and the Handbook's guidance on assigning the
+weight-of-evidence grade has not been read here. Worth noting for anyone who does read it
+that the Handbook's three-level <code>Low</code>/<code>Moderate</code>/<code>High</code> scale keyed to evidence
+("biologically plausible, but has not been shown experimentally" through "considerable
+supporting evidence") belongs to <strong>KER Biological Domain of Applicability</strong>, a different
+construct, and should not be mistaken for the criteria behind the <code>&lt;evidence&gt;</code> grade
+counted above.</p>
+<p>Biological plausibility is a named field on the KER, kept separate from empirical
+support, so the distinction between what is plausible and what is demonstrated is
+carried on individual relationships as well as on the AOP as a whole.</p>
+<h4 id="emod-evidence-classes">EMOD evidence classes</h4>
+<p>EMOD adds structure to AOP-Wiki fields that are currently free text. Two of its classes
+carry evidence, and they attach at different points in the backbone:</p>
+<ul>
+<li><strong>Evidence</strong>, on the KER — evidence for causality between two Events.</li>
+<li><strong>Observation</strong>, on the Event — a structured stressor/exposure to biological object or
+  process record, with direction, aligned to a Key Event.</li>
+</ul>
+<p>An Event may be supported by several Observations. At minimum an Observation names a stressor, a
+biological entity that maps to the Event, and a direction of perturbation that aligns
+with it. Additional biological context details like tissue, life stage and sex, are
+important to include when using AOPs to support comparative analysis of NAMs and context-
+of-use evaluation.</p>
+<p><strong>Citation</strong> is a third class, and it is what Observation and Evidence instances link
+to. It carries the fields a journal or book citation needs, including URL links for
+DOIs and PubMed IDs, and it replaces the free-text References fields on the AOP, KER,
+and Event objects. Provenance becomes a link to a record rather than a string inside
+one — in the deployed v2.8 corpus, KER evidence cites inline author-year references
+that are not bound to any particular claim.</p>
+<p>Source: Hench VK, Caufield JH, Moxon SAT, O'Brien JM, Edwards SW. <em>AOP-Wiki EMOD 3.0:
+Data Model Expansions and Content Evaluation Framework for Using Agentic AI to Improve
+Integration between AOPs and New Approach Methodologies (NAMs).</em> arXiv
+<a href="https://arxiv.org/abs/2605.21645">2605.21645</a>, 2026. EMOD is modelled in LinkML at
+<a href="https://github.com/EHS-Data-Standards/linkml-aop"><code>EHS-Data-Standards/linkml-aop</code></a>,
+under active development.</p>
+<hr />
+<h2 id="points-of-alignment-and-divergence">Points of alignment and divergence</h2>
+<p>A construct or difference is listed here only if it informs an actionable direction
+for integration between AOPs and dismech, or blocks one until resolved. Constructs
+that merely resemble each other across the two models are left out.</p>
+<h3 id="what-enables-integration-now">What enables integration now</h3>
+<table>
+<thead>
+<tr>
+<th>AOP / EMOD</th>
+<th>dismech</th>
+<th>What it enables</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Assay / NAM</td>
+<td><code>ExperimentalModel</code>, <code>experimental_model_type</code>, <code>namo_type</code></td>
+<td>Both sides already speak NAM and bind NAMO CURIEs — the cheapest existing bridge</td>
+</tr>
+<tr>
+<td>Citation</td>
+<td><code>EvidenceItem.reference</code></td>
+<td>Resolvable PMID/DOI on both sides, so evidence can move between them without re-keying. Modelled differently: EMOD normalizes — Citation is its own record that Observation and Evidence instances link to — while dismech bundles the reference, its quote, and its polarity into one <code>EvidenceItem</code> attached directly to the claim</td>
+</tr>
+<tr>
+<td>KEC Object / Process</td>
+<td><code>cell_types</code>, <code>biological_processes</code>, <code>locations</code></td>
+<td>Shared GO/HP/CL/UBERON terms make Event-to-node matching computable rather than manual</td>
+</tr>
+<tr>
+<td>KEC Action</td>
+<td><code>Descriptor.modifier</code></td>
+<td>Both PATO-derived; mappable term by term</td>
+</tr>
+<tr>
+<td>Experiment Type</td>
+<td><code>EvidenceItem.evidence_source</code></td>
+<td>Mappable term by term, with one named gap: no clinical or epidemiological term on the AOP side</td>
+</tr>
+<tr>
+<td>Evidence (attached to the KER)</td>
+<td><code>CausalEdge.evidence</code></td>
+<td>A validated verbatim quote supporting causality between two Events — the unit a KER with no weight-of-evidence assessment needs</td>
+</tr>
+<tr>
+<td>Observation (attached to the Event)</td>
+<td><code>EnvironmentalMechanismTarget.evidence</code>, <code>ExperimentalReadout.evidence</code></td>
+<td>Grounds a stressor/exposure-to-mechanism record, with direction, in a quote validated against the cited source</td>
+</tr>
+<tr>
+<td>Event reuse across AOPs; consensus Events</td>
+<td><code>kb/modules/</code> plus <code>Pathophysiology.conforms_to</code></td>
+<td>Both frameworks factor a recurring mechanism out of the entries sharing it. A module node is dismech's consensus Event, and <code>conforms_to</code> declares an entry's node "an organ-specific instance of" it — the relation needed when two AOP authors name one process differently. It is deliberately not inheritance: conforming entries duplicate the content, so this checks consistency and does not merge graphs</td>
+</tr>
+</tbody>
+</table>
+<p>The module layer is the part of dismech with no counterpart named elsewhere in this table,
+and it is the closest dismech comes to the AOP's stressor-agnostic posture — a module
+describes a conserved process rather than one disease. Where an AOP reuses one Event across
+several pathways, dismech writes the process once in <code>kb/modules/</code> and has each entry
+declare conformance to it.</p>
+<p>The first row is the cheapest bridge and the one worked through below:
+<a href="#the-liver-fibrosis-nam-use-case">The liver fibrosis NAM use case</a> maps a curated
+<code>ExperimentalModel</code> onto the seven Key Events of AOP 38 and records what does and does
+not land on a mechanism node.</p>
+<h3 id="what-blocks-integration-until-resolved">What blocks integration until resolved</h3>
+<table>
+<thead>
+<tr>
+<th>Divergence</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No population level</td>
+<td>AOP's levels of biological organization include Population; <code>BiologicalScaleEnum</code> has <code>MOLECULAR</code>, <code>CELLULAR</code>, <code>TISSUE</code>, <code>ORGANISM</code> and stops at the individual</td>
+</tr>
+<tr>
+<td>No taxonomic applicability</td>
+<td>AOPs qualify Events, KERs, and whole pathways by species; dismech records species only at model level, never on a mechanism</td>
+</tr>
+<tr>
+<td>Toxicokinetics inside the causal chain</td>
+<td>ADME sits outside an AOP by design — it determines dose at the MIE, and folding it in is what makes an AOP chemical-specific. dismech chains ADME steps and key events together with nothing marking which is which</td>
+</tr>
+<tr>
+<td>Stressor-agnostic vs disease-anchored</td>
+<td>An AOP deliberately excludes the stressor so one pathway serves many chemicals; a dismech graph is anchored to a single disease and pulls the exposure in as a node</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="what-dismech-could-contribute-to-aop-emod">What dismech could contribute to AOP EMOD</h2>
+<p>The reverse direction: dismech constructs that address a problem the AOP schema has
+not yet solved. This is outbound — a contribution to another project, not a change to
+dismech.</p>
+<h3 id="evidence-bound-to-a-validated-quote">Evidence bound to a validated quote</h3>
+<p><code>EvidenceItem.snippet</code> requires every evidence item to carry a verbatim quote from the
+cited source, machine-checked against the fetched text; a paraphrase fails validation.
+The AOP schema binds citations to a KER or an Event, but nothing binds a specific
+<em>claim</em> to specific <em>words</em> in the source.</p>
+<p>This matters most where EMOD is explicitly headed. Structuring evidence for AI-readiness
+raises the question of what stops a generated claim from drifting off its source, and a
+required verbatim quote is a check that runs without a human reading the paper. dismech
+has run on this constraint across ~2000 entries.</p>
+<hr />
+<h2 id="the-lead-poisoning-use-case">The <a href="../disorders/Lead_Poisoning.html">Lead Poisoning</a> use case</h2>
+<!--
+TODO: write this section. `Lead_Poisoning` is declared in the frontmatter and named in
+Scope as the pilot comparator, but nothing in the body currently uses it.
+
+Material is available in AOP_EMOD_ALIGNMENT/draft-sections-1-6.md, section 3, but two
+things there need rework before reuse:
+  - the "terminal mechanism node cannot sit in an AOP" claim is flagged SUSPECT — it
+    rests on the false premise that a Key Event requires KERs on both sides;
+  - the AOP 17 comparison predates the MIE and toxicokinetics reframing. Lead absorption
+    and systemic distribution are ADME and sit outside an AOP; `Inhibition of
+    delta-aminolevulinic acid dehydratase` is the MIE-shaped node.
+
+The AOP side of the comparison is expected to come from the OpenScientist network work
+rather than from a single published AOP, so AOP 17 may not remain the comparator.
+-->
+
+<p>The AOP side draws on the eight AOPs that AOP-Wiki aggregates under lead as a prototypical
+stressor (<a href="https://aopwiki.org/stressors/59">stressor 59</a>): AOPs 12, 499, and 500
+(neurodevelopmental) and 552, 555, 556, 558, and 560 (cardiac).</p>
+<h3 id="weight-of-evidence-across-the-eight-lead-aops">Weight of evidence across the eight lead AOPs</h3>
+<p>They are a stark worked instance of the gap between grade coverage and evidence described
+under Weight of Evidence above. All 40 relationship listings across them carry a grade and
+none is Not Specified — by the corpus measure there, exemplary. But of their 36 unique
+KERs, <strong>20 carry no references, no empirical-support text and no biological-plausibility
+text at all, and 18 of those 20 are graded High.</strong> The empty ones are exactly the 20
+cardiac KERs — every relationship in AOPs 552, 555, 556, 558 and 560 — while the 16
+neurodevelopmental KERs in AOPs 12, 499 and 500 each carry roughly 1,500–10,600 characters
+of references alongside empirical-support and plausibility narrative. The grades then run
+<em>backwards</em> to that documentation: all three Low grades and seven of the nine Moderates sit
+on the documented neuro relationships, while the undocumented cardiac ones are almost
+uniformly High. The same inversion holds one level up — AOP 12 is the only OECD-endorsed
+pathway of the eight, and the only one carrying Low grades.</p>
+<h3 id="do-dismech-modules-already-hold-the-consensus-events">Do dismech modules already hold the consensus Events?</h3>
+<p>Asking whether Events chosen by different AOP authors denote one process is a question
+dismech answers in <code>kb/modules/</code>, not with <code>mechanistic_hypotheses</code> — a module node is the
+generic process and <code>conforms_to</code> declares an entry's node an organ-specific instance of
+it. Testing that against the <strong>21 unique Key Events</strong> in the five cardiac lead AOPs, with
+<code>cardiac_ion_channel_repolarization</code> and <code>cardiomyopathy_maladaptive_remodeling</code> as the
+candidate modules:</p>
+<table>
+<thead>
+<tr>
+<th>KE</th>
+<th>Event</th>
+<th>Module node</th>
+<th>Fit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>698</td>
+<td>Altered, Action Potential</td>
+<td>Altered Action Potential and Calcium Handling</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>1961</td>
+<td>Prolongation of Action Potential Duration</td>
+<td>Altered Action Potential and Calcium Handling</td>
+<td>yes — module names long QT physiology</td>
+</tr>
+<tr>
+<td>1962</td>
+<td>Prolongation of QT interval</td>
+<td>Altered Action Potential and Calcium Handling</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>389</td>
+<td>Increased, Intracellular Calcium overload</td>
+<td>Altered Action Potential and Calcium Handling</td>
+<td>yes — <code>calcium ion transport</code></td>
+</tr>
+<tr>
+<td>2289</td>
+<td>Hyperphosphorylation of RyR2</td>
+<td>Altered Action Potential and Calcium Handling</td>
+<td>yes — module names SR calcium-release destabilization</td>
+</tr>
+<tr>
+<td>2283</td>
+<td>Increased early premature depolarizations</td>
+<td>Arrhythmogenic Substrate and Triggered Activity</td>
+<td>yes — module names EADs</td>
+</tr>
+<tr>
+<td>1963</td>
+<td>Torsades de Pointes</td>
+<td>Ventricular Tachyarrhythmia</td>
+<td>yes — module names torsade</td>
+</tr>
+<tr>
+<td>1106</td>
+<td>Occurrence, cardiac arrhythmia <em>(AO)</em></td>
+<td>Arrhythmogenic Substrate and Triggered Activity</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>2291</td>
+<td>Slowed Heart Rate</td>
+<td>Sinoatrial Node Pacemaker Dysfunction</td>
+<td>yes — module names sinus bradycardia and HCN4</td>
+</tr>
+<tr>
+<td>2292</td>
+<td>Altered Cardiac Electrical Conduction</td>
+<td>Sinoatrial Node Pacemaker Dysfunction</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>1321</td>
+<td>Increased, intracellular sodium</td>
+<td>Altered Action Potential and Calcium Handling</td>
+<td>partial — module names late sodium current, not Na⁺ accumulation</td>
+</tr>
+<tr>
+<td>2287</td>
+<td>Impaired Sodium-Calcium Exchange</td>
+<td>Arrhythmogenic Substrate and Triggered Activity</td>
+<td>partial — NCX appears only in the DAD description</td>
+</tr>
+<tr>
+<td>2281</td>
+<td>Increased uncoordinated cardiac contraction</td>
+<td>Ventricular Tachyarrhythmia</td>
+<td>partial</td>
+</tr>
+<tr>
+<td>1532</td>
+<td>Decrease, Cardiac contractility</td>
+<td>Progressive Contractile Dysfunction</td>
+<td>endpoint only — see below</td>
+</tr>
+<tr>
+<td>1535</td>
+<td>Heart failure <em>(AO)</em></td>
+<td>Structural Cardiac Impairment and Heart Failure</td>
+<td>endpoint only — see below</td>
+</tr>
+<tr>
+<td>1529</td>
+<td>Blockade, L-Type Calcium Channels <em>(MIE)</em></td>
+<td>—</td>
+<td>none</td>
+</tr>
+<tr>
+<td>593</td>
+<td>Inhibition, ERG voltage-gated potassium channel <em>(MIE)</em></td>
+<td>—</td>
+<td>none</td>
+</tr>
+<tr>
+<td>1562</td>
+<td>Decreased Na/K ATPase activity <em>(MIE)</em></td>
+<td>—</td>
+<td>none</td>
+</tr>
+<tr>
+<td>2288</td>
+<td>Phosphodiesterase inhibition <em>(MIE)</em></td>
+<td>—</td>
+<td>none</td>
+</tr>
+<tr>
+<td>2290</td>
+<td>Inhibition of Funny current (If) <em>(MIE)</em></td>
+<td>—</td>
+<td>none</td>
+</tr>
+<tr>
+<td>693</td>
+<td>Increased, cyclic adenosine monophosphate</td>
+<td>—</td>
+<td>none</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Ten of 21 map cleanly and three partially, and the eight that do not fall into three
+groups that each say something different.</strong></p>
+<p><em>All five MIEs are unmatched, and for one reason.</em> <strong>The electrophysiology module starts
+with a genetic cause, while an AOP starts with the damage itself — so a chemical that does
+the same damage has nothing to attach to.</strong> <code>cardiac_ion_channel_repolarization</code> begins at
+<code>Cardiac Ion-Channel or Calcium-Handling Variant</code>, described as "a pathogenic germline
+variant alters a cardiac ion channel". AOP 552 begins at <code>Blockade, L-Type Calcium Channels</code>
+and stays silent on what did the blocking, which is what lets one pathway serve many
+chemicals. A calcium channel that is not working produces the same altered action potential
+whether a mutation broke it or lead is sitting in it, so everything downstream matches — but
+lead cannot conform to a node that asserts the cause was a mutation. All five unmatched MIEs
+are electrophysiologic, so all five fall in this module's territory.</p>
+<p>The claim is specific to that module, <strong>not</strong> a property of the module layer, and not even
+true of the other cardiac module here. <code>cardiomyopathy_maladaptive_remodeling</code> opens at
+<code>Primary Cardiomyocyte Insult</code>, which is explicitly etiology-agnostic: a variant "in
+inherited cardiomyopathies", but "in acquired and secondary cardiomyopathies … a hemodynamic
+(pressure or volume overload), metabolic, toxic, or inflammatory stress". A chemical insult
+is named in the node itself. Other modules open exactly where an AOP would —
+<code>drug_induced_nephrotoxicity</code> at "Nephrotoxic Drug Exposure and Tubular Uptake",
+<code>drug_induced_liver_injury</code> at "Reactive Drug Metabolite Formation",
+<code>diabetic_vascular_complications</code> at "Chronic Hyperglycemia". dismech expresses chemical
+entry points routinely; the module covering lead's cardiac electrophysiology was written for
+inherited channelopathy and does not.</p>
+<p><em>The contractility arm reaches a matching endpoint by a different route.</em> KE1532 → KE1535
+asserts calcium overload depresses contractility and produces heart failure directly.
+<code>cardiomyopathy_maladaptive_remodeling</code> reaches the same outcome through neurohormonal
+activation and ventricular remodeling, and <code>cardiac_ion_channel_repolarization</code> explicitly
+scopes itself to "structurally normal hearts". So the endpoints align while the mechanism
+between them does not — the AOPs compress a chain the module expands, or assert an acute
+pump failure the module does not model.</p>
+<p><em>The cAMP/PDE arm is simply absent</em> from both modules.</p>
+<h4 id="the-neurodevelopmental-side-scores-worse-and-for-a-different-reason">The neurodevelopmental side scores worse, and for a different reason</h4>
+<p>Repeating the exercise on the <strong>14 unique Key Events</strong> in AOPs 12, 499, and 500, against
+<code>glutamate_excitotoxicity</code>, <code>synaptic_vesicle_cycle</code>, <code>mitochondrial_dysfunction</code>, and
+<code>excitatory_synapse_scaffold_disruption</code>:</p>
+<table>
+<thead>
+<tr>
+<th>KE</th>
+<th>Event</th>
+<th>Module node</th>
+<th>Fit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1339</td>
+<td>Increase, intracellular calcium</td>
+<td>Glutamate Receptor Overactivation and Calcium Overload</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>2151</td>
+<td>Disruption, neurotransmitter release</td>
+<td>Neurotransmitter Release Failure and Synaptic Transmission Deficit</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>177</td>
+<td>Increase, Mitochondrial dysfunction</td>
+<td>Mitochondrial Dysfunction and Oxidative Stress</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>1115</td>
+<td>Increase, Reactive oxygen species</td>
+<td>Mitochondrial Dysfunction and Oxidative Stress</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>55</td>
+<td>Increase, Cell injury/death</td>
+<td>Excitotoxic Neuronal Death</td>
+<td>partial — module's death is excitotoxic specifically</td>
+</tr>
+<tr>
+<td>1262</td>
+<td>Apoptosis</td>
+<td>Excitotoxic Neuronal Death</td>
+<td>partial — same</td>
+</tr>
+<tr>
+<td>352</td>
+<td>N/A, Neurodegeneration <em>(AO)</em></td>
+<td>Excitotoxic Neuronal Death</td>
+<td>partial — generic outcome against a specific one</td>
+</tr>
+<tr>
+<td>341</td>
+<td>Impairment, Learning and memory <em>(AO)</em></td>
+<td>Neurodevelopmental Phenotypic Output</td>
+<td>partial — from <code>excitatory_synapse_scaffold_disruption</code></td>
+</tr>
+<tr>
+<td>201</td>
+<td>Binding of antagonist, NMDA receptors <em>(MIE)</em></td>
+<td>—</td>
+<td>none — sign-inverted, see below</td>
+</tr>
+<tr>
+<td>195</td>
+<td>Inhibition, NMDARs</td>
+<td>—</td>
+<td>none — sign-inverted</td>
+</tr>
+<tr>
+<td>52</td>
+<td>Decreased, Calcium influx</td>
+<td>—</td>
+<td>none — sign-inverted</td>
+</tr>
+<tr>
+<td>381</td>
+<td>Reduced levels of BDNF</td>
+<td>—</td>
+<td>none — no module covers BDNF</td>
+</tr>
+<tr>
+<td>188</td>
+<td>Neuroinflammation</td>
+<td>—</td>
+<td>none — appears only fused into organ-specific composite nodes</td>
+</tr>
+<tr>
+<td>2146</td>
+<td>Activation of MEK/ERK1/2 <em>(MIE)</em></td>
+<td>—</td>
+<td>none — MAPK nodes exist but all are proliferation- or fibrosis-framed</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Four of 14 clean and four partial</strong> — worse than the cardiac side, despite these being the
+well-documented AOPs. Documentation quality and module coverage turn out to be independent.</p>
+<p>The reason is worth recording, because it is not the entry-point problem again. Three of the
+six misses fail together because <strong>dismech's only glutamate module is the mirror image of
+lead's mechanism</strong>. <code>glutamate_excitotoxicity</code> is built end to end on <em>over</em>activation —
+"Excessive Glutamatergic Stimulation and Impaired Glutamate Clearance", "Glutamate
+Receptor Overactivation and Calcium Overload" — while lead's neurodevelopmental MIE is NMDAR <em>antagonism</em>, giving decreased
+calcium influx. The sign is inverted at every node, so KE52 cannot conform to a node whose
+name asserts overload even though <code>modifier</code> could carry the direction.</p>
+<p>This is the same directional split the OpenScientist report hit as its Finding 9 and
+handled by keeping KE52 out of the merge. Finding it independently on the dismech side
+establishes it as a real gap rather than an AOP-authoring artifact: the KB has no module for
+developmental hypo-activation of glutamatergic signalling. Note the split runs <em>inside</em> the
+neuro cluster — KE1339 (increase, from the MEK/ERK arm of AOPs 499 and 500) conforms cleanly
+while KE52 (decrease, from AOP 12) cannot, so no single calcium node holds both.</p>
+<p>The result cuts both ways. Two-thirds of the cardiac Events already have a home in modules
+written for inherited arrhythmia and cardiomyopathy, with no lead in view — which is the
+Event-reuse property that makes AOP networks work, arrived at independently. But
+conformance is consistency-checking, not inheritance, so this yields a checkable claim that
+two Events are instances of one process and <strong>not</strong> a merged network render. The graph half
+of the question stays a query over the XML export.</p>
+<p><em>The rest is not yet written.</em> A consensus network from OpenScientist was the original plan
+for the AOP side; whether it is still the right comparator is open, given the assessment
+recorded in
+<a href="AOP_EMOD_ALIGNMENT/assessments/openscientist-assessment-by-claude-code.yaml"><code>AOP_EMOD_ALIGNMENT/assessments/</code></a>.</p>
+<hr />
+<h2 id="the-liver-fibrosis-nam-use-case">The liver fibrosis NAM use case</h2>
+<p>The lead pilot enters from the stressor: start from a chemical, collect the AOPs naming
+it a prototypical stressor, compare those against a dismech entry. This second case
+enters from the assay — start from a NAM built to measure Key Events and ask what it
+maps onto. It crosses the first row of the enabler table, Assay/NAM to
+<code>ExperimentalModel</code>, which nothing had exercised, and it meets different obstacles than
+the stressor-first pass because a NAM's readouts are Key Event measurements before they
+are anything about a chemical.</p>
+<p>The system is the Akura Twin 384-well liver fibrosis microphysiological system
+(<a href="https://pubmed.ncbi.nlm.nih.gov/40754287/">PMID:40754287</a>, Schmidt &amp; Suter-Dick,
+<em>Toxicology</em> 2025), curated in <code>Liver_Cirrhosis</code> and <code>drug_induced_liver_injury</code> as an
+<code>experimental_models</code> entry with <code>namo_type: namo:CoCulture</code>. HepaRG hepatocyte
+microtissues, with or without THP-1 monocytic cells, occupy one compartment of each of
+168 interconnected well pairs and hTERT-HSC stellate microtissues the other; TGF-β1,
+methotrexate and acetaminophen are the three challenges. The paper states its own purpose
+in AOP terms — built "to quantify the key events of the liver fibrosis AOP" — so the AOP
+framing is the authors', not applied afterwards.</p>
+<p>Its target is <strong>AOP 38, Protein Alkylation leading to Liver Fibrosis</strong>: OECD WPHA/WNT
+Endorsed, 94.12% record completion in the 2026-08-06 export. Of the eight lead AOPs only
+one is endorsed, so confidence in the AOP side is higher here than in the lead use case — though
+endorsement raises confidence in a hypothesis about a causal chain and does not make the
+chain a finding.</p>
+<h3 id="the-correspondence">The correspondence</h3>
+<p>Levels of biological organisation are AOP-Wiki's, from the 2026-08-06 export. Node names
+unqualified by a module prefix are <code>Liver_Cirrhosis</code> pathophysiology nodes.</p>
+<table>
+<thead>
+<tr>
+<th>KE</th>
+<th>Event</th>
+<th>LoBO</th>
+<th>Akura Twin readout</th>
+<th>dismech node</th>
+<th>Fit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>244</td>
+<td>Alkylation, Protein <em>(MIE)</em></td>
+<td>Molecular</td>
+<td>—</td>
+<td>—</td>
+<td>none — see below</td>
+</tr>
+<tr>
+<td>55</td>
+<td>Increase, Cell injury/death</td>
+<td>Cellular</td>
+<td>albumin ↓</td>
+<td>Hepatocyte Injury and Death</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>1492</td>
+<td>Tissue resident cell activation</td>
+<td>Cellular</td>
+<td>ALOX5AP, TREM2 ↑</td>
+<td>Kupffer Cell and Inflammatory Response</td>
+<td>partial — THP-1 is not tissue-resident</td>
+</tr>
+<tr>
+<td>1493</td>
+<td>Increased Pro-inflammatory mediators</td>
+<td>Tissue</td>
+<td>PAI-1, TGF-β1 ↑</td>
+<td><em>(same node)</em></td>
+<td>partial — confounded with the stimulus</td>
+</tr>
+<tr>
+<td>265</td>
+<td>Increase, Hepatic stellate cell activation</td>
+<td>Cellular</td>
+<td>ACTA2, COL1A1, COL3A1, FN1 ↑</td>
+<td>Hepatic Stellate Cell Activation → <code>fibrotic_response#Mesenchymal Cell Activation</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td>68</td>
+<td>Increase, Collagen accumulation</td>
+<td>Tissue</td>
+<td>Pro-Collagen 1A1, CTGF ↑</td>
+<td><code>fibrotic_response#Excessive ECM Deposition</code></td>
+<td>yes — but the readout is curated on the KE 265 node</td>
+</tr>
+<tr>
+<td>344</td>
+<td>Increase, Liver fibrosis <em>(AO)</em></td>
+<td>Organ</td>
+<td>—</td>
+<td>—</td>
+<td>none — <code>Liver_Cirrhosis</code> is a later event, see below</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Five of seven Events map to a mechanism node, and the two that do not are the two
+endpoints.</strong> That is a more useful statement of the fit than the count, and it is the
+same shape the lead pilot found from the other direction.</p>
+<h4 id="three-rows-are-weaker-than-the-other-two">Three rows are weaker than the other two</h4>
+<p>Worth carrying rather than reading the table as uniform.</p>
+<ul>
+<li><strong>KE 1492 says "tissue resident" and THP-1 is not.</strong> Kupffer cells are yolk-sac-derived
+  and self-renewing; THP-1 is a monocytic line standing in for them, so the surrogacy sits
+  precisely on the word that defines the Event. The curated link already grades this
+  <code>PARTIALLY_RECAPITULATES</code> with <code>fidelity: LOW</code>, and the mapping inherits that grade
+  rather than overriding it.</li>
+<li><strong>KE 1493 is confounded with the stimulus.</strong> One of its two analytes is TGF-β1 measured
+  under exogenous TGF-β1 challenge — autoinduction. The other, PAI-1, is a canonical
+  TGF-β target gene and is not among the mediators KE 1493 itself lists (TNF-α, IL-1/6/8,
+  IFN-γ, chemokines, GM-CSF, PGE2, ROS/RNS, TGF-β). This is the thinnest row.</li>
+<li><strong>The KE 68 readout hangs off the KE 265 node.</strong> Pro-Collagen 1A1 and CTGF are curated
+  as readouts on <code>Hepatic Stellate Cell Activation</code>, whose <code>interpretation</code> calls them
+  the downstream consequence the node feeds. So the measurement instrumenting KE 68 is
+  attached to the node mapping KE 265, and KE 68 itself is reachable only through
+  <code>conforms_to</code> into the module.</li>
+</ul>
+<h3 id="both-endpoints-fall-outside-the-node-layer">Both endpoints fall outside the node layer</h3>
+<p><strong>AO 344 has no dismech node, and the nearest object is a different event.</strong> Nothing in
+<code>Liver_Cirrhosis</code> represents liver fibrosis at organ scale — the entry's pathograph runs
+from stellate activation to portal hypertension and synthetic dysfunction without one.
+The tempting move is to match the adverse outcome to the <code>Liver_Cirrhosis</code> entry itself,
+and that is wrong: <strong>fibrosis and cirrhosis are not the same event.</strong> Fibrosis is
+extracellular matrix accumulation; cirrhosis is the architectural end-stage downstream of
+it, and a chronically fibrotic liver is not yet a cirrhotic one. <code>fibrotic_response</code>
+already keeps the two apart, separating <code>Excessive ECM Deposition</code> from <code>Architectural
+Distortion and Organ Dysfunction</code>, and collapsing them here would undo that distinction
+in the one place the mapping is meant to demonstrate it.</p>
+<p>So the empty AO row is a <strong>curation gap</strong> — the KB has no organ-level liver-fibrosis
+event — rather than a statement about where correspondences attach.</p>
+<p><strong>KE 244 has no node either</strong>, which is the lead pilot's MIE result reached from the
+opposite direction: dismech has no node for a chemical's molecular initiating
+interaction in this entry.</p>
+<h4 id="does-the-acetaminophen-arm-reach-ke-244">Does the acetaminophen arm reach KE 244?</h4>
+<p>The issue asks because NAPQI, acetaminophen's reactive metabolite, alkylates protein, and
+KE 244 is the one empty row. <strong>This is not settled here</strong> — the full text is
+subscription-only (<code>content_type: abstract_only</code> in <code>references_cache/PMID_40754287.md</code>;
+not open access, not in PMC), and the abstract does not say alkylation. Two things point
+against it:</p>
+<ul>
+<li><strong>KE 244's own measurement methods are adduct mass spectrometry</strong> — HPLC-ESI-MS/MS and
+  MALDI-TOF/MS. The abstract's readouts are albumin, glucose and lactate sensors, qPCR
+  and protein ELISA, and its only acetaminophen result is reduced albumin production,
+  which is KE 55.</li>
+<li><strong>AOP 38 itself excludes acetaminophen.</strong> Its <code>overall-assessment</code> field names APAP
+  among hepatotoxicants that do <em>not</em> produce the adverse outcome — "there is a wide
+  range of hepatotoxic chemicals (like Acetaminophen, Aflatoxin or Chlorpromazine) for
+  which liver fibrosis cannot be observed" — and acetaminophen is not among the AOP's five
+  prototypical stressors (allyl alcohol, carbon tetrachloride, retinol, dimethylnitrosamine,
+  thioacetamide).</li>
+</ul>
+<p>So the likely reading is that the acetaminophen arm is a KE 55 challenge, and that a
+system built expressly to quantify AOP 38 instruments it from KE 55 downward and leaves
+the MIE unmeasured. That is a statement about where a NAM sits on a pathway, not a defect
+in the assay or in the mapping — a partial AOP with unmeasured Events is explicitly useful
+for setting priorities and identifying what to test next. What would overturn it is a
+Methods section reporting GSH depletion, an APAP-protein adduct immunoassay, or CYP2E1
+activity; an author query (Suter-Dick, FHNW) or an institutional-repository copy would
+settle it.</p>
+<h3 id="which-layer-the-correspondence-sits-at">Which layer the correspondence sits at</h3>
+<p>Recorded as an observation; the structural question the issue raises belongs in its own
+decision, per this page's scope.</p>
+<p>An AOP Event is stressor-agnostic and reused across pathways, which is what the enabler
+table already pairs with <code>kb/modules/</code> plus <code>conforms_to</code>. The counts make the difference
+concrete. In the KB as of this writing, <code>fibrotic_response#Mesenchymal Cell Activation</code>
+is conformed to by <strong>28</strong> pathophysiology nodes and <code>fibrotic_response#Excessive ECM
+Deposition</code> by <strong>21</strong> — so a KE 265 or KE 68 correspondence asserted on the module node
+reaches every one of them, while the same correspondence asserted on
+<code>Liver_Cirrhosis</code> reaches one entry and has to be re-asserted on the next fibrotic
+disease.</p>
+<p><code>Idiopathic_Pulmonary_Fibrosis</code> is the case that tests this rather than assuming it: its
+microengineered alveolar lung-on-chip
+(<a href="https://pubmed.ncbi.nlm.nih.gov/41406599/">PMID:41406599</a>, <code>namo_type:
+namo:OrganOnChip</code>) links to <code>Fibroblast activation and myofibroblast differentiation</code> and
+<code>Excessive extracellular matrix deposition</code>, which conform to those same two module
+nodes. Two NAMs, two organs, one pair of module nodes — the module layer already holds
+what a KE correspondence would need to travel across.</p>
+<h3 id="cross-reference-is-separable-from-citation">Cross-reference is separable from citation</h3>
+<p>The constraint that AOP-Wiki is not citable in dismech's validation stack — no fetcher,
+no cacheable body for a snippet to substring-match against — is about <em>citation</em>. It does
+not by itself settle <em>cross-reference</em>, and the two are separable because AOP-Wiki
+identifiers are registered and resolvable:</p>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Registry name</th>
+<th>Resolves to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>aop</code></td>
+<td>AOPWiki</td>
+<td><code>aopwiki.org/aops/$1</code></td>
+</tr>
+<tr>
+<td><code>aop.events</code></td>
+<td>AOPWiki (Key Event)</td>
+<td><code>aopwiki.org/events/$1</code></td>
+</tr>
+<tr>
+<td><code>aop.relationships</code></td>
+<td>AOPWiki (Key Event Relationship)</td>
+<td><code>aopwiki.org/relationships/$1</code></td>
+</tr>
+<tr>
+<td><code>aop.stressor</code></td>
+<td>AOPWiki (Stressor)</td>
+<td><code>aopwiki.org/stressors/$1</code></td>
+</tr>
+</tbody>
+</table>
+<p>All four are in identifiers.org and Bioregistry with pattern <code>^\d+$</code>, and all four
+resolve — <code>https://identifiers.org/aop.events:265</code> lands on
+<code>https://aopwiki.org/events/265</code> (checked 2026-08-29).</p>
+<p>This is recorded as a fact about the identifiers, not as a proposal. Declaring any of
+these in the schema's <code>prefixes:</code>, and whether a <code>Pathophysiology</code> or disease-level
+cross-reference slot should exist to carry them, are open questions — see
+<a href="#open-schema-questions">Open schema questions</a> below. No <code>aop*:</code> CURIE appears
+anywhere in <code>kb/</code>.</p>
+<h3 id="what-the-scale-axis-showed">What the scale axis showed</h3>
+<p>AOP-Wiki gives every Event a Level of Biological Organisation and dismech's counterpart
+is <code>biological_scale</code>, so it is the one axis both sides already carry — and it was empty
+on almost every node this use case touches. Tagging them is schema-free and makes the
+correspondence checkable:</p>
+<table>
+<thead>
+<tr>
+<th>dismech node</th>
+<th><code>biological_scale</code></th>
+<th>AOP LoBO it aligns with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Liver_Cirrhosis</code> Hepatocyte Injury and Death</td>
+<td><code>CELLULAR</code></td>
+<td>KE 55 Cellular</td>
+</tr>
+<tr>
+<td><code>Liver_Cirrhosis</code> Hepatic Stellate Cell Activation</td>
+<td><code>CELLULAR</code></td>
+<td>KE 265 Cellular</td>
+</tr>
+<tr>
+<td><code>Liver_Cirrhosis</code> TGF-beta Signaling in Fibrogenesis</td>
+<td><code>MOLECULAR</code></td>
+<td>— (the stimulus arm; no KE)</td>
+</tr>
+<tr>
+<td><code>Liver_Cirrhosis</code> Kupffer Cell and Inflammatory Response</td>
+<td><em>left unset</em></td>
+<td>KE 1492 Cellular <strong>and</strong> KE 1493 Tissue</td>
+</tr>
+<tr>
+<td><code>fibrotic_response</code> Tissue Injury</td>
+<td><code>TISSUE</code></td>
+<td>KE 55's module counterpart</td>
+</tr>
+<tr>
+<td><code>fibrotic_response</code> Inflammatory Recruitment and Amplification</td>
+<td><code>TISSUE</code></td>
+<td>KE 1493 Tissue</td>
+</tr>
+<tr>
+<td><code>fibrotic_response</code> Mesenchymal Cell Activation</td>
+<td><code>CELLULAR</code></td>
+<td>KE 265 Cellular</td>
+</tr>
+<tr>
+<td><code>fibrotic_response</code> Excessive ECM Deposition</td>
+<td><code>TISSUE</code></td>
+<td>KE 68 Tissue</td>
+</tr>
+<tr>
+<td><code>fibrotic_response</code> Architectural Distortion and Organ Dysfunction</td>
+<td><code>TISSUE</code></td>
+<td>— (cirrhosis-ward, downstream of AOP 38's AO)</td>
+</tr>
+</tbody>
+</table>
+<p>Two things fell out of doing it.</p>
+<p><strong>One node was left unset, and the reason is the finding.</strong> <code>Kupffer Cell and
+Inflammatory Response</code> maps to two Events at two different levels — KE 1492 is Cellular
+and KE 1493 is Tissue — so no single value describes it. <code>biological_scale</code> is
+single-valued by design, and CLAUDE.md reads a node that would naturally take two as a
+signal that it bundles two mechanistic claims. Guessing one would have hidden exactly
+what the mapping exposed. Splitting the node is a curation change with evidence and
+<code>modeled_mechanisms</code> readouts attached to it and is not made here.</p>
+<p><strong>AOP's Organ level is not the gap it looks like.</strong> <code>BiologicalScaleEnum</code> has no <code>ORGAN</code>
+value, but <code>TISSUE</code> is defined as "tissue / organ scale" and its description names organ
+substrates explicitly, so an organ-level Event has a scale to sit at whenever a node
+exists for it. The divergence table's "no population level" row stands; there is no
+comparable organ-level gap. That KE 344 is unmapped is a missing node, not a missing
+scale value.</p>
+<hr />
+<h2 id="open-schema-questions">Open schema questions</h2>
+<p>Six things this project has surfaced that dismech's schema currently cannot express.
+They are recorded here as questions, with the observation that raises each one, and
+deliberately without a proposed answer. Working them is tracked at
+<a href="https://github.com/monarch-initiative/dismech/issues/10272">#10272</a>; an answer belongs
+on this page, next to the question it resolves. The list is a first pass at naming what
+is missing, so a question may be reworded, split, merged, or dropped as the project
+develops.</p>
+<p>Three come from the liver fibrosis NAM use case above and three restate rows already in
+the divergence table as dismech-side questions rather than as descriptions of how the two
+frameworks differ.</p>
+<h3 id="1-should-a-pathophysiology-node-be-able-to-carry-a-key-event-cross-reference">1. Should a pathophysiology node be able to carry a Key Event cross-reference?</h3>
+<p>Five of AOP 38's seven Key Events correspond to a named dismech mechanism node, and
+nothing in the schema can record that. No slot exists, and no AOP identifier appears
+anywhere in the schema, so there is nothing for a correspondence to point at and nowhere
+to put it.</p>
+<p>A prior question sits underneath this one: whether dismech recognizes a Key Event as an
+entity at all, or only as a label applied to something it already has.</p>
+<h3 id="2-where-does-an-adverse-outcome-correspondence-attach">2. Where does an adverse outcome correspondence attach?</h3>
+<p>AOP 38's adverse outcome, KE 344 <em>Increase, Liver fibrosis</em>, has no dismech node. The
+nearest object is the <code>Liver_Cirrhosis</code> entry, and matching it there would conflate two
+different events — fibrosis is matrix accumulation, cirrhosis is the architectural
+end-stage downstream of it.</p>
+<p>Two questions are tangled here and only one is about the schema. Whether the KB should
+carry an organ-level liver-fibrosis event is <strong>curation</strong>, and until it does this case
+cannot settle anything. The schema question is whether an adverse outcome correspondence
+attaches to a pathophysiology node, to the disease entry, or to both — and whether that
+is the same slot as question 1 or a different one.</p>
+<p>Questions 1 and 2 are separable but entangled: the same identifier, possibly two levels.</p>
+<h3 id="3-should-the-aop-wiki-prefixes-be-declared-in-the-schema">3. Should the AOP-Wiki prefixes be declared in the schema?</h3>
+<p><code>aop</code>, <code>aop.events</code>, <code>aop.relationships</code> and <code>aop.stressor</code> are registered in
+identifiers.org and Bioregistry, all with pattern <code>^\d+$</code>, and all four resolve —
+<code>https://identifiers.org/aop.events:265</code> lands on <code>https://aopwiki.org/events/265</code>
+(checked 2026-08-29).</p>
+<p>This is the smallest and most independent of the six, because declaring a prefix is a
+different act from citing an AOP page as evidence. Citation stays blocked: there is no
+fetcher and no cacheable body for a snippet to substring-match against, so an AOP or Key
+Event page cannot be an evidence <code>reference:</code>. Primary literature from the AOP's own
+<code>references</code> field can be, through the normal fetch-and-verify route.</p>
+<h3 id="4-should-biologicalscaleenum-gain-a-population-level">4. Should <code>BiologicalScaleEnum</code> gain a population level?</h3>
+<p>AOP-Wiki's levels of biological organisation run Molecular, Cellular, Tissue, Organ,
+Individual, Population — 36 Events sit at Population in the 2026-08-06 export.
+<code>BiologicalScaleEnum</code> stops at <code>ORGANISM</code>.</p>
+<p>Note that Organ is <em>not</em> a second gap: <code>TISSUE</code> is defined as "tissue / organ scale" and
+its description names organ substrates explicitly, so an organ-level Event has a scale to
+sit at wherever a node exists for it. Population is the only level with no counterpart.</p>
+<h3 id="5-should-species-applicability-be-recordable-on-a-mechanism">5. Should species applicability be recordable on a mechanism?</h3>
+<p>AOPs qualify Events, KERs and whole pathways by NCBITaxon. dismech records species only
+at model level — on <code>animal_models</code> and <code>experimental_models</code> — and never on a
+pathophysiology node, so a mechanism carries no statement about which organisms it is
+claimed to hold in.</p>
+<h3 id="6-should-a-node-be-markable-as-toxicokinetic-rather-than-as-a-mechanism-step">6. Should a node be markable as toxicokinetic rather than as a mechanism step?</h3>
+<p>ADME sits outside an AOP by design: it determines dose at the initiating event, and
+folding it in is what would make the pathway chemical-specific instead of serving many
+chemicals. A dismech chain runs absorption and distribution steps together with mechanism
+steps and marks neither, so the two cannot be told apart by a reader or by tooling.</p>
+<p><code>Lead_Poisoning</code> is the case that shows it — lead absorption and systemic distribution are
+ADME, while <code>Inhibition of delta-aminolevulinic acid dehydratase</code> is the initiating-event-shaped
+node, and the entry draws them the same way.</p>
+<hr />
+<h2 id="next-steps">Next Steps</h2>
+<p>The end goal this project leads to is <strong>dismech-derived AOPs</strong> — dismech pathographs as
+source material for new AOPs, and dismech evidence as support for existing ones. Two
+directions, in order of how close they are.</p>
+<p><strong>Enriching existing AOPs</strong> is the nearer one, and it needs no structural change on
+either side. A dismech <code>EvidenceItem</code> carries a resolvable identifier plus a quote
+validated against the source, which is close to what a KER with no weight-of-evidence
+assessment needs — and Not Specified accounts for ~34% of weight-of-evidence grades and
+~57% of quantitative-understanding grades in the deployed corpus.</p>
+<p><strong>Seeding new AOPs</strong> is the further one, and the divergences above are what stand in the
+way: the toxicokinetic steps in a dismech chain have to be separated from the key
+events, species applicability and a population level have no dismech counterpart, and a
+disease-anchored graph has to be cut stressor-agnostic before it is an AOP.</p>
+<!--
+## Not yet included
+
+Drafted material held in
+[`AOP_EMOD_ALIGNMENT/draft-sections-1-6.md`](AOP_EMOD_ALIGNMENT/draft-sections-1-6.md),
+deliberately not on this page. Listed so the page's coverage is legible rather than
+implied.
+
+- **Enriching canonical evidence for existing AOPs.** The direction with the clearest
+  target: Not Specified accounts for ~34% of weight-of-evidence grades and ~57% of
+  quantitative-understanding grades, and a dismech `EvidenceItem` is close to what
+  filling one needs.
+- **Value-level mappings.** Term-by-term tables for the three enum pairs the comparison
+  table calls mappable: LoBO to `BiologicalScaleEnum`, Experiment Type to
+  `EvidenceSourceEnum`, and KEC Action to `ModifierEnum`.
+- **Further EMOD classes.** Assay/NAM, Experiment Type, and Causal Agent, plus
+  Biological Target Family, Harmonized Events and AOPs, Candidate Event Merger, and the
+  Event Integration Score.
+- **Further dismech contributions to EMOD.** `supports` polarity including `REFUTE`, the
+  two evidence layers on a model link, `causal_link_type`, `hypothesis_groups`, and
+  `HUMAN_CLINICAL` as an evidence source.
+- **EMOD lineage and process detail.** Prototype history, the roll-up principle, the
+  status of the Evidence class, and sources not yet read. Repo-side context rather than
+  page content.
+
+Two of the three directions named in this project's description — dismech enriched by
+AOPs, and dismech seeding new AOPs — are represented here only as pointers.
+-->
+        </article>
+    </div>
+</body>
+</html>
