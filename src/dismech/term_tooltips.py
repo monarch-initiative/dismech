@@ -177,6 +177,11 @@ TERM_ROLES: dict[str, TermRole] = {
     "environment.food_source": TermRole("This environmental factor", "is carried by", "food"),
     # Phenotypes and other clinical annotations
     "phenotype.phenotype_term": TermRole("This clinical feature", "is", "phenotype"),
+    # A SPECTRUM_SUMMARY binding stands in for several specific findings the
+    # source bundles; these are those findings, not separate clinical claims.
+    "phenotype.spectrum_terms": TermRole(
+        "This clinical feature", "summarises", "more specific phenotype"
+    ),
     "effect.affected_cell_types": TermRole("This effect", "acts on", "cell type"),
     "subtype.gene": TermRole("This subtype", "is caused by variation in", "gene"),
     "variant.gene": TermRole("This variant", "is in", "gene"),
