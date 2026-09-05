@@ -30,10 +30,18 @@ Two signals are attached to each gap to help pick a tranche:
 
 Neither signal is a ruling. Prose can name a mechanism the entry then argues
 against, and a cached sentence can be about a different gene in a review. The
-category is a claim and takes its own evidence item; see
-``docs/reports/mendelian-variant-mechanism-audit-2026-09-04.md`` for the
-worked tranche and the entries deliberately left unassigned because the
-literature disagrees (Weaver, Bainbridge-Ropers, Arboleda-Tham, ...).
+category is a claim and takes its own evidence item.
+
+``UNKNOWN`` counts as annotated, since it is a recorded claim rather than an
+empty slot -- but it is two different claims wearing one value: "nobody has
+looked" and "assessed, and the literature disagrees". The summary breaks out
+entries whose only category is ``UNKNOWN`` so the second kind stays countable;
+the convention for the contested kind is ``UNKNOWN`` on the node plus competing
+``mechanistic_hypotheses`` and a ``CONTROVERSY`` discussion carrying the
+discriminating experiment. See
+``docs/reports/mendelian-variant-mechanism-audit-2026-09-04.md`` for the worked
+tranche and the five contested entries (Weaver, Bainbridge-Ropers,
+Bohring-Opitz, Arboleda-Tham, ADNP).
 
 Usage::
 
@@ -182,7 +190,9 @@ def main(argv=None):
         print(f"entries scanned:                          {len(rows)}")
         print(f"mendelian (inheritance + CAUSATIVE gene): {len(mendelian)}")
         annotated = sum(1 for r in mendelian if r["annotated"])
+        contested = sum(1 for r in mendelian if r["categories"] == "UNKNOWN")
         print(f"  with functional_impact_category:        {annotated}")
+        print(f"    of which recorded as UNKNOWN only:    {contested}")
         print(f"  without (the gap):                      {len(mendelian) - annotated}")
         print(f"  gap, single causal gene:                {sum(1 for r in mendelian if not r['annotated'] and r['n_causal'] == 1)}")
         print(f"  gap, mechanism named in own prose:      {sum(1 for r in mendelian if not r['annotated'] and r['prose'])}")
