@@ -625,6 +625,38 @@ def test_plain_node_name_in_target_is_not_a_bare_name():
     assert entity_ref_errors(data) == []
 
 
+def test_downstream_self_loop_is_rejected():
+    """A pathophysiology node may not list itself as its own downstream target (#9896).
+
+    A self-reference resolves fine under the ordinary foreign-key check --
+    the target names a real node in the file -- so nothing else catches a
+    node asserting that it causes itself.
+    """
+    data = {
+        "pathophysiology": [
+            {
+                "name": "Node A",
+                "downstream": [{"target": "Node A"}, {"target": "Node B"}],
+            },
+            {"name": "Node B"},
+        ]
+    }
+    errors = entity_ref_errors(data)
+    assert len(errors) == 1
+    assert "targets itself" in errors[0]
+    assert "Node A" in errors[0]
+
+
+def test_downstream_edge_to_a_different_node_is_not_a_self_loop():
+    data = {
+        "pathophysiology": [
+            {"name": "Node A", "downstream": [{"target": "Node B"}]},
+            {"name": "Node B"},
+        ]
+    }
+    assert entity_ref_errors(data) == []
+
+
 def test_would_support_rejects_an_unknown_section():
     """A typo'd or invented prefix is skipped by the resolver, so gate it here."""
     errors = entity_ref_errors(_experiment_entry(would_support=["pathophys#Node A"]))
