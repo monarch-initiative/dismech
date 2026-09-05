@@ -1,0 +1,306 @@
+---
+reference_id: DOI:10.1038/ng.3875
+title: Genetic association study of exfoliation syndrome identifies a protective rare variant at LOXL1 and five new susceptibility loci
+authors:
+- Tin Aung
+- Mineo Ozaki
+- Mei Chin Lee
+- Ursula Schlötzer-Schrehardt
+- Gudmar Thorleifsson
+- Takanori Mizoguchi
+- Robert P Igo
+- Aravind Haripriya
+- Susan E Williams
+- Yury S Astakhov
+- Andrew C Orr
+- Kathryn P Burdon
+- Satoko Nakano
+- Kazuhiko Mori
+- Khaled Abu-Amero
+- Michael Hauser
+- Zheng Li
+- Gopalakrishnan Prakadeeswari
+- Jessica N Cooke Bailey
+- Alina Popa Cherecheanu
+- Jae H Kang
+- Sarah Nelson
+- Ken Hayashi
+- Shin-ichi Manabe
+- Shigeyasu Kazama
+- Tomasz Zarnowski
+- Kenji Inoue
+- Murat Irkec
+- Miguel Coca-Prados
+- Kazuhisa Sugiyama
+- Irma Järvelä
+- Patricio Schlottmann
+- S Fabian Lerner
+- Hasnaa Lamari
+- Yildirim Nilgün
+- Mukharram Bikbov
+- Ki Ho Park
+- Soon Cheol Cha
+- Kenji Yamashiro
+- Juan C Zenteno
+- Jost B Jonas
+- Rajesh S Kumar
+- Shamira A Perera
+- Anita S Y Chan
+- Nino Kobakhidze
+- Ronnie George
+- Lingam Vijaya
+- Tan Do
+- Deepak P Edward
+- Lourdes de Juan Marcos
+- Mohammad Pakravan
+- Sasan Moghimi
+- Ryuichi Ideta
+- Daniella Bach-Holm
+- Per Kappelgaard
+- Barbara Wirostko
+- Samuel Thomas
+- Daniel Gaston
+- Karen Bedard
+- Wenda L Greer
+- Zhenglin Yang
+- Xueyi Chen
+- Lulin Huang
+- Jinghong Sang
+- Hongyan Jia
+- Liyun Jia
+- Chunyan Qiao
+- Hui Zhang
+- Xuyang Liu
+- Bowen Zhao
+- Ya-Xing Wang
+- Liang Xu
+- Stéphanie Leruez
+- Pascal Reynier
+- George Chichua
+- Sergo Tabagari
+- Steffen Uebe
+- Matthias Zenkel
+- Daniel Berner
+- Georg Mossböck
+- Nicole Weisschuh
+- Ursula Hoja
+- Ulrich-Christoph Welge-Luessen
+- Christian Mardin
+- Panayiota Founti
+- Anthi Chatzikyriakidou
+- Theofanis Pappas
+- Eleftherios Anastasopoulos
+- Alexandros Lambropoulos
+- Arkasubhra Ghosh
+- Rohit Shetty
+- Natalia Porporato
+- Vijayan Saravanan
+- Rengaraj Venkatesh
+- Chandrashekaran Shivkumar
+- Narendran Kalpana
+- Sripriya Sarangapani
+- Mozhgan R Kanavi
+- Afsaneh Naderi Beni
+- Shahin Yazdani
+- Alireza lashay
+- Homa Naderifar
+- Nassim Khatibi
+- Antonio Fea
+- Carlo Lavia
+- Laura Dallorto
+- Teresa Rolle
+- Paolo Frezzotti
+- Daniela Paoli
+- Erika Salvi
+- Paolo Manunta
+- Yosai Mori
+- Kazunori Miyata
+- Tomomi Higashide
+- Etsuo Chihara
+- Satoshi Ishiko
+- Akitoshi Yoshida
+- Masahide Yanagi
+- Yoshiaki Kiuchi
+- Tsutomu Ohashi
+- Toshiya Sakurai
+- Takako Sugimoto
+- Hideki Chuman
+- Makoto Aihara
+- Masaru Inatani
+- Masahiro Miyake
+- Norimoto Gotoh
+- Fumihiko Matsuda
+- Nagahisa Yoshimura
+- Yoko Ikeda
+- Morio Ueno
+- Chie Sotozono
+- Jin Wook Jeoung
+- Min Sagong
+- Kyu Hyung Park
+- Jeeyun Ahn
+- Marisa Cruz-Aguilar
+- Sidi M Ezzouhairi
+- Abderrahman Rafei
+- Yaan Fun Chong
+- Xiao Yu Ng
+- Shuang Ru Goh
+- Yueming Chen
+- Victor H K Yong
+- Muhammad Imran Khan
+- Olusola O Olawoye
+- Adeyinka O Ashaye
+- Idakwo Ugbede
+- Adeola Onakoya
+- Nkiru Kizor-Akaraiwe
+- Chaiwat Teekhasaenee
+- Yanin Suwan
+- Wasu Supakontanasan
+- Suhanya Okeke
+- Nkechi J Uche
+- Ifeoma Asimadu
+- Humaira Ayub
+- Farah Akhtar
+- Ewa Kosior-Jarecka
+- Urszula Lukasik
+- Ignacio Lischinsky
+- Vania Castro
+- Rodolfo Perez Grossmann
+- Gordana Sunaric Megevand
+- Sylvain Roy
+- Edward Dervan
+- Eoin Silke
+- Aparna Rao
+- Priti Sahay
+- Pablo Fornero
+- Osvaldo Cuello
+- Delia Sivori
+- Tamara Zompa
+- Richard A Mills
+- Emmanuelle Souzeau
+- Paul Mitchell
+- Jie Jin Wang
+- Alex W Hewitt
+- Michael Coote
+- Jonathan G Crowston
+- Sergei Y Astakhov
+- Eugeny L Akopov
+- Anton Emelyanov
+- Vera Vysochinskaya
+- Gyulli Kazakbaeva
+- Rinat Fayzrakhmanov
+- Saleh A Al-Obeidan
+- Ohoud Owaidhah
+- Leyla Ali Aljasim
+- Balram Chowbay
+- Jia Nee Foo
+- Raphael Q Soh
+- Kar Seng Sim
+- Zhicheng Xie
+- Augustine W O Cheong
+- Shi Qi Mok
+- Hui Meng Soo
+- Xiao Yin Chen
+- Su Qin Peh
+- Khai Koon Heng
+- Rahat Husain
+- Su-Ling Ho
+- Axel M Hillmer
+- Ching-Yu Cheng
+- Francisco A Escudero-Domínguez
+- Rogelio González-Sarmiento
+- Frederico Martinon-Torres
+- Antonio Salas
+- Kessara Pathanapitoon
+- Linda Hansapinyo
+- Boonsong Wanichwecharugruang
+- Naris Kitnarong
+- Anavaj Sakuntabhai
+- Hip X Nguyn
+- Giang T T Nguyn
+- Trình V Nguyn
+- Werner Zenz
+- Alexander Binder
+- Daniela S Klobassa
+- Martin L Hibberd
+- Sonia Davila
+- Stefan Herms
+- Markus M Nöthen
+- Susanne Moebus
+- Robyn M Rautenbach
+- Ari Ziskind
+- Trevor R Carmichael
+- Michele Ramsay
+- Lydia Álvarez
+- Montserrat García
+- Héctor González-Iglesias
+- Pedro P Rodríguez-Calvo
+- Luis Fernández-Vega Cueto
+- Çilingir Oguz
+- Nevbahar Tamcelik
+- Eray Atalay
+- Bilge Batu
+- Dilek Aktas
+- Burcu Kasım
+- M Roy Wilson
+- Anne L Coleman
+- Yutao Liu
+- Pratap Challa
+- Leon Herndon
+- Rachel W Kuchtey
+- John Kuchtey
+- Karen Curtin
+- Craig J Chaya
+- Alan Crandall
+- Linda M Zangwill
+- Tien Yin Wong
+- Masakazu Nakano
+- Shigeru Kinoshita
+- Anneke I den Hollander
+- Eija Vesti
+- John H Fingert
+- Richard K Lee
+- Arthur J Sit
+- Bradford J Shingleton
+- Ningli Wang
+- Daniele Cusi
+- Raheel Qamar
+- Peter Kraft
+- Margaret A Pericak-Vance
+- Soumya Raychaudhuri
+- Steffen Heegaard
+- Tero Kivelä
+- André Reis
+- Friedrich E Kruse
+- Robert N Weinreb
+- Louis R Pasquale
+- Jonathan L Haines
+- Unnur Thorsteinsdottir
+- Fridbert Jonasson
+- R Rand Allingham
+- Dan Milea
+- Robert Ritch
+- Toshiaki Kubota
+- Kei Tashiro
+- Eranga N Vithana
+- Shazia Micheal
+- Fotis Topouzis
+- Jamie E Craig
+- Michael Dubina
+- Periasamy Sundaresan
+- Kari Stefansson
+- Janey L Wiggs
+- Francesca Pasutto
+- Chiea Chuen Khor
+journal: Nature Genetics
+year: '2017'
+doi: 10.1038/ng.3875
+content_type: unavailable
+is_preprint: false
+---
+
+# Genetic association study of exfoliation syndrome identifies a protective rare variant at LOXL1 and five new susceptibility loci
+**Authors:** Tin Aung, Mineo Ozaki, Mei Chin Lee, Ursula Schlötzer-Schrehardt, Gudmar Thorleifsson, Takanori Mizoguchi, Robert P Igo, Aravind Haripriya, Susan E Williams, Yury S Astakhov, Andrew C Orr, Kathryn P Burdon, Satoko Nakano, Kazuhiko Mori, Khaled Abu-Amero, Michael Hauser, Zheng Li, Gopalakrishnan Prakadeeswari, Jessica N Cooke Bailey, Alina Popa Cherecheanu, Jae H Kang, Sarah Nelson, Ken Hayashi, Shin-ichi Manabe, Shigeyasu Kazama, Tomasz Zarnowski, Kenji Inoue, Murat Irkec, Miguel Coca-Prados, Kazuhisa Sugiyama, Irma Järvelä, Patricio Schlottmann, S Fabian Lerner, Hasnaa Lamari, Yildirim Nilgün, Mukharram Bikbov, Ki Ho Park, Soon Cheol Cha, Kenji Yamashiro, Juan C Zenteno, Jost B Jonas, Rajesh S Kumar, Shamira A Perera, Anita S Y Chan, Nino Kobakhidze, Ronnie George, Lingam Vijaya, Tan Do, Deepak P Edward, Lourdes de Juan Marcos, Mohammad Pakravan, Sasan Moghimi, Ryuichi Ideta, Daniella Bach-Holm, Per Kappelgaard, Barbara Wirostko, Samuel Thomas, Daniel Gaston, Karen Bedard, Wenda L Greer, Zhenglin Yang, Xueyi Chen, Lulin Huang, Jinghong Sang, Hongyan Jia, Liyun Jia, Chunyan Qiao, Hui Zhang, Xuyang Liu, Bowen Zhao, Ya-Xing Wang, Liang Xu, Stéphanie Leruez, Pascal Reynier, George Chichua, Sergo Tabagari, Steffen Uebe, Matthias Zenkel, Daniel Berner, Georg Mossböck, Nicole Weisschuh, Ursula Hoja, Ulrich-Christoph Welge-Luessen, Christian Mardin, Panayiota Founti, Anthi Chatzikyriakidou, Theofanis Pappas, Eleftherios Anastasopoulos, Alexandros Lambropoulos, Arkasubhra Ghosh, Rohit Shetty, Natalia Porporato, Vijayan Saravanan, Rengaraj Venkatesh, Chandrashekaran Shivkumar, Narendran Kalpana, Sripriya Sarangapani, Mozhgan R Kanavi, Afsaneh Naderi Beni, Shahin Yazdani, Alireza lashay, Homa Naderifar, Nassim Khatibi, Antonio Fea, Carlo Lavia, Laura Dallorto, Teresa Rolle, Paolo Frezzotti, Daniela Paoli, Erika Salvi, Paolo Manunta, Yosai Mori, Kazunori Miyata, Tomomi Higashide, Etsuo Chihara, Satoshi Ishiko, Akitoshi Yoshida, Masahide Yanagi, Yoshiaki Kiuchi, Tsutomu Ohashi, Toshiya Sakurai, Takako Sugimoto, Hideki Chuman, Makoto Aihara, Masaru Inatani, Masahiro Miyake, Norimoto Gotoh, Fumihiko Matsuda, Nagahisa Yoshimura, Yoko Ikeda, Morio Ueno, Chie Sotozono, Jin Wook Jeoung, Min Sagong, Kyu Hyung Park, Jeeyun Ahn, Marisa Cruz-Aguilar, Sidi M Ezzouhairi, Abderrahman Rafei, Yaan Fun Chong, Xiao Yu Ng, Shuang Ru Goh, Yueming Chen, Victor H K Yong, Muhammad Imran Khan, Olusola O Olawoye, Adeyinka O Ashaye, Idakwo Ugbede, Adeola Onakoya, Nkiru Kizor-Akaraiwe, Chaiwat Teekhasaenee, Yanin Suwan, Wasu Supakontanasan, Suhanya Okeke, Nkechi J Uche, Ifeoma Asimadu, Humaira Ayub, Farah Akhtar, Ewa Kosior-Jarecka, Urszula Lukasik, Ignacio Lischinsky, Vania Castro, Rodolfo Perez Grossmann, Gordana Sunaric Megevand, Sylvain Roy, Edward Dervan, Eoin Silke, Aparna Rao, Priti Sahay, Pablo Fornero, Osvaldo Cuello, Delia Sivori, Tamara Zompa, Richard A Mills, Emmanuelle Souzeau, Paul Mitchell, Jie Jin Wang, Alex W Hewitt, Michael Coote, Jonathan G Crowston, Sergei Y Astakhov, Eugeny L Akopov, Anton Emelyanov, Vera Vysochinskaya, Gyulli Kazakbaeva, Rinat Fayzrakhmanov, Saleh A Al-Obeidan, Ohoud Owaidhah, Leyla Ali Aljasim, Balram Chowbay, Jia Nee Foo, Raphael Q Soh, Kar Seng Sim, Zhicheng Xie, Augustine W O Cheong, Shi Qi Mok, Hui Meng Soo, Xiao Yin Chen, Su Qin Peh, Khai Koon Heng, Rahat Husain, Su-Ling Ho, Axel M Hillmer, Ching-Yu Cheng, Francisco A Escudero-Domínguez, Rogelio González-Sarmiento, Frederico Martinon-Torres, Antonio Salas, Kessara Pathanapitoon, Linda Hansapinyo, Boonsong Wanichwecharugruang, Naris Kitnarong, Anavaj Sakuntabhai, Hip X Nguyn, Giang T T Nguyn, Trình V Nguyn, Werner Zenz, Alexander Binder, Daniela S Klobassa, Martin L Hibberd, Sonia Davila, Stefan Herms, Markus M Nöthen, Susanne Moebus, Robyn M Rautenbach, Ari Ziskind, Trevor R Carmichael, Michele Ramsay, Lydia Álvarez, Montserrat García, Héctor González-Iglesias, Pedro P Rodríguez-Calvo, Luis Fernández-Vega Cueto, Çilingir Oguz, Nevbahar Tamcelik, Eray Atalay, Bilge Batu, Dilek Aktas, Burcu Kasım, M Roy Wilson, Anne L Coleman, Yutao Liu, Pratap Challa, Leon Herndon, Rachel W Kuchtey, John Kuchtey, Karen Curtin, Craig J Chaya, Alan Crandall, Linda M Zangwill, Tien Yin Wong, Masakazu Nakano, Shigeru Kinoshita, Anneke I den Hollander, Eija Vesti, John H Fingert, Richard K Lee, Arthur J Sit, Bradford J Shingleton, Ningli Wang, Daniele Cusi, Raheel Qamar, Peter Kraft, Margaret A Pericak-Vance, Soumya Raychaudhuri, Steffen Heegaard, Tero Kivelä, André Reis, Friedrich E Kruse, Robert N Weinreb, Louis R Pasquale, Jonathan L Haines, Unnur Thorsteinsdottir, Fridbert Jonasson, R Rand Allingham, Dan Milea, Robert Ritch, Toshiaki Kubota, Kei Tashiro, Eranga N Vithana, Shazia Micheal, Fotis Topouzis, Jamie E Craig, Michael Dubina, Periasamy Sundaresan, Kari Stefansson, Janey L Wiggs, Francesca Pasutto, Chiea Chuen Khor
+**Journal:** Nature Genetics (2017)
+**DOI:** [10.1038/ng.3875](https://doi.org/10.1038/ng.3875)
+
+## Content

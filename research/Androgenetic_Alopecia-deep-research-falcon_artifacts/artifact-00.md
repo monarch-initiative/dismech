@@ -1,0 +1,16 @@
+| Domain | Curated finding | Suggested ontology/identifier | Evidence type/strength |
+|---|---|---|---|
+| Disease Identifiers | Androgenetic alopecia (Male/Female Pattern Hair Loss); MONDO:0007184 is a historical subtype | MONDO:0005339 | Consensus/Standard |
+| Clinical Phenotypes | Progressive follicular miniaturization, anagen shortening, patterned hair loss (Hamilton-Norwood / Ludwig), vellus hair replacement | HP:0002286 (Premature baldness), HP:0001596 (Alopecia), HP:0011364 (Thinning hair) | Human clinical (pqac-00000003, pqac-00000005) |
+| Anatomy & Cellular | Scalp hair follicle dermal papilla cells, follicular stem cells; regional sparing of occipital scalp | UBERON:0002073 (hair follicle), CL:0002551 (hair follicle dermal papilla cell) | Human clinical/Histology (pqac-00000001, pqac-00000003) |
+| Susceptibility Genetics | Polygenic inheritance; strong signals at AR/EDA2R (Chr X), SRD5A2, FGF5, WNT10A, HDAC9. Not monogenic causal. | HGNC: AR, SRD5A2, WNT10A, FGF5 | GWAS, Human genetics (pqac-00000000, pqac-00000004) |
+| Molecular Pathways | DHT-AR signaling, WNT/beta-catenin suppression, DKK1 induction, premature senescence, prostaglandin dysregulation (PGD2) | GO:0043401 (steroid hormone mediated signaling), GO:0016055 (Wnt signaling pathway) | In vitro, Transcriptomics, Human genetics (pqac-00000003, pqac-00000004) |
+| Diagnostics | Clinical pattern recognition; Trichoscopy: hair diameter diversity (>20%), peripilar signs, short vellus hairs, increased single-hair units | Clinical finding, Dermoscopy | Human clinical/Systematic review (pqac-00000018, pqac-00000021) |
+| Epidemiology | High prevalence: ~30% of men by age 30, up to 50% of men and 40% of women by age 50; strong familial clustering | Epidemiologic statistics | Human population studies (pqac-00000002, pqac-00000005) |
+| Pharmacotherapy | Topical minoxidil (FDA-approved), oral finasteride (FDA-approved for men), off-label dutasteride, oral minoxidil, spironolactone | NCIT:C62024 (Minoxidil), NCIT:C1265 (Finasteride), NCIT:C47491 (Dutasteride) | High-quality RCTs, Network Meta-analyses (pqac-00000009, pqac-00000013) |
+| Procedural Therapy | Platelet-rich plasma (PRP), microneedling, low-level laser therapy (LLLT), follicular unit transplantation | NCIT:C175492 (Platelet Rich Plasma), NCIT:C154215 (Low Level Light Therapy) | Moderate RCTs, Systemic Reviews (pqac-00000009, pqac-00000010) |
+| Prognosis & QoL | Chronic, progressive course without treatment; associated with anxiety, depression, and significant psychosocial burden | PROMIS, EQ-5D, SF-36 | Observational, Population studies (pqac-00000016, pqac-00000022) |
+| Experimental Models | DHT-induced murine models, stump-tailed macaque, microfollicles, human dermal papilla explants and skin organoids | Model organism/In vitro | Animal/Organoid studies (pqac-00000004, pqac-00000008) |
+
+
+*Table: This table provides a compact, ontology-mapped summary of key disease characteristics for androgenetic alopecia, curated from clinical and genomic literature.*

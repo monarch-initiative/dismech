@@ -1,0 +1,24 @@
+---
+reference_id: DOI:10.1002/ajmg.a.32242
+title: Highly variable cutis laxa resulting from a dominant splicing mutation of the elastin gene
+authors:
+- Luitgard M. Graul‐Neumann
+- Ingrid Hausser
+- Maximilian Essayie
+- Anita Rauch
+- Cornelia Kraus
+journal: American Journal of Medical Genetics Part A
+year: '2008'
+doi: 10.1002/ajmg.a.32242
+content_type: abstract_only
+is_preprint: false
+---
+
+# Highly variable cutis laxa resulting from a dominant splicing mutation of the elastin gene
+**Authors:** Luitgard M. Graul‐Neumann, Ingrid Hausser, Maximilian Essayie, Anita Rauch, Cornelia Kraus
+**Journal:** American Journal of Medical Genetics Part A (2008)
+**DOI:** [10.1002/ajmg.a.32242](https://doi.org/10.1002/ajmg.a.32242)
+
+## Content
+
+AbstractAutosomal dominant congenital cutis laxa (ADCL) is genetically heterogeneous and shows clinical variability. Only seven ADCL families with mutations in the elastin gene (ELN) have been described previously. We present morphological and molecular genetic studies in a cutis laxa kindred with a previously undescribed highly variable phenotype caused by a novel ELN mutation c.1621 C > T. The proband presented with severe cutis laxa, severe congenital lung disease previously undescribed in ADCL and pulmonary artery disease, which is often seen in ARCL but rare in ADCL. He also developed infantile spasms (OMIM 308350; West syndrome), which we consider a coincidental association although recessive cutis laxa or even digenic inheritance cannot be excluded. Electron microscopy of the proband's dermis revealed only mild rarefication of elastic fibers (in contrast to most recessive cutis laxa types). Apart from mild elastic fiber fragmentation, dermal morphology of the proband's father was within normal range. Molecular analysis of the ELN gene using genomic DNA from blood and RNA from cultured skin fibroblasts indicated a novel splice site mutation in the proband and his clinically healthy father. Analysis of ELN expression in fibroblasts provided evidence for a dominant‐negative effect in the child, while due to an unknown mechanism, the father showed haploinsufficiency which might explain the significant clinical variability. © 2008 Wiley‐Liss, Inc.
