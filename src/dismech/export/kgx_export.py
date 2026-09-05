@@ -485,15 +485,30 @@ _PROTECTIVE_EFFECT_PATTERNS = (
 )
 
 
-def _exposure_predicate(effect: str | None, links: list[dict[str, Any]] | None = None) -> str:
+#: Disease-level `disease_effect` values that make the exposure protective.
+_PROTECTIVE_DISEASE_EFFECTS = frozenset({"PROTECTS_AGAINST"})
+
+
+def _exposure_predicate(
+    effect: str | None,
+    links: list[dict[str, Any]] | None = None,
+    disease_effect: str | None = None,
+) -> str:
     """Map an environmental entry to a Biolink predicate.
 
-    The structured `influences_mechanisms[].environmental_effect` enum wins when
-    present: if the entry declares mechanism links and *every* one is
-    `PROTECTS_AGAINST`, the exposure is protective. Requiring unanimity keeps the
-    disease-level KGX edge honest, since one exposure can protect against one
-    mechanism while driving another; a mixed set falls back to the free-text
-    reading below rather than picking a winner.
+    Three sources, most authoritative first.
+
+    `disease_effect` wins outright when set. It is the curator's own statement
+    about the disease, which is exactly what this edge asserts, so nothing
+    downstream of it needs to be consulted or reconciled.
+
+    Failing that, the `influences_mechanisms[].environmental_effect` enum: if the
+    entry declares mechanism links and *every* one is `PROTECTS_AGAINST`, the
+    exposure is read as protective. Requiring unanimity keeps the disease-level
+    edge honest, since one exposure can protect against one mechanism while
+    driving another; a mixed set falls through rather than picking a winner. This
+    rule exists because there was no way to state the disease-level claim
+    directly, and `disease_effect` is the replacement for it (issue #11112).
 
     Otherwise, returns `biolink:associated_with_decreased_likelihood_of` when the
     curated `effect` text matches one of the protective phrasings below
@@ -511,6 +526,11 @@ def _exposure_predicate(effect: str | None, links: list[dict[str, Any]] | None =
     entries should set `environmental_effect: PROTECTS_AGAINST` on the mechanism
     link, or failing that phrase the `effect` text to match one of the patterns
     above; see #2098 and #8033 for context."""
+    if disease_effect:
+        if disease_effect in _PROTECTIVE_DISEASE_EFFECTS:
+            return "biolink:associated_with_decreased_likelihood_of"
+        return "biolink:contributes_to"
+
     declared_effects = [
         link.get("environmental_effect")
         for link in (links or [])
@@ -550,6 +570,7 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     predicate = _exposure_predicate(
         environmental.get("effect"),
         environmental.get("influences_mechanisms"),
+        environmental.get("disease_effect"),
     )
     return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(),
