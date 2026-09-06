@@ -1,0 +1,331 @@
+schema_version: "1.0"
+provider: openscientist
+assessor: claude-code
+source_report: ../openscientist.md
+hypothesis_id: phyma_fibroblast_identity
+assessed_at: "2026-09-06T19:20:00Z"
+overall_verdict: PARTIALLY_SUPPORTED
+summary: >-
+  Although launched on the literature template, the provider downloaded
+  the E-MTAB-16629 rhinophyma / hypertrophic scar / healthy skin
+  single-cell atlas (nine processed 10x files plus SDRF/IDF, logged with
+  byte sizes) and ran an exploratory scanpy analysis. Its result splits
+  the hypothesis: the biomarker claim fails, the identity claim holds in
+  qualified form. PTGDS, the pro-inflammatory fibroblast marker from
+  papulopustular disease, is lowest in rhinophyma fibroblasts (5.0%
+  positive) and highest in healthy fibroblasts (54.5%), tracks the
+  quiescent markers CFD and APOD, and the few PTGDS-high rhinophyma
+  cells are endothelial; no hidden PTGDS-high fibroblast subset exists.
+  Rhinophyma fibroblasts are nonetheless not scar myofibroblasts: they
+  are ACTA2-activated (38.9%) but lack the POSTN/CTHRC1 persistence
+  program that defines hypertrophic scar (POSTN 3.1% vs 46.4%, CTHRC1
+  8.0% vs 43.4%) and express reticular and inflammatory chemokines
+  (CCL19, CXCL12, CCL2) above scar levels. The report reads this as an
+  inflammatory-but-non-persistent activated fibroblast, consistent with
+  post-surgical reversibility. Every computational claim rests on one
+  donor per condition, marker-score lineage assignment without
+  integration, a proxy for the papulopustular signature because Chen et
+  al.'s data have no public accession, and possible ambient-RNA spillover
+  in an immune-rich rhinophyma sample; the committed script does not
+  regenerate the result tables, a Leiden step failed on the executor
+  limit, and one figure is local-only. The analyses are therefore
+  partially auditable exploratory descriptions, not reproducible
+  replications, and the hypothesis label should drop PTGDS as the
+  marker. Twelve references resolved, none unresolved.
+artifacts:
+  - openscientist-assessment-by-claude-code.yaml
+artifact_root: ../openscientist_artifacts
+data_sources:
+  - data_source_id: arrayexpress-e-mtab-16629
+    source_type: PUBLIC_DATASET
+    name: Distinct diversity of skin cell populations of rhinophyma and hypertrophic scar illustrated by scRNA-seq
+    identifier: arrayexpress:E-MTAB-16629
+    uri: https://www.ebi.ac.uk/biostudies/studies/E-MTAB-16629
+    retrieved_at: "2026-09-06T18:30:00Z"
+    access_status: ACCESSED
+    cohort: one rhinophyma, one hypertrophic scar (chest, 22-year-old man) and one healthy skin sample; no biological replicates
+    organism: Homo sapiens
+    tissue: nasal phyma, chest scar, healthy skin
+    assay: 10x Chromium 3' v3 single-cell RNA-seq, processed Cell Ranger matrices
+    source_artifacts:
+      - ../openscientist_artifacts/logs/dataset_access_log.md
+      - ../openscientist_artifacts/results/lineage_composition.csv
+    notes: >-
+      Access log records HTTP 200 on the BioStudies API and the nine
+      matrix/features/barcodes files with byte sizes; checksums were not
+      computed because the executor was ephemeral, and the raw files are
+      not bundled. Relevance is direct: this is the atlas the hypothesis
+      names. After QC the rhinophyma sample is immune- and
+      endothelial-dominated (fibroblasts about 7% of cells), which the
+      provider flags as a possible dissociation or composition bias.
+  - data_source_id: pubmed-searches
+    source_type: DATABASE
+    name: PubMed literature searches for rhinophyma fibroblast identity
+    identifier: pubmed
+    uri: https://pubmed.ncbi.nlm.nih.gov/
+    retrieved_at: "2026-09-06T18:30:00Z"
+    access_status: ACCESSED
+    query: 14 logged queries on rhinophyma, phyma fibroblasts, PTGDS, POSTN/CTHRC1 scar persistence and rosacea single-cell studies
+    source_artifacts:
+      - ../openscientist_artifacts/logs/pubmed_search_log.md
+    notes: >-
+      Some queries returned zero hits or were rate-limited, as logged. The
+      report states it did not query GenCC, ClinGen, the GWAS Catalog,
+      ClinicalTrials.gov or GEO for an independent rhinophyma cohort, and
+      correctly records those as unverified rather than absent.
+  - data_source_id: chen-2024-papulopustular-scrnaseq
+    source_type: PUBLICATION_SUPPLEMENT
+    name: Papulopustular rosacea single-cell atlas of Chen et al. 2024 (PMID:39384741)
+    identifier: PMID:39384741
+    uri: https://doi.org/10.1038/s41467-024-52946-7
+    access_status: CITED_NOT_ACCESSED
+    notes: >-
+      The natural comparator for the hypothesis. No public accession was
+      found for its data, so the provider substituted PTGDS plus a proxy
+      pro-inflammatory gene set for the published signature and could not
+      build a joint embedding; that substitution bounds every comparative
+      claim below.
+analyses:
+  - analysis_id: fibroblast-marker-comparison
+    status: PARTIAL
+    auditability: PARTIALLY_AUDITABLE
+    method: >-
+      Per-sample scanpy pipeline: QC (min_genes 200, mitochondrial
+      fraction under 20%), normalize_total(1e4) and log1p, lineage by
+      canonical-marker score argmax, fibroblast subset, then per-gene mean
+      and percent-positive plus composite pro-inflammatory and
+      myofibroblast scores; seed 0.
+    comparison: >-
+      Fibroblast marker profiles in rhinophyma (n = 540 cells) vs
+      hypertrophic scar (2024) vs healthy skin (701), one donor each.
+    input_data_source_ids:
+      - arrayexpress-e-mtab-16629
+    software:
+      - software_name: python
+        software_version: "3.12"
+      - software_name: scanpy
+        software_version: "1.12.1"
+      - software_name: anndata
+        software_version: "0.12.6"
+      - software_name: scipy
+        software_version: "1.17.1"
+      - software_name: numpy
+        software_version: "2.3.5"
+      - software_name: pandas
+        software_version: "3.0.3"
+    parameters:
+      - "QC: min_genes=200, pct_counts_mt<20, min_cells=3"
+      - "normalization: normalize_total target 1e4, log1p"
+      - "lineage: score_genes argmax over eight marker sets, ACTA2/TAGLN excluded from the mural set so myofibroblasts stay fibroblast"
+      - "composite sets: PROINFLAM 12 genes including PTGDS, MYOFIB 8 genes"
+      - "seed: np.random.seed(0); one sample per executor call"
+    code_artifacts:
+      - ../openscientist_artifacts/code/fibroblast_marker_analysis.py
+    environment_artifact: ../openscientist_artifacts/environment.txt
+    output_artifacts:
+      - ../openscientist_artifacts/results/fibroblast_marker_table.csv
+      - ../openscientist_artifacts/results/lineage_composition.csv
+    status_reason: >-
+      The analysis was executed and its outputs are committed with
+      checksums that match the manifest, and the committed code is the
+      pipeline that produced the per-sample objects. It is not
+      reproducible from the bundle: the script prints summary scores and
+      does not write the two result tables, the derived per-gene
+      percentages were assembled interactively in an executor with no
+      persistence, the raw inputs are recorded by byte size only, and the
+      manifest itself expects agreement only within scanpy score_genes
+      tolerance. The assessor did not attempt a replay. As with the other
+      runs, the client download had dropped MANIFEST.yaml, environment.txt
+      and the code/, logs/ and results/ layout, which were restored from
+      the job's artifacts zip and five flattened duplicates removed after
+      byte-identity checks; the manifest was left as written because this
+      template carries no execution gate.
+    limitations: >-
+      One donor per condition, so no cross-donor statistics are possible
+      and a sample-specific capture effect on fibroblast PTGDS cannot be
+      excluded. Marker-argmax lineage assignment without integration or
+      subclustering. Absolute expression across samples is confounded by
+      depth and dropout; percent-positive is the more robust column. The
+      papulopustular signature was a single gene plus a proxy set, not the
+      published gene list.
+  - analysis_id: rhinophyma-ptgds-robustness
+    status: PARTIAL
+    auditability: PARTIALLY_AUDITABLE
+    method: >-
+      Clustering-free check on the rhinophyma sample: rank all 7505
+      QC-passed cells by PTGDS, profile lineage-marker scores in the top
+      5% versus the rest, and measure PTGDS within a stringent fibroblast
+      gate (COL1A1>1, DCN>0.5, PECAM1<0.5, LYZ<0.5; n = 224).
+    comparison: >-
+      PTGDS-high cells vs remaining rhinophyma cells; PTGDS and ACTA2
+      positivity within gated fibroblasts.
+    input_data_source_ids:
+      - arrayexpress-e-mtab-16629
+    output_artifacts:
+      - ../openscientist_artifacts/results/rhinophyma_ptgds_robustness.md
+    status_reason: >-
+      Executed and reported with numbers, but no code artifact for this
+      step is committed and the result is a narrative markdown file, so it
+      is inspectable but not regenerable. It replaced a Leiden
+      subclustering step that failed on the executor's 60-second limit.
+    limitations: >-
+      Single donor; the test addresses the coarse-assignment artifact
+      explanation only, not batch effects.
+  - analysis_id: inflammatory-chemokine-comparison
+    status: PARTIAL
+    auditability: PARTIALLY_AUDITABLE
+    method: >-
+      Percent-positive for CCL19, CXCL12, CCL2 and IL6 within the
+      fibroblast lineage, rhinophyma versus hypertrophic scar.
+    comparison: >-
+      Rhinophyma vs hypertrophic scar fibroblasts, one donor each.
+    input_data_source_ids:
+      - arrayexpress-e-mtab-16629
+    output_artifacts:
+      - ../openscientist_artifacts/results/fibroblast_marker_table.csv
+    status_reason: >-
+      The numbers are in the committed marker table; the bar-plot figure
+      the manifest lists as its output was rendered only in the sandbox
+      plot gallery and is recorded as local-only, not produced into the
+      bundle.
+    limitations: >-
+      The rhinophyma sample is immune- and endothelial-rich, so ambient
+      RNA spillover of immune chemokines into fibroblast barcodes may
+      inflate these fractions; no decontamination was applied.
+  - analysis_id: leiden-subclustering
+    status: FAILED
+    auditability: UNVERIFIABLE
+    method: >-
+      Highly variable genes, PCA, neighbours and Leiden clustering of the
+      rhinophyma sample to look for a PTGDS-high fibroblast subcluster.
+    input_data_source_ids:
+      - arrayexpress-e-mtab-16629
+    status_reason: >-
+      Exceeded the executor's 60-second wall-clock limit; no output. The
+      provider substituted the clustering-free robustness check above and
+      says so.
+  - analysis_id: joint-embedding-with-papulopustular
+    status: SKIPPED
+    auditability: UNVERIFIABLE
+    method: >-
+      Co-embedding of rhinophyma fibroblasts with the papulopustular
+      single-cell data to test signature transfer directly.
+    input_data_source_ids:
+      - arrayexpress-e-mtab-16629
+      - chen-2024-papulopustular-scrnaseq
+    status_reason: >-
+      Not possible: the papulopustular dataset has no public accession.
+      This is the analysis that would settle the hypothesis.
+claims:
+  - claim_id: ptgds-low-in-rhinophyma-fibroblasts
+    statement: >-
+      In E-MTAB-16629, PTGDS is lowest in rhinophyma fibroblasts and
+      highest in healthy fibroblasts, behaves as a homeostatic
+      dermal-fibroblast marker, and the residual PTGDS in rhinophyma is
+      endothelial.
+    disposition: QUALIFIED
+    report_quote: >-
+      PTGDS is *lowest* in rhinophyma fibroblasts (5.0% positive) and *highest* in healthy-skin fibroblasts (54.5%), with hypertrophic scar intermediate (22.7%).
+    rationale: >-
+      The committed marker table and robustness note carry these numbers
+      and their checksums match the manifest. The direction is strong and
+      the endothelial localization of PTGDS-high cells is a good control
+      against a lineage-assignment artifact. Qualified because the
+      analyses are partially auditable and rest on a single rhinophyma
+      donor, so the claim is exploratory evidence against the biomarker
+      transfer, not a refutation. It does not bear on Chen et al.'s
+      papulopustular finding, which was made in a different subtype.
+    citations:
+      - PMID:39384741
+    analysis_ids:
+      - fibroblast-marker-comparison
+      - rhinophyma-ptgds-robustness
+  - claim_id: rhinophyma-fibroblasts-lack-scar-persistence-program
+    statement: >-
+      Rhinophyma fibroblasts are ACTA2-activated but lack the POSTN and
+      CTHRC1 expression that marks hypertrophic scar myofibroblasts, and
+      express CCL19, CXCL12 and CCL2 above scar levels.
+    disposition: QUALIFIED
+    report_quote: >-
+      that defines hypertrophic scar (POSTN 3.1% vs 46.4%; CTHRC1 8.0% vs 43.4%)
+    rationale: >-
+      Numbers are in the committed table. This is the substantive support
+      for the identity half of the hypothesis and the more useful output
+      of the run: it offers a molecular reason (absence of the
+      POSTN-centred persistence loop) for why phyma regresses after
+      debulking while scar recurs. Qualified for the same single-donor,
+      proxy-signature and ambient-RNA reasons; the chemokine fractions in
+      particular may be inflated in an immune-rich sample.
+    analysis_ids:
+      - fibroblast-marker-comparison
+      - inflammatory-chemokine-comparison
+  - claim_id: single-donor-design
+    statement: >-
+      The atlas has one individual per condition, so no cross-donor
+      statistics are possible.
+    disposition: RETAINED
+    report_quote: >-
+      Checked: SDRF confirms n=1/condition.
+    rationale: >-
+      Confirmed from the dataset access log and the SDRF summary; the
+      repository record lists three samples. This is the dominant
+      limitation and the report states it repeatedly.
+  - claim_id: hypertrophic-scar-myofibroblast-persistence
+    statement: >-
+      Hypertrophic scar is characterized by excessive development and
+      persistence of myofibroblasts, and POSTN is over-expressed in keloid
+      and hypertrophic scar but largely absent from sites of inflammation.
+    disposition: RETAINED
+    report_quote: >-
+      PMID 25421393: "Hypertrophic scarring is characterized by the excessive development and persistence of myofibroblasts."
+    rationale: >-
+      Both quotes verified verbatim against the cached records of
+      PMID:25421393 and PMID:20531985. They supply the literature contrast
+      the identity claim depends on and are candidates for the disease
+      YAML's differential framing of phyma versus scar.
+    citations:
+      - PMID:25421393
+      - PMID:20531985
+  - claim_id: ptgds-context-dependent
+    statement: >-
+      PTGDS is enriched in pro-inflammatory fibroblasts associated with
+      skin fibrosis in systemic sclerosis, so it does not by itself
+      separate an inflammatory-reversible from a fibrotic-persistent
+      fibroblast state.
+    disposition: RETAINED
+    report_quote: >-
+      Checked: PMID 40478772 shows PTGDS+ fibroblasts are profibrotic in SSc.
+    rationale: >-
+      The cached abstract of PMID:40478772 states that PTGDS has enriched
+      expression in pro-inflammatory fibroblasts associated with skin
+      fibrosis; the report's candidate snippet elides part of that
+      sentence and must be quoted in full if promoted. The point stands:
+      PTGDS positivity is not a marker of reversibility.
+    citations:
+      - PMID:40478772
+  - claim_id: reversibility-inferred
+    statement: >-
+      Post-surgical reversibility of rhinophyma is inferred from the
+      absence of the persistence program and from clinical staging, not
+      demonstrated longitudinally.
+    disposition: RETAINED
+    report_quote: >-
+      not directly demonstrated longitudinally.
+    rationale: >-
+      Correct scoping by the report. PMID:42423091's staging statement
+      (verified) supports that established fibrotic rhinophyma is managed
+      surgically, but no pre/post-debulking molecular data exist.
+    citations:
+      - PMID:42423091
+  - claim_id: leiden-step-failed
+    statement: >-
+      The Leiden subclustering intended to search for a PTGDS-high
+      fibroblast subcluster did not run.
+    disposition: RETAINED
+    report_quote: >-
+      none — exceeded 60 s executor limit; replaced by clustering-free test
+    rationale: >-
+      Honestly reported as failed in both the report and the manifest,
+      with the substitute analysis named; see the leiden-subclustering
+      entry in the analysis inventory. Recorded so the absence of a
+      subclustering result is not read as a negative finding.
