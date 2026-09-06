@@ -1,0 +1,38 @@
+# Odonto-Onycho-Dermal Dysplasia
+
+Boomer grounding analysis for [`kb/disorders/Odonto-Onycho-Dermal_Dysplasia.yaml`](../../../../kb/disorders/Odonto-Onycho-Dermal_Dysplasia.yaml).
+
+- **Entry term:** [`MONDO:0009773`](http://purl.obolibrary.org/obo/MONDO_0009773) odonto-onycho-dermal dysplasia
+- **Grounded subtypes:** 2
+- **Verdicts:** SILENT 2
+
+## Subtypes
+
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SSPS | `MONDO:0009145` | Schöpf-Schulz-Passarge syndrome | `SILENT` | silent (MESH, OMIM, ORDO) |
+| STHAG4 | `MONDO:0007881` | tooth agenesis, selective, 4 | `SILENT` | silent (MESH, OMIM) |
+
+## What boomer did
+
+All identity mappings were accepted together - dismech's subtype hierarchy, the
+mappings, and MONDO's hierarchy are jointly consistent for this entry.
+
+2 subtype(s) are `SILENT`: MONDO asserts no path between the
+terms in either direction. That is consistent (nothing is violated) but
+uncorroborated, and generally indicates a missing `is_a` edge in MONDO rather
+than a dismech error. These are candidate MONDO enrichment proposals.
+
+## Verdict meanings
+
+- **`SILENT`** - MONDO relates the two terms in neither direction - usually a missing MONDO `is_a` edge.
+
+## Files
+
+| File | What |
+|---|---|
+| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60 -C 6`. |
+| [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |
+| [`solution.md`](solution.md) | Boomer output, rendered. |
+
+Regenerate with [`../../scripts/build_analyses.py`](../../scripts/build_analyses.py).

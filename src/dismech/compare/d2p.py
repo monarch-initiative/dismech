@@ -44,7 +44,7 @@ _SOURCE_OMIM = "infores:omim"
 _SOURCE_ORDO = "infores:orphanet"
 
 _SOURCE_COLUMNS = ("omim", "ordo")
-_SUPPORTING_EVIDENCE_VALUES = {"SUPPORT", "PARTIAL"}
+_SUPPORTING_EVIDENCE_VALUES = {"SUPPORT"}
 _GENETIC_CATEGORY_KEYWORDS = ("mendelian", "genetic", "chromosomal")
 
 app = typer.Typer(help="Compare dismech phenotypes against OMIM/Orphanet databases.")
@@ -517,7 +517,7 @@ def build_completeness_audit(
                         "unlinked" if phenotype_name in unconnected_names else "linked"
                     ),
                     recommendation=(
-                        "Add exact SUPPORT/PARTIAL evidence for this phenotype or "
+                        "Add exact SUPPORT evidence for this phenotype or "
                         "remove the unsupported assertion."
                     ),
                 )
