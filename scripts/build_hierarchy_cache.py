@@ -137,18 +137,54 @@ def resolve(
     return resolved, unresolved
 
 
-def render_csv(resolved: dict[str, list[tuple[str, str]]], retrieved_at: str) -> str:
+def existing_rows(path: Path) -> dict[str, dict[str, str]]:
+    """Read the committed cache as raw rows, keyed by CURIE, timestamps included."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return {}
+    return {
+        row["curie"]: row
+        for row in csv.DictReader(text.splitlines())
+        if row.get("curie")
+    }
+
+
+def render_csv(
+    resolved: dict[str, list[tuple[str, str]]],
+    retrieved_at: str,
+    previous: dict[str, dict[str, str]] | None = None,
+) -> str:
+    """Serialize the cache, keeping the existing timestamp on unchanged rows.
+
+    A run that re-resolves every CURIE would otherwise restamp every row, so
+    adding one mapping produces a whole-file diff and two PRs adding neighbouring
+    CURIEs collide on every line. The sibling `cache/<prefix>/terms.csv` is
+    incremental for the same reason, and `cache/dataset_accessions.json` is the
+    cautionary tale (see CLAUDE.md). Only a row whose path or labels actually
+    moved gets the new timestamp.
+    """
+    previous = previous or {}
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     writer.writerow(hierarchy_cache.CACHE_HEADER)
     for curie in sorted(resolved):
         pairs = resolved[curie]
+        curies = hierarchy_cache.join_field([node for node, _ in pairs])
+        labels = hierarchy_cache.join_field([label for _, label in pairs])
+        prior = previous.get(curie)
+        unchanged = (
+            prior is not None
+            and prior.get("ancestor_curies") == curies
+            and prior.get("ancestor_labels") == labels
+            and prior.get("retrieved_at")
+        )
         writer.writerow(
             [
                 curie,
-                hierarchy_cache.join_field([node for node, _ in pairs]),
-                hierarchy_cache.join_field([label for _, label in pairs]),
-                retrieved_at,
+                curies,
+                labels,
+                prior["retrieved_at"] if unchanged else retrieved_at,
             ]
         )
     return buffer.getvalue()
@@ -217,8 +253,9 @@ def main() -> int:
         print(f"{prefix}: resolving {len(curies)} CURIE(s)...", flush=True)
         resolved, unresolved = resolve(prefix, curies)
         out = hierarchy_cache.cache_path(prefix, cache_root)
+        previous = existing_rows(out)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(render_csv(resolved, retrieved_at), encoding="utf-8")
+        out.write_text(render_csv(resolved, retrieved_at, previous), encoding="utf-8")
         print(f"  wrote {len(resolved)} path(s) to {out.relative_to(REPO_ROOT)}")
         for curie in unresolved:
             print(f"  unresolved (left to live lookup): {curie}")

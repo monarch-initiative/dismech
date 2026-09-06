@@ -22,7 +22,6 @@ from dismech.render import (
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-
 # --- the committed cache ----------------------------------------------------
 
 
@@ -119,6 +118,54 @@ def test_icd10cm_paths_stop_at_a_chapter_not_at_the_configured_root() -> None:
     assert all(top.startswith("ICD10CM:") for top in tops)
 
 
+def test_rebuild_keeps_the_timestamp_on_unchanged_rows() -> None:
+    """A rebuild must not restamp rows whose path did not move.
+
+    The builder re-resolves every mapped CURIE on every run, so stamping them all
+    with one fresh timestamp would turn a one-mapping addition into a whole-file
+    diff, and make two PRs adding neighbouring CURIEs collide on every line. That
+    is the shape of the `cache/dataset_accessions.json` problem recorded in
+    CLAUDE.md, and `cache/<prefix>/terms.csv` avoids it by being incremental.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "build_hierarchy_cache", REPO_ROOT / "scripts" / "build_hierarchy_cache.py"
+    )
+    builder = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(builder)
+
+    previous = {
+        "NCIT:C1": {
+            "curie": "NCIT:C1",
+            "ancestor_curies": "NCIT:A|NCIT:C1",
+            "ancestor_labels": "Root|One",
+            "retrieved_at": "2020-01-01T00:00:00+00:00",
+        },
+        "NCIT:C2": {
+            "curie": "NCIT:C2",
+            "ancestor_curies": "NCIT:A|NCIT:C2",
+            "ancestor_labels": "Root|Two",
+            "retrieved_at": "2020-01-01T00:00:00+00:00",
+        },
+    }
+    resolved = {
+        "NCIT:C1": [("NCIT:A", "Root"), ("NCIT:C1", "One")],
+        # C2's label moved, so only this row should take the new timestamp.
+        "NCIT:C2": [("NCIT:A", "Root"), ("NCIT:C2", "Two, renamed")],
+        "NCIT:C3": [("NCIT:A", "Root"), ("NCIT:C3", "Three")],
+    }
+    now = "2099-01-01T00:00:00+00:00"
+    rows = list(
+        csv.DictReader(builder.render_csv(resolved, now, previous).splitlines())
+    )
+    stamps = {row["curie"]: row["retrieved_at"] for row in rows}
+
+    assert stamps["NCIT:C1"] == "2020-01-01T00:00:00+00:00"
+    assert stamps["NCIT:C2"] == now, "a changed row must be restamped"
+    assert stamps["NCIT:C3"] == now, "a new row must be stamped"
+
+
 # --- the per-process memo ---------------------------------------------------
 
 
@@ -199,15 +246,18 @@ def test_cache_hit_short_circuits_the_adapter(monkeypatch) -> None:
 # --- the real adapter -------------------------------------------------------
 
 
-@pytest.mark.kb_data
+@pytest.mark.oak_db
 def test_real_oak_adapter_resolves_a_known_ncit_path() -> None:
     """The one test that still exercises a real OAK walk.
 
     The fast suite stubs the adapter factory, so without this nothing would
     notice if the live lookup broke — a renderer that silently stopped
-    producing breadcrumbs would still pass. Marked `kb_data` so it runs under
-    `just test-kb` rather than on every developer save; skipped when the local
-    SQLite build is absent, since that is an environment gap, not a defect.
+    producing breadcrumbs would still pass.
+
+    **This runs on a developer machine and nowhere else.** No CI workflow
+    fetches the OAK SQLite builds, so the skip below is taken in every CI lane
+    including the nightly sweep. `just check-hierarchy-cache` is the offline
+    coverage check that does run there.
     """
     hierarchy = STRICT_HIERARCHIES["NCIT"]
     adapter = _get_oak_adapter(hierarchy["adapter"])
@@ -223,40 +273,83 @@ def test_real_oak_adapter_resolves_a_known_ncit_path() -> None:
     assert len(path) > 1
 
 
-@pytest.mark.kb_data
-def test_committed_cache_agrees_with_the_live_adapter() -> None:
-    """The committed cache must not drift from what OAK actually returns.
+class _MemoisingAdapter:
+    """Answers each parent lookup once, so a whole-prefix sweep stays affordable.
+
+    Terms in one vocabulary share most of their upper ancestry, so walking every
+    cached CURIE independently re-asks the same questions. Against the 2.7 GB
+    NCIT build a single `hierarchical_parents` call costs seconds, which is the
+    difference between this test taking minutes and taking seconds. The builder
+    carries the same wrapper for the same reason.
+    """
+
+    def __init__(self, adapter) -> None:
+        self._adapter = adapter
+        self._parents: dict[str, list[str]] = {}
+
+    def hierarchical_parents(self, term_id: str) -> list[str]:
+        if term_id not in self._parents:
+            self._parents[term_id] = list(self._adapter.hierarchical_parents(term_id))
+        return self._parents[term_id]
+
+    def label(self, term_id: str) -> str:
+        return self._adapter.label(term_id)
+
+
+@pytest.mark.oak_db
+@pytest.mark.parametrize("prefix", sorted(STRICT_HIERARCHIES))
+def test_committed_cache_agrees_with_the_live_adapter(prefix: str) -> None:
+    """Every committed row must match what OAK actually returns, in both prefixes.
 
     A stale cache is worse than no cache: it renders a confidently wrong
-    breadcrumb where a miss would merely be slow.
+    breadcrumb where a miss would merely be slow. Checking one CURIE would leave
+    the other 87 rows unverified, and opening the adapter is the expensive part,
+    so this compares the whole prefix once it is paying for that.
+
+    Local-only, like its neighbour above: no CI workflow fetches the OAK builds.
+    Budget about 15 minutes for the pair against the local ICD10CM and NCIT
+    builds; the memoisation below is what keeps it to that rather than hours.
     """
-    prefix = "NCIT"
     cached = hierarchy_cache.load_hierarchy_cache(prefix)
     if not cached:
-        pytest.skip("no committed NCIT hierarchy cache to compare against")
+        pytest.skip(f"no committed {prefix} hierarchy cache to compare against")
 
     hierarchy = STRICT_HIERARCHIES[prefix]
-    adapter = _get_oak_adapter(hierarchy["adapter"])
-    if adapter is None:
+    raw = _get_oak_adapter(hierarchy["adapter"])
+    if raw is None:
         pytest.skip(f"{hierarchy['adapter']} is not available in this environment")
+    adapter = _MemoisingAdapter(raw)
 
-    curie = min(cached)
-    live = _build_hierarchy_path(adapter, curie, hierarchy["root"])
-    if not live:
-        pytest.skip(f"local build could not resolve {curie}")
+    mismatches = []
+    for curie in sorted(cached):
+        live = _build_hierarchy_path(adapter, curie, hierarchy["root"])
+        if not live:
+            mismatches.append(f"{curie}: cached, but the live build resolves nothing")
+            continue
+        stored = [node for node, _ in cached[curie]]
+        if stored != live:
+            mismatches.append(f"{curie}: cached {stored} != live {live}")
 
-    assert [node for node, _ in cached[curie]] == live
+    assert not mismatches, (
+        "committed cache has drifted from the ontology:\n" + "\n".join(mismatches)
+    )
 
 
 # --- end to end -------------------------------------------------------------
 
 
-def test_render_uses_the_stub_and_still_emits_a_breadcrumb(tmp_path: Path) -> None:
+def test_render_uses_the_stub_and_still_emits_a_breadcrumb(monkeypatch) -> None:
     """With the autouse stub in place, a real page still renders a breadcrumb.
 
-    Guards against "fixed the cost by silently dropping the feature".
+    Guards against "fixed the cost by silently dropping the feature". The
+    committed-cache lookup is forced to miss, because `NCIT:C9120` is in
+    `cache/ncit/hierarchy.csv` and the cache hit would otherwise short-circuit
+    before the adapter is ever consulted — so without this the test would pass
+    identically with the autouse fixture deleted and would cover nothing.
     """
     from dismech.render import _augment_mapping_hierarchies
+
+    monkeypatch.setattr(hierarchy_cache, "lookup", lambda *_a, **_k: None)
 
     disorder = {
         "mappings": {

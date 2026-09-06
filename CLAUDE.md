@@ -2503,7 +2503,22 @@ Two things worth knowing before you touch it:
 - **Rebuilding needs the local SQLite build for that prefix**
   (`just fetch-ontology-dbs icd10cm ncit`). The builder memoises parent and
   label lookups across CURIEs, which matters: the mapped NCIT set resolves in
-  146 parent queries rather than one full walk per CURIE.
+  146 parent queries rather than one full walk per CURIE. It also keeps the
+  existing `retrieved_at` on any row whose path and labels did not move, so
+  adding one mapping is a one-line diff rather than a whole-file restamp — the
+  same incremental contract `cache/<prefix>/terms.csv` follows, and for the
+  reason the `cache/dataset_accessions.json` post-mortem above records.
+- **The drift guard is local-only, deliberately.** The test that compares the
+  committed cache against a live OAK walk is marked `oak_db`, a marker meaning
+  "needs a local ontology database" — distinct from `kb_data`, which is about KB
+  files. **No CI workflow fetches the OAK SQLite builds**, so every `oak_db`
+  test skips in every CI lane, the nightly sweep included. Do not treat one as a
+  CI gate. What runs in CI is `just check-hierarchy-cache` in the nightly sweep:
+  offline, seconds, and it catches the drift case that actually happens — a
+  curator adds an ICD10CM/NCIT mapping and nobody rebuilds. The `oak_db` drift
+  test compares **every** committed row in both prefixes against a live walk,
+  which takes about 15 minutes against the local builds — budget for that before
+  running `pytest -m oak_db`, and do not put it in a loop.
 
 ## Duplicate YAML Keys (dismech#8623)
 

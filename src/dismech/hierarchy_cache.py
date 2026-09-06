@@ -67,7 +67,12 @@ def load_hierarchy_cache(
     path = cache_path(prefix, root)
     try:
         text = path.read_text(encoding="utf-8")
-    except (FileNotFoundError, NotADirectoryError, OSError):
+    except (OSError, UnicodeDecodeError):
+        # OSError covers absent file, absent directory, and unreadable file.
+        # UnicodeDecodeError is not an OSError and is the one that matters for a
+        # corrupt cache: without it, invalid UTF-8 propagates out of a function
+        # whose whole contract is that a bad cache degrades speed, not
+        # correctness.
         return {}
 
     entries: dict[str, tuple[tuple[str, str], ...]] = {}
