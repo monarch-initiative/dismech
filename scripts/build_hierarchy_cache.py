@@ -160,9 +160,10 @@ def render_csv(
     A run that re-resolves every CURIE would otherwise restamp every row, so
     adding one mapping produces a whole-file diff and two PRs adding neighbouring
     CURIEs collide on every line. The sibling `cache/<prefix>/terms.csv` is
-    incremental for the same reason, and `cache/dataset_accessions.json` is the
-    cautionary tale (see CLAUDE.md). Only a row whose path or labels actually
-    moved gets the new timestamp.
+    incremental for the same reason, and the frozen dataset-accession cache is
+    the cautionary tale for getting it wrong -- CLAUDE.md records that
+    post-mortem, and names the file, which this comment deliberately does not.
+    Only a row whose path or labels actually moved gets the new timestamp.
     """
     previous = previous or {}
     buffer = io.StringIO()

@@ -124,8 +124,13 @@ def test_rebuild_keeps_the_timestamp_on_unchanged_rows() -> None:
     The builder re-resolves every mapped CURIE on every run, so stamping them all
     with one fresh timestamp would turn a one-mapping addition into a whole-file
     diff, and make two PRs adding neighbouring CURIEs collide on every line. That
-    is the shape of the `cache/dataset_accessions.json` problem recorded in
+    is the shape of the frozen dataset-accession cache problem recorded in
     CLAUDE.md, and `cache/<prefix>/terms.csv` avoids it by being incremental.
+
+    The file itself is not named here on purpose:
+    `test_no_automation_touches_the_frozen_dataset_cache` scans `scripts/` and
+    `tests/` for that literal path, so citing the post-mortem inside a scanned
+    file trips the guard. Documentation may name it; code and tests may not.
     """
     import importlib.util
 
