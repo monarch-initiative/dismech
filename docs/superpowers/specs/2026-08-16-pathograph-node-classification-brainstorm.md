@@ -43,7 +43,8 @@ just node-classes --format summary
  6. CELLULAR EFFECT            cell death; differentiation / identity; metaplasia; haemolysis;
                                proliferation / expansion; senescence; cell activation;
                                organelle dysfunction; morphogenesis, migration and positioning;
-                               protein trafficking and localization
+                               protein trafficking and localization; cellular function
+                               disturbance
  7. TISSUE / ORGAN EFFECT      inflammation; fibrosis / remodelling; pathological structure
                                formed; degeneration / atrophy; developmental malformation;
                                barrier failure; injury; circulatory disturbance; mechanical
@@ -550,7 +551,7 @@ spaces", which is exactly the kind of thing a hand edit breaks:
 `--format text` renders the tree back to its own bytes (a test enforces it),
 and the YAML/JSON forms are the migration path when the design settles.
 
-### Logical definitions: 45 classes, 41 of the 84 leaves
+### Logical definitions: 46 classes, 42 of the 85 leaves
 
 A definition is a **sufficient condition** over the ontology-bound slots a node
 already carries -- `slot some TERM ['label'] [modifier V|W]`, joined by `and`
