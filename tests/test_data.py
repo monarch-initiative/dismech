@@ -1,6 +1,14 @@
-"""Data validation tests for dismech KB."""
+"""Data validation tests for dismech KB.
+
+The per-file checks are plain ``check_*`` functions that take a file path and,
+optionally, its already-parsed document. The ``kb_data`` sweep at the bottom of
+this module parses each KB file once and runs every check that applies to its
+kind inside one test item per file (#11002). The checks stay callable on their
+own, which is how the synthetic negative tests exercise them.
+"""
 
 import glob
+import inspect
 import sys
 import warnings
 from collections import Counter
@@ -54,7 +62,7 @@ MODULE_FILES = glob.glob(str(MODULES_DIR / "*.yaml"))
 MODULE_COLLECTION_FILES = glob.glob(str(MODULE_COLLECTIONS_DIR / "*.yaml"))
 # Every KB entry kind whose pathophysiology nodes may carry `conforms_to`.
 # Groupings are excluded: they reference modules through criteria `module:`
-# slots (checked by test_grouping_module_references), not `conforms_to`.
+# slots (checked by check_grouping_module_references), not `conforms_to`.
 CONFORMS_TO_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
 # Modules use the same Disease class and carry the same model sections, so
 # model-link checks span both trees. The two older per-section foreign-key tests
@@ -123,6 +131,18 @@ def _iter_evidence_lists(node, path=""):
     elif isinstance(node, list):
         for index, item in enumerate(node):
             yield from _iter_evidence_lists(item, f"{path}[{index}]")
+
+
+def _document(filepath, data=None):
+    """Return the parsed YAML document for ``filepath``.
+
+    The sweep parses each file once and hands the result to every check; a
+    check called on its own (the synthetic tests do this) loads the file itself.
+    """
+    if data is not None:
+        return data
+    with open(filepath) as f:
+        return safe_load(f)
 
 
 @lru_cache(maxsize=1)
@@ -242,12 +262,9 @@ def validator():
     )
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_valid_disorder_files(filepath, validator):
+def check_valid_disorder_files(filepath, validator, data=None):
     """Test that all disorder files validate against the schema."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     report = validator.validate(data, target_class="Disease")
 
@@ -258,12 +275,9 @@ def test_valid_disorder_files(filepath, validator):
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", COMORBIDITY_FILES)
-def test_valid_comorbidity_files(filepath, validator):
+def check_valid_comorbidity_files(filepath, validator, data=None):
     """Test that all comorbidity files validate against the schema."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     report = validator.validate(data, target_class="ComorbidityAssociation")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
@@ -271,12 +285,9 @@ def test_valid_comorbidity_files(filepath, validator):
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", MODULE_COLLECTION_FILES)
-def test_valid_module_collection_files(filepath, validator):
+def check_valid_module_collection_files(filepath, validator, data=None):
     """Module collections validate independently from diseases and groupings."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     report = validator.validate(data, target_class="ModuleCollection")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
@@ -284,23 +295,17 @@ def test_valid_module_collection_files(filepath, validator):
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_disorder_has_required_fields(filepath):
+def check_disorder_has_required_fields(filepath, data=None):
     """Test that all disorders have required fields."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     assert "name" in data, f"Missing 'name' in {filepath}"
     assert data["name"], f"Empty 'name' in {filepath}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_evidence_items_have_references(filepath):
+def check_evidence_items_have_references(filepath, data=None):
     """Test that evidence items use supported reference prefixes."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     allowed_prefix_message = ", ".join(ALLOWED_REFERENCE_PREFIXES)
 
@@ -774,12 +779,9 @@ def test_therapeutic_action_target_check_allows_mechanism_targets():
     assert not _non_therapeutic_action_target_errors(data)
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_non_therapeutic_actions_do_not_use_treatment_targets(filepath):
+def check_non_therapeutic_actions_do_not_use_treatment_targets(filepath, data=None):
     """Annotated non-therapeutic medical actions must not use treatment-style target links."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     errors = _non_therapeutic_action_target_errors(data)
 
@@ -800,12 +802,9 @@ def test_all_disorders_have_unique_names():
     assert not duplicates, f"Duplicate disorder names: {set(duplicates)}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_subtype_foreign_keys(filepath):
+def check_subtype_foreign_keys(filepath, data=None):
     """Test that subtype references match has_subtypes names."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     valid_subtypes = {s["name"] for s in data.get("has_subtypes", [])}
     if not valid_subtypes:
@@ -851,8 +850,7 @@ def test_subtype_foreign_keys(filepath):
     )
 
 
-@pytest.mark.parametrize("filepath", ENTITY_REF_FILES)
-def test_entity_ref_foreign_keys(filepath):
+def check_entity_ref_foreign_keys(filepath, data=None):
     """Every hash-anchor entity reference must resolve (#9193).
 
     ``attaches_to``, ``Experiment.would_support`` / ``would_refute`` and the
@@ -896,8 +894,7 @@ def test_entity_ref_foreign_keys(filepath):
     ``target`` is exempt because it carries plain node names in its other homes
     (``ModelMechanismLink``, ``target_mechanisms``, ``downstream``).
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
     if not isinstance(data, dict):
         return
 
@@ -905,8 +902,7 @@ def test_entity_ref_foreign_keys(filepath):
     assert not errors, f"Dangling entity refs in {Path(filepath).name}: {errors}"
 
 
-@pytest.mark.parametrize("filepath", ENTITY_REF_FILES)
-def test_entity_ref_prefixes_are_schema_slot_names(filepath):
+def check_entity_ref_prefixes_are_schema_slot_names(filepath, data=None):
     """An entity reference's `<kind>` is the schema slot name (#9394).
 
     `SECTION_KEYS` accepts a singular alias beside most section slots, so
@@ -924,13 +920,12 @@ def test_entity_ref_prefixes_are_schema_slot_names(filepath):
     is always something this branch introduced.
 
     Cross-file references are skipped deliberately, mirroring
-    `test_entity_ref_foreign_keys`: this file is not the other entry's schema,
+    `check_entity_ref_foreign_keys`: this file is not the other entry's schema,
     and a prefix naming a section of a different file is not ours to rewrite.
     All 14 cross-file refs in `kb/` are `:pathophysiology#` and already
     canonical, so the skip closes no live hole.
     """
-    with open(filepath) as f:
-        data = yaml.safe_load(f)
+    data = _document(filepath, data)
     if not isinstance(data, dict):
         return
 
@@ -951,22 +946,20 @@ def test_entity_ref_prefixes_are_schema_slot_names(filepath):
     )
 
 
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_hypothesis_based_definition_attaches_to_foreign_keys(filepath):
+def check_hypothesis_based_definition_attaches_to_foreign_keys(filepath, data=None):
     """Hypothesis-based phenotype algorithms must anchor in the pathograph (#6245).
 
     A `definitions[]` entry whose `derivation_basis` is MECHANISTIC_HYPOTHESIS
     is predicated on a specific disease mechanism, so it must `attaches_to` at
     least one node it operationalizes.
 
-    *Resolving* those references is `test_entity_ref_foreign_keys`' job now,
+    *Resolving* those references is `check_entity_ref_foreign_keys`' job now,
     over every ref-bearing slot rather than just this one. What remains here are
     the two rules specific to this derivation basis: the list must exist, and
     each entry must use the hash-anchor grammar rather than a bare name — a
     reference the shared resolver would otherwise skip as "not a reference".
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     errors = []
     for i, defn in enumerate(data.get("definitions", []) or []):
@@ -1023,7 +1016,7 @@ def test_phenotype_multivalued_subtypes_validates(validator, tmp_path):
     # Reuse the FK check logic by writing to disk and invoking the test fn.
     fake_path = tmp_path / "TestMulti.yaml"
     fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
-    test_subtype_foreign_keys(str(fake_path))
+    check_subtype_foreign_keys(str(fake_path))
 
 
 def test_phenotype_multivalued_subtypes_fk_catches_bad_refs(tmp_path):
@@ -1039,15 +1032,12 @@ def test_phenotype_multivalued_subtypes_fk_catches_bad_refs(tmp_path):
     fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
 
     with pytest.raises(AssertionError, match="Type 99"):
-        test_subtype_foreign_keys(str(fake_path))
+        check_subtype_foreign_keys(str(fake_path))
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_experimental_model_mechanism_targets(filepath):
+def check_experimental_model_mechanism_targets(filepath, data=None):
     """Experimental model links should reference declared pathophysiology nodes."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     valid_targets = {
         item["name"]
@@ -1072,12 +1062,9 @@ def test_experimental_model_mechanism_targets(filepath):
     )
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_computational_model_mechanism_targets(filepath):
+def check_computational_model_mechanism_targets(filepath, data=None):
     """Computational model links should reference declared pathophysiology nodes."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     valid_targets = {
         item["name"]
@@ -1102,13 +1089,11 @@ def test_computational_model_mechanism_targets(filepath):
     )
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
-def test_animal_model_mechanism_targets(filepath):
+def check_animal_model_mechanism_targets(filepath, data=None):
     """Animal model links should reference a declared node in the same entry.
 
     Pathophysiology is the preferred target, but a phenotype target is valid —
-    the same rule `test_environmental_mechanism_targets` already applies, and
+    the same rule `check_environmental_mechanism_targets` already applies, and
     the one CLAUDE.md documents for `influences_mechanisms`. Restricting this
     test to `pathophysiology` was an inconsistency, and it made a legitimate
     negative result unrepresentable: a `FAILS_TO_RECAPITULATE` link says the
@@ -1121,8 +1106,7 @@ def test_animal_model_mechanism_targets(filepath):
     already declared to PARTIALLY_RECAPITULATE, so the entry would assert both
     that the model reproduces that node and that it fails to.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     valid_targets = {
         item["name"]
@@ -1161,9 +1145,7 @@ def _animal_model_label(model):
     return " ".join(parts) or None
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
-def test_linked_animal_model_labels_are_unique(filepath):
+def check_linked_animal_model_labels_are_unique(filepath, data=None):
     """An animal model that reaches the pathograph needs an unambiguous label.
 
     `AnimalModel` is the only pathograph-bearing class whose node identity is
@@ -1177,8 +1159,7 @@ def test_linked_animal_model_labels_are_unique(filepath):
     someone links them. This is what gives the "`name` is recommended once a
     model carries mechanism links" guidance teeth.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     models = [m for m in (data.get("animal_models") or []) if isinstance(m, dict)]
     label_counts = Counter(
@@ -1210,17 +1191,14 @@ def _iter_mechanism_links(data):
                     yield section, i, j, model, link
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
-def test_model_readout_targets_match_link(filepath):
+def check_model_readout_targets_match_link(filepath, data=None):
     """A readout's target must repeat its link's target.
 
     `target` is required on ExperimentalReadout so a readout stays
     self-describing once the graph and KGX exporters lift it out of its link.
     That redundancy only holds if the two agree, so drift is an error.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     errors = []
     for section, i, j, _model, link in _iter_mechanism_links(data):
@@ -1238,9 +1216,7 @@ def test_model_readout_targets_match_link(filepath):
     assert not errors, f"Model readout target drift in {Path(filepath).name}: {errors}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
-def test_failure_to_recapitulate_links_are_substantiated(filepath):
+def check_failure_to_recapitulate_links_are_substantiated(filepath, data=None):
     """FAILS_TO_RECAPITULATE is a negative claim and must be substantiated.
 
     Link evidence is only `recommended` in general, so incremental curation of
@@ -1249,8 +1225,7 @@ def test_failure_to_recapitulate_links_are_substantiated(filepath):
     signal behind a HUMAN_MODEL_MISMATCH discussion, so it requires both the
     caveat (`limitations`) and a citation.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     errors = []
     for section, i, j, _model, link in _iter_mechanism_links(data):
@@ -1284,9 +1259,7 @@ def _enum_values(enum_name: str) -> tuple[str, ...]:
     return tuple(enum.permissible_values.keys())
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
-def test_model_scale_values_are_valid(filepath):
+def check_model_scale_values_are_valid(filepath, data=None):
     """`model_scale` must be a BiologicalScaleEnum value.
 
     linkml-validate enforces this too; the point of restating it here is that
@@ -1294,21 +1267,19 @@ def test_model_scale_values_are_valid(filepath):
     out-of-vocabulary value would silently classify as UNDETERMINED rather than
     failing.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     errors = [
         f"{section}[{i}].modeled_mechanisms[{j}].model_scale={link['model_scale']!r}"
         for section, i, j, _model, link in _iter_mechanism_links(data)
-        if link.get("model_scale") and link["model_scale"] not in _enum_values("BiologicalScaleEnum")
+        if link.get("model_scale")
+        and link["model_scale"] not in _enum_values("BiologicalScaleEnum")
     ]
 
     assert not errors, f"Invalid model_scale in {Path(filepath).name}: {errors}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
-def test_upward_extrapolating_links_are_caveated(filepath):
+def check_upward_extrapolating_links_are_caveated(filepath, data=None):
     """A model below its target's scale is extrapolating and must say so.
 
     When `model_scale` sits below the target node's `biological_scale`, the
@@ -1323,8 +1294,7 @@ def test_upward_extrapolating_links_are_caveated(filepath):
     scale contains that scale (a whole animal can report a molecular readout)
     and needs no caveat on that account.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     scales = {
         n.get("name"): n.get("biological_scale")
@@ -1340,7 +1310,11 @@ def test_upward_extrapolating_links_are_caveated(filepath):
         if model_scale not in scale_ladder or target_scale not in scale_ladder:
             continue
         gap = scale_ladder.index(target_scale) - scale_ladder.index(model_scale)
-        if gap > 0 and not (link.get("limitations") or "").strip() and not link.get("divergences"):
+        if (
+            gap > 0
+            and not (link.get("limitations") or "").strip()
+            and not link.get("divergences")
+        ):
             errors.append(
                 f"{section}[{i}].modeled_mechanisms[{j}] "
                 f"({model_scale} model -> {target_scale} target, gap +{gap}) "
@@ -1365,9 +1339,7 @@ def test_audit_scale_order_matches_schema():
     assert tuple(SCALE_ORDER) == _enum_values("BiologicalScaleEnum")
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
-def test_model_divergences_are_typed_and_explained(filepath):
+def check_model_divergences_are_typed_and_explained(filepath, data=None):
     """A divergence needs both a taxonomy value and a real explanation.
 
     The type alone is never the argument -- BOUNDARY_OMISSION says a component is
@@ -1375,8 +1347,7 @@ def test_model_divergences_are_typed_and_explained(filepath):
     required by the schema and checked here for substance rather than a
     restatement of the enum value.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     errors = []
     for section, i, j, _model, link in _iter_mechanism_links(data):
@@ -1397,9 +1368,7 @@ def test_model_divergences_are_typed_and_explained(filepath):
     assert not errors, f"Malformed model divergences in {Path(filepath).name}: {errors}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
-def test_scale_extrapolation_divergence_agrees_with_scales(filepath):
+def check_scale_extrapolation_divergence_agrees_with_scales(filepath, data=None):
     """A SCALE_EXTRAPOLATION claim must not contradict the scale slots.
 
     `model_scale` and the target's `biological_scale` already decide whether the
@@ -1408,8 +1377,7 @@ def test_scale_extrapolation_divergence_agrees_with_scales(filepath):
     exactly the kind of drift a derived-not-stored design exists to catch.
     Silent when either scale is absent.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     scales = {
         n.get("name"): n.get("biological_scale")
@@ -1471,7 +1439,7 @@ def test_duplicate_linked_animal_model_labels_are_caught(tmp_path):
     fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
 
     with pytest.raises(AssertionError, match="Mus musculus"):
-        test_linked_animal_model_labels_are_unique(str(fake_path))
+        check_linked_animal_model_labels_are_unique(str(fake_path))
 
 
 def test_unlinked_duplicate_animal_model_labels_are_allowed(tmp_path):
@@ -1487,7 +1455,7 @@ def test_unlinked_duplicate_animal_model_labels_are_allowed(tmp_path):
     fake_path = tmp_path / "LegacyDuplicates.yaml"
     fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
 
-    test_linked_animal_model_labels_are_unique(str(fake_path))
+    check_linked_animal_model_labels_are_unique(str(fake_path))
 
 
 def test_animal_model_mechanism_fk_catches_bad_refs(tmp_path):
@@ -1507,7 +1475,7 @@ def test_animal_model_mechanism_fk_catches_bad_refs(tmp_path):
     fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
 
     with pytest.raises(AssertionError, match="Node 99"):
-        test_animal_model_mechanism_targets(str(fake_path))
+        check_animal_model_mechanism_targets(str(fake_path))
 
 
 def test_readout_target_drift_is_caught(tmp_path):
@@ -1532,7 +1500,7 @@ def test_readout_target_drift_is_caught(tmp_path):
     fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
 
     with pytest.raises(AssertionError, match="Other Node"):
-        test_model_readout_targets_match_link(str(fake_path))
+        check_model_readout_targets_match_link(str(fake_path))
 
 
 def test_unsubstantiated_failure_to_recapitulate_is_caught(tmp_path):
@@ -1556,15 +1524,12 @@ def test_unsubstantiated_failure_to_recapitulate_is_caught(tmp_path):
     fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
 
     with pytest.raises(AssertionError, match="missing limitations"):
-        test_failure_to_recapitulate_links_are_substantiated(str(fake_path))
+        check_failure_to_recapitulate_links_are_substantiated(str(fake_path))
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_environmental_mechanism_targets(filepath):
+def check_environmental_mechanism_targets(filepath, data=None):
     """Environmental factor links should reference declared pathograph nodes."""
-    with open(filepath) as f:
-        data = yaml.safe_load(f)
+    data = _document(filepath, data)
 
     # Pathophysiology is the preferred target, but phenotype targets are
     # allowed for exposures acting directly on a manifestation.
@@ -1594,16 +1559,13 @@ def test_environmental_mechanism_targets(filepath):
     )
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_subtypes_have_disease_term(filepath):
+def check_subtypes_have_disease_term(filepath, data=None):
     """Test that has_subtypes items have a subtype_term with an ontology grounding.
 
     Each subtype should be grounded to a MONDO or NCIT disease term via
     the subtype_term descriptor so that subtypes are machine-queryable.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     subtypes = data.get("has_subtypes", [])
     if not subtypes:
@@ -1774,12 +1736,9 @@ def _module_stem(ref):
     return ref.split("#", 1)[0].strip() if ref else ref
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", GROUPING_FILES)
-def test_valid_grouping_files(filepath, validator):
+def check_valid_grouping_files(filepath, validator, data=None):
     """All grouping files validate against the Grouping class."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     report = validator.validate(data, target_class="Grouping")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
@@ -1796,12 +1755,9 @@ def synthesis_validator():
     )
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
-def test_valid_research_synthesis_files(filepath, synthesis_validator):
+def check_valid_research_synthesis_files(filepath, synthesis_validator, data=None):
     """All research-synthesis files validate against the ResearchSynthesis class."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     report = synthesis_validator.validate(data, target_class="ResearchSynthesis")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
@@ -1809,12 +1765,9 @@ def test_valid_research_synthesis_files(filepath, synthesis_validator):
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
-def test_synthesis_provider_references_resolve(filepath):
+def check_synthesis_provider_references_resolve(filepath, data=None):
     """Every provider_support.provider must be declared in the top-level providers list."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     declared = {p.get("name") for p in data.get("providers", []) or []}
     errors = []
@@ -1830,9 +1783,7 @@ def test_synthesis_provider_references_resolve(filepath):
     assert not errors, f"Provider foreign-key errors in {filepath}: {errors}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
-def test_synthesis_best_matching_text_verbatim(filepath):
+def check_synthesis_best_matching_text_verbatim(filepath, data=None):
     """Every best_matching_text must be a verbatim substring of its source_report."""
     from dismech.research_synthesis import iter_quote_problems
 
@@ -1863,12 +1814,11 @@ def hypothesis_assessment_validator():
     )
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", HYPOTHESIS_ASSESSMENT_FILES)
-def test_valid_hypothesis_assessment_files(filepath, hypothesis_assessment_validator):
+def check_valid_hypothesis_assessment_files(
+    filepath, hypothesis_assessment_validator, data=None
+):
     """All assessment sidecars validate against the HypothesisAssessment class."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     report = hypothesis_assessment_validator.validate(
         data, target_class="HypothesisAssessment"
@@ -1878,9 +1828,7 @@ def test_valid_hypothesis_assessment_files(filepath, hypothesis_assessment_valid
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", HYPOTHESIS_ASSESSMENT_FILES)
-def test_hypothesis_assessment_links_and_quotes(filepath):
+def check_hypothesis_assessment_links_and_quotes(filepath, data=None):
     """Assessment sidecars have valid layout, artifacts, and verbatim report quotes."""
     from dismech.hypothesis_assessment import iter_assessment_problems
 
@@ -1897,14 +1845,11 @@ def hypothesis_reconciliation_validator():
     )
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", HYPOTHESIS_RECONCILIATION_FILES)
-def test_valid_hypothesis_reconciliation_files(
-    filepath, hypothesis_reconciliation_validator
+def check_valid_hypothesis_reconciliation_files(
+    filepath, hypothesis_reconciliation_validator, data=None
 ):
     """All reconciliations validate against HypothesisReconciliation."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     report = hypothesis_reconciliation_validator.validate(
         data, target_class="HypothesisReconciliation"
@@ -1914,9 +1859,7 @@ def test_valid_hypothesis_reconciliation_files(
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", HYPOTHESIS_RECONCILIATION_FILES)
-def test_hypothesis_reconciliation_links_lineage_and_quotes(filepath):
+def check_hypothesis_reconciliation_links_lineage_and_quotes(filepath, data=None):
     """Reconciliations resolve assessments, claims, reports, and lineage."""
     from dismech.hypothesis_reconciliation import iter_reconciliation_problems
 
@@ -1924,12 +1867,9 @@ def test_hypothesis_reconciliation_links_lineage_and_quotes(filepath):
     assert not problems, f"Reconciliation validation problems in {filepath}: {problems}"
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", GROUPING_FILES)
-def test_grouping_member_foreign_keys(filepath):
+def check_grouping_member_foreign_keys(filepath, data=None):
     """Each grouping member must resolve to a real Disease or grouping."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     disease_names = _disease_names()
     grouping_names = _grouping_names()
@@ -1952,12 +1892,9 @@ def test_grouping_member_foreign_keys(filepath):
     )
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", GROUPING_FILES)
-def test_grouping_module_references(filepath):
+def check_grouping_module_references(filepath, data=None):
     """Every `module` reference in a grouping must resolve to a module file."""
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     module_stems = _module_stems()
     errors = []
@@ -1984,12 +1921,10 @@ def test_grouping_module_references(filepath):
     )
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", CONFORMS_TO_FILES)
-def test_conforms_to_module_node_references(filepath):
+def check_conforms_to_module_node_references(filepath, data=None):
     """Every `conforms_to` must resolve to a real module AND a real node in it.
 
-    `test_grouping_module_references` checks the `module:` slots inside grouping
+    `check_grouping_module_references` checks the `module:` slots inside grouping
     membership criteria; nothing checked the `conforms_to` edges on entry
     pathophysiology nodes, which are what grouping CONFORMS_TO_MODULE criteria
     are actually evaluated against. A stale stem or a drifted node name makes an
@@ -1997,8 +1932,7 @@ def test_conforms_to_module_node_references(filepath):
     same class of contradiction the grouping audit reports, but caused by a
     dangling reference rather than a curation gap.
     """
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
     if not isinstance(data, dict):
         return
 
@@ -2048,9 +1982,7 @@ def test_module_collection_references_resolve():
     assert not errors, "Module collection reference errors:\n" + "\n".join(errors)
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", GROUPING_FILES)
-def test_grouping_criteria_well_formed(filepath):
+def check_grouping_criteria_well_formed(filepath, data=None):
     """Structured membership-criteria expressions must be well-formed.
 
     Each LogicalCriterion node must be either a BRANCH (operator + operands) or
@@ -2058,8 +1990,7 @@ def test_grouping_criteria_well_formed(filepath):
     """
     from dismech.groupings import lint_criterion
 
-    with open(filepath) as f:
-        data = safe_load(f)
+    data = _document(filepath, data)
 
     errors = []
     for c, criteria in enumerate(data.get("membership_criteria", []) or []):
@@ -2224,9 +2155,7 @@ def test_grouping_overlap_expands_nested_grouping_members():
     assert find_candidate_members(groupings["Parent"], index, groupings) == ["D"]
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", GROUPING_FILES)
-def test_grouping_evaluation_runs(filepath):
+def check_grouping_evaluation_runs(filepath, data=None):
     """The membership evaluator executes and returns structured results.
 
     This is advisory (criteria may be aspirational), so it asserts the evaluator
@@ -2238,17 +2167,14 @@ def test_grouping_evaluation_runs(filepath):
         load_disease_index,
     )
 
-    with open(filepath) as f:
-        grouping = safe_load(f)
+    grouping = _document(filepath, data)
 
     index = load_disease_index()
     for ev in evaluate_grouping(grouping, index):
         assert isinstance(ev.result, Satisfaction)
 
 
-@pytest.mark.kb_data
-@pytest.mark.parametrize("filepath", DISORDER_FILES)
-def test_dataset_accession_prefix_and_shape(filepath):
+def check_dataset_accession_prefix_and_shape(filepath, data=None):
     """Dataset accessions must use a known prefix whose shape they match.
 
     This is the offline half of the dataset-accession guard: it catches a
@@ -2259,8 +2185,7 @@ def test_dataset_accession_prefix_and_shape(filepath):
     """
     from verify_dataset_accessions import SHAPE, UNSUPPORTED_PREFIXES, split_accession
 
-    with open(filepath) as f:
-        data = yaml.safe_load(f)
+    data = _document(filepath, data)
 
     # Dataset records also hang off proposed experiments, which the verifier
     # walks; keep the offline guard's scope identical so nothing is checked by
@@ -2300,6 +2225,228 @@ def test_dataset_accession_prefix_and_shape(filepath):
         f"{Path(filepath).name} has malformed dataset accessions:\n"
         + "\n".join(f"  - {e}" for e in errors)
     )
+
+
+# --- One test per KB file ----------------------------------------------------
+#
+# Before #11002 every check_* function above was its own parametrized test, so
+# the sweep collected one item per file per check, about 60,000 items, and
+# spent most of its CPU on pytest and xdist bookkeeping rather than on the
+# checks. Each file is now parsed once and every check that applies to its kind
+# runs against that parse inside a single item. A failure names the check, so
+# the report loses nothing; ``-k`` selects by file path as before.
+#
+# The entity-reference checks keep their own, unmarked, item per file: they are
+# hard gates with no baseline and run in ``just test-code`` on every src/tests
+# change, where the ``kb_data`` sweep does not.
+
+DISORDER_CHECKS = (
+    check_disorder_has_required_fields,
+    check_evidence_items_have_references,
+    check_non_therapeutic_actions_do_not_use_treatment_targets,
+    check_subtype_foreign_keys,
+    check_experimental_model_mechanism_targets,
+    check_computational_model_mechanism_targets,
+    check_environmental_mechanism_targets,
+    check_subtypes_have_disease_term,
+    check_dataset_accession_prefix_and_shape,
+)
+# Modules use the Disease class and carry the same model sections, so these
+# span kb/disorders/ and kb/modules/.
+MODEL_BEARING_CHECKS = (
+    check_animal_model_mechanism_targets,
+    check_linked_animal_model_labels_are_unique,
+    check_model_readout_targets_match_link,
+    check_failure_to_recapitulate_links_are_substantiated,
+    check_model_scale_values_are_valid,
+    check_upward_extrapolating_links_are_caveated,
+    check_model_divergences_are_typed_and_explained,
+    check_scale_extrapolation_divergence_agrees_with_scales,
+)
+CONFORMS_TO_CHECKS = (check_conforms_to_module_node_references,)
+ENTITY_REF_CHECKS = (
+    check_entity_ref_foreign_keys,
+    check_entity_ref_prefixes_are_schema_slot_names,
+)
+GROUPING_CHECKS = (
+    check_grouping_member_foreign_keys,
+    check_grouping_module_references,
+    check_grouping_criteria_well_formed,
+    check_grouping_evaluation_runs,
+)
+SYNTHESIS_CHECKS = (
+    check_synthesis_provider_references_resolve,
+    check_synthesis_best_matching_text_verbatim,
+)
+HYPOTHESIS_ASSESSMENT_CHECKS = (check_hypothesis_assessment_links_and_quotes,)
+HYPOTHESIS_RECONCILIATION_CHECKS = (
+    check_hypothesis_reconciliation_links_lineage_and_quotes,
+)
+
+_DISORDER_FILE_SET = frozenset(DISORDER_FILES)
+
+
+def _file_id(filepath):
+    """Parametrize id: the path relative to the repo root, unique and short."""
+    try:
+        return str(Path(filepath).relative_to(ROOT_DIR))
+    except ValueError:
+        return str(filepath)
+
+
+def _failures(filepath, data, checks, **fixtures):
+    """Run ``checks`` against one parsed document and return the failures.
+
+    Each failure is prefixed with the check's name so a combined report still
+    says which rule broke. ``fixtures`` (the schema validators) are passed only
+    to the checks whose signature asks for them.
+    """
+    failures = []
+    for check in checks:
+        wanted = {
+            name: value
+            for name, value in fixtures.items()
+            if name in inspect.signature(check).parameters
+        }
+        try:
+            check(filepath, data=data, **wanted)
+        except AssertionError as exc:
+            failures.append(f"[{check.__name__}] {exc}")
+    return failures
+
+
+def _assert_all_passed(filepath, failures):
+    assert not failures, (
+        f"{len(failures)} check(s) failed for {_file_id(filepath)}:\n\n"
+        + "\n\n".join(failures)
+    )
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", DISORDER_FILES, ids=_file_id)
+def test_disorder_file(filepath, validator):
+    """Schema conformance plus every structural check for one disorder entry."""
+    data = _document(filepath)
+    failures = _failures(
+        filepath,
+        data,
+        (
+            check_valid_disorder_files,
+            *DISORDER_CHECKS,
+            *MODEL_BEARING_CHECKS,
+            *CONFORMS_TO_CHECKS,
+        ),
+        validator=validator,
+    )
+    _assert_all_passed(filepath, failures)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODULE_FILES, ids=_file_id)
+def test_module_file(filepath):
+    """Model-link and conforms_to checks for one mechanism module."""
+    data = _document(filepath)
+    failures = _failures(filepath, data, (*MODEL_BEARING_CHECKS, *CONFORMS_TO_CHECKS))
+    _assert_all_passed(filepath, failures)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", COMORBIDITY_FILES, ids=_file_id)
+def test_comorbidity_file(filepath, validator):
+    """Schema conformance plus conforms_to checks for one comorbidity entry."""
+    data = _document(filepath)
+    failures = _failures(
+        filepath,
+        data,
+        (check_valid_comorbidity_files, *CONFORMS_TO_CHECKS),
+        validator=validator,
+    )
+    _assert_all_passed(filepath, failures)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODULE_COLLECTION_FILES, ids=_file_id)
+def test_module_collection_file(filepath, validator):
+    """Schema conformance for one module collection."""
+    data = _document(filepath)
+    failures = _failures(
+        filepath, data, (check_valid_module_collection_files,), validator=validator
+    )
+    _assert_all_passed(filepath, failures)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", GROUPING_FILES, ids=_file_id)
+def test_grouping_file(filepath, validator):
+    """Schema conformance, foreign keys, criteria shape, and evaluation for one grouping."""
+    data = _document(filepath)
+    failures = _failures(
+        filepath,
+        data,
+        (check_valid_grouping_files, *GROUPING_CHECKS),
+        validator=validator,
+    )
+    _assert_all_passed(filepath, failures)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES, ids=_file_id)
+def test_research_synthesis_file(filepath, synthesis_validator):
+    """Schema conformance, provider foreign keys, and verbatim quotes for one synthesis."""
+    data = _document(filepath)
+    failures = _failures(
+        filepath,
+        data,
+        (check_valid_research_synthesis_files, *SYNTHESIS_CHECKS),
+        synthesis_validator=synthesis_validator,
+    )
+    _assert_all_passed(filepath, failures)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", HYPOTHESIS_ASSESSMENT_FILES, ids=_file_id)
+def test_hypothesis_assessment_file(filepath, hypothesis_assessment_validator):
+    """Schema conformance plus layout, artifact, and quote checks for one assessment."""
+    data = _document(filepath)
+    failures = _failures(
+        filepath,
+        data,
+        (check_valid_hypothesis_assessment_files, *HYPOTHESIS_ASSESSMENT_CHECKS),
+        hypothesis_assessment_validator=hypothesis_assessment_validator,
+    )
+    _assert_all_passed(filepath, failures)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", HYPOTHESIS_RECONCILIATION_FILES, ids=_file_id)
+def test_hypothesis_reconciliation_file(filepath, hypothesis_reconciliation_validator):
+    """Schema conformance plus lineage and quote checks for one reconciliation."""
+    data = _document(filepath)
+    failures = _failures(
+        filepath,
+        data,
+        (
+            check_valid_hypothesis_reconciliation_files,
+            *HYPOTHESIS_RECONCILIATION_CHECKS,
+        ),
+        hypothesis_reconciliation_validator=hypothesis_reconciliation_validator,
+    )
+    _assert_all_passed(filepath, failures)
+
+
+@pytest.mark.parametrize("filepath", ENTITY_REF_FILES, ids=_file_id)
+def test_entity_reference_file(filepath):
+    """Hash-anchor entity references resolve and use canonical prefixes (#9193, #9394).
+
+    Not part of the ``kb_data`` sweep on purpose, see the note above. For a
+    disorder entry this also covers the hypothesis-based definition rule, whose
+    ``attaches_to`` values are entity references too (#6245).
+    """
+    data = _document(filepath)
+    checks = list(ENTITY_REF_CHECKS)
+    if filepath in _DISORDER_FILE_SET:
+        checks.append(check_hypothesis_based_definition_attaches_to_foreign_keys)
+    _assert_all_passed(filepath, _failures(filepath, data, checks))
 
 
 # The frozen shared dataset-verification blob. Kept in git only because ~200 open
