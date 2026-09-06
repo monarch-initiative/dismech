@@ -54940,6 +54940,94 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Cardiomyopathy Dilated 2H",
+    "disease_id": "MONDO:0859358",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "familial isolated dilated cardiomyopathy"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 2H (CMD2H) is an autosomal recessive, early infantile-onset cardiomyopathy caused by biallelic variants in GET3 (long known as ASNA1, and also called TRC40). It is mechanistically unlike most familial dilated cardiomyopathy: the causal gene encodes no sarcomeric or cytoskeletal protein but the central ATP-dependent chaperone of the GET/TRC pathway, which inserts tail-anchored proteins post-translationally into the endoplasmic reticulum membrane. Loss of that targeting factor destabilizes the pre-targeting complex, depletes a broad set of tail-anchored substrates, and disrupts membrane trafficking and cardiomyocyte proteostasis. The clinical course is rapidly progressive dilated cardiomyopathy with death in early infancy. It was the first evidence that the tail-anchored protein insertion pathway causes human disease.",
+    "pathophysiology": [
+      "Biallelic GET3 Loss of Function",
+      "Impaired Tail-Anchored Protein Insertion",
+      "Disrupted Cardiomyocyte Membrane Trafficking and Proteostasis",
+      "Cardiomyocyte Structural Disorganization",
+      "Impaired Cardiac Contractility and Ventricular Remodeling"
+    ],
+    "cell_types": [
+      "cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "tail-anchored membrane protein insertion into ER membrane",
+      "vesicle-mediated transport",
+      "intracellular protein transport"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Ventricular septal defect",
+      "Atrial septal defect",
+      "Tachypnea",
+      "Feeding difficulties",
+      "Prolonged QRS complex",
+      "Cardiac arrest",
+      "Left ventricular thrombus"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Respiratory",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001629",
+      "HP:0001684",
+      "HP:0002789",
+      "HP:0011968",
+      "HP:0006677",
+      "HP:0001695",
+      "HP:0040412"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GET3",
+      "GET3 heterozygous modifier candidate"
+    ],
+    "treatments": [
+      "Genetic Counseling",
+      "Supportive Heart Failure Management",
+      "Extracorporeal Membrane Oxygenation",
+      "Heart Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum transferrin and apolipoprotein C-III isoelectric focusing"
+    ],
+    "source_file": "Cardiomyopathy_Dilated_2H.yaml",
+    "page_url": "../pages/disorders/Cardiomyopathy_Dilated_2H.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Cardiospondylocarpofacial syndrome",
     "disease_id": "MONDO:0008005",
     "category": "Mendelian",
@@ -279379,17 +279467,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2713,
+  "total_disorder_pages": 2714,
   "total_subtypes": 3645,
-  "total_disorders_and_subtypes": 6358,
-  "total_unique_evidence_sources": 38252,
-  "total_unique_publications": 36023,
+  "total_disorders_and_subtypes": 6359,
+  "total_unique_evidence_sources": 38254,
+  "total_unique_publications": 36025,
   "total_unique_disease_categories": 54,
   "total_unique_phenotype_categories": 273,
-  "total_pathographs": 2708,
-  "total_unique_pathological_events": 16020,
+  "total_pathographs": 2709,
+  "total_unique_pathological_events": 16025,
   "total_modules": 169,
-  "total_research_reports": 2824,
+  "total_research_reports": 2825,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
