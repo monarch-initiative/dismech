@@ -142,14 +142,12 @@ developmental and epileptic encephalopathy, so a category must never be copied f
 entry to the other. The DEE entry is curated as `DOMINANT_NEGATIVE` in this branch; no
 BFNS entry exists yet.
 
-## Can a deep-research provider resolve these?
+## Can a deep-research provider resolve these? A two-hypothesis pilot
 
-Partly, and the limit is worth stating precisely. The repository already has the
-plumbing: `just research-hypothesis <provider> <disorder> <hypothesis_group_id>` runs a
-focused hypothesis search whose template asks, among other things, for competing
-mechanistic hypotheses, explicit knowledge gaps, and the experiments that would
-distinguish them, and writes to
-`kb/hypotheses/<Disorder>/<hypothesis_group_id>/<provider>.md`.
+The repository already has the plumbing: `just research-hypothesis <provider> <disorder>
+<hypothesis_group_id>` runs a focused hypothesis search whose template asks for competing
+mechanisms, explicit knowledge gaps, and the experiments that would distinguish them, and
+writes to `kb/hypotheses/<Disorder>/<hypothesis_group_id>/<provider>.md`.
 
 ```bash
 just research-hypothesis openscientist Weaver_Syndrome dominant_negative_prc2
@@ -159,23 +157,51 @@ just research-hypothesis openscientist Arboleda-Tham_Syndrome late_truncating_nm
 just research-hypothesis openscientist ADNP-Related_Syndrome nmd_escape_truncation_branch
 ```
 
-The hypothesis blocks added above are what make these runnable: the runner seeds the
+The hypothesis blocks added above are what make these runnable at all: the runner seeds the
 provider with the hypothesis YAML, so a controversy that exists only as prose in a node
 description cannot be searched, while one curated as two competing hypotheses can.
 
-What a provider run can realistically deliver here is **completeness of the evidence
-matrix** — a functional study this audit's cache-first method missed, a preprint, a
-cohort that stratified by allele class — and a sharper statement of the discriminating
-experiment. What it cannot deliver is the experiment itself. Every one of these five
-controversies is open because a specific comparison has not been performed, not because
-the literature is hard to find; a search that returns the same two positions more
-thoroughly does not move the category off `UNKNOWN`.
+The first two were run against OpenScientist (about 22 minutes each) and assessed under
+[Hypothesis Report Assessments](../hypothesis-report-assessments.md). **Neither moved its
+category off `UNKNOWN`, and both changed the entry anyway.** The prior expectation — that a
+provider can only add completeness to the evidence matrix, since these controversies are
+open for want of an experiment rather than for want of literature — held for the category
+and was too pessimistic about everything else.
 
-So the runs are worth doing as evidence sweeps, and their output is a lead, not curated
-content: a report lands under `kb/hypotheses/`, is assessed with the
-`review-hypothesis-exploration` skill into an assessment sidecar, and only claims that
-survive that review reach the disease YAML. See
-[Hypothesis Report Assessments](../hypothesis-report-assessments.md).
+**Weaver.** The run surfaced PMID:28696078, a de novo 1.2-Mb deletion removing the whole
+`EZH2` gene in a child with tall stature and intellectual disability, whose authors conclude
+that haploinsufficiency may replicate the Weaver phenotype. That is the nearest human
+approximation to the null arm of the discriminating experiment, it was not in the entry, and
+it argues a poison protein is not required for the phenotype. The run also established by
+targeted search that the reciprocal germline gain-of-function growth-restriction arm
+asserted in the hypothesis rests on a single study; that arm was overstated and is now
+marked single-source.
+
+**Bainbridge-Ropers.** The more useful of the two, and it cut against the hypothesis it was
+asked to explore. The entry cited the largest ASXL3 cohort for an autism enrichment in the
+decay-escaping allele class, reading as support for the truncated-protein hypothesis. The
+run read the same paper further: the *core* severity measures run the other way, being worse
+in the decay-subject null class. If a decay-escaping truncated protein were simply more
+toxic than a null, the no-decay class should carry the greater core burden, and it does not.
+That hypothesis is now qualified as a candidate modifier rather than a symmetric competitor,
+with the counter-sentence curated as a `REFUTE` item.
+
+**What the runs did not do.** Neither performed the comparison that would settle its
+question, and both said so. Both correctly identified the same missing experiment this
+audit had already recorded, which is a useful independent check on the curation but adds no
+evidence. Both computational bundles are only partially auditable: neither shipped a
+`MANIFEST.yaml`, and the Bainbridge-Ropers report claims checksums and two analysis scripts
+that are not in its bundle, so its analyses are recorded as `PARTIAL`. The Weaver
+variant-spectrum computation does reproduce exactly from its committed data — 27 ClinVar
+Weaver-annotated pathogenic alleles, 21 missense, 3 truncating at codons 730/733/738 — but
+its code survives only as an embedded string inside a provenance JSON, not at the path the
+report names.
+
+**Reading for the remaining three.** Run them, but budget for the assessment rather than the
+search: the run is 20 minutes and the review that decides what may be promoted is longer.
+The value is a second reader over the same literature who is not the curator who wrote the
+hypothesis, and on this evidence that reader is most useful when it reads a paper the
+curator already cited more completely than the curator did.
 
 ## Worklist for the next tranches
 
