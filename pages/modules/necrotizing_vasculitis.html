@@ -1,0 +1,3390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Necrotizing Vasculitis Module - dismech</title>
+    <link rel="canonical" href="https://dismech.monarchinitiative.org/pages/modules/necrotizing_vasculitis.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font);
+            background: #fff;
+            color: var(--gray-800);
+            line-height: 1.7;
+        }
+
+        a {
+            color: var(--primary-dark);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Sticky nav */
+        nav.site-nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+        .nav-links a { color: var(--gray-600); text-decoration: none; }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .container {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .breadcrumb {
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--primary);
+        }
+
+        .breadcrumb span {
+            color: var(--text-muted);
+        }
+
+        .page-header {
+            background: var(--teal-50);
+            border: 1px solid var(--gray-200);
+            padding: 2.5rem 2rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--teal);
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+        }
+
+        .header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .header-description {
+            margin-top: 16px;
+            max-width: 860px;
+            color: var(--gray-700);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-category {
+            background: rgba(0, 131, 143, 0.12);
+            color: var(--teal);
+            border: 1px solid var(--teal-light);
+        }
+
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
+        .badge-module {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .badge-count {
+            background: var(--teal-50);
+            color: var(--teal);
+            border: 1px solid var(--teal-light);
+        }
+
+        .badge-pathograph {
+            background: var(--teal-50);
+            color: var(--teal);
+            border: 1px solid var(--teal-light);
+            text-decoration: none;
+        }
+
+        .badge-pathograph:hover {
+            background: var(--teal-light);
+            color: var(--teal);
+            text-decoration: underline;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .card-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .card-count {
+            margin-left: auto;
+            background: var(--bg);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .section-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
+        .tag-cell {
+            background: #fce7f3;
+            color: #9d174d;
+        }
+
+        .tag-bio {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .tag-component {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .tag-role {
+            background: #e0e7ff;
+            color: #3730a3;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .tag-modifier {
+            background: #fee2e2;
+            color: #991b1b;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .curie-chip,
+        .linkout {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 6px;
+            padding: 1px 5px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.55);
+            color: #475569;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.68rem;
+            font-weight: 600;
+            line-height: 1.35;
+            text-decoration: none;
+            white-space: nowrap;
+            vertical-align: 0.08em;
+        }
+
+        .curie-chip:hover,
+        .linkout:hover {
+            text-decoration: none;
+            filter: brightness(0.96);
+        }
+
+        .curie-chip-hp { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .curie-chip-go { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .curie-chip-cl { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+        .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+        .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+        .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
+        .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
+        .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+        .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+        .curie-chip-namo { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+        .curie-chip-pmid,
+        .curie-chip-clinicaltrials { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+
+        .item-box {
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            background: #ffffff;
+            border: 1px solid #dbece8;
+        }
+
+        .item-name {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .item-desc {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .item-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .anchor-target {
+            scroll-margin-top: 96px;
+        }
+
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
+        /* Mechanistic hypotheses */
+        .hypothesis-box {
+            background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
+            border: 1px solid #dbece8;
+            border-left: 4px solid #059669;
+        }
+        .hypothesis-box .item-name { color: #065f46; }
+        /* Keep curator-written paragraph breaks in hypothesis descriptions. */
+        .hypothesis-box .item-desc { white-space: pre-line; }
+
+        /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
+        .hypothesis-box.hypothesis-deprecated {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-left-color: #9ca3af;
+            opacity: 0.9;
+        }
+        .hypothesis-box.hypothesis-deprecated .item-name {
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .hypothesis-box.hypothesis-deprecated .item-desc { color: #6b7280; }
+
+        /* Status-specific hypothesis pills */
+        .tag-hypothesis-CANONICAL { background: #d1fae5; color: #065f46; }
+        .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
+        .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
+        .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+        .evidence-support {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .support-SUPPORT { background: #d1fae5; color: #065f46; }
+        .support-REFUTE { background: #fee2e2; color: #991b1b; }
+        .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
+        .hypothesis-notes {
+            margin-top: 8px;
+            font-size: 0.82rem;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .crosslink-block {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .crosslink-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .crosslink-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .crosslink-item {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .crosslink-item a {
+            color: #0f766e;
+            font-weight: 600;
+        }
+
+        .crosslink-desc {
+            color: var(--text-muted);
+            margin-left: 6px;
+        }
+
+        .empty-state {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .flow-list {
+            list-style: none;
+            display: grid;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .flow-target {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .page-footer {
+            text-align: center;
+            padding: 32px 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .page-footer a {
+            color: var(--primary);
+        }
+
+        .pathograph-container {
+            margin: 20px 0;
+            padding: 0;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .pathograph-container svg {
+            display: block;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .pathograph-container svg:active {
+            cursor: grabbing;
+        }
+
+        .pathograph-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: #6b7280;
+        }
+
+        .pathograph-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .pathograph-legend-item.dimmed {
+            opacity: 0.35;
+        }
+
+        .pathograph-legend-item input {
+            accent-color: var(--primary);
+            margin: 0;
+        }
+
+        .pathograph-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .graph-note {
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
+        }
+
+        .pathograph-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: rgba(17, 24, 39, 0.92);
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            max-width: 320px;
+            z-index: 100;
+            opacity: 0;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
+        }
+
+        .pathograph-tooltip .tt-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #e5e7eb;
+        }
+
+        .pathograph-tooltip .tt-type {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 6px;
+        }
+
+        .pathograph-tooltip .tt-desc {
+            margin-bottom: 6px;
+            color: #d1d5db;
+        }
+
+        .pathograph-tooltip .tt-meta {
+            font-size: 0.72rem;
+            color: #9ca3af;
+        }
+
+        .pathograph-tooltip .tt-meta span {
+            display: block;
+            margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
+        }
+
+        .graph-warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            color: #92400e;
+        }
+
+        .graph-warning strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .graph-warning ul {
+            margin: 8px 0 0 20px;
+            padding: 0;
+        }
+
+        .graph-warning li {
+            margin: 4px 0;
+        }
+
+        @media (max-width: 720px) {
+            .container {
+                padding: 16px;
+            }
+
+            .page-header {
+                padding: 32px 24px;
+            }
+
+            .page-header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+    <script src="https://d3js.org/d3.v7.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js" integrity="sha384-2IH3T69EIKYC4c+RXZifZRvaH5SRUdacJW7j6HtE5rQbvLhKKdawxq6vpIzJ7j9M" crossorigin="anonymous"></script>
+    <script>
+    var NODE_SHAPES = {
+        pathophysiology: "roundrect",
+        phenotype: "ellipse",
+        environmental: "diamond",
+        genetic: "hexagon",
+        treatment: "rect",
+        biochemical: "circle",
+        experimental_model: "roundrect",
+        orphan: "roundrect",
+        unknown: "roundrect"
+    };
+    var NODE_TYPE_LABELS = {
+        pathophysiology: "Pathophysiology",
+        phenotype: "Phenotype",
+        environmental: "Environmental",
+        genetic: "Genetics / Variants",
+        treatment: "Medical Actions",
+        biochemical: "Biochemical",
+        experimental_model: "Experimental Models / Non-animal Systems",
+        orphan: "Uncategorized"
+    };
+    var NODE_STROKE = {
+        pathophysiology: "#93c5fd",
+        phenotype: "#fcd34d",
+        environmental: "#86efac",
+        genetic: "#c4b5fd",
+        treatment: "#f9a8d4",
+        biochemical: "#a5b4fc",
+        experimental_model: "#14b8a6",
+        orphan: "#dc2626"
+    };
+    var NODE_TYPE_ICONS = {
+        pathophysiology: "⚙",
+        phenotype: "◉",
+        environmental: "◇",
+        genetic: "🧬",
+        treatment: "💊",
+        biochemical: "⚗",
+        experimental_model: "🧫",
+        orphan: "?"
+    };
+
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function humanizeEnum(value) {
+        return String(value || "").replace(/_/g, " ").toLowerCase().replace(/\b\w/g, function(c) {
+            return c.toUpperCase();
+        });
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
+    function renderPathograph(containerId, data) {
+        var container = document.getElementById(containerId);
+        var svgEl = document.getElementById(containerId + "-svg");
+        var tooltipEl = document.getElementById(containerId + "-tooltip");
+        var legendEl = document.getElementById(containerId + "-legend");
+        if (!container || !svgEl || !tooltipEl || !legendEl) return;
+        if (!data || !data.nodes || !data.nodes.length) return;
+
+        var g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
+        g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
+
+        var nodeMap = {};
+        data.nodes.forEach(function(n) {
+            nodeMap[n.id] = n;
+            var labelLen = n.id.length;
+            var w = Math.max(120, Math.min(220, labelLen * 8 + 30));
+            var h = 44;
+            g.setNode(n.id, { width: w, height: h, label: n.id });
+        });
+        data.edges.forEach(function(e) {
+            g.setEdge(e.source, e.target);
+        });
+        dagre.layout(g);
+
+        var graphInfo = g.graph();
+        var totalW = graphInfo.width + 60;
+        var totalH = graphInfo.height + 60;
+
+        var svg = d3.select(svgEl)
+            .attr("viewBox", "0 0 " + totalW + " " + totalH)
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("min-height", Math.min(totalH, 600) + "px");
+
+        var rootG = svg.append("g").attr("class", "pathograph-root");
+
+        var zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", function(event) {
+                rootG.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+
+        svg.append("defs").append("marker")
+            .attr("id", "pg-arrow")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#9ca3af");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-orphan")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#dc2626");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
+        var edgesG = rootG.append("g").attr("class", "pg-edges");
+        data.edges.forEach(function(e) {
+            var dagreEdge = g.edge(e.source, e.target);
+            if (!dagreEdge || !dagreEdge.points) return;
+            var pts = dagreEdge.points;
+            var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
+            var edgePath = edgesG.append("path")
+                .attr("d", line(pts))
+                .attr("fill", "none")
+                .attr("stroke", edgeStroke(e))
+                .attr("stroke-width", 1.8)
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
+                .attr("data-source", e.source)
+                .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
+        });
+
+        function drawNodeShape(sel, nodeData, w, h) {
+            var shape = NODE_SHAPES[nodeData.node_type] || "roundrect";
+            var stroke = NODE_STROKE[nodeData.node_type] || "#d1d5db";
+            var strokeDash = nodeData.is_orphan ? "6 4" : "none";
+            if (nodeData.is_orphan) stroke = "#dc2626";
+
+            if (shape === "ellipse") {
+                sel.append("ellipse")
+                    .attr("rx", w/2).attr("ry", h/2)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "diamond") {
+                var dx = w/2, dy = h/2;
+                sel.append("polygon")
+                    .attr("points", "0,"+(-dy)+" "+(dx)+",0 0,"+(dy)+" "+(-dx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "hexagon") {
+                var hx = w/2, hy = h/2, inset = w*0.2;
+                sel.append("polygon")
+                    .attr("points",
+                        (-hx+inset)+","+(-hy)+" "+(hx-inset)+","+(-hy)+" "+
+                        (hx)+",0 "+(hx-inset)+","+(hy)+" "+
+                        (-hx+inset)+","+(hy)+" "+(-hx)+",0")
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "circle") {
+                var r = Math.min(w, h) / 2;
+                sel.append("circle")
+                    .attr("r", r)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else if (shape === "rect") {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            } else {
+                sel.append("rect")
+                    .attr("x", -w/2).attr("y", -h/2).attr("width", w).attr("height", h)
+                    .attr("rx", 8).attr("ry", 8)
+                    .attr("fill", nodeData.color).attr("stroke", stroke).attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", strokeDash);
+            }
+        }
+
+        var nodesG = rootG.append("g").attr("class", "pg-nodes");
+        data.nodes.forEach(function(n) {
+            var dagreNode = g.node(n.id);
+            if (!dagreNode) return;
+            var nw = dagreNode.width, nh = dagreNode.height;
+            var nodeG = nodesG.append("g")
+                .attr("transform", "translate(" + dagreNode.x + "," + dagreNode.y + ")")
+                .attr("data-node-type", n.node_type)
+                .attr("data-node-id", n.id)
+                .style("cursor", "pointer");
+
+            drawNodeShape(nodeG, n, nw, nh);
+
+            var nodeIcon = NODE_TYPE_ICONS[n.node_type] || "";
+            if (nodeIcon) {
+                var iconStroke = NODE_STROKE[n.node_type] || "#d1d5db";
+                var iconBadge = nodeG.append("g")
+                    .attr("transform", "translate(" + (-nw/2 + 12) + "," + (-nh/2 + 10) + ")")
+                    .style("pointer-events", "none");
+                iconBadge.append("circle")
+                    .attr("r", 9)
+                    .attr("fill", "rgba(255,255,255,0.95)")
+                    .attr("stroke", iconStroke)
+                    .attr("stroke-width", 1.2);
+                iconBadge.append("text")
+                    .attr("text-anchor", "middle")
+                    .attr("dominant-baseline", "central")
+                    .attr("font-size", "10px")
+                    .attr("font-family", "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\", system-ui, sans-serif")
+                    .text(nodeIcon);
+            }
+
+            var label = n.id;
+            var maxChars = Math.floor(nw / 7);
+            if (label.length > maxChars) label = label.substring(0, maxChars - 1) + "\u2026";
+            nodeG.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "central")
+                .attr("font-size", "11px")
+                .attr("font-family", "system-ui, -apple-system, sans-serif")
+                .attr("fill", "#1f2937")
+                .text(label);
+
+            nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
+                highlightNode(n.id, false);
+                hideTooltip();
+            }).on("click", function(event) {
+                event.stopPropagation();
+                pinnedNodeId = n.id;
+                highlightNode(n.id, true);
+                showTooltip(event, n);
+            });
+        });
+
+        svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        function highlightNode(nodeId, on) {
+            if (!on) { clearHighlight(); return; }
+            var connectedNodes = new Set([nodeId]);
+            data.edges.forEach(function(e) {
+                if (e.source === nodeId) connectedNodes.add(e.target);
+                if (e.target === nodeId) connectedNodes.add(e.source);
+            });
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var nid = el.attr("data-node-id");
+                el.style("opacity", connectedNodes.has(nid) ? 1 : 0.2);
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var s = el.attr("data-source"), t = el.attr("data-target");
+                el.style("opacity", (s === nodeId || t === nodeId) ? 1 : 0.1);
+            });
+        }
+
+        function clearHighlight() {
+            nodesG.selectAll("g").style("opacity", 1);
+            edgesG.selectAll("path").style("opacity", 1);
+        }
+
+        function showTooltip(event, n) {
+            function formatGeneTerm(gene) {
+                if (typeof gene === "string") return gene;
+                var label = gene.label || gene.preferred_term || gene.term_label || "";
+                var id = gene.id || gene.term_id || "";
+                var modifier = gene.modifier || "";
+                var qualifiers = [];
+                if (id) qualifiers.push(id);
+                if (modifier) qualifiers.push(humanizeEnum(modifier));
+                if (label && qualifiers.length && label !== id) return label + ' ' + qualifiers.join(" ");
+                return label || id;
+            }
+
+            function formatGeneticContext(context) {
+                var parts = [];
+                if (context.gene_terms && context.gene_terms.length) {
+                    parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
+                }
+                if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.allele_type) parts.push(context.allele_type);
+                if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
+                if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
+                if (context.allelic_events && context.allelic_events.length) {
+                    parts.push(context.allelic_events.map(humanizeEnum).join(", "));
+                }
+                if (context.zygosity) parts.push(humanizeEnum(context.zygosity));
+                if (context.functional_impact) parts.push(context.functional_impact);
+                if (context.functional_impact_category) parts.push(humanizeEnum(context.functional_impact_category));
+                if (context.description) parts.push(context.description);
+                return parts.join("; ");
+            }
+
+            var html = [];
+            var nodeIcon = NODE_TYPE_ICONS[n.node_type] || "";
+            html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
+            html.push('<div class="tt-type">' + escapeHtml(NODE_TYPE_LABELS[n.node_type] || n.node_type) + '</div>');
+            if (n.description) {
+                var desc = n.description;
+                if (desc.length > 200) desc = desc.substring(0, 197) + "...";
+                html.push('<div class="tt-desc">' + escapeHtml(desc) + '</div>');
+            }
+            var meta = n.meta || {};
+            var metaParts = [];
+            if (meta.evidence_count) metaParts.push('<span>Evidence: ' + meta.evidence_count + ' items</span>');
+            if (meta.cell_types && meta.cell_types.length) metaParts.push('<span>Cells: ' + escapeHtml(meta.cell_types.join(", ")) + '</span>');
+            if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
+            if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
+            if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
+            else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
+            if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
+            if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
+            if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
+            if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
+            if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
+            if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
+            if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
+            if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
+            if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
+            if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.16);">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#c7d2fe; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#e0e7ff;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#c7d2fe; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#fde68a; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#d1d5db;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#c7d2fe; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#d1d5db;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#d1d5db; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
+            }
+
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
+            tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
+            tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
+
+            var rect = container.getBoundingClientRect();
+            var x = event.clientX - rect.left + 14;
+            var y = event.clientY - rect.top + 14;
+            if (x + 330 > rect.width) x = x - 340;
+            if (y + 200 > rect.height) y = Math.max(4, y - 200);
+            tooltipEl.style.left = x + "px";
+            tooltipEl.style.top = y + "px";
+        }
+
+        function hideTooltip() {
+            tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement("div");
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        var typesInGraph = {};
+        data.nodes.forEach(function(n) {
+            typesInGraph[n.node_type] = n.color;
+        });
+        var activeTypes = new Set(Object.keys(typesInGraph));
+
+        Object.keys(typesInGraph).forEach(function(type) {
+            var item = document.createElement("label");
+            item.className = "pathograph-legend-item";
+            item.setAttribute("data-type", type);
+            var checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", "Toggle " + (NODE_TYPE_LABELS[type] || type));
+            item.appendChild(checkbox);
+            var swatch = document.createElement("div");
+            swatch.className = "pathograph-legend-swatch";
+            swatch.style.background = typesInGraph[type];
+            swatch.style.borderColor = NODE_STROKE[type] || "#d1d5db";
+            item.appendChild(swatch);
+            var label = document.createElement("span");
+            var icon = NODE_TYPE_ICONS[type] || "";
+            label.textContent = (icon ? icon + " " : "") + (NODE_TYPE_LABELS[type] || type);
+            item.appendChild(label);
+            checkbox.addEventListener("change", function() {
+                if (checkbox.checked) {
+                    activeTypes.add(type);
+                    item.classList.remove("dimmed");
+                } else {
+                    activeTypes.delete(type);
+                    item.classList.add("dimmed");
+                }
+                filterByType();
+            });
+            legendEl.appendChild(item);
+        });
+
+        function filterByType() {
+            nodesG.selectAll("g").each(function() {
+                var el = d3.select(this);
+                var t = el.attr("data-node-type");
+                el.style("display", activeTypes.has(t) ? null : "none");
+            });
+            edgesG.selectAll("path").each(function() {
+                var el = d3.select(this);
+                var sNode = nodeMap[el.attr("data-source")];
+                var tNode = nodeMap[el.attr("data-target")];
+                var sVis = sNode && activeTypes.has(sNode.node_type);
+                var tVis = tNode && activeTypes.has(tNode.node_type);
+                el.style("display", (sVis && tVis) ? null : "none");
+            });
+        }
+    }
+    </script>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    
+
+    
+
+    
+
+    
+    
+    <nav class="site-nav">
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="index.html" class="active">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../app/index.html">Browse All</a>
+            <span> / </span>
+            <a href="index.html">Modules</a>
+            <span> / </span>
+            <span>Necrotizing Vasculitis Module</span>
+        </div>
+
+        <header class="page-header">
+            <h1>Necrotizing Vasculitis Module</h1>
+            <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern."
+                      style="background: hsl(153, 68%, 96%); border-color: hsl(153, 52%, 78%); color: hsl(153, 62%, 26%);">Pharmacology</span>
+                
+                <span class="badge badge-study-area"
+                      title="Immune-mediated mechanism — innate and adaptive immune activation, autoimmunity, hypersensitivity, chronic inflammation, and the immune contribution to tissue injury and repair."
+                      style="background: hsl(205, 68%, 96%); border-color: hsl(205, 52%, 78%); color: hsl(205, 62%, 26%);">Immunology</span>
+                
+                <span class="badge badge-category">Module</span>
+                <span class="badge badge-module">necrotizing_vasculitis</span>
+                <span class="badge badge-count">8 disorders</span>
+                
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                
+            </div>
+            
+            <div class="header-description">A conserved pathophysiology module for the leukocyte-mediated destruction of the blood-vessel wall that produces fibrinoid necrosis - the lesion whose biopsy report reads &#34;necrotizing vasculitis&#34; and which recurs across the ANCA-associated vasculitides (granulomatosis with polyangiitis, microscopic polyangiitis, eosinophilic granulomatosis with polyangiitis), the medium-vessel necrotizing arteritis of polyarteritis nodosa, the immune-complex small-vessel vasculitides (IgA vasculitis, cryoglobulinaemic vasculitis, cutaneous leukocytoclastic angiitis), and secondary forms such as rheumatoid vasculitis. The chain is: an immune stimulus is localized to the vessel wall and activates the endothelium (ANCA bound to primed neutrophils in the pauci-immune forms, deposited immune complexes in the immune-complex forms) -&gt; complement is activated through the alternative pathway and the C5a-C5aR1 axis recruits and primes further neutrophils, an amplification loop inside the wall -&gt; intramural leukocytes undergo respiratory burst, degranulation and NET extrusion (the KEY CONFORMANCE TARGET, &#34;necrotizing_vasculitis#Intramural Leukocyte Degranulation and Oxidative Burst&#34;, the disorder-agnostic rate-limiting step every member mechanistically passes through) -&gt; oxidants and serine proteases kill endothelial and mural smooth muscle cells and destroy the matrix, plasma fibrin insudates, and the wall becomes fibrinoid-necrotic with leukocytoclasia -&gt; the damaged segment thromboses, ruptures or aneurysmally dilates, causing downstream infarction and haemorrhage. The drug-target pattern is anchored on the amplifier node: avacopan, an oral C5aR1 antagonist, is the node-specific agent (ADVOCATE), with rituximab acting one step upstream on the autoantibody supply. Complementary to, not overlapping with, the sibling modules: complement_dysregulation covers loss of negative regulation of the alternative pathway itself (aHUS/C3G-type injury) rather than leukocyte-mediated mural destruction; granuloma_formation covers the separate extravascular granulomatous arm that GPA and EGPA carry alongside this vasculitic one; thrombogenesis covers luminal clot formation on an intact wall. Conformers substitute the disease-specific stimulus at the trigger node and the disease-specific organ pattern at the consequence node while keeping the amplifier and central effector intact - &#34;intact&#34; meaning the C5a-C5aR1 output and the intramural degranulation step, not the complement entry route, which is the alternative pathway in the pauci-immune arm and the classical pathway in the immune-complex arm (see the amplifier node).</div>
+            
+        </header>
+
+        <div class="section-grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
+                    <h2 class="card-title">Pathophysiology Nodes</h2>
+                    <span class="card-count">5</span>
+                </div>
+                <div class="empty-state">
+                    5 shared nodes are defined in this module.
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon" style="background: #fce7f3; color: #be185d;">◉</div>
+                    <h2 class="card-title">Cell Types</h2>
+                    <span class="card-count">3</span>
+                </div>
+                
+                <div class="tag-list">
+                    
+                    
+                    
+                    <span class="tag tag-cell">
+                        neutrophil
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000775</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-cell">
+                        vascular endothelial cell
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0002139" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0002139</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves vascular endothelial cell (CL:0002139). CL:0002139 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-cell">
+                        vascular smooth muscle cell
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000359</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves vascular smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon" style="background: #fef3c7; color: #d97706;">⇄</div>
+                    <h2 class="card-title">Biological Processes</h2>
+                    <span class="card-count">13</span>
+                </div>
+                
+                <div class="tag-list">
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        endothelial cell activation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0042118</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased endothelial cell activation (GO:0042118). GO:0042118 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        Fc receptor mediated stimulatory signaling pathway
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0002431" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0002431</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased Fc receptor mediated stimulatory signaling pathway (GO:0002431). GO:0002431 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        neutrophil activation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0042119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0042119</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased neutrophil activation (GO:0042119). GO:0042119 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        complement activation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006956</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        complement activation, alternative pathway
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006957</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        complement activation, classical pathway
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006958</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        leukocyte migration involved in inflammatory response
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0002523" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0002523</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased leukocyte migration involved in inflammatory response (GO:0002523). GO:0002523 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        neutrophil degranulation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0043312</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased neutrophil degranulation (GO:0043312). GO:0043312 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        respiratory burst involved in inflammatory response
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0002536" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0002536</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased respiratory burst involved in inflammatory response (GO:0002536). GO:0002536 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        neutrophil extracellular trap formation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0140645" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0140645</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased neutrophil extracellular trap formation (GO:0140645). GO:0140645 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        extracellular matrix disassembly
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0022617</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        blood coagulation, fibrin clot formation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0072378</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased blood coagulation, fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
+                    <span class="tag tag-bio">
+                        positive regulation of blood coagulation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0030194" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0030194</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased positive regulation of blood coagulation (GO:0030194). GO:0030194 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+            </div>
+        </div>
+
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
+                <h2 class="card-title">Notes</h2>
+            </div>
+            <div class="item-desc">This is a mechanism module, not a disease. Do NOT create a &#34;Necrotizing Vasculitis&#34; Disease entry - MONDO:0800113 is definitionally a class over other diseases and is already modelled in dismech as the Grouping kb/groupings/Necrotizing_Vasculitides.yaml (issue #8754, PR #8860). This module supplies the shared effector mechanism that the Grouping asserts in prose in its second membership criterion but could not encode as a machine-checkable leaf, because no single shared GO process was annotated across the members. Disorder entries reach it via conforms_to (for example, &#34;necrotizing_vasculitis#Fibrinoid Necrosis of the Vessel Wall&#34;).
+Xogenesis anchor, with a caveat. The terminal output is not a new discrete structure but a canonical one made pathological, so the process genus is OGMS:0000061 pathological bodily process, sub-typed as OGMS:0000080 pathological transformation (the vessel wall becomes pathological), at site UBERON:0035965 wall of blood vessel. The species term MPATH:9 fibrinoid necrosis sits in MPATH&#39;s *process* branch (under MPATH:596 pathological process / MPATH:597 cell and tissue damage process), NOT in the MPATH:603 pathological anatomical entity subtree that the Xogenesis convention normally draws from, and there is no MPATH continuant for &#34;fibrinoid-necrotic vessel wall&#34;. That is recorded here as an OBO gap rather than papered over by binding a continuant term that does not mean this. SNOMED CT &#34;Morphologically abnormal structure&#34; (49755003) is a census/gap guide only and is not bound. No CURIE in this stanza is bound in a term slot; the nodes bind GO, CL and UBERON only.
+Key disease-specific substitutions at the trigger node: GPA and MPA substitute PR3-ANCA and MPO-ANCA bound to cytokine-primed neutrophils, with GPA carrying an additional extravascular granulomatous arm that belongs to granuloma_formation, not here; EGPA substitutes a Th2/eosinophil-dominant milieu in which ANCA is present in only a minority (its eosinophil arm is discussed under the exclusions below, and CL:0000771 is deliberately NOT bound at the central effector: the available sources call eosinophils a hallmark and a main effector of organ damage in EGPA without placing their degranulation inside the vessel wall, which is the one thing that node is defined by); polyarteritis nodosa substitutes an ANCA-negative medium-artery lesion whose consequence node is microaneurysm and infarction rather than glomerulonephritis; IgA vasculitis substitutes galactose-deficient IgA1 immune complexes; cryoglobulinaemic vasculitis substitutes cold-precipitable immunoglobulin complexes, usually HCV-driven; cutaneous leukocytoclastic angiitis substitutes a drug or infectious hapten with the consequence node restricted to dermal postcapillary venules; rheumatoid vasculitis substitutes rheumatoid-factor-containing complexes in long-standing seropositive RA.
+A note on Primary Polyarteritis Nodosa before the exclusions, because the two look similar and are not. PAN is wired here at the effector and consequence nodes only: its dismech entry has no neutrophil or complement node to wire further upstream, and its own cited evidence says the pathogenesis of idiopathic PAN remains enigmatic. That is a NOT-YET-CURATED mechanism, not a different one - the Chapel Hill definition of PAN is necrotizing arteritis with mural leukocyte infiltration, so it belongs on this chain and the missing upstream nodes are a curation gap to close. The exclusions below are the opposite case: diseases whose effector is KNOWN and is not this one. Reaching the lesion is not what qualifies a conformer; having no contrary mechanism yet is not the same as having a contrary one.
+DO NOT conform these, even though they reach a necrotizing lesion. The boundary is the C5a/neutrophil hub, not the lesion. (a) Deficiency of Adenosine Deaminase 2 (kb/disorders/Deficiency_of_Adenosine_Deaminase_2.yaml) is a monogenic medium-vessel necrotizing vasculitis, but ADA2 loss skews macrophages to a pro-inflammatory M1 subset (PMID:30565235) and the disease responds to TNF-alpha inhibition rather than to complement- or neutrophil-directed therapy (PMID:32845415), so it reaches the terminal nodes by a different effector and is deliberately not wired here. (b) Lymphocyte-dominant vasculitides, where the effector is lymphocytic or direct viral endothelial injury, are out of scope even when fibrinoid necrosis is present. (c) Angiotensin- and pressure-driven fibrinoid vasculopathy (malignant hypertension) and thrombotic microangiopathy are haemodynamic or thrombotic, not leukocyte-and-complement mediated, and are out of scope - the Necrotizing Vasculitides Grouping makes the same exclusion. (d) In EGPA, wire the NEUTROPHIL node to the central effector; the eosinophil-infiltrative arm (cardiomyopathy, neuropathy) runs to its own consequences and is an adjunct sub-branch, not a replacement for the hub, so the eosinophil node is left unwired.
+Scope caveat: the strongest experimental evidence for the amplifier node (complement knockout and C5aR-deficient bone marrow protecting mice from anti-MPO glomerulonephritis) comes from the ANCA arm. The immune-complex members are placed on the same chain on histopathologic and clinical grounds - the same neutrophil-with-fibrinoid-necrosis lesion, the same C5a-generating complement activation - and a conformer in that arm should cite its own complement evidence rather than inheriting the ANCA-model citations. Modules bind GO and CL terms only, with UBERON locations; no CHEBI or MONDO bindings in nodes, except in the treatments block where the therapeutic agent carries an ontology identifier per the treatment schema.</div>
+        </div>
+        
+
+        
+
+        
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box anchor-target" id="nv_c5a_dependence_untested_in_immune_complex_arm">
+                <div class="item-name">Is the C5a-C5aR1 amplification step actually required in the immune-complex vasculitides, as it is demonstrably required in the ANCA-associated ones, or do the two arms converge on the shared lesion through partly distinct effector programs?</div>
+                <div class="item-meta">
+                    
+                    <span class="tag" style="background:#eef2ff;color:#4338ca;">KNOWLEDGE GAP</span>
+                    
+                    
+                    
+                    <span class="tag" style="background:#f3f4f6;color:#374151;">nv_c5a_dependence_untested_in_immune_complex_arm</span>
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b7280;">Attached to:</strong>
+                    
+                    <span class="tag" style="background:#fef3c7;color:#b45309;">Complement C5a Amplification and Neutrophil Recruitment</span>
+                    
+                </div>
+                
+                
+                <div class="item-desc" style="margin-top: 10px;">This module places all eight members on one chain through the amplifier node, but the evidence behind that node is asymmetric and the asymmetry is not incidental. The pauci-immune arm has genetic dissection (factor B and C5 knockouts protected, C4 knockouts not), a compartment-specific bone-marrow C5aR requirement, and an interventional RCT. The immune-complex arm rests on histopathology and review-level statements that deposited complexes activate complement and recruit neutrophils, with no branch-specific complement blockade trial. The two arms also enter complement by different routes - alternative versus classical - so convergence on an identical C5a-dependent step is a plausible inference from the shared lesion rather than a demonstrated fact. This matters practically: it determines whether avacopan, the node-specific agent modelled in this module, should be expected to work in cryoglobulinaemic or IgA vasculitis at all, and it is the single assumption most likely to be wrong in the module as curated.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b7280;">Proposed experiments:</strong>
+                    
+                    <span class="tag" style="background:#e0f2fe;color:#0369a1;">C5aR1 blockade in biopsy-proven immune-complex small-vessel vasculitis</span>
+                    
+                </div>
+                
+            </div>
+            
+        </div>
+        
+
+        
+
+        
+
+        
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
+                <h2 class="card-title">Used By Disorder Entries</h2>
+                <span class="card-count">8</span>
+            </div>
+            
+            <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Allergic_Cutaneous_Vasculitis.html">Allergic Cutaneous Vasculitis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Immune-complex deposition in cutaneous small vessels → Vessel Wall Immune Stimulus Deposition and Endothelial Activation
+                        
+                        
+                        , 
+                        
+                        Classical complement activation at the vessel wall → Complement C5a Amplification and Neutrophil Recruitment
+                        
+                        
+                        , 
+                        
+                        Neutrophil recruitment and activation → Intramural Leukocyte Degranulation and Oxidative Burst
+                        
+                        
+                        , 
+                        
+                        Leukocytoclastic small-vessel wall injury → Fibrinoid Necrosis of the Vessel Wall
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Cryoglobulinemic_Vasculitis.html">Cryoglobulinemic Vasculitis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cryoglobulin immune-complex vascular deposition → Vessel Wall Immune Stimulus Deposition and Endothelial Activation
+                        
+                        
+                        , 
+                        
+                        Immune-complex small-vessel vascular injury → Fibrinoid Necrosis of the Vessel Wall
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Eosinophilic_granulomatosis_with_polyangiitis.html">Eosinophilic granulomatosis with polyangiitis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        MPO-ANCA-mediated neutrophil priming and activation → Vessel Wall Immune Stimulus Deposition and Endothelial Activation
+                        
+                        
+                        , 
+                        
+                        Neutrophil-mediated endothelial injury → Intramural Leukocyte Degranulation and Oxidative Burst
+                        
+                        
+                        , 
+                        
+                        Necrotizing small-vessel vasculitis → Fibrinoid Necrosis of the Vessel Wall
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Granulomatosis_with_Polyangiitis.html">Granulomatosis with Polyangiitis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        ANCA-Mediated Neutrophil Activation → Intramural Leukocyte Degranulation and Oxidative Burst
+                        
+                        
+                        , 
+                        
+                        Complement Alternative Pathway Activation → Complement C5a Amplification and Neutrophil Recruitment
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/IgA_Vasculitis.html">IgA Vasculitis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Systemic IgA Immune Complex Deposition in Small Vessels → Vessel Wall Immune Stimulus Deposition and Endothelial Activation
+                        
+                        
+                        , 
+                        
+                        Leukocytoclastic Vasculitis in Skin and Systemic Organs → Fibrinoid Necrosis of the Vessel Wall
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Microscopic_Polyangiitis.html">Microscopic Polyangiitis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        ANCA-Mediated Neutrophil Activation → Intramural Leukocyte Degranulation and Oxidative Burst
+                        
+                        
+                        , 
+                        
+                        NET Formation and Complement Amplification → Complement C5a Amplification and Neutrophil Recruitment
+                        
+                        
+                        , 
+                        
+                        Necrotizing Small-Vessel Capillaritis → Fibrinoid Necrosis of the Vessel Wall
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Primary_Polyarteritis_Nodosa.html">Primary Polyarteritis Nodosa</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Necrotizing medium-artery inflammation → Fibrinoid Necrosis of the Vessel Wall
+                        
+                        
+                        , 
+                        
+                        Arterial ischemic organ injury → Luminal Compromise and Downstream Tissue Infarction
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Rheumatoid_Vasculitis.html">Rheumatoid Vasculitis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Immune-complex and cellular vascular inflammation → Vessel Wall Immune Stimulus Deposition and Endothelial Activation
+                        
+                        
+                        , 
+                        
+                        Vessel-wall destruction → Fibrinoid Necrosis of the Vessel Wall
+                        
+                        
+                        , 
+                        
+                        Ischemic tissue injury → Luminal Compromise and Downstream Tissue Infarction
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+            </div>
+            
+        </div>
+
+        
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
+                <h2 class="card-title">Pathograph</h2>
+            </div>
+            <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence-backed metadata.</div>
+            
+            <div class="pathograph-container" id="pathograph">
+                <div class="pathograph-legend" id="pathograph-legend"></div>
+                <svg id="pathograph-svg" role="img">
+                    <title>Pathograph: causal mechanism network for Necrotizing Vasculitis Module</title>
+                    <desc>Interactive directed graph showing how this shared module's pathophysiology nodes connect.</desc>
+                </svg>
+                <div class="pathograph-tooltip" id="pathograph-tooltip"></div>
+            </div>
+            <script>
+            (function() {
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-CD20 B Cell Depletion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rituximab depletes CD20-positive B cells and so removes the supply of the autoantibody that constitutes the trigger stimulus in the ANCA-associated members. It acts one step upstream of the module\u0027s key conformance target - it does not touch the intramural degranulation directly, but starves the trigger node of ANCA. In the RAVE trial it was non-inferior to cyclophosphamide for induction of remission and more effective in relapsing disease. Conforming disorders in the immune-complex arm should not copy this treatment uncritically: where the antigenic drive is exogenous (hepatitis C in cryoglobulinaemic vasculitis) the first-line logic is to remove the antigen, not the B cell.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"C5a Receptor Antagonist Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Avacopan is an oral small-molecule antagonist of C5aR1, the receptor through which C5a recruits and primes neutrophils in the amplification loop. It is the node-specific agent for this module: rather than suppressing immunity broadly, it interrupts the single amplifier step that the complement-knockout and C5aR-deficient-marrow experiments identified as required. In the ADVOCATE trial in GPA and MPA it was non-inferior to a prednisone taper for remission at week 26 and superior for sustained remission at week 52, on a background of rituximab or cyclophosphamide - so it substitutes for glucocorticoid exposure rather than for induction immunosuppression. This is the drug-target design pattern conforming disorders should copy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"avacopan\"]}}, {\"id\": \"Complement C5a Amplification and Neutrophil Recruitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complement is engaged in the vessel wall and generates the anaphylatoxin C5a. C5a acting through the neutrophil C5a receptor (C5aR1) both chemoattracts further neutrophils to the segment and primes them for a stronger response to the same stimulus, so a local activation event becomes a self-sustaining inflammatory amplification loop confined to the vessel wall. This is the step that converts a focal, potentially self-limited insult into destructive disease.\\nThe ENTRY ROUTE into complement differs between the two arms and is the one place where conformers should not copy this node verbatim. In the pauci-immune ANCA-associated forms the route is the ALTERNATIVE pathway: factors released by the ANCA-activated neutrophil trigger it, and factor B and C5 knockout mice develop no disease while C4 knockouts (classical and lectin pathways) develop disease comparable to wild type - so the requirement is specifically alternative-pathway. In the immune-complex forms (IgA vasculitis, cryoglobulinaemic vasculitis, cutaneous leukocytoclastic angiitis, rheumatoid vasculitis) deposited complexes engage the CLASSICAL pathway instead, which is why hypocomplementaemia with low C4 is a marker there and not in the pauci-immune forms. What is shared - and what this node is named for - is the convergent output: C5a acting on neutrophil C5aR1. The node therefore binds the parent process GO:0006956 complement activation alongside the alternative pathway, and a conformer in the immune-complex arm should substitute the classical pathway and cite its own complement evidence rather than inheriting the anti-MPO mouse citations below.\\nNote on the key conformance target: the deep-research report for this module recommended designating THIS node the required hub, on the grounds that it carries the strongest causal evidence (an interventional RCT plus knockouts). The central effector was chosen instead, deliberately, because the key conformance target should be the step that is most disorder-agnostic rather than the step that is best evidenced - and this node is the one place the module admits its members diverge, since the entry route into complement differs by arm and the RCT evidence covers only the ANCA arm. The evidential strength is real, and is why the drug-target pattern hangs here.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"complement activation\", \"complement activation, alternative pathway\", \"complement activation, classical pathway\", \"leukocyte migration involved in inflammatory response\"], \"role\": \"amplifier\", \"locations\": [\"wall of blood vessel\"]}}, {\"id\": \"Fibrinoid Necrosis of the Vessel Wall\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining histopathologic lesion. Endothelial and vascular smooth muscle cells die, the internal elastic lamina and mural extracellular matrix are degraded, and the loss of endothelial barrier integrity lets plasma proteins - fibrinogen above all - insudate into the necrotic wall, where they polymerize to give the smudgy, brightly eosinophilic \\\"fibrinoid\\\" appearance. The infiltrating neutrophils themselves die in place and fragment, scattering nuclear debris (\\\"nuclear dust\\\", leukocytoclasia) through the wall. This is the lesion HP:6000253 Necrotizing vasculitis names and the finding that makes a biopsy report read \\\"necrotizing vasculitis\\\" without naming a disease; it is also the reason the Necrotizing Vasculitides Grouping is anchored on histopathology rather than aetiology. Conformers differ in calibre and site, not in the character of the lesion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular endothelial cell\", \"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix disassembly\", \"blood coagulation, fibrin clot formation\"], \"role\": \"effector\", \"locations\": [\"wall of blood vessel\"]}}, {\"id\": \"Intramural Leukocyte Degranulation and Oxidative Burst\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The key conformance target and the rate-limiting, disorder-agnostic step. Leukocytes that have adhered to and penetrated the vessel wall discharge their cytotoxic contents inside it: a respiratory burst generating reactive oxygen species, degranulation releasing serine proteases (proteinase 3, elastase, cathepsin G) and myeloperoxidase, and extrusion of neutrophil extracellular traps that both damage the wall and re-present MPO and PR3 to the immune system, closing a feed-forward loop back to the trigger. The effector leukocyte is the neutrophil in every member; EGPA adds the eosinophil, whose granule proteins contribute to the same intramural cytotoxicity. What defines this node is location, not cell identity - the same degranulation occurring in the lumen or the interstitium does not produce vasculitis. Mechanistically every member of the group passes through this step - it is what the Necrotizing Vasculitides Grouping asserts in its second membership criterion.\\nThat mechanistic claim is not yet matched by the wiring, and the gap is in the disorder entries rather than in the module. Only four of the eight members currently declare conformance here, because most of the others carry a single bundled node fusing this step with its neighbour: IgA vasculitis\u0027s \\\"Leukocytoclastic Vasculitis in Skin and Systemic Organs\\\" and Cryoglobulinemic Vasculitis\u0027s \\\"Immune-complex small-vessel vascular injury\\\" each describe neutrophil degranulation AND the resulting fibrinoid necrosis in one node, so they are wired to the effector, the more specific of the two claims they make. Splitting those bundled nodes - and giving Primary Polyarteritis Nodosa an intramural-injury node at all - is the follow-up that would let this node carry all eight; it is deliberately left out of the module\u0027s own PR rather than done as a drive-by restructuring of eight other curations.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil degranulation\", \"respiratory burst involved in inflammatory response\", \"neutrophil extracellular trap formation\"], \"role\": \"central_effector\", \"locations\": [\"wall of blood vessel\"]}}, {\"id\": \"Luminal Compromise and Downstream Tissue Infarction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A wall that has become fibrinoid-necrotic can no longer do either of its jobs. It is thrombogenic, so the lumen occludes; it is mechanically weak, so it dilates into a microaneurysm or ruptures and bleeds; and inflammatory healing narrows it by fibrosis. The result is ischaemic and haemorrhagic injury to whatever the vessel supplied, and this is where the members diverge most visibly even though the lesion is the same: necrotizing crescentic glomerulonephritis and alveolar capillaritis with pulmonary haemorrhage in the ANCA-associated small-vessel forms, palpable purpura where dermal postcapillary venules are involved, mononeuritis multiplex from vasa nervorum occlusion, and mesenteric or renal microaneurysm with organ infarction in medium-vessel polyarteritis nodosa. Untreated, this node is what makes necrotizing vasculitis organ- and life-threatening, and it is the reason the shared therapeutic consequence across the group is prompt induction immunosuppression.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"positive regulation of blood coagulation\"], \"role\": \"consequence\"}}, {\"id\": \"Vessel Wall Immune Stimulus Deposition and Endothelial Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximal trigger is the localization of an immune stimulus to the wall of a small or medium vessel together with activation of the overlying endothelium. Two upstream routes converge here and are mutually exclusive in any one disease. In the pauci-immune route, a cytokine-primed neutrophil translocates its granule autoantigens (proteinase 3, myeloperoxidase) to the cell surface where circulating ANCA can bind them, engaging Fc-gamma receptors and converting a circulating cell into an adherent, activated one at the vessel wall. In the immune-complex route, preformed or in-situ immune complexes (galactose-deficient IgA1 in IgA vasculitis, cold-precipitable cryoglobulins in cryoglobulinaemic vasculitis, rheumatoid-factor complexes in rheumatoid vasculitis, drug- or infection-driven complexes in cutaneous leukocytoclastic angiitis) deposit in the wall. Either way the endothelium upregulates adhesion molecules and the vessel becomes a site of leukocyte arrest. The requirement for a priming inflammatory milieu is why neutrophil activation alone is not sufficient and why infection so often precedes onset.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\", \"vascular endothelial cell\"], \"biological_processes\": [\"endothelial cell activation\", \"Fc receptor mediated stimulatory signaling pathway\", \"neutrophil activation\"], \"role\": \"trigger\", \"locations\": [\"wall of blood vessel\"]}}], \"edges\": [{\"source\": \"Vessel Wall Immune Stimulus Deposition and Endothelial Activation\", \"target\": \"Complement C5a Amplification and Neutrophil Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Factors released by the ANCA-activated neutrophil at the wall activate the alternative complement pathway, initiating the amplification loop.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Complement C5a Amplification and Neutrophil Recruitment\", \"target\": \"Intramural Leukocyte Degranulation and Oxidative Burst\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The recruited, C5a-primed neutrophils that have entered the wall are the cells that then degranulate within it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intramural Leukocyte Degranulation and Oxidative Burst\", \"target\": \"Complement C5a Amplification and Neutrophil Recruitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The feed-forward arm. NETs extruded during intramural degranulation are themselves a scaffold for alternative-pathway complement activation, so this node re-enters the amplifier rather than only feeding forward. The chain is therefore a loop at this point, not a straight line.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intramural Leukocyte Degranulation and Oxidative Burst\", \"target\": \"Fibrinoid Necrosis of the Vessel Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The oxidants and proteases released inside the wall are the proximate cause of mural cell death and matrix destruction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fibrinoid Necrosis of the Vessel Wall\", \"target\": \"Luminal Compromise and Downstream Tissue Infarction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"C5a Receptor Antagonist Therapy\", \"target\": \"Complement C5a Amplification and Neutrophil Recruitment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-CD20 B Cell Depletion\", \"target\": \"Vessel Wall Immune Stimulus Deposition and Endothelial Activation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                renderPathograph("pathograph", graphData);
+            })();
+            </script>
+        </div>
+        
+
+        
+        <div class="card" id="pathophysiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
+                <h2 class="card-title">Pathophysiology</h2>
+                <span class="card-count">5</span>
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-vessel-wall-immune-stimulus-deposition-and-endothelial-activation" data-dismech-node="Vessel Wall Immune Stimulus Deposition and Endothelial Activation" data-dismech-type="pathophysiology">
+                <div class="item-name">Vessel Wall Immune Stimulus Deposition and Endothelial Activation</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">trigger</span>
+                    
+                </div>
+                
+                <div class="item-desc">The proximal trigger is the localization of an immune stimulus to the wall of a small or medium vessel together with activation of the overlying endothelium. Two upstream routes converge here and are mutually exclusive in any one disease. In the pauci-immune route, a cytokine-primed neutrophil translocates its granule autoantigens (proteinase 3, myeloperoxidase) to the cell surface where circulating ANCA can bind them, engaging Fc-gamma receptors and converting a circulating cell into an adherent, activated one at the vessel wall. In the immune-complex route, preformed or in-situ immune complexes (galactose-deficient IgA1 in IgA vasculitis, cold-precipitable cryoglobulins in cryoglobulinaemic vasculitis, rheumatoid-factor complexes in rheumatoid vasculitis, drug- or infection-driven complexes in cutaneous leukocytoclastic angiitis) deposit in the wall. Either way the endothelium upregulates adhesion molecules and the vessel becomes a site of leukocyte arrest. The requirement for a priming inflammatory milieu is why neutrophil activation alone is not sufficient and why infection so often precedes onset.</div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        neutrophil
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000775</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        vascular endothelial cell
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0002139" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0002139</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular endothelial cell, annotated with endothelial cell of vascular tree (CL:0002139). CL:0002139 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        endothelial cell activation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0042118" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0042118</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased endothelial cell activation (GO:0042118). GO:0042118 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        Fc receptor mediated stimulatory signaling pathway
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0002431" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0002431</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Fc receptor mediated stimulatory signaling pathway (GO:0002431). GO:0002431 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        neutrophil activation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0042119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0042119</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neutrophil activation (GO:0042119). GO:0042119 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Allergic_Cutaneous_Vasculitis.html">Allergic Cutaneous Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Immune-complex deposition in cutaneous small vessels</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cryoglobulinemic_Vasculitis.html">Cryoglobulinemic Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Cryoglobulin immune-complex vascular deposition</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Eosinophilic_granulomatosis_with_polyangiitis.html">Eosinophilic granulomatosis with polyangiitis</a>
+                            
+                            <span class="crosslink-desc">as MPO-ANCA-mediated neutrophil priming and activation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/IgA_Vasculitis.html">IgA Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Systemic IgA Immune Complex Deposition in Small Vessels</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Rheumatoid_Vasculitis.html">Rheumatoid Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Immune-complex and cellular vascular inflammation</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Downstream</div>
+                    <ul class="flow-list">
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Complement C5a Amplification and Neutrophil Recruitment</span>
+                            
+                            <span class="crosslink-desc">Factors released by the ANCA-activated neutrophil at the wall activate the alternative complement pathway, initiating the amplification loop.</span>
+                            
+                        </li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-complement-c5a-amplification-and-neutrophil-recruitment" data-dismech-node="Complement C5a Amplification and Neutrophil Recruitment" data-dismech-type="pathophysiology">
+                <div class="item-name">Complement C5a Amplification and Neutrophil Recruitment</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">amplifier</span>
+                    
+                </div>
+                
+                <div class="item-desc">Complement is engaged in the vessel wall and generates the anaphylatoxin C5a. C5a acting through the neutrophil C5a receptor (C5aR1) both chemoattracts further neutrophils to the segment and primes them for a stronger response to the same stimulus, so a local activation event becomes a self-sustaining inflammatory amplification loop confined to the vessel wall. This is the step that converts a focal, potentially self-limited insult into destructive disease.
+The ENTRY ROUTE into complement differs between the two arms and is the one place where conformers should not copy this node verbatim. In the pauci-immune ANCA-associated forms the route is the ALTERNATIVE pathway: factors released by the ANCA-activated neutrophil trigger it, and factor B and C5 knockout mice develop no disease while C4 knockouts (classical and lectin pathways) develop disease comparable to wild type - so the requirement is specifically alternative-pathway. In the immune-complex forms (IgA vasculitis, cryoglobulinaemic vasculitis, cutaneous leukocytoclastic angiitis, rheumatoid vasculitis) deposited complexes engage the CLASSICAL pathway instead, which is why hypocomplementaemia with low C4 is a marker there and not in the pauci-immune forms. What is shared - and what this node is named for - is the convergent output: C5a acting on neutrophil C5aR1. The node therefore binds the parent process GO:0006956 complement activation alongside the alternative pathway, and a conformer in the immune-complex arm should substitute the classical pathway and cite its own complement evidence rather than inheriting the anti-MPO mouse citations below.
+Note on the key conformance target: the deep-research report for this module recommended designating THIS node the required hub, on the grounds that it carries the strongest causal evidence (an interventional RCT plus knockouts). The central effector was chosen instead, deliberately, because the key conformance target should be the step that is most disorder-agnostic rather than the step that is best evidenced - and this node is the one place the module admits its members diverge, since the entry route into complement differs by arm and the RCT evidence covers only the ANCA arm. The evidential strength is real, and is why the drug-target pattern hangs here.</div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        neutrophil
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000775</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        complement activation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0006956</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        complement activation, alternative pathway
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0006957" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0006957</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation, alternative pathway (GO:0006957). GO:0006957 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        complement activation, classical pathway
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0006958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006958</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased complement activation, classical pathway (GO:0006958). GO:0006958 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        leukocyte migration involved in inflammatory response
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0002523" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0002523</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased leukocyte migration involved in inflammatory response (GO:0002523). GO:0002523 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Allergic_Cutaneous_Vasculitis.html">Allergic Cutaneous Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Classical complement activation at the vessel wall</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Granulomatosis_with_Polyangiitis.html">Granulomatosis with Polyangiitis</a>
+                            
+                            <span class="crosslink-desc">as Complement Alternative Pathway Activation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Microscopic_Polyangiitis.html">Microscopic Polyangiitis</a>
+                            
+                            <span class="crosslink-desc">as NET Formation and Complement Amplification</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Downstream</div>
+                    <ul class="flow-list">
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Intramural Leukocyte Degranulation and Oxidative Burst</span>
+                            
+                            <span class="crosslink-desc">The recruited, C5a-primed neutrophils that have entered the wall are the cells that then degranulate within it.</span>
+                            
+                        </li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-intramural-leukocyte-degranulation-and-oxidative-burst" data-dismech-node="Intramural Leukocyte Degranulation and Oxidative Burst" data-dismech-type="pathophysiology">
+                <div class="item-name">Intramural Leukocyte Degranulation and Oxidative Burst</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">central effector</span>
+                    
+                </div>
+                
+                <div class="item-desc">The key conformance target and the rate-limiting, disorder-agnostic step. Leukocytes that have adhered to and penetrated the vessel wall discharge their cytotoxic contents inside it: a respiratory burst generating reactive oxygen species, degranulation releasing serine proteases (proteinase 3, elastase, cathepsin G) and myeloperoxidase, and extrusion of neutrophil extracellular traps that both damage the wall and re-present MPO and PR3 to the immune system, closing a feed-forward loop back to the trigger. The effector leukocyte is the neutrophil in every member; EGPA adds the eosinophil, whose granule proteins contribute to the same intramural cytotoxicity. What defines this node is location, not cell identity - the same degranulation occurring in the lumen or the interstitium does not produce vasculitis. Mechanistically every member of the group passes through this step - it is what the Necrotizing Vasculitides Grouping asserts in its second membership criterion.
+That mechanistic claim is not yet matched by the wiring, and the gap is in the disorder entries rather than in the module. Only four of the eight members currently declare conformance here, because most of the others carry a single bundled node fusing this step with its neighbour: IgA vasculitis&#39;s &#34;Leukocytoclastic Vasculitis in Skin and Systemic Organs&#34; and Cryoglobulinemic Vasculitis&#39;s &#34;Immune-complex small-vessel vascular injury&#34; each describe neutrophil degranulation AND the resulting fibrinoid necrosis in one node, so they are wired to the effector, the more specific of the two claims they make. Splitting those bundled nodes - and giving Primary Polyarteritis Nodosa an intramural-injury node at all - is the follow-up that would let this node carry all eight; it is deliberately left out of the module&#39;s own PR rather than done as a drive-by restructuring of eight other curations.</div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        neutrophil
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000775</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        neutrophil degranulation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0043312" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0043312</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neutrophil degranulation (GO:0043312). GO:0043312 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        respiratory burst involved in inflammatory response
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0002536" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0002536</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased respiratory burst involved in inflammatory response (GO:0002536). GO:0002536 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        neutrophil extracellular trap formation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0140645" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0140645</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neutrophil extracellular trap formation (GO:0140645). GO:0140645 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Allergic_Cutaneous_Vasculitis.html">Allergic Cutaneous Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Neutrophil recruitment and activation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Eosinophilic_granulomatosis_with_polyangiitis.html">Eosinophilic granulomatosis with polyangiitis</a>
+                            
+                            <span class="crosslink-desc">as Neutrophil-mediated endothelial injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Granulomatosis_with_Polyangiitis.html">Granulomatosis with Polyangiitis</a>
+                            
+                            <span class="crosslink-desc">as ANCA-Mediated Neutrophil Activation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Microscopic_Polyangiitis.html">Microscopic Polyangiitis</a>
+                            
+                            <span class="crosslink-desc">as ANCA-Mediated Neutrophil Activation</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Downstream</div>
+                    <ul class="flow-list">
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Complement C5a Amplification and Neutrophil Recruitment</span>
+                            
+                            <span class="crosslink-desc">The feed-forward arm. NETs extruded during intramural degranulation are themselves a scaffold for alternative-pathway complement activation, so this node re-enters the amplifier rather than only feeding forward. The chain is therefore a loop at this point, not a straight line.</span>
+                            
+                        </li>
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Fibrinoid Necrosis of the Vessel Wall</span>
+                            
+                            <span class="crosslink-desc">The oxidants and proteases released inside the wall are the proximate cause of mural cell death and matrix destruction.</span>
+                            
+                        </li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-fibrinoid-necrosis-of-the-vessel-wall" data-dismech-node="Fibrinoid Necrosis of the Vessel Wall" data-dismech-type="pathophysiology">
+                <div class="item-name">Fibrinoid Necrosis of the Vessel Wall</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">effector</span>
+                    
+                </div>
+                
+                <div class="item-desc">The defining histopathologic lesion. Endothelial and vascular smooth muscle cells die, the internal elastic lamina and mural extracellular matrix are degraded, and the loss of endothelial barrier integrity lets plasma proteins - fibrinogen above all - insudate into the necrotic wall, where they polymerize to give the smudgy, brightly eosinophilic &#34;fibrinoid&#34; appearance. The infiltrating neutrophils themselves die in place and fragment, scattering nuclear debris (&#34;nuclear dust&#34;, leukocytoclasia) through the wall. This is the lesion HP:6000253 Necrotizing vasculitis names and the finding that makes a biopsy report read &#34;necrotizing vasculitis&#34; without naming a disease; it is also the reason the Necrotizing Vasculitides Grouping is anchored on histopathology rather than aetiology. Conformers differ in calibre and site, not in the character of the lesion.</div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        vascular endothelial cell
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0002139" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0002139</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular endothelial cell, annotated with endothelial cell of vascular tree (CL:0002139). CL:0002139 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-cell">
+                        vascular smooth muscle cell
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:0000359</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vascular smooth muscle cell, annotated with vascular associated smooth muscle cell (CL:0000359). CL:0000359 is a cell type from the Cell Ontology.</span>
+                    </span>
+                    
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        extracellular matrix disassembly
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0022617</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        blood coagulation, fibrin clot formation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0072378</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation, fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Allergic_Cutaneous_Vasculitis.html">Allergic Cutaneous Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Leukocytoclastic small-vessel wall injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Cryoglobulinemic_Vasculitis.html">Cryoglobulinemic Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Immune-complex small-vessel vascular injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Eosinophilic_granulomatosis_with_polyangiitis.html">Eosinophilic granulomatosis with polyangiitis</a>
+                            
+                            <span class="crosslink-desc">as Necrotizing small-vessel vasculitis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/IgA_Vasculitis.html">IgA Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Leukocytoclastic Vasculitis in Skin and Systemic Organs</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Microscopic_Polyangiitis.html">Microscopic Polyangiitis</a>
+                            
+                            <span class="crosslink-desc">as Necrotizing Small-Vessel Capillaritis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Primary_Polyarteritis_Nodosa.html">Primary Polyarteritis Nodosa</a>
+                            
+                            <span class="crosslink-desc">as Necrotizing medium-artery inflammation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Rheumatoid_Vasculitis.html">Rheumatoid Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Vessel-wall destruction</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Downstream</div>
+                    <ul class="flow-list">
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Luminal Compromise and Downstream Tissue Infarction</span>
+                            
+                        </li>
+                        
+                    </ul>
+                </div>
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-luminal-compromise-and-downstream-tissue-infarction" data-dismech-node="Luminal Compromise and Downstream Tissue Infarction" data-dismech-type="pathophysiology">
+                <div class="item-name">Luminal Compromise and Downstream Tissue Infarction</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">consequence</span>
+                    
+                </div>
+                
+                <div class="item-desc">A wall that has become fibrinoid-necrotic can no longer do either of its jobs. It is thrombogenic, so the lumen occludes; it is mechanically weak, so it dilates into a microaneurysm or ruptures and bleeds; and inflammatory healing narrows it by fibrosis. The result is ischaemic and haemorrhagic injury to whatever the vessel supplied, and this is where the members diverge most visibly even though the lesion is the same: necrotizing crescentic glomerulonephritis and alveolar capillaritis with pulmonary haemorrhage in the ANCA-associated small-vessel forms, palpable purpura where dermal postcapillary venules are involved, mononeuritis multiplex from vasa nervorum occlusion, and mesenteric or renal microaneurysm with organ infarction in medium-vessel polyarteritis nodosa. Untreated, this node is what makes necrotizing vasculitis organ- and life-threatening, and it is the reason the shared therapeutic consequence across the group is prompt induction immunosuppression.</div>
+                
+
+                
+
+                
+                <div class="item-meta">
+                    
+                    
+                     
+                    <span class="tag tag-bio">
+                        positive regulation of blood coagulation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0030194" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0030194</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of blood coagulation (GO:0030194). GO:0030194 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                </div>
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Primary_Polyarteritis_Nodosa.html">Primary Polyarteritis Nodosa</a>
+                            
+                            <span class="crosslink-desc">as Arterial ischemic organ injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Rheumatoid_Vasculitis.html">Rheumatoid Vasculitis</a>
+                            
+                            <span class="crosslink-desc">as Ischemic tissue injury</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+            </div>
+            
+        </div>
+        
+
+        <footer class="page-footer">
+            <p>
+                Generated from <a href="https://github.com/monarch-initiative/dismech" target="_blank">dismech</a>
+                shared mechanism modules
+            </p>
+            <p style="margin-top: 8px;">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/modules/necrotizing_vasculitis.yaml" target="_blank">View source on GitHub</a>
+            </p>
+            
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
+        </footer>
+    </div>
+    <!-- hypothes.is curator feedback — group ID can be changed to a private group once created at hypothes.is/groups -->
+    <script type="application/json" class="js-hypothesis-config">
+    {
+      "openSidebar": false,
+      "showHighlights": "always",
+      "services": [
+        {
+          "apiUrl": "https://hypothes.is/api/",
+          "authority": "hypothes.is",
+          "groups": ["__world__"]
+        }
+      ]
+    }
+    </script>
+    <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
+</body>
+</html>
