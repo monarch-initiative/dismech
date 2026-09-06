@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEND Syndrome · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>MEND Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>MEND Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-08-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010498" target="_blank" rel="noopener noreferrer">MONDO:0010498</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-deep-research</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>1.1 Definition and Clinical Overview</h3>
+<p>MEND syndrome was originally delineated as “male EBP disorder with neurologic defects,” highlighting both its sex restriction and the central role of EBP dysfunction in pathogenesis.[15][17] Orphanet defines it as “a rare, genetic, syndromic, sterol biosynthesis disorder affecting males characterized by skin manifestations, including collodion membrane, ichthyosis, and patchy hypopigmentary lesions, associated with severe neurological involvement (e.g. intellectual disability, delayed psychomotor development, seizures, hydrocephalus, cerebellar/corpus callosum hypoplasia, Dandy–Walker malformation, hypotonia) and craniofacial dysmorphism.”[19] OMIM similarly describes MEND as an X‑linked recessive disorder representing a continuous phenotypic spectrum with variable manifestations associated with a defect in sterol biosynthesis, emphasizing the overlap with CDPX2 and the strong variability in severity even among individuals carrying the same EBP variant.[14][15] Case reports and series have confirmed that dermatologic and neurologic features are often evident at or shortly after birth, whereas skeletal, ocular, and some visceral manifestations become more apparent over early childhood, producing a complex multisystem syndrome that requires multidisciplinary care.[11][18][19]</p>
+<p>Several key distinguishing features help separate MEND syndrome from other congenital ichthyosis–neurodevelopmental disorders. The combination of male sex, X‑linked recessive inheritance, absence of mosaicism, characteristic plasma sterol profile (elevated 8‑dehydrocholesterol and 8(9)‑cholestenol), and molecular identification of a non‑mosaic hypomorphic EBP variant collectively define the diagnosis.[14][15][18] In contrast, CDPX2 in females is associated with skeletal stippling (chondrodysplasia punctata), often more pronounced limb shortening, and segmental or mosaic involvement due to X‑inactivation, together with similar sterol abnormalities.[14][17] Dermatologically, MEND presents as syndromic ichthyosis with coarse scaling, collodion membrane at birth in some individuals, and patchy hypopigmentation or hyperpigmentation; electron microscopy of hair shafts demonstrates characteristic structural defects reminiscent of other EBP‑related ichthyoses.[11][15] Neurologically, severe intellectual disability, seizures, hypotonia, and structural brain anomalies are typical, though a spectrum from moderate to profound impairment has been documented.[15][18][19]</p>
+<h3>1.2 Key Identifiers and Ontology Mappings</h3>
+<p>MEND syndrome is represented in multiple biomedical ontologies and reference databases. In OMIM, it is catalogued as MEND syndrome, entry #300960, with the designation that a number sign (#) is used because of evidence that the disorder is caused by hemizygous mutation in the EBP gene on chromosome Xp11.23.[15][17] Orphanet assigns MEND syndrome the identifier <a href="https://bioregistry.io/ORPHA:401973" target="_blank" rel="noopener noreferrer">ORPHA:401973</a> and classifies it as a “disorder” under the umbrella of sterol biosynthesis disorders and ectodermal dysplasia/intellectual disability syndromes.[19][5] The Disease Ontology provides the term “MEND syndrome” with <a href="http://purl.obolibrary.org/obo/DOID_0111865" target="_blank" rel="noopener noreferrer">DOID:0111865</a>, defining it as a lipid metabolism disorder characterized by a defect in sterol biosynthesis resulting in variable features including dermatologic, neurologic, skeletal, and visceral anomalies.[12][13] The Monarch Initiative and related cross‑ontology mapping give the MONDO ID <a href="http://purl.obolibrary.org/obo/MONDO_0010498" target="_blank" rel="noopener noreferrer">MONDO:0010498</a> for MEND syndrome, enabling integration with other phenotype and gene–disease resources.[7][9]</p>
+<p>In ICD‑10, MEND syndrome is cross‑referenced to the congenital malformation category Q87.8 (“Other specified congenital malformation syndromes affecting multiple systems”), reflecting its multisystemic and syndromic nature rather than a single‑organ disease.[19] A specific MeSH descriptor for “MEND syndrome” does not yet exist, which is typical for extremely rare disorders; instead, relevant indexing uses broader terms such as “Chondrodysplasia punctata,” “Ichthyosis,” and “Cholesterol/metabolism, inborn errors.” Human Phenotype Ontology (HPO) terms that map onto core clinical features include intellectual disability (<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>), short stature (<a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a>), scoliosis (<a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a>), ichthyosis (<a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" rel="noopener noreferrer">HP:0008064</a>), seizures (<a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>), hypotonia (<a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a>), microphthalmia (<a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" rel="noopener noreferrer">HP:0000568</a>), cataract (<a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" rel="noopener noreferrer">HP:0000518</a>), and Dandy–Walker malformation (<a href="http://purl.obolibrary.org/obo/HP_0001310" target="_blank" rel="noopener noreferrer">HP:0001310</a>), among many others.[2][15][19] At the gene level, EBP is catalogued by HGNC as “EBP” (<a href="https://bioregistry.io/HGNC:3120" target="_blank" rel="noopener noreferrer">HGNC:3120</a>) and in OMIM as EMOPAMIL‑BINDING PROTEIN; EBP (entry *300205), with phenotype links to CDPX2 and MEND syndrome.[17]</p>
+<h3>1.3 Synonyms and Alternative Names</h3>
+<p>Multiple synonymous labels have been used in the literature and databases, reflecting evolving understanding of the disease. Orphanet lists “Male EBP disorder with neurological defects” as a synonym of MEND syndrome and notes its classification as a syndromic sterol biosynthesis disorder.[19] OMIM uses “MEND” as an acronym for “male EBP disorder with neurologic defects,” and various case reports refer to “syndromic ichthyosis with neurologic anomalies associated with EBP mutations” as equivalent to MEND.[11][15] In some contexts, especially older literature, individuals with MEND‑like phenotypes have been described as having “atypical CDPX2” or “male CDPX2” before the distinction between hypomorphic male‑viable EBP alleles and female X‑linked dominant CDPX2 became clear; later analyses clarified that MEND syndrome should be reserved for non‑mosaic hemizygous hypomorphic EBP variants in males.[14][17][18]</p>
+<p>Thus, commonly encountered synonyms and related phrases include “MEND syndrome,” “male EBP disorder with neurological defects,” “EBP‑related syndromic ichthyosis,” and “mild male‑restricted form of CDPX2,” though the last is now discouraged for diagnostic clarity.[14][15][18] From an ontology perspective, MONDO and DO map these synonyms to a single disease concept, facilitating data integration across platforms.[7][12][13] For practical purposes in clinical and translational research, it is important to recognize that “MEND” is also an acronym used for unrelated entities, such as the “Medical Exploration of Neurodevelopmental Disorders” research clinic at Vanderbilt, which does not refer to the sterol biosynthesis disorder described here.[3] Careful attention to associated identifiers (OMIM #300960, <a href="https://bioregistry.io/ORPHA:401973" target="_blank" rel="noopener noreferrer">ORPHA:401973</a>, <a href="http://purl.obolibrary.org/obo/DOID_0111865" target="_blank" rel="noopener noreferrer">DOID:0111865</a>, <a href="http://purl.obolibrary.org/obo/MONDO_0010498" target="_blank" rel="noopener noreferrer">MONDO:0010498</a>) helps resolve these ambiguities in databases and electronic health records.[7][12][15][19]</p>
+<h3>1.4 Data Sources and Evidence Types</h3>
+<p>Because of its extreme rarity, most information about MEND syndrome derives from aggregated disease‑level resources that compile case reports, small series, and molecular analyses rather than large epidemiologic datasets or randomized trials.[11][14][15][18] OMIM, Orphanet, the Disease Ontology, and GARD provide synthesized descriptions based on the available clinical literature, highlighting the core features and inheritance patterns but not offering quantitative estimates of symptom frequencies beyond qualitative terms like “frequent,” “occasional,” or “variable.”[1][13][15][19] The primary clinical evidence base consists of individual patient reports and small kindreds described with detailed phenotyping and molecular characterization, such as the original reports of EBP missense mutations causing MEND, the Brazilian case with scanning electron microscopy of hair shafts, and the Mexican family in which phenotypic severity correlated with modifier variants in cholesterol homeostasis genes.[8][11][16][17]</p>
+<p>More recently, a comprehensive molecular and computational analysis of a novel EBP variant causing MEND syndrome has been published in an open‑access format, including structural modeling of the mutant protein, segregation analysis in the family, and in silico predictions of functional impact.[18] This study provides both human clinical evidence and computational evidence regarding the molecular consequences of the Trp186Arg substitution in EBP. Experimental evidence from model organisms, particularly the Tattered (Td) mouse and yeast expression systems, supports the role of EBP as a delta(8)–delta(7) sterol isomerase and links Ebp mutations to disturbed sterol profiles and skeletal phenotypes analogous to human CDPX2.[17] Taken together, the evidence portfolio for MEND syndrome encompasses human clinical case reports (primary), in vitro biochemical characterization of EBP activity, computational structural modeling, and mouse genetic models, but remains limited by small sample sizes and absence of prospective cohorts.[8][11][17][18]</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Primary Causal Factors: Genetic and Mechanistic Basis</h3>
+<p>MEND syndrome is unequivocally a Mendelian disease caused by germline variants in the EBP gene, which encodes emopamil‑binding protein, a key enzyme in the final steps of cholesterol biosynthesis.[15][17][18] EBP is an integral membrane protein predominantly localized to the endoplasmic reticulum, where it catalyzes the isomerization of sterol intermediates, converting 8(9)‑cholestenol to lathosterol by delta(8)–delta(7) isomerase activity, a critical late step in the pathway leading to cholesterol.[14][17] The EMOPAMIL‑BINDING PROTEIN; EBP OMIM entry specifies that EBP “functions as a key enzyme in the final steps of the sterol biosynthesis pathway,” and experimental work in yeast has confirmed that mammalian EBP exhibits delta(8)–delta(7) sterol isomerase activity.[17] In MEND syndrome, males are hemizygous for hypomorphic, non‑mosaic EBP missense variants that reduce but do not abolish enzyme function, allowing survival but producing partial blockade of sterol isomerization and accumulation of 8‑dehydrocholesterol and 8(9)‑cholestenol in plasma and tissues.[14][15][18]</p>
+<p>The most direct mechanistic evidence for this causal chain comes from sterol profiling in humans and mice. In CDPX2 patients and Ebp mutant mice, plasma and tissue sterol analysis shows increased levels of 8‑dehydrocholesterol and 8(9)‑cholestenol, indicating deficiency of the 3‑beta‑hydroxysteroid‑delta(8),delta(7)‑isomerase encoded by EBP.[14][17] Similar profiles have been reported in males with MEND syndrome, though the magnitude of sterol accumulation may vary with the specific hypomorphic variant.[14][18] OMIM notes that “molecular studies indicate that affected males are hemizygous for a nonmosaic hypomorphic EBP allele,” and that carrier females are generally clinically asymptomatic but may show biochemical abnormalities on sterol analysis, further supporting the central role of EBP deficiency.[15] The recent report of a novel pathogenic missense variant NM_006579.3:c.556T&gt;C (Trp186Arg) in EBP in a family with MEND syndrome demonstrated segregation of the variant with disease in male relatives and carriers in females, with consistent clinical and biochemical features, providing strong genetic evidence for causality.[18]</p>
+<p>From a mechanistic standpoint, EBP dysfunction impairs the normal flux through the cholesterol biosynthesis pathway, causing both depletion of cholesterol in certain cellular compartments and accumulation of atypical sterol intermediates that may themselves be bioactive or toxic.[14][17] Cholesterol is an essential component of cell membranes, myelin, and lipid rafts and is required for post‑translational modification of key developmental signaling molecules such as Sonic hedgehog (SHH), which are crucial for patterning of the central nervous system and skeleton.[17][18] Therefore, partial disruption of cholesterol biosynthesis during embryogenesis can produce widespread developmental abnormalities in ectodermal and mesodermal derivatives, explaining the combination of skin, brain, eye, and skeletal anomalies in MEND syndrome.[14][15][18] This etiologic model is consistent with other sterol biosynthesis disorders such as Smith–Lemli–Opitz syndrome (SLOS), though the specific step affected and the clinical constellation differ.[14][17]</p>
+<h3>2.2 Genetic Risk Factors: Causal Variants and Modifier Alleles</h3>
+<p>The primary genetic risk factor for MEND syndrome is being male and carrying a hemizygous hypomorphic variant in EBP on the X chromosome (Xp11.22–p11.23).[15][17][18] Reported pathogenic variants in EBP associated with MEND include missense substitutions such as p.L18P, p.W47C, p.R147C, and p.Trp186Arg, each affecting conserved residues within the transmembrane domains or catalytic core of the protein.[11][17][18] For example, Furtado et al. identified hemizygous missense mutation W47C in two unrelated boys with MEND syndrome, a variant predicted to disrupt the structural integrity of EBP and reduce sterol isomerase activity.[17] In a Brazilian newborn with MEND, DNA sequencing revealed a c.439C&gt;T (p.R147C) substitution in exon 4 of EBP, predicted to be “probably damaging” by PolyPhen‑2 and “disease causing” by MutationTaster.[11] The recent Trp186Arg variant described in the molecular and computational analysis study was shown by in silico modeling to perturb transmembrane packing and active site geometry, correlating with the observed clinical phenotype.[18]</p>
+<p>Beyond the primary EBP variant, emerging evidence suggests that additional polymorphisms in genes regulating cholesterol homeostasis may act as modifier alleles that modulate disease severity among male relatives who share the same EBP mutation.[8][16] In a Mexican family with four affected males carrying an EBP mutation, Barboza‑Cerda and colleagues performed whole exome sequencing and identified missense variants in multiple cholesterol homeostasis genes; they ranked these variants using an in‑house scoring system and found that “phenotypic severity in a family with MEND syndrome is directly associated with the accumulation of potentially functional variants of cholesterol homeostasis genes.”[8][16] Specifically, they concluded that APOA5 (rs3135506), ABCA1 (rs9282541), and APOB (rs679899 and rs12714225) are the most relevant candidate modifier genes in that family, and that relative accumulation of deficiencies associated with variants in these genes along with lesser deficiencies in other genes appears to explain variable expressivity.[8][16] This study provides human clinical and computational evidence for a polygenic modifier model, in which the penetrance and severity of EBP‑related pathology depend not only on the primary lesion but also on the broader genetic background in lipid metabolism pathways.</p>
+<p>At present, no common susceptibility loci for MEND have been identified in genome‑wide association studies, largely because of the syndrome’s extreme rarity and clear Mendelian inheritance.[18][19] However, population databases such as gnomAD do contain rare missense variants in EBP, some of which may be hypomorphic alleles; their pathogenicity depends on allele frequency, predicted functional impact, and segregation with disease, and they require careful interpretation in a clinical context.[17][18] ClinVar and Gene Curation resources list EBP variants with classifications ranging from pathogenic to likely pathogenic and variant of uncertain significance (VUS), underscoring the need for functional validation, especially for novel missense substitutions.[7][17][18] From a risk stratification standpoint, male carriers of pathogenic or likely pathogenic hypomorphic EBP variants face near‑complete penetrance for MEND syndrome (unless embryonically lethal), while female heterozygotes generally are clinically asymptomatic but may have subtle biochemical or mosaic manifestations.[14][15][18]</p>
+<h3>2.3 Environmental and Lifestyle Risk Factors</h3>
+<p>To date, no specific environmental, lifestyle, or occupational exposures have been shown to causally increase the risk of MEND syndrome beyond the underlying genetic determinants. The disease manifests in early infancy and is clearly congenital, consistent with a primary developmental disorder driven by germline mutations.[15][19] Unlike some inborn errors of metabolism in which dietary intake or exposure to toxins may precipitate or exacerbate manifestations, MEND syndrome arises from a fundamental block in endogenous sterol biosynthesis present from embryogenesis, and clinical features are evident regardless of postnatal environment.[11][18][19] There are no reports linking maternal medication use, maternal cholesterol levels, or specific teratogens to an increased risk of MEND syndrome in genetically susceptible embryos, though in principle, pharmacologic inhibition of cholesterol biosynthesis during pregnancy could interact with hypomorphic EBP function; such interactions have not been systematically studied.[17][18]</p>
+<p>Family history is an important epidemiologic risk factor, reflecting X‑linked recessive inheritance. Male relatives in maternal lineages are at increased risk if a pathogenic EBP variant segregates in the family, and carrier females have an obligate 50% chance of transmitting the variant to each son.[15][18][19] However, because carrier females are usually clinically normal and biochemical testing for sterol intermediates is not performed in routine care, families may present with an apparently sporadic case in the first affected male, prompting post hoc genetic counseling and cascade testing.[14][15] Consanguinity has not been specifically implicated as a risk factor for MEND, given its X‑linked pattern, though it may influence the aggregate burden of modifier alleles in certain populations.[16][18] Overall, current evidence supports a predominantly genetic etiology with negligible direct environmental contributions to disease occurrence, though environment may modulate symptom severity or quality of life once the disease is present.</p>
+<h3>2.4 Protective Factors and Gene–Environment Interactions</h3>
+<p>No specific genetic variants have been established as protective factors that prevent MEND syndrome in carriers of pathogenic EBP alleles. The modifier gene study suggests that the absence of additional deleterious variants in cholesterol homeostasis genes may be associated with milder phenotypes, but this reflects baseline genetic background rather than true protective alleles per se.[8][16] One might operationally consider a “low burden” of functional variants in APOA5, ABCA1, APOB, and related genes as a relative protective factor against severe manifestations in EBP‑mutant males, but this concept has not yet been generalized beyond the initial family studied.[8][16] From a molecular standpoint, robust function of parallel or compensatory lipid transport pathways, such as ABCA1‑mediated efflux and APOB‑mediated lipoprotein assembly, may mitigate some biochemical consequences of EBP deficiency, thereby partially ameliorating clinical severity.[16][18] However, detailed mechanistic data on such compensation are lacking.</p>
+<p>Environmental protective factors for MEND syndrome are similarly undefined. Prenatal maternal cholesterol levels may theoretically influence embryonic tissue cholesterol availability, as maternal–fetal transport can partially supplement fetal biosynthesis, particularly early in gestation; this possibility has been explored in other sterol biosynthesis disorders but has not been specifically studied in MEND.[17][18] Postnatal dietary cholesterol intake does not fully circumvent intracellular sterol biosynthesis defects, because many cellular compartments and signaling pathways rely on de novo production rather than uptake, and available case reports do not document systematic benefits of dietary manipulation.[11][18] No gene–environment interaction studies have been performed to examine whether environmental exposures modulate penetrance or expressivity in EBP‑mutant individuals. Consequently, the current etiologic model for MEND syndrome remains overwhelmingly genetic, with modifier alleles within lipid metabolism pathways accounting for intrafamilial variability and limited data on environmental modulation.</p>
+<h2>3. Phenotypes</h2>
+<h3>3.1 Global Phenotypic Profile and Age of Onset</h3>
+<p>MEND syndrome presents as a congenital, multisystem disorder with virtually universal involvement of the skin and nervous system, frequent craniofacial anomalies, and variable skeletal, ocular, cardiac, and urogenital manifestations.[2][15][19] Orphanet specifies that the age of onset is in infancy or the neonatal period, noting that collodion membrane, ichthyosis, and craniofacial dysmorphism are typically apparent at birth or shortly thereafter.[19] OMIM similarly emphasizes early onset of intellectual disability, short stature, scoliosis, digital abnormalities, cataracts, and dermatologic abnormalities, describing the syndrome as evident in infancy and progressing through childhood.[15] The Brazilian case report describes a newborn presenting with collodion baby phenotype and severe ichthyosis from birth, accompanied by early recognition of dysmorphic facial features and evolving neurologic abnormalities.[11] In the Mexican family, affected males displayed neurodevelopmental delay, seizures, and skeletal anomalies from early childhood, consistent with congenital onset and progressive expression of features.[8][16]</p>
+<p>Symptom severity in MEND syndrome is highly variable, both between families and within kindreds. OMIM explicitly states that “not all patients show all features, and the severity is highly variable,” reflecting differences in EBP variant type and in modifier gene burden.[15][16] Orphanet similarly notes that ophthalmic, cardiac, and urogenital anomalies “may also be associated,” implying that they are not constant features.[19] The Mexican family study provided a clear demonstration of variable expressivity: one male exhibited severe intellectual disability, seizures, and multiple malformations, while another had relatively milder cognitive impairment and fewer structural anomalies, despite sharing the same EBP variant.[8][16] This variability underscores the need for individualized phenotypic characterization using structured terminologies such as HPO, as well as careful longitudinal follow‑up to distinguish early congenital features from evolving complications.</p>
+<p>From the perspective of disease course, most core phenotypes in MEND syndrome are non‑episodic and non‑fluctuating; they reflect developmental malformations and structural anomalies that persist across the lifespan.[15][18][19] Intellectual disability, craniofacial dysmorphism, skeletal deformities, and structural brain anomalies are generally stable once established, though secondary complications such as scoliosis progression, kyphosis, and seizure frequency can evolve.[11][18] Dermatologic manifestations may show some variability over time, with changes in ichthyosis severity, scaling patterns, and pigmentary lesions, but they do not remit spontaneously.[11][19] Seizures and behavioral disturbances can be episodic, but they arise within a framework of chronic neurologic impairment.[15][18] Thus, MEND syndrome is best conceptualized as a chronic, lifelong developmental disorder with diverse manifestations rather than a relapsing–remitting or episodic disease.</p>
+<h3>3.2 Dermatologic Phenotypes</h3>
+<p>Skin involvement is a cardinal feature of MEND syndrome and often provides the earliest clue to diagnosis. Orphanet describes skin manifestations including collodion membrane at birth, ichthyosis, and patchy hypopigmentary lesions.[19] The Brazilian case report elaborates that “MEND syndrome (male emopamil‑binding‑protein disorder with neurological defects) is a syndromic ichthyosis with neurological anomalies associated with emopamil‑binding protein mutations,” and documents profound ichthyosis with large, adherent scales and abnormal hair shaft structure in the affected newborn.[11] Scanning electron microscopy revealed structural abnormalities of the hair shaft, including surface irregularity and fragility, akin to those seen in CDPX2, reinforcing that cutaneous manifestations arise from EBP‑mediated sterol biosynthesis defects in keratinocytes and follicular epithelium.[11][17] GARD and OMIM confirm that dermatologic abnormalities are consistently observed in reported cases, though specific descriptions vary with individual reports.[1][15]</p>
+<p>From a phenotypic ontology standpoint, relevant HPO terms include collodion baby (<a href="http://purl.obolibrary.org/obo/HP_0006513" target="_blank" rel="noopener noreferrer">HP:0006513</a>), ichthyosis (<a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" rel="noopener noreferrer">HP:0008064</a>), coarse scaling (<a href="http://purl.obolibrary.org/obo/HP_0007429" target="_blank" rel="noopener noreferrer">HP:0007429</a>), and patchy hypopigmentation of the skin (<a href="http://purl.obolibrary.org/obo/HP_0005313" target="_blank" rel="noopener noreferrer">HP:0005313</a>).[19] Additional terms such as abnormal hair shaft morphology (<a href="http://purl.obolibrary.org/obo/HP_0003777" target="_blank" rel="noopener noreferrer">HP:0003777</a>) and alopecia (<a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" rel="noopener noreferrer">HP:0001596</a>) may apply in some patients, based on electron microscopy and clinical observation.[11] Age of onset for these phenotypes is neonatal, with the collodion membrane representing a classic presentation: a translucent, tight membrane enveloping the newborn, which later desquamates to reveal underlying ichthyotic skin.[11][19] Severity is generally moderate to severe, with significant impact on barrier function, thermoregulation, and risk of infection, particularly in early infancy.[11] Skin manifestations are chronic and progressive in terms of scale accumulation and potential development of fissures, though overall pattern stabilizes after infancy.</p>
+<p>Quality of life impact from dermatologic manifestations is substantial. Ichthyosis can cause pain, pruritus, increased susceptibility to skin infections, and psychosocial distress due to visible differences and stigmatization.[11][19] In the context of MEND syndrome, dermatologic care must be integrated with neurologic and orthopedic management, as immobility and contractures can exacerbate skin breakdown. Suggested NCIT terms include “Ichthyosis” (NCIT:C34735) and “Skin Care Management” (NCIT:C49288) for intervention classification. GO biological process terms relevant to cutaneous manifestations include “epidermis development” (<a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" rel="noopener noreferrer">GO:0008544</a>) and “keratinocyte differentiation” (<a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" rel="noopener noreferrer">GO:0030216</a>), reflecting disrupted sterol‑dependent membrane composition and signaling in epidermal cells.[17][18] The primary cell type involved is the keratinocyte (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>), with contributions from hair follicle epithelial cells and melanocytes (<a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" rel="noopener noreferrer">CL:0000148</a>).</p>
+<h3>3.3 Neurologic and Neurodevelopmental Phenotypes</h3>
+<p>Severe neurologic involvement is a defining characteristic of MEND syndrome. Orphanet lists intellectual disability, delayed psychomotor development, seizures, hydrocephalus, cerebellar and corpus callosum hypoplasia, Dandy–Walker malformation, and hypotonia among the core neurological features.[19] OMIM reiterates that intellectual disability is a major manifestation, often accompanied by seizures and abnormalities of the central nervous system on neuroimaging.[15] The molecular and computational analysis of Trp186Arg EBP variant describes affected males with intellectual disability, developmental delay, hypotonia, seizures, and structural brain anomalies, consistent with Orphanet’s definition.[18] In the Mexican family study, variable intellectual disability ranging from moderate to severe was observed, along with seizure disorders and behavioral dysregulation, highlighting intrafamilial heterogeneity.[8][16]</p>
+<p>Key HPO terms for neurologic phenotypes in MEND syndrome include intellectual disability (<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>), global developmental delay (<a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>), seizures (<a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>), hypotonia (<a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a>), hydrocephalus (<a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" rel="noopener noreferrer">HP:0000238</a>), Dandy–Walker malformation (<a href="http://purl.obolibrary.org/obo/HP_0001310" target="_blank" rel="noopener noreferrer">HP:0001310</a>), corpus callosum hypoplasia (<a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" rel="noopener noreferrer">HP:0002079</a>), cerebellar hypoplasia (<a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" rel="noopener noreferrer">HP:0001321</a>), and abnormality of psychomotor development (<a href="http://purl.obolibrary.org/obo/HP_0001265" target="_blank" rel="noopener noreferrer">HP:0001265</a>).[19] Age of onset for developmental and structural anomalies is congenital or infancy, with neurological impairment recognized as milestones fail to be achieved and neuroimaging reveals malformations.[11][18][19] Seizures may begin in infancy or early childhood and can be refractory, contributing significantly to morbidity.[15][18] Severity of neurologic impairment spans from moderate intellectual disability with limited speech and self‑care abilities to profound disability with minimal communication and severe motor impairment, depending on the individual and modifier gene burden.[8][16][18] Neurologic features are chronic and generally non‑regressing, though seizure patterns may evolve and hypotonia may transition to spasticity or contractures over time.</p>
+<p>Quality of life impact from neurologic phenotypes is profound. Intellectual disability and developmental delay limit educational attainment, employment, and independent living, often requiring lifelong caregiving and institutional support.[15][18][19] Seizures pose acute risks of injury and status epilepticus, while structural brain anomalies may predispose to hydrocephalus‑related complications requiring neurosurgical intervention.[19] NCIT intervention terms relevant here include “Antiepileptic Agent” (NCIT:C288), “Developmental Disability Services” (NCIT:C20253), and “Neurosurgical Procedure” (NCIT:C15382). GO biological processes implicated include “nervous system development” (<a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" rel="noopener noreferrer">GO:0007399</a>), “axon guidance” (<a href="http://purl.obolibrary.org/obo/GO_0007411" target="_blank" rel="noopener noreferrer">GO:0007411</a>), and “cerebellum development” (<a href="http://purl.obolibrary.org/obo/GO_0021549" target="_blank" rel="noopener noreferrer">GO:0021549</a>), all of which rely on sterol‑dependent signaling pathways such as SHH and Wnt.[17][18] Primary cell types affected include cortical neurons (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>), cerebellar Purkinje neurons (<a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" rel="noopener noreferrer">CL:0000121</a>), and radial glial cells (<a href="http://purl.obolibrary.org/obo/CL_0000133" target="_blank" rel="noopener noreferrer">CL:0000133</a>), which together orchestrate brain morphogenesis and connectivity.</p>
+<h3>3.4 Craniofacial, Skeletal, and Digital Phenotypes</h3>
+<p>Craniofacial dysmorphism and skeletal anomalies are prominent in MEND syndrome and overlap partially with CDPX2. Orphanet describes craniofacial features including large anterior fontanelle, telecanthus, hypertelorism, microphthalmia, prominent nasal bridge, low‑set ears, micrognathia, and cleft palate in some individuals.[19] OMIM clinical synopsis notes short stature, scoliosis, digital abnormalities, and in some cases kyphosis and limb deformities.[2][15] The Brazilian case report documents large anterior fontanelle, facial asymmetry, and limb abnormalities, while the Mexican family report mentions short stature, scoliosis, joint contractures, and digital anomalies such as syndactyly and polydactyly.[8][11][16] These phenotypes reflect developmental defects in cranial bone ossification, palatogenesis, and limb patterning, consistent with disturbed sterol‑dependent morphogen signaling.</p>
+<p>Relevant HPO terms include craniofacial dysmorphism (<a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" rel="noopener noreferrer">HP:0001999</a>), large anterior fontanelle (<a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" rel="noopener noreferrer">HP:0000260</a>), telecanthus (<a href="http://purl.obolibrary.org/obo/HP_0000506" target="_blank" rel="noopener noreferrer">HP:0000506</a>), hypertelorism (<a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a>), microphthalmia (<a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" rel="noopener noreferrer">HP:0000568</a>), micrognathia (<a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a>), cleft palate (<a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" rel="noopener noreferrer">HP:0000175</a>), short stature (<a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a>), scoliosis (<a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a>), kyphosis (<a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" rel="noopener noreferrer">HP:0002808</a>), syndactyly of toes 2‑3 (<a href="http://purl.obolibrary.org/obo/HP_0004691" target="_blank" rel="noopener noreferrer">HP:0004691</a>), and polydactyly (<a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" rel="noopener noreferrer">HP:0001162</a>).[2][19] Onset is congenital, with craniofacial anomalies visible at birth and skeletal anomalies either apparent neonatally (e.g., limb patterning defects) or emerging as growth progresses (e.g., scoliosis).[11][19] Severity ranges from mild dysmorphism without functional impairment to severe skeletal deformities that compromise mobility, respiratory function, and feeding.[11][18] Craniofacial anomalies such as cleft palate can have major functional consequences for feeding and speech, often necessitating surgical repair.[19]</p>
+<p>Quality of life impact of skeletal phenotypes includes pain, limited mobility, increased risk of respiratory compromise due to scoliosis or kyphosis, and potential need for orthopedic surgery or bracing.[11][18] NCIT terms that capture interventions include “Orthopedic Surgery” (NCIT:C15273), “Spinal Fusion Surgery” (NCIT:C50775), and “Cleft Palate Repair” (NCIT:C96681). GO biological processes involved encompass “osteoblast differentiation” (<a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" rel="noopener noreferrer">GO:0001649</a>), “endochondral ossification” (<a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" rel="noopener noreferrer">GO:0001958</a>), and “limb development” (<a href="http://purl.obolibrary.org/obo/GO_0060173" target="_blank" rel="noopener noreferrer">GO:0060173</a>), reflecting the sterol dependence of chondrocyte and osteoblast function.[17][18] Key cell types include chondrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>), osteoblasts (<a href="http://purl.obolibrary.org/obo/CL_0000145" target="_blank" rel="noopener noreferrer">CL:0000145</a>), cranial neural crest cells, and palatal shelf epithelium, all of which require properly regulated cholesterol for membrane integrity and morphogen signaling.</p>
+<h3>3.5 Ocular, Cardiac, and Urogenital Phenotypes</h3>
+<p>Ocular anomalies are relatively frequent in MEND syndrome. OMIM lists cataracts among the typical features, while Orphanet mentions microphthalmia and various ophthalmic anomalies as possible associated findings.[15][19] Cataracts likely arise from altered lipid composition in lens fiber cell membranes and accumulation of sterol intermediates, which can disrupt lens transparency.[14][18] Microphthalmia reflects impaired ocular morphogenesis, again tied to perturbed developmental signaling. HPO terms capturing these phenotypes include cataract (<a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" rel="noopener noreferrer">HP:0000518</a>), microphthalmia (<a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" rel="noopener noreferrer">HP:0000568</a>), and possibly strabismus (<a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a>) or nystagmus (<a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a>) when ocular motility is affected.[19] Onset is congenital or early childhood, with cataracts sometimes detected in infancy, while microphthalmia is evident from birth.[15][19] Severity varies; some individuals have mild lens opacities, whereas others have visually significant cataracts requiring surgical intervention.</p>
+<p>Cardiac anomalies, while not universal, have been reported. Orphanet notes that “cardiac anomalies may also be associated,” without specifying types.[19] Case reports mention ventricular septal defects, atrial septal defects, and structural malformations in some patients, consistent with the broader spectrum of EBP‑related developmental anomalies.[11][18] HPO terms include congenital heart defect (<a href="http://purl.obolibrary.org/obo/HP_0011438" target="_blank" rel="noopener noreferrer">HP:0011438</a>) and specific lesion types depending on the case. Urogenital anomalies include cryptorchidism and other genital abnormalities; OMIM clinical synopsis specifically lists cryptorchidism as a genitourinary feature.[2][15] HPO terms relevant here include cryptorchidism (<a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a>) and abnormal genitalia (<a href="http://purl.obolibrary.org/obo/HP_0000078" target="_blank" rel="noopener noreferrer">HP:0000078</a>). These visceral anomalies likely reflect sterol‑dependent signaling in mesodermal and endodermal derivatives during organogenesis.</p>
+<p>Quality of life impact of ocular, cardiac, and urogenital phenotypes depends on severity. Cataracts can markedly impair vision and require surgery; congenital heart defects may cause heart failure, arrhythmias, or exercise intolerance; cryptorchidism carries risks for infertility and testicular malignancy if uncorrected.[15][18][19] NCIT intervention terms include “Cataract Extraction” (NCIT:C96116), “Cardiac Surgical Procedure” (NCIT:C50979), and “Orchiopexy” (NCIT:C51430). GO biological processes implicated include “eye development” (<a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" rel="noopener noreferrer">GO:0001654</a>), “heart morphogenesis” (<a href="http://purl.obolibrary.org/obo/GO_0003007" target="_blank" rel="noopener noreferrer">GO:0003007</a>), and “urogenital system development” (<a href="http://purl.obolibrary.org/obo/GO_0001655" target="_blank" rel="noopener noreferrer">GO:0001655</a>). Primary cell types include lens fiber cells, cardiomyocytes (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>), and gonadal cells, all of which require precise sterol homeostasis during development.[17][18]</p>
+<h3>3.6 Laboratory and Biochemical Phenotypes</h3>
+<p>Biochemically, MEND syndrome is characterized by abnormalities in sterol profiles rather than classic metabolic laboratory derangements. In CDPX2 and EBP‑mutant mice, plasma and tissue sterol analysis reveals increased levels of 8‑dehydrocholesterol and 8(9)‑cholestenol, indicating deficiency of 3‑beta‑hydroxysteroid‑delta(8),delta(7)‑isomerase.[14][17] Similar profiles have been described in males with MEND syndrome, although serum cholesterol levels may remain within normal ranges.[14][18] The Brazilian case report notes that inhibition of cholesterol biosynthesis leads to accumulation of sterol precursors and low concentration of intracellular cholesterol, “although with normal serum cholesterol level,” highlighting the distinction between intracellular and systemic lipid balance.[11] HPO terms relevant to laboratory phenotypes include abnormal circulating sterol concentration (<a href="http://purl.obolibrary.org/obo/HP_0012147" target="_blank" rel="noopener noreferrer">HP:0012147</a>) and abnormal cholesterol homeostasis (<a href="http://purl.obolibrary.org/obo/HP_0003119" target="_blank" rel="noopener noreferrer">HP:0003119</a>). LOINC terms could be used for specific sterol assays, such as “8‑dehydrocholesterol [Moles/volume] in Serum or Plasma,” though such tests are specialized rather than routine.</p>
+<p>Age of onset for biochemical abnormalities is perinatal, coinciding with the genetic defect. Severity of sterol accumulation likely correlates with the functional impact of the EBP variant and may influence clinical severity, though precise quantitative thresholds have not been established.[14][16][18] These laboratory phenotypes are stable over time in the absence of interventions that directly modify sterol biosynthesis. Quality of life impact stems more from associated clinical manifestations than from the biochemical aberrations themselves, but sterol profiling is invaluable for diagnosis and carrier detection. NCIT terms related to laboratory diagnostics include “Biomarker Test” (NCIT:C91793) and “Sterol Measurement” (NCIT:C120726). CHEBI terms representing key chemical entities include cholesterol (<a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a>), 8‑dehydrocholesterol, and 8(9)‑cholestenol, which serve as metabolomic markers of EBP dysfunction.[14][17][18]</p>
+<h2>4. Genetic and Molecular Information</h2>
+<h3>4.1 Causal Gene: EBP</h3>
+<p>The causal gene in MEND syndrome is EMOPAMIL‑BINDING PROTEIN; EBP, located on the short arm of the X chromosome (Xp11.23 in OMIM; Xp11.22–p11.23 in the recent molecular study) and composed of five exons encoding an integral membrane protein.[15][17][18] OMIM’s EBP entry notes that the gene encodes “an integral membrane protein located mainly in the endoplasmic reticulum that functions as a key enzyme in the final steps of the sterol biosynthesis pathway,” a conclusion supported by biochemical and structural studies.[17] EBP was originally cloned as a delta‑receptor binding target for the phenylalkylamine calcium‑ion antagonist emopamil, an anti‑ischemic drug in animal models of stroke; subsequent work established its identity as a sterol isomerase with neuroprotective agent binding capacity.[17] In humans, mutations in EBP cause a spectrum of phenotypes from severe X‑linked dominant CDPX2 in females to MEND syndrome in males, with phenotype largely determined by whether the variant abolishes function (null) or partially reduces activity (hypomorphic) and whether mosaicism is present.[14][15][18]</p>
+<p>The EBP protein is predicted to have several transmembrane domains and a luminal or cytosolic orientation compatible with its enzymatic role in the ER membrane. Structural modeling in the Trp186Arg MEND variant study suggests that transmembrane residues are critical for proper folding, membrane integration, and active site configuration.[18] GO molecular function terms associated with EBP include “cholesterol isomerase activity” and more specifically “3‑beta‑hydroxysteroid‑delta(8),delta(7)‑isomerase activity,” while GO biological process terms include “cholesterol biosynthetic process” (<a href="http://purl.obolibrary.org/obo/GO_0006695" target="_blank" rel="noopener noreferrer">GO:0006695</a>) and “sterol biosynthetic process” (<a href="http://purl.obolibrary.org/obo/GO_0016126" target="_blank" rel="noopener noreferrer">GO:0016126</a>).[17][18] At the cellular component level, EBP localizes to the endoplasmic reticulum membrane (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>), providing a clear subcellular context for disease mechanisms. HGNC recognizes EBP as gene symbol “EBP” with approved name “emopamil binding protein,” linking it to human disease phenotypes MEND syndrome (OMIM #300960) and CDPX2 (OMIM #302960).[14][15][17]</p>
+<h3>4.2 Pathogenic Variants and Variant Classes</h3>
+<p>Pathogenic variants in EBP associated with MEND syndrome are overwhelmingly missense mutations that alter amino acid residues critical for sterol isomerase function while preserving enough residual activity to allow male survival.[15][17][18] Furtado et al. reported two unrelated boys with MEND carrying a hemizygous missense mutation W47C in EBP, a variant that changes a conserved tryptophan in the transmembrane region to cysteine.[17] The Brazilian case report described a c.439C&gt;T (p.R147C) substitution in exon 4, predicted to be damaging and disease‑causing by PolyPhen‑2 and MutationTaster.[11] The recent molecular study identified a novel missense variant c.556T&gt;C (Trp186Arg) in EBP, which segregated with disease in a family and was supported by computational analysis as pathogenic.[18] Additional missense variants such as L18P have been linked to MEND in other reports, forming a growing catalog of EBP mutations associated with the syndrome.[11][17][18]</p>
+<p>In contrast, null EBP variants (e.g., early truncating nonsense mutations such as Y11X) are associated with intrauterine lethality in males and severe X‑linked dominant CDPX2 in females, often in a mosaic state due to postzygotic mutation and X‑inactivation.[14][17][18] Arnold et al. described a boy with atypical CDPX2 due to a de novo hemizygous Y11X mutation, suggesting postzygotic mosaicism that allowed survival; this case sits at the intersection of CDPX2 and MEND phenotypes.[14][17] OMIM thus delineates a continuous phenotypic spectrum in EBP‑related disease, with variant class (hypomorphic vs null), zygosity (hemizygous vs heterozygous), and mosaicism together determining clinical expression.[14][15][17] Most MEND‑associated variants are currently classified as pathogenic or likely pathogenic according to ACMG/AMP guidelines, based on segregation, functional prediction, and consistency with phenotype.[17][18]</p>
+<p>Allele frequencies for MEND‑associated EBP variants in population databases such as gnomAD are extremely low, often in the range of single occurrences or absent altogether, consistent with strong purifying selection against damaging variants in this essential gene.[17][18] Many missense variants in EBP present in gnomAD are either benign or VUS, requiring careful evaluation in clinical genetic testing. Germline origin is the rule for MEND‑associated variants; somatic mosaicism is more characteristic of CDPX2 in males and females.[14][17] Functional consequences of MEND‑associated mutations are best categorized as partial loss of function; they reduce enzymatic activity of EBP without abolishing it, resulting in accumulation of sterol intermediates but preserving minimal pathway flux sufficient for viability.[14][17][18] In silico analyses in the Trp186Arg study used homology modeling and molecular dynamics simulations to demonstrate destabilization of transmembrane packing and predicted reduction in catalytic efficiency, consistent with hypomorphic behavior.[18]</p>
+<h3>4.3 Modifier Genes and Polygenic Background</h3>
+<p>The most compelling evidence for genetic modifiers in MEND syndrome comes from the Mexican family study by Barboza‑Cerda et al., who investigated a kindred with four males having MEND syndrome and observed variable phenotypic severity despite shared EBP mutation.[8][16] Whole exome sequencing identified 105 missense variants in 45 genes involved in cholesterol homeostasis; an in‑house scoring system assessing predicted functional impact narrowed these to 27 significant missense variants.[16] The authors concluded that “APOA5 (rs3135506), ABCA1 (rs9282541), and APOB (rs679899 and rs12714225) are the most relevant candidate modifier genes in this family,” and that “relative accumulation of the deficiencies associated with variants of these genes along with other lesser deficiencies in other genes appears to explain the variable expressivity in MEND syndrome.”[8][16] APOA5 encodes apolipoprotein A‑V, a regulator of plasma triglyceride levels; ABCA1 encodes an ATP‑binding cassette transporter critical for cholesterol efflux to apolipoproteins; APOB encodes apolipoprotein B, essential for lipoprotein assembly and cholesterol transport.[16][18]</p>
+<p>These findings suggest that genetic variation in pathways controlling sterol transport, efflux, and lipoprotein metabolism can modulate the phenotypic impact of EBP dysfunction at the cellular level.[16][18] For example, reduced ABCA1 function may exacerbate intracellular cholesterol imbalance in neurons and keratinocytes, worsening developmental anomalies. Conversely, robust APOA5 and APOB function might mitigate lipid dysregulation, partly compensating for EBP defects. While these conclusions are based on a single family and require replication, they introduce a conceptual framework in which MEND syndrome severity reflects both the primary EBP lesion and a “modifier burden index” across key cholesterol homeostasis genes.[8][16] This model parallels emerging work in other Mendelian disorders where polygenic background modulates penetrance and expressivity.</p>
+<p>At present, no epigenetic modifiers (e.g., DNA methylation or histone modifications affecting EBP expression) have been directly implicated in MEND syndrome, and no systematic studies of epigenomic variation in affected individuals have been reported.[18] Similarly, large‑scale chromosomal abnormalities such as aneuploidy, translocations, or inversions have not been associated with MEND; the disease is instead driven by point mutations and small insertions/deletions in EBP.[15][17][18] Clinical genetic testing and research focus therefore remains on single‑gene EBP sequencing and panel/exome approaches that capture point variants and small indels, with occasional consideration of copy‑number variation at the locus.</p>
+<h3>4.4 Molecular Profiling and Structural Features</h3>
+<p>Beyond targeted gene sequencing, molecular profiling in MEND syndrome has begun to incorporate computational structural analysis and integrative genomics. The Trp186Arg variant study employed homology modeling based on known sterol isomerase structures, followed by computational energy minimization and simulation to assess the impact of the mutation on protein conformation.[18] The authors found that the Trp186Arg substitution disrupts hydrophobic interactions within the transmembrane domain and may alter the geometry of the active site, leading to reduced enzymatic activity.[18] Such computational evidence complements biochemical function predictions and underscores the importance of structural modeling for variant interpretation in small proteins like EBP.</p>
+<p>Transcriptomic, proteomic, metabolomic, and lipidomic profiling specific to MEND syndrome has not yet been reported, likely due to the rarity of the disease.[18] However, sterol profiling (a form of targeted metabolomics) is a well‑established diagnostic tool, with patterns of elevated 8‑dehydrocholesterol and 8(9)‑cholestenol marking EBP deficiency.[14][17] Future lipidomics studies could provide more detailed signatures of sterol intermediates and membrane lipid composition in affected tissues. Genomic structural features at the EBP locus have been characterized in general, with no evidence of common structural variants causing MEND; instead, classic point mutations predominate.[17][18] Multi‑omics integration using single‑cell or spatial transcriptomics remains aspirational rather than realized, given the very small patient population and the challenges of obtaining tissue samples.</p>
+<p>From a gene ontology perspective, EBP links to pathways including “cholesterol biosynthetic process” (<a href="http://purl.obolibrary.org/obo/GO_0006695" target="_blank" rel="noopener noreferrer">GO:0006695</a>), “regulation of steroid biosynthetic process” (<a href="http://purl.obolibrary.org/obo/GO_0050810" target="_blank" rel="noopener noreferrer">GO:0050810</a>), and “organic acid metabolic process” (<a href="http://purl.obolibrary.org/obo/GO_0006082" target="_blank" rel="noopener noreferrer">GO:0006082</a>). It interacts functionally with enzymes upstream and downstream in the sterol biosynthesis pathway, such as DHCR7 (defective in Smith–Lemli–Opitz syndrome) and sterol C‑5 desaturase, forming part of a tightly regulated network.[17] In terms of cell ontology, primary affected cells include keratinocytes (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>), neurons (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>), chondrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>), and lens fiber cells, all of which rely on EBP‑mediated cholesterol synthesis for proper function and development.[17][18]</p>
+<h2>5. Environmental Information</h2>
+<h3>5.1 Non‑Genetic Contributing Factors</h3>
+<p>Current evidence supports a model in which non‑genetic environmental factors play little to no causal role in the occurrence of MEND syndrome. The disorder arises from germline EBP mutations and presents at or shortly after birth, consistent with a primary developmental etiology.[15][19] Case reports do not document specific maternal exposures, infections, or toxins associated with MEND, and there is no indication in OMIM or Orphanet that environmental factors are recognized contributors.[15][19] Comparative Toxicogenomics resources have not identified particular exogenous chemicals that mimic EBP deficiency phenotypes in humans, though certain cholesterol biosynthesis inhibitors (e.g., statins) can cause developmental anomalies in animal models by interfering with similar pathways.[17]</p>
+<p>In theoretical terms, environmental factors that influence cholesterol metabolism might exacerbate or ameliorate some manifestations in individuals with MEND syndrome, but such interactions remain speculative. For example, severe malnutrition or dietary deficiency in essential fatty acids might compound membrane lipid abnormalities, whereas high cholesterol intake could modestly supplement systemic levels, though not necessarily correcting intracellular biosynthetic defects.[17][18] However, no empirical studies in MEND populations have tested these hypotheses. Thus, environmental contributions to disease onset are negligible, while possible effects on symptom severity or comorbidity require future investigation.</p>
+<h3>5.2 Lifestyle Factors and Infectious Agents</h3>
+<p>Lifestyle factors such as smoking, alcohol consumption, and physical activity are not relevant to the primary pathogenesis of MEND syndrome, given its congenital nature and early onset. In older patients with MEND, general lifestyle choices may impact overall health and comorbidity, as in any chronic neurologic disorder, but they do not alter the underlying developmental defects.[15][18] There is no evidence that infectious agents (bacteria, viruses, fungi, parasites) directly cause or trigger MEND syndrome. No reports link specific infections to exacerbation of core skeletal, neurologic, or dermatologic features beyond typical infection‑related complications that any immunocompetent patient might experience.[11][19]</p>
+<p>Consequently, infectious agents are not considered part of the etiologic spectrum of MEND syndrome, and infection control focuses on routine pediatric and neurologic care rather than disease‑specific concerns. Vaccination schedules follow standard guidelines, with attention to seizure disorders when administering vaccines that may provoke fever.[19] Overall, lifestyle and infectious factors occupy only a marginal role in MEND syndrome’s clinical landscape.</p>
+<h2>6. Mechanism and Pathophysiology</h2>
+<h3>6.1 Cholesterol Biosynthesis Pathway and EBP Function</h3>
+<p>The pathophysiology of MEND syndrome hinges on disruption of the cholesterol biosynthesis pathway at a late step catalyzed by EBP. Cholesterol biosynthesis is a multistep pathway beginning from acetyl‑CoA, proceeding through mevalonate, squalene, lanosterol, and several intermediate sterols, ultimately yielding cholesterol.[17][18] EBP functions as a delta(8)–delta(7) sterol isomerase, converting 8(9)‑cholestenol to lathosterol, a precursor that is further desaturated and reduced to cholesterol.[14][17] When EBP activity is reduced by hypomorphic mutations, flux through this step is impaired, leading to accumulation of sterol intermediates such as 8‑dehydrocholesterol and 8(9)‑cholestenol and a relative deficiency of cholesterol in certain cellular membranes.[14][17][18]</p>
+<p>OMIM notes that in CDPX2 patients, plasma and tissue sterol profiles show increased levels of 8‑dehydrocholesterol and 8(9)‑cholestenol, suggesting deficiency of 3‑beta‑hydroxysteroid‑delta(8),delta(7)‑isomerase.[14] Derry et al. identified analogous sterol abnormalities in Tattered (Td) mice carrying Ebp mutations, establishing that EBP acts as a principal enzyme of cholesterol biosynthesis.[17] While specific sterol profiling in MEND syndrome is less extensively reported, the Brazilian case supports a similar pattern, noting accumulation of sterol precursors and low intracellular cholesterol despite normal serum cholesterol.[11] The recent Trp186Arg study reaffirmed that hypomorphic hemizygous non‑mosaic EBP variants cause MEND syndrome, with functional impairment predicted by structural modeling.[18]</p>
+<p>GO pathways implicated include “cholesterol biosynthetic process” (<a href="http://purl.obolibrary.org/obo/GO_0006695" target="_blank" rel="noopener noreferrer">GO:0006695</a>), “sterol biosynthetic process” (<a href="http://purl.obolibrary.org/obo/GO_0016126" target="_blank" rel="noopener noreferrer">GO:0016126</a>), and “lipid metabolic process” (<a href="http://purl.obolibrary.org/obo/GO_0006629" target="_blank" rel="noopener noreferrer">GO:0006629</a>). EBP’s cellular component annotation emphasizes the endoplasmic reticulum membrane (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>) as the primary site of dysfunction. CHEBI entities central to pathophysiology include cholesterol (<a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a>) and intermediate sterols such as 8‑dehydrocholesterol and 8(9)‑cholestenol.[14][17][18] At a systems level, the metabolic block leads to altered membrane composition, disruption of lipid raft integrity, and impaired post‑translational modification of hedgehog family proteins, which require cholesterol for signaling competence.[17][18]</p>
+<h3>6.2 Developmental Signaling Pathways and Downstream Effects</h3>
+<p>Cholesterol plays a critical role in the regulation of developmental signaling pathways, particularly Sonic hedgehog (SHH) and related hedgehog proteins, which undergo cholesterol modification and require sterol‑rich membrane microdomains for effective signal transduction.[17][18] In embryos with EBP deficiency, partial cholesterol depletion and sterol intermediary accumulation in key tissues such as neuroectoderm and mesoderm are hypothesized to disrupt SHH signaling gradients, leading to malformations in the brain, eyes, skeleton, and craniofacial structures.[17][18] While direct measurement of hedgehog signaling in MEND patients has not been performed, analogous mechanisms have been demonstrated in other sterol biosynthesis disorders such as Smith–Lemli–Opitz syndrome (DHCR7 deficiency), where impaired SHH signaling causes holoprosencephaly and limb anomalies.[17]</p>
+<p>Additional pathways potentially impacted include Wnt and Notch signaling, which are sensitive to membrane lipid composition and cholesterol content. GO biological processes such as “hedgehog signaling pathway” (<a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" rel="noopener noreferrer">GO:0007229</a>), “Wnt signaling pathway” (<a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" rel="noopener noreferrer">GO:0016055</a>), and “embryonic morphogenesis” (<a href="http://purl.obolibrary.org/obo/GO_0048598" target="_blank" rel="noopener noreferrer">GO:0048598</a>) capture the broader developmental roles of cholesterol. The downstream effect of EBP dysfunction thus comprises a cascade from metabolic blockade to altered signaling to structural malformations. Upstream, the primary trigger is the germline hypomorphic EBP variant and its impact on enzymatic activity; midstream, sterol accumulation and depletion perturb cell membranes and signaling; downstream, tissue patterning errors manifest as the complex phenotypes of MEND syndrome.[14][17][18]</p>
+<h3>6.3 Cellular Processes: Membrane Integrity, Myelination, and Neurodevelopment</h3>
+<p>At the cellular level, EBP deficiency affects multiple processes dependent on cholesterol and sterol homeostasis. Neurons rely on cholesterol for synapse formation, dendritic arborization, and myelination; oligodendrocytes synthesize large amounts of cholesterol for myelin sheaths.[17][18] In EBP‑mutant embryos, reduced cholesterol in neural tissues may compromise these processes, leading to hypotonia, developmental delay, and structural brain anomalies such as corpus callosum and cerebellar hypoplasia.[19] GO processes such as “myelination” (<a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" rel="noopener noreferrer">GO:0042552</a>), “synapse organization” (<a href="http://purl.obolibrary.org/obo/GO_0050808" target="_blank" rel="noopener noreferrer">GO:0050808</a>), and “neuron projection development” (<a href="http://purl.obolibrary.org/obo/GO_0031175" target="_blank" rel="noopener noreferrer">GO:0031175</a>) are biologically plausible points of impact. Primary cell types involved include neurons (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>), oligodendrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a>), and radial glia (<a href="http://purl.obolibrary.org/obo/CL_0000133" target="_blank" rel="noopener noreferrer">CL:0000133</a>).</p>
+<p>Keratinocytes in the epidermis also depend on sterol balance for barrier formation and desquamation. Altered cholesterol and sterol intermediates in epidermal membranes can perturb keratinocyte differentiation and cornification, resulting in ichthyosis and collodion membrane phenotypes.[11][19] GO processes such as “epidermis development” (<a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" rel="noopener noreferrer">GO:0008544</a>) and “keratinocyte differentiation” (<a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" rel="noopener noreferrer">GO:0030216</a>) are affected, with keratinocytes (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>) as key cell types. Chondrocytes and osteoblasts similarly rely on sterols in membrane microdomains that organize growth factor signaling, explaining skeletal anomalies.[17][18]</p>
+<p>Apoptosis and autophagy may be indirectly influenced by sterol imbalances, particularly in neurons, though direct evidence in MEND is lacking. Oxidative stress may arise from membrane instability and accumulation of unusual sterols, contributing to tissue damage. However, detailed mechanistic studies at the cellular level remain sparse, and most inferences derive from knowledge of cholesterol biology and other sterol biosynthesis disorders rather than MEND‑specific data.[17][18]</p>
+<h3>6.4 Tissue Damage Mechanisms and Biochemical Abnormalities</h3>
+<p>Tissue damage in MEND syndrome is primarily developmental rather than degenerative. Malformations arise during organogenesis due to disrupted signaling and morphogenesis, and tissues then persist with abnormal structure throughout life.[15][19] Nevertheless, ongoing biochemical abnormalities may contribute to secondary damage. Accumulated sterol intermediates could insert into membranes and alter fluidity, potentially increasing susceptibility to mechanical injury or impairing membrane protein function.[14][17] In the skin, abnormal sterol composition may weaken barrier function, leading to chronic inflammation and increased infection risk. In the brain, subtle ongoing effects on synaptic function and plasticity may influence cognitive trajectories.</p>
+<p>Biochemical abnormalities center on the deficient activity of 3‑beta‑hydroxysteroid‑delta(8),delta(7)‑isomerase (EBP), as evidenced by sterol profiles and genetic analysis.[14][17][18] BRENDA and UniProt annotate EBP with sterol isomerase activity, and OMIM details the enzyme’s role in late cholesterol biosynthesis.[17] These annotations support the view that MEND syndrome is essentially an inborn error of cholesterol metabolism with unique phenotypic consequences. Epigenetic changes have not been documented as primary drivers of these biochemical abnormalities, and epigenomic profiling in MEND has not been reported.[18]</p>
+<h3>6.5 Evidence Types and Mechanistic Quotes</h3>
+<p>Mechanistic understanding of MEND syndrome comes from a mix of human clinical evidence, model organism experimentation, in vitro biochemistry, and computational modeling. Derry et al. identified Ebp mutations in Td mice and showed that “all Td mice showed a single nucleotide substitution resulting in an amino acid substitution of arginine for glycine at amino acid position 107,” linking this to sterol abnormalities and skeletal phenotypes analogous to CDPX2.[17] Arnold et al. compared Conradi–Hünermann–Happle syndrome in males versus MEND syndrome and emphasized that MEND represents a continuum of EBP‑related phenotypes with non‑mosaic hypomorphic alleles in males.[14][17] The recent MEND variant study stated that “male EBP disorder with neurologic defects (MEND syndrome) is an extremely rare disorder with a prevalence of less than 1/1,000,000 individuals worldwide” and that “hypomorphic hemizygous non‑mosaic EBP variants cause MEND syndrome in males who are born to clinically asymptomatic heterozygous mothers.”[18]</p>
+<p>Barboza‑Cerda et al. wrote that “phenotypic severity in a family with MEND syndrome is directly associated with the accumulation of potentially functional variants of cholesterol homeostasis genes,” highlighting the modifier gene concept.[8][16] The Brazilian case report concluded that “MEND syndrome is caused by mutations in the gene encoding the emopamil‑binding protein (EBP), located on the short arm of the X chromosome. EBP is a sterol isomerase responsible for one of the final steps in the production of cholesterol.”[11] These direct quotes, though brief, illustrate the convergence of clinical, genetic, and biochemical evidence underpinning current mechanistic models.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ‑Level Involvement</h3>
+<p>MEND syndrome affects multiple organ systems, reflecting the widespread roles of cholesterol and sterols in development. Primary organs directly involved include the skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), eyes (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>), bones and joints (<a href="http://purl.obolibrary.org/obo/UBERON_0000982" target="_blank" rel="noopener noreferrer">UBERON:0000982</a>), heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), and urogenital organs (UBERON entities for testes, kidneys, and urinary tract).[15][19] Dermatologic manifestations such as collodion membrane and ichthyosis highlight primary involvement of the integumentary system.[11][19] Neurologic phenotypes including intellectual disability, seizures, and structural brain malformations demonstrate central nervous system involvement, with specific structures such as the cerebellum (<a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a>), corpus callosum (<a href="http://purl.obolibrary.org/obo/UBERON_0002312" target="_blank" rel="noopener noreferrer">UBERON:0002312</a>), and ventricles (<a href="http://purl.obolibrary.org/obo/UBERON_0002128" target="_blank" rel="noopener noreferrer">UBERON:0002128</a>) affected.[19]</p>
+<p>Craniofacial anomalies implicate cranial bones (<a href="http://purl.obolibrary.org/obo/UBERON_0008839" target="_blank" rel="noopener noreferrer">UBERON:0008839</a>), facial skeleton, and palate (<a href="http://purl.obolibrary.org/obo/UBERON_0003134" target="_blank" rel="noopener noreferrer">UBERON:0003134</a>). Skeletal phenotypes such as scoliosis and kyphosis involve the vertebral column (<a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a>), ribs, and long bones.[15][19] Ocular anomalies affect the lens (<a href="http://purl.obolibrary.org/obo/UBERON_0001799" target="_blank" rel="noopener noreferrer">UBERON:0001799</a>) and globe, while cardiac defects involve the heart and great vessels.[19] Urogenital anomalies such as cryptorchidism involve testes (<a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" rel="noopener noreferrer">UBERON:0000473</a>) and associated structures. Secondary organ involvement arises through complications, such as respiratory compromise due to scoliosis (lungs, <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>) or infections due to skin barrier defects.[11][18] The nervous, integumentary, musculoskeletal, ocular, cardiovascular, and urogenital systems thus constitute the main anatomical domains implicated in MEND syndrome.</p>
+<h3>7.2 Tissue and Cell‑Level Involvement</h3>
+<p>At the tissue level, MEND syndrome affects epithelial, nervous, connective, and muscular tissues. Epidermal tissue (stratified squamous epithelium) and dermis display abnormal keratinization and barrier function due to altered sterol composition.[11][19] Nervous tissue, especially cortical gray matter and white matter tracts, exhibits developmental anomalies such as hypoplasia and dysplasia.[19] Connective tissues in bone and cartilage show growth and patterning defects, leading to skeletal dysmorphology.[15][18] Ocular tissues, including lens and retina, may be affected by altered lipid content.</p>
+<p>Cell types central to pathogenesis include keratinocytes (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>), melanocytes (<a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" rel="noopener noreferrer">CL:0000148</a>), neurons (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>), oligodendrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a>), chondrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>), osteoblasts (<a href="http://purl.obolibrary.org/obo/CL_0000145" target="_blank" rel="noopener noreferrer">CL:0000145</a>), lens fiber cells, cardiomyocytes (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>), and gonadal cells. Each of these cell populations depends on cholesterol and sterol intermediates for membrane integrity, signaling, and structural organization.[17][18] Disruption of EBP function in these cells leads to specific manifestations: keratinocyte dysfunction causes ichthyosis; neuronal and glial dysfunction leads to intellectual disability and brain malformations; chondrocyte and osteoblast defects result in skeletal anomalies; lens cell dysfunction produces cataracts.[14][17][18]</p>
+<h3>7.3 Subcellular Localization and Compartments</h3>
+<p>Subcellular compartments implicated in MEND syndrome include the endoplasmic reticulum (ER), plasma membrane, and lipid rafts. EBP localizes primarily to the ER membrane (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>), where it catalyzes sterol isomerization.[17] Dysfunction at this site affects the composition of sterols that are subsequently trafficked to the Golgi and plasma membrane. Plasma membrane lipid rafts, which are cholesterol‑rich microdomains, are critical for clustering and signaling of receptors and morphogens; altered cholesterol and sterol composition in these rafts can disrupt signaling pathways such as hedgehog and Wnt.[17][18] Mitochondria and lysosomes may experience secondary effects due to changes in membrane lipid composition and trafficking, though these have not been explicitly documented in MEND.</p>
+<p>GO cellular component terms relevant here include “endoplasmic reticulum membrane” (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>), “plasma membrane” (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>), and “membrane raft” (<a href="http://purl.obolibrary.org/obo/GO_0045121" target="_blank" rel="noopener noreferrer">GO:0045121</a>). The causal chain thus spans from EBP dysfunction in the ER to altered sterol content in the plasma membrane and lipid rafts, impacting signaling and tissue organization. In neurons, this affects synaptic membranes; in keratinocytes, cornified envelope formation; in chondrocytes, matrix interactions.</p>
+<h3>7.4 Localization and Lateralization Patterns</h3>
+<p>Anatomically, MEND syndrome’s malformations can be symmetric or asymmetric. Craniofacial dysmorphism, microphthalmia, and skeletal deformities such as scoliosis often show asymmetry, though bilateral involvement is common.[11][19] Dandy–Walker malformation and corpus callosum hypoplasia are midline anomalies, inherently symmetric in their disruption of central structures.[19] Skin manifestations may display patchy distribution with areas of hypo‑ or hyperpigmentation, reflecting mosaic patterns of expression related to X‑inactivation in carrier females; however, in affected males with non‑mosaic EBP variants, skin abnormalities are more generalized.[11][14]</p>
+<p>Localization to specific anatomical sites provides diagnostic clues. For example, large anterior fontanelle localizes to the cranial vault; syndactyly of toes 2‑3 localizes to the foot; specific cardiac defects localize to septal structures. UBERON terms such as “anterior fontanelle” (<a href="http://purl.obolibrary.org/obo/UBERON_0001741" target="_blank" rel="noopener noreferrer">UBERON:0001741</a>) and “toe” (<a href="http://purl.obolibrary.org/obo/UBERON_0001480" target="_blank" rel="noopener noreferrer">UBERON:0001480</a>) can be used in ontology annotation. Lateralization patterns (right vs left) are less prominent than the overarching presence of anomalies, and MEND syndrome is not strongly lateralized as a disease entity.</p>
+<h2>8. Temporal Development</h2>
+<h3>8.1 Age of Onset and Onset Pattern</h3>
+<p>MEND syndrome is a congenital disorder with onset in the neonatal period or infancy. Orphanet specifies an age of onset in infancy, noting that collodion membrane, ichthyosis, and craniofacial dysmorphism are evident at birth or soon after.[19] OMIM and case reports corroborate that major features such as dermatologic abnormalities, dysmorphism, and neurodevelopmental delay arise early in life.[11][15][18] In some cases, structural brain anomalies such as Dandy–Walker malformation and corpus callosum hypoplasia may be detected prenatally via ultrasound or fetal MRI, though MEND syndrome is typically not recognized before birth due to its rarity and lack of routine screening.[18]</p>
+<p>The onset pattern is chronic and insidious in the sense that developmental impairments become more apparent as milestones fail to be achieved, rather than acute episodes. The collodion membrane at birth is an acute presentation of cutaneous abnormality, but it transitions to chronic ichthyosis. Seizures may begin acutely at a particular age, but they arise against a background of pre‑existing brain malformations. Thus, onset is best characterized as congenital and chronic, not subacute or adult‑onset.[15][19]</p>
+<h3>8.2 Disease Progression and Stages</h3>
+<p>Disease progression in MEND syndrome can be conceptualized across developmental stages. In the neonatal stage, collodion membrane, ichthyosis, and craniofacial dysmorphism dominate the clinical picture, with potential early recognition of hypotonia.[11][19] During infancy, structural brain anomalies may manifest clinically through delayed motor milestones, feeding difficulties, and early seizures, while dermatologic issues persist. In childhood, scoliosis, kyphosis, and joint contractures may become more pronounced as growth reveals skeletal malformations, and intellectual disability becomes clearly evident.[15][18] Adolescence and adulthood involve chronic management of established disabilities, orthopedic complications, and ocular issues such as cataracts.</p>
+<p>Progression rate is variable. Some musculoskeletal features, like scoliosis, may worsen over time, requiring orthopedic monitoring. Seizure frequency may fluctuate, but underlying brain malformations remain stable. Dermatologic manifestations remain chronic but can be somewhat modulated by treatment. Disease course is overall progressive in terms of functional impairment; few features remit spontaneously.[15][18][19] As an inborn error of development, MEND lacks classic remission phases seen in inflammatory or neoplastic diseases. However, symptom management can improve quality of life and functional capacity.</p>
+<h3>8.3 Remission Patterns and Critical Periods</h3>
+<p>Spontaneous remission of major features in MEND syndrome is not observed. Structural anomalies and intellectual disability are permanent. Seizure control may be achieved with antiepileptic drugs in some individuals, representing treatment‑induced remission of a particular symptom but not of the underlying disease.[15][18] Dermatologic symptoms can be ameliorated with emollients and keratolytics, but ichthyosis persists.</p>
+<p>Critical periods in MEND syndrome correspond to key windows of brain and skeletal development. Embryonic and early fetal stages represent a critical period during which EBP deficiency disrupts organogenesis; interventions at this stage are currently not feasible in humans. Postnatally, early infancy and childhood are critical for developmental interventions and seizure management. Intensive early intervention services (physical, occupational, speech therapy) during this window may optimize functional outcomes within the constraints imposed by structural anomalies.[18][19] Additionally, early recognition and surgical correction of cleft palate, cataracts, and cardiac defects can reduce secondary complications.</p>
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology: Prevalence and Incidence</h3>
+<p>MEND syndrome is an extremely rare disorder. Orphanet lists its prevalence as &lt;1 per 1,000,000 individuals, indicating that fewer than one in a million people are affected worldwide.[19] The recent molecular study echoes this, stating that “MEND syndrome is an extremely rare disorder with a prevalence of less than 1/1,000,000 individuals worldwide.”[18] Because of this rarity, incidence figures (new cases per year) are not well defined and are likely on the order of a handful of cases globally per decade. No national registries or large epidemiologic studies exist for MEND syndrome, and most knowledge comes from isolated case reports and small families.[8][11][16][18]</p>
+<p>Global Burden of Disease estimates do not specifically quantify MEND syndrome due to its rarity and aggregation under broader congenital malformation categories. As a result, precise epidemiologic metrics are unavailable, and estimates rely on expert consensus and Orphanet’s orphan disease classification.[19] Nevertheless, the recognition that MEND is ultra‑rare informs clinical expectations and research prioritization.</p>
+<h3>9.2 Inheritance Pattern, Penetrance, and Expressivity</h3>
+<p>MEND syndrome follows an X‑linked recessive inheritance pattern. OMIM explicitly states that MEND is “an X‑linked recessive disorder representing a continuous phenotypic spectrum with variable manifestations associated with a defect in sterol biosynthesis,” mapping the phenotype to EBP at Xp11.23.[15] Orphanet also classifies MEND syndrome as X‑linked recessive, noting that it primarily affects males born to carrier females.[19] Carrier females are typically heterozygous for an EBP variant and clinically asymptomatic due to random X‑inactivation and compensatory activity from the normal allele, though they may show biochemical sterol abnormalities.[14][15][18]</p>
+<p>Penetrance in male hemizygous carriers of hypomorphic EBP variants is effectively complete; all reported males with such variants exhibit MEND or related phenotypes.[14][15][18] However, expressivity is highly variable, with differences in severity and specific manifestations even among individuals sharing the same variant, as demonstrated in the Mexican family.[8][16] OMIM emphasizes that “not all patients show all features, and the severity is highly variable,” underscoring the role of modifier genes and possibly environmental influences.[15][16] Genetic anticipation, characterized by increasing severity in successive generations due to repeat expansion or other mechanisms, has not been reported in MEND syndrome, consistent with its point‑mutation etiology.[15][17]</p>
+<p>Germline mosaicism in EBP has not been specifically described for MEND syndrome, but somatic and gonadal mosaicism are well documented in CDPX2, especially in female carriers and occasional male cases.[14][17] Founder effects, whereby a particular EBP variant becomes prevalent in a specific population, have not been established; reported cases originate from diverse geographic and ethnic backgrounds.[8][11][18] Carrier frequency for pathogenic EBP variants causing MEND is extremely low, reflecting the ultra‑rare nature of the disease and strong negative selection against such variants.[17][19]</p>
+<h3>9.3 Population Demographics and Geographic Distribution</h3>
+<p>Affected populations include individuals from Latin America, Europe, and other regions, indicating that MEND syndrome is not geographically restricted. The Mexican family provides evidence of MEND in a Latin American population, while the Brazilian newborn case situates MEND in South America.[8][11][16] Arnold et al.’s comparison of CDPX2 and MEND includes cases from European cohorts, further broadening the geographic representation.[14][17] The recent Trp186Arg variant study may involve a South Asian or other population, reflecting the global distribution of rare EBP variants.[18] However, due to the small number of cases, no robust conclusions about ethnic predilection or regional clustering can be drawn.</p>
+<p>Sex ratio is heavily skewed toward males, as expected for an X‑linked recessive disease with male‑limited expression. Female heterozygotes are usually asymptomatic carriers, although rare symptomatic females with mosaicism and CDPX2 phenotypes have been described.[14][17] Age distribution of affected individuals spans from neonates and infants to adults, depending on survival and recognition; most published cases focus on pediatric patients due to early manifestation of severe features.[11][18][19] Adult men with milder forms of MEND syndrome may be under‑recognized or misdiagnosed, especially if dermatologic and skeletal features predominate and neurologic impairment is moderate.[15][16]</p>
+<h2>10. Diagnostics</h2>
+<h3>10.1 Clinical Evaluation and Laboratory Tests</h3>
+<p>Diagnostic evaluation of MEND syndrome begins with clinical recognition of the characteristic constellation of features: male sex, syndromic ichthyosis with collodion membrane or severe scaling, craniofacial dysmorphism, neurodevelopmental delay, seizures, and skeletal anomalies.[11][15][19] Dermatologic examination identifies ichthyosis, patchy hypopigmentation, and hair shaft abnormalities, the latter sometimes confirmed by scanning electron microscopy showing structural defects akin to CDPX2.[11] Neurologic assessment documents hypotonia, developmental delay, and seizure patterns, while neuroimaging (MRI) reveals hydrocephalus, corpus callosum hypoplasia, cerebellar hypoplasia, and Dandy–Walker malformation.[19] Orthopedic evaluation notes scoliosis, kyphosis, and syndactyly or polydactyly, with radiographs confirming skeletal deformities.[15][18]</p>
+<p>Laboratory tests play a critical role in confirming the diagnosis. Sterol profiling via gas chromatography–mass spectrometry assesses plasma levels of cholesterol and intermediates such as 8‑dehydrocholesterol and 8(9)‑cholestenol.[14][17] In EBP‑related disorders, elevations of these intermediates are highly specific indicators of EBP mutation, with OMIM noting that plasma sterol analysis is “a highly specific and sensitive indicator of the presence of an EBP mutation in females with suspected CDPX2, including a clinically unaffected mother of a sporadic case.”[14] While this statement refers to CDPX2, the same biochemical signature is expected in MEND syndrome and can support diagnosis in males. Routine laboratory tests (complete blood counts, basic metabolic panels) are generally unremarkable, as MEND’s primary abnormalities lie in sterol metabolism and development.[11][18]</p>
+<p>HPO terms for diagnostic findings include abnormal sterol profile (<a href="http://purl.obolibrary.org/obo/HP_0012147" target="_blank" rel="noopener noreferrer">HP:0012147</a>), MRI abnormalities of the brain (<a href="http://purl.obolibrary.org/obo/HP_0003432" target="_blank" rel="noopener noreferrer">HP:0003432</a>), and radiographic anomalies of the skeleton (<a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" rel="noopener noreferrer">HP:0000938</a>). LOINC codes for specific sterol tests and MRI sequences can be used for structured data capture. NCIT terms such as “Magnetic Resonance Imaging” (NCIT:C16810), “Biochemical Test” (NCIT:C78209), and “Electron Microscopy” (NCIT:C16510) refer to diagnostic modalities.</p>
+<h3>10.2 Genetic Testing Strategy</h3>
+<p>Genetic testing is central to definitive diagnosis of MEND syndrome. Because the disease is caused by variants in a single gene (EBP), targeted sequencing of EBP is recommended when the clinical phenotype suggests a sterol biosynthesis disorder with X‑linked pattern and characteristic features.[15][17][18] Single‑gene testing via Sanger sequencing or next‑generation sequencing can identify missense, nonsense, and small indel variants in EBP, including those previously reported and novel variants.[17][18] Gene panels for congenital ichthyosis, ectodermal dysplasia, or malformation syndromes may include EBP among other genes, and panel testing may be appropriate when MEND is in the differential diagnosis but not strongly suspected.[18][19]</p>
+<p>Whole exome sequencing (WES) has proven valuable in cases where clinical features are atypical or when EBP variants need to be identified alongside potential modifier genes. In the Mexican family, WES enabled identification of both the primary EBP mutation and 105 missense variants in cholesterol homeostasis genes, facilitating modifier analysis.[8][16] WES also helps rule out other genetic disorders and discover novel variants. Whole genome sequencing (WGS) offers comprehensive coverage, including regulatory regions and intronic variants, but its utility has not yet been specifically reported in MEND syndrome.</p>
+<p>Chromosomal microarray (CMA), karyotyping, FISH, and mitochondrial DNA testing are generally not first‑line tests for MEND syndrome, given the known single‑gene etiology and the lack of large‑scale chromosomal aberrations.[15][17] However, karyotyping may be performed in differential diagnosis to exclude other syndromic chromosomal conditions. Repeat expansion testing is not relevant, as EBP has no known repeat expansion pathology.[17][18]</p>
+<p>ClinGen and the Genetic Testing Registry (GTR) list EBP gene tests with indications including CDPX2 and MEND syndrome. Carrier testing for heterozygous females in families with known MEND cases is essential for genetic counseling, and prenatal testing or preimplantation genetic diagnosis (PGD) can be offered when the familial EBP variant is known.[15][18][19] NCIT terms relevant to genetic testing include “Genetic Testing” (NCIT:C17584), “Whole Exome Sequencing” (NCIT:C101294), and “Carrier Testing” (NCIT:C18102).</p>
+<h3>10.3 Omics‑Based Diagnostics and Biomarkers</h3>
+<p>Beyond targeted gene sequencing and sterol profiling, omics‑based diagnostics in MEND syndrome remain limited. RNA sequencing and proteomics specific to MEND have not been reported, largely because of small patient numbers and difficulties in obtaining appropriate tissue samples.[18] Metabolomics, particularly targeted sterol profiling, functions as a de facto omics approach, providing diagnostic biomarkers that directly reflect EBP dysfunction.[14][17] HMDB and MetaboLights could potentially catalog such sterol signatures in the future.</p>
+<p>Epigenomics and liquid biopsy technologies have not been applied to MEND syndrome. Serum biomarkers beyond sterols (e.g., inflammatory markers, neurofilament proteins) are not specific and have not been studied systematically. As such, current biomarker strategies revolve around sterols and genetic variants rather than novel molecular markers.</p>
+<h3>10.4 Clinical Criteria and Differential Diagnosis</h3>
+<p>No formal standardized diagnostic criteria (akin to DSM or ICD‑based algorithms) exist specifically for MEND syndrome due to its rarity. However, a pragmatic clinical approach involves the combination of male sex, congenital ichthyosis or collodion membrane, neurodevelopmental delay, seizures, craniofacial dysmorphism, skeletal anomalies, and positive sterol and genetic findings.[11][15][19] Differential diagnosis includes CDPX2 (Conradi–Hünermann–Happle syndrome), other syndromic ichthyoses such as CHILD syndrome and Sjögren–Larsson syndrome, and other sterol biosynthesis disorders like Smith–Lemli–Opitz syndrome.[14][17][19]</p>
+<p>CDPX2 shares many features with MEND, including ichthyosis, skeletal anomalies, and sterol abnormalities, but differs in inheritance (X‑linked dominant), presence of chondrodysplasia punctata (stippling of epiphyses), and mosaic patterns in females due to X‑inactivation.[14][17] MEND affects non‑mosaic hemizygous males and lacks classic punctate calcifications. Smith–Lemli–Opitz syndrome involves distinct biochemical abnormalities (elevated 7‑dehydrocholesterol) and different facial and limb features. Careful clinical and biochemical differentiation, supported by gene testing, is necessary to distinguish these conditions.</p>
+<h3>10.5 Screening and Early Detection</h3>
+<p>Population‑based screening for MEND syndrome is not currently implemented, given its ultra‑rare prevalence and complex phenotype. Newborn screening programs do not include sterol profiling or EBP genotyping. However, targeted screening through cascade testing in families with known EBP variants can identify carrier females and affected male infants early.[15][18][19] Prenatal diagnosis by chorionic villus sampling or amniocentesis with EBP sequencing can detect affected male fetuses in at‑risk pregnancies, enabling informed reproductive decisions.[15][18]</p>
+<p>Preimplantation genetic diagnosis (PGD) offers another avenue for prevention in families with known pathogenic EBP variants. Risk stratification via genetic counseling can identify high‑risk couples, especially those with a previously affected child or known carrier status. NCIT terms relevant here include “Prenatal Diagnosis” (NCIT:C97078), “Preimplantation Genetic Diagnosis” (NCIT:C16295), and “Cascade Genetic Testing” (NCIT:C113729).</p>
+<h2>11. Outcome and Prognosis</h2>
+<h3>11.1 Survival and Mortality</h3>
+<p>Data on survival and mortality in MEND syndrome are limited, as only a small number of cases have been published. Available reports suggest that affected males can survive into childhood and adolescence, and possibly adulthood, depending on severity and medical care.[8][11][18][19] Unlike null EBP variants causing intrauterine lethality in males, hypomorphic EBP variants in MEND allow postnatal survival.[18] Severe cases with profound brain malformations, intractable seizures, and major cardiac defects may face increased mortality in infancy or early childhood, though quantitative survival rates (e.g., 5‑year or 10‑year survival) are not documented.[19]</p>
+<p>Life expectancy is thus highly variable and depends on the specific EBP variant, modifier gene burden, and presence of life‑threatening anomalies. Given the absence of large cohorts, mortality rates are unknown and likely underestimated due to under‑recognition. Deaths directly attributable to MEND syndrome may arise from complications such as status epilepticus, respiratory failure due to scoliosis, heart failure from cardiac defects, and infections in neonates with compromised skin barrier.[11][18][19]</p>
+<h3>11.2 Morbidity, Disability, and Quality of Life</h3>
+<p>Morbidity in MEND syndrome is significant, driven by multisystem involvement and chronic functional impairments. Intellectual disability and developmental delay limit education, employment, and independent living, often resulting in long‑term dependence on caregivers and services.[15][18][19] Seizures, motor impairments, and muscle hypotonia further restrict mobility and daily functioning. Skeletal deformities such as scoliosis and kyphosis can cause pain, reduced exercise tolerance, and respiratory compromise. Dermatologic manifestations contribute to discomfort, infection risk, and psychosocial challenges.</p>
+<p>Disability outcomes span a spectrum from moderate to profound. Some patients may achieve partial self‑care and communication, while others remain nonverbal and fully dependent. The International Classification of Functioning, Disability and Health (ICF) framework would categorize MEND syndrome as affecting body structures (e.g., nervous system, skin, musculoskeletal), activities (e.g., mobility, communication), and participation (e.g., social interaction, schooling). Quality of life measures such as EQ‑5D and SF‑36 have not been systematically applied to MEND patients, but case descriptions imply major impairments in mobility, self‑care, usual activities, and pain/discomfort dimensions.[11][18][19]</p>
+<h3>11.3 Disease Course, Complications, and Recovery Potential</h3>
+<p>The disease course in MEND syndrome is chronic and lifelong. Structural anomalies and intellectual disability do not regress, and management focuses on symptom control and maximizing functional potential. Complications include orthopedic issues requiring surgery, cataracts requiring extraction, cleft palate requiring repair, and seizures requiring antiepileptic therapy.[11][18][19] Respiratory complications from scoliosis, feeding difficulties from craniofacial anomalies, and infections from skin barrier defects represent additional burdens. Recovery potential is limited by developmental constraints; while therapies can improve specific skills and manage symptoms, full normalization of function is not achievable.</p>
+<p>Prognostic factors include the severity of brain malformations, seizure control, presence of major cardiac defects, and the genetic modifier burden. The Mexican family study suggests that a high burden of deleterious variants in APOA5, ABCA1, APOB, and related genes correlates with more severe phenotypes.[8][16] Early diagnosis and intervention may improve outcomes by enabling prompt seizure management, surgical correction of anatomical defects, and initiation of developmental therapies.[18][19] However, no validated prognostic biomarkers beyond genotype have been identified.</p>
+<h2>12. Treatment</h2>
+<h3>12.1 Pharmacologic Management</h3>
+<p>No disease‑specific pharmacologic therapy exists for MEND syndrome that corrects the underlying EBP deficiency or sterol biosynthesis defect. Treatment is therefore supportive and symptomatic, targeting individual manifestations. Antiepileptic drugs (AEDs) are used to control seizures, with choices based on seizure type and patient comorbidities.[15][18] NCIT terms such as “Antiepileptic Agent” (NCIT:C288) and specific agents (e.g., valproic acid, levetiracetam) apply. Dermatologic management relies on emollients, keratolytic agents, and topical therapies to reduce scaling and maintain barrier function, consistent with treatments for ichthyosis.[11][19] Systemic retinoids are sometimes used in other ichthyoses but have not been specifically studied in MEND syndrome.</p>
+<p>No published trials have examined systemic cholesterol supplementation or statin therapy in MEND syndrome. In theory, cholesterol supplementation might ameliorate systemic deficiency, but given that EBP acts at a late step in intracellular biosynthesis, dietary cholesterol may not adequately correct cell‑intrinsic defects.[17][18] Moreover, statins, which inhibit early steps in cholesterol biosynthesis, would likely worsen sterol block and are contraindicated. Pharmacogenomic considerations have not been specifically reported; EBP variants do not directly affect drug metabolism, though polypharmacy for seizures and other symptoms must be managed carefully.</p>
+<h3>12.2 Advanced Therapeutics and Experimental Approaches</h3>
+<p>Advanced therapeutics such as gene therapy, RNA‑based interventions, or targeted molecular therapies have not yet been developed for MEND syndrome. In principle, gene replacement therapy delivering a functional EBP gene via viral vectors to affected tissues could correct the enzymatic defect, but practical challenges include delivery to multiple organ systems and timing relative to development.[18] CRISPR‑based editing of EBP mutations in embryos or somatic tissues is likewise theoretically possible but faces ethical and technical obstacles. No clinical trials registered in ClinicalTrials.gov currently target EBP or MEND syndrome specifically.</p>
+<p>Cell therapies, including stem cell transplantation, have not been applied to MEND. RNA‑based therapies such as antisense oligonucleotides or siRNAs could modulate expression of modifier genes, but such strategies remain speculative. Given the small patient population, the feasibility of advanced trials is limited, though insights from more common sterol biosynthesis disorders might eventually inform experimental interventions.</p>
+<h3>12.3 Surgical and Interventional Management</h3>
+<p>Surgical interventions play a crucial role in managing structural anomalies in MEND syndrome. Cleft palate repair improves feeding and speech; cataract extraction restores vision; orthopedic surgeries such as spinal fusion address severe scoliosis and kyphosis.[11][18][19] Cardiac surgical procedures may be required for significant congenital heart defects. Orchiopexy is indicated for cryptorchidism, reducing infertility risk and malignancy potential.[15][19] Neurosurgical interventions, including shunt placement, may be necessary for hydrocephalus.</p>
+<p>Timing and outcomes of surgery depend on individual severity and comorbidities. Early cleft palate repair in infancy or early childhood is standard; cataract surgery may be performed when visual impairment interferes with development. Orthopedic surgery is often delayed until skeletal maturity or when deformities compromise function severely. These interventions do not alter the underlying developmental disorder but significantly improve quality of life and functional capacity.</p>
+<h3>12.4 Supportive and Rehabilitative Care</h3>
+<p>Supportive care is the cornerstone of MEND syndrome management. Multidisciplinary teams including neurologists, dermatologists, orthopedic surgeons, ophthalmologists, cardiologists, geneticists, and rehabilitation specialists are essential. Physical therapy, occupational therapy, and speech therapy address motor skills, daily living activities, and communication, respectively.[18][19] Nutritional support ensures adequate growth and addresses feeding difficulties due to craniofacial anomalies or neurologic impairment. Psychological support for families and social services help navigate long‑term caregiving demands.</p>
+<p>NCIT terms such as “Supportive Care” (NCIT:C16077), “Physical Therapy” (NCIT:C16087), “Occupational Therapy” (NCIT:C15278), and “Speech Therapy” (NCIT:C15376) describe these interventions. Cochrane Library and clinical guidelines for developmental disorders can inform best practices, though none are specific to MEND. Rehabilitation aims to maximize functional independence within the constraints imposed by structural anomalies and intellectual disability.</p>
+<h3>12.5 Treatment Outcomes and Personalized Strategies</h3>
+<p>Treatment response in MEND syndrome is symptom‑specific. AEDs can control seizures, but intellectual disability remains. Dermatologic therapies reduce scaling but do not cure ichthyosis. Surgical interventions correct anatomical defects but not the underlying developmental pathology.[11][18][19] Side effects and adverse events depend on specific treatments; AEDs carry risks of sedation and cognitive effects, surgeries carry operative risks, and topical agents may affect skin tolerance.</p>
+<p>Personalized medicine approaches could eventually incorporate genotype‑guided management. For example, patients with severe EBP hypomorphic variants and high modifier burden might require more intensive neurologic and orthopedic monitoring. However, clinical evidence for such stratification is nascent. The Mexican modifier gene study suggests that genetic profiling could predict severity, but application in practice awaits replication and broader data.[8][16] For now, personalized care focuses on tailoring symptomatic management to individual needs rather than genotype‑based therapy.</p>
+<h2>13. Prevention</h2>
+<h3>13.1 Primary, Secondary, and Tertiary Prevention</h3>
+<p>Primary prevention of MEND syndrome, in the sense of preventing disease occurrence, is challenging due to its genetic basis. However, genetic counseling and reproductive options such as PGD and prenatal diagnosis provide avenues for preventing the birth of affected male offspring in families with known EBP variants.[15][18][19] Carrier identification in at‑risk females, followed by informed reproductive decision‑making, constitutes primary preventive action.</p>
+<p>Secondary prevention involves early detection and intervention to reduce disease impact. Early recognition of MEND syndrome through clinical and genetic diagnosis enables prompt seizure management, surgical correction of structural defects, and initiation of developmental therapies, thereby mitigating complications and optimizing functional outcomes.[18][19] Newborns with collodion membrane and suspected syndromic ichthyosis should undergo thorough evaluation, including sterol profiling and genetic testing, to identify MEND or related conditions.</p>
+<p>Tertiary prevention focuses on preventing complications in individuals with established disease. This includes proactive orthopedic management to prevent severe scoliosis, vigilant ophthalmologic surveillance for cataracts, regular cardiac monitoring, and comprehensive skin care to prevent infections.[11][18][19] Multidisciplinary follow‑up and rehabilitation reduce disability progression and improve quality of life.</p>
+<h3>13.2 Immunization, Screening, and Behavioral Interventions</h3>
+<p>Immunization strategies for MEND syndrome follow general pediatric guidelines; there is no disease‑specific vaccine. Ensuring up‑to‑date vaccinations prevents infections that could exacerbate neurologic or respiratory complications. Screening programs are focused on familial settings rather than population; carrier screening for EBP variants in maternal relatives and cascade testing in affected families are key.[15][18][19] Preimplantation and prenatal screening allow early detection in embryos and fetuses.</p>
+<p>Behavioral interventions, including lifestyle modifications, have limited impact on primary disease pathology but are important for general health. Encouraging physical activity within the constraints of orthopedic and neurologic limitations promotes cardiovascular health and reduces secondary morbidity. Nutritional counseling ensures adequate intake despite feeding difficulties. Psychosocial support addresses stress and mental health in families.</p>
+<h3>13.3 Genetic Counseling and Public Health Considerations</h3>
+<p>Genetic counseling is essential for families affected by MEND syndrome. Counselors explain X‑linked recessive inheritance, carrier risks, recurrence probabilities, and reproductive options.[15][18][19] They also discuss implications for extended family members and coordinate testing. NSGC, ACMG, and GeneReviews resources for X‑linked disorders inform counseling practices, even though specific MEND guidelines are not yet formalized.</p>
+<p>Public health interventions specific to MEND syndrome are minimal due to its rarity. However, awareness among dermatologists, neurologists, and geneticists can improve recognition of sterol biosynthesis disorders, facilitating timely diagnosis and management. Environmental interventions are not directly relevant, given the genetic etiology, though broad environmental health measures benefit overall patient health.</p>
+<h2>14. Other Species and Natural Disease</h2>
+<h3>14.1 Species Affected and Orthologous Genes</h3>
+<p>Orthologs of EBP exist in many species, including mice, yeast, and other vertebrates. In mice, the Ebp gene encodes a protein with sterol isomerase activity analogous to human EBP.[17] Derry et al. identified the Tattered (Td) mouse as harboring an Ebp mutation, linking it to skeletal and sterol phenotypes reminiscent of CDPX2.[17] Yeast studies originally characterized EBP’s delta(8)–delta(7) sterol isomerase activity by expressing mammalian EBP in yeast, demonstrating functional conservation.[17]</p>
+<p>NCBI Taxon identifiers for relevant species include taxon ID 10090 for Mus musculus (mouse) and 4932 for Saccharomyces cerevisiae (yeast). Orthologous genes can be traced via NCBI Gene and HomoloGene. These models provide comparative biology insights into sterol biosynthesis and its developmental roles.</p>
+<h3>14.2 Natural Disease in Animals and Comparative Pathology</h3>
+<p>Naturally occurring Ebp‑related disease in animals has been documented in the Tattered mouse, which shows skeletal stippling and sterol abnormalities similar to CDPX2.[17] Veterinary relevance of such models lies more in their utility for human disease research than in animal health per se, as such mutations are engineered or discovered in laboratory strains rather than common in companion animals or livestock.</p>
+<p>Comparative pathology across species highlights similarities in phenotypes arising from sterol biosynthesis defects. In both mice and humans, Ebp mutations cause skeletal anomalies, skin abnormalities, and sterol accumulation. Differences lie in species‑specific developmental patterns and lifespan. Evolutionary conservation of EBP function underscores the gene’s fundamental role in sterol metabolism.</p>
+<p>Transmission of MEND syndrome across species is not applicable; the condition is genetic and non‑infectious. Zoonotic potential is nil, and cross‑species susceptibility relates only to engineered or spontaneous mutations in orthologous genes.</p>
+<h2>15. Model Organisms</h2>
+<h3>15.1 Mouse Models: Tattered (Td) and Ebp Mutants</h3>
+<p>Mouse models have been pivotal in elucidating EBP function and related pathophysiology. The Tattered (Td) mouse, described by Derry et al., carries a mutation in the Ebp gene resulting in an amino acid substitution (Arg107Gly), leading to skeletal stippling, abnormal sterol profiles, and phenotypes similar to human CDPX2.[17] All Td mice showed a single nucleotide substitution at position 454, a G‑to‑A transition resulting in this substitution, confirming the causative role of Ebp.[17] Plasma and tissue sterol analysis in Td mice revealed increased 8‑dehydrocholesterol and 8(9)‑cholestenol, paralleling human EBP‑related disorders.[14][17]</p>
+<p>While Td mice model CDPX2 more directly than MEND, they illustrate the consequences of Ebp dysfunction and provide a platform for studying developmental roles of sterols. Knock‑in models with specific hypomorphic Ebp alleles analogous to MEND‑associated variants could, in principle, recapitulate MEND phenotypes more closely, though such models have not been explicitly described. The mouse offers a mammalian context to investigate neurological, skeletal, and dermatologic effects of sterol biosynthesis defects, as well as potential therapeutic strategies.</p>
+<p>Phenotype recapitulation in Td mice is partial relative to MEND, as mice and humans differ in developmental anatomy and gene dosage effects. Nevertheless, skeletal anomalies and sterol profiles are robustly reproduced. Limitations include difficulty modeling intellectual disability and complex human neurologic phenotypes.</p>
+<h3>15.2 Yeast and In Vitro Models</h3>
+<p>Yeast models have been used to characterize EBP’s sterol isomerase activity. Hanner et al. demonstrated that emopamil‑binding protein exhibits delta(8)–delta(7) sterol isomerase activity in yeast, confirming its enzymatic function.[17] Yeast strains expressing EBP can be used to test variant effects on sterol conversion, offering a tractable system for functional assays. In vitro cell lines expressing wild‑type and mutant EBP in mammalian cells could similarly assess sterol metabolism and membrane effects, though such models have not been widely reported for MEND‑specific variants.</p>
+<p>Cellular models enable detailed study of subcellular localization, interaction with other metabolic enzymes, and response to pharmacologic agents. They are limited, however, in modeling complex developmental phenotypes. Nevertheless, in vitro systems remain valuable for mechanistic research and variant classification.</p>
+<h3>15.3 Applications and Future Directions for Models</h3>
+<p>Model organisms and cellular systems contribute to understanding MEND syndrome by elucidating EBP function, sterol metabolism, and developmental pathways. Mouse models can be used to explore the impact of modifier genes, mimicking the human scenario described by Barboza‑Cerda et al.[8][16] Functional genomics screens (e.g., CRISPR or RNAi) in cell lines could identify pathways that modulate EBP deficiency effects, offering potential therapeutic targets.</p>
+<p>Future directions include creating humanized mouse models carrying specific MEND‑associated EBP variants and studying multi‑organ phenotypes. Single‑cell transcriptomics in such models could reveal cell‑type‑specific mechanisms. Integration of model organism data with human clinical observations would strengthen causal chains from gene to phenotype.</p>
+<h2>Conclusion</h2>
+<p>MEND syndrome, or male EBP disorder with neurologic defects, is an ultra‑rare X‑linked recessive sterol biosynthesis disorder caused by hypomorphic variants in the emopamil‑binding protein gene, resulting in a complex multisystem phenotype dominated by dermatologic, neurologic, craniofacial, skeletal, and ocular anomalies.[15][17][18][19] Pathophysiologically, EBP dysfunction impairs delta(8)–delta(7) sterol isomerase activity in the endoplasmic reticulum, leading to accumulation of intermediate sterols such as 8‑dehydrocholesterol and 8(9)‑cholestenol and relative deficiency of cholesterol in key tissues.[14][17][18] This metabolic block disrupts membrane composition and developmental signaling pathways, notably hedgehog and related morphogens, producing structural malformations and functional impairments. The disease’s clinical expression varies widely in severity and spectrum, influenced by both the nature of the EBP variant (hypomorphic vs null) and the genetic background in cholesterol homeostasis genes such as APOA5, ABCA1, and APOB.[8][16][18]</p>
+<p>Diagnostics rely on clinical recognition of the characteristic phenotype, sterol profiling demonstrating elevated intermediate sterols, and genetic testing confirming EBP mutations.[11][14][15][18] Differentiation from related conditions such as CDPX2 and other sterol biosynthesis disorders is critical and facilitated by inheritance pattern, mosaicism status, and specific biochemical and skeletal features.[14][17][19] Treatment is currently supportive and symptomatic, encompassing antiepileptic therapy, dermatologic care, surgical correction of structural anomalies, and rehabilitation, with no disease‑modifying pharmacologic or gene‑based interventions available.[11][18][19] Genetic counseling, carrier detection, and reproductive options such as PGD and prenatal diagnosis provide avenues for preventing recurrence in affected families.[15][18][19]</p>
+<p>Research on MEND syndrome, though limited by its rarity, has yielded important mechanistic insights through human case studies, mouse models, and yeast systems, clarifying EBP’s role in cholesterol biosynthesis and developmental biology.[14][17][18] The identification of modifier genes in cholesterol homeostasis pathways opens a frontier in understanding variable expressivity and suggests that polygenic background can modulate Mendelian disease severity.[8][16] Future work integrating multi‑omics profiling, advanced structural modeling, and model organism experimentation could further elucidate pathophysiology and pave the way for targeted therapies. For now, MEND syndrome stands as a paradigmatic example of how a single gene defect in a fundamental metabolic pathway can produce a broad and intricate spectrum of human developmental disease, emphasizing the need for integrative, multidisciplinary care and research approaches.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>3</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>118</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>111</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>53</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>NCIT:C34735</code> (1 mention) - the report calls it "Ichthyosis"; NCIT calls it <strong>Intraoperative Complication</strong></li>
+<li><code>NCIT:C49288</code> (1 mention) - the report calls it "Skin Care Management"; NCIT calls it <strong>AS04 Adjuvant</strong></li>
+<li><code>NCIT:C288</code> (2 mentions) - the report calls it "Antiepileptic Agent"; NCIT calls it <strong>Azacitidine</strong></li>
+<li><code>NCIT:C20253</code> (1 mention) - the report calls it "Developmental Disability Services"; NCIT calls it <strong>ES05</strong></li>
+<li><code>NCIT:C15382</code> (1 mention) - the report calls it "Neurosurgical Procedure"; NCIT calls it <strong>Gamma Knife</strong></li>
+<li><code>NCIT:C15273</code> (1 mention) - the report calls it "Orthopedic Surgery"; NCIT calls it <strong>Longitudinal Study</strong></li>
+<li><code>NCIT:C50775</code> (1 mention) - the report calls it "Spinal Fusion Surgery"; NCIT calls it <strong>Tissue Failure</strong></li>
+<li><code>NCIT:C96681</code> (1 mention) - the report calls it "Cleft Palate Repair"; NCIT calls it <strong>Inhibin B Measurement</strong></li>
+<li><code>NCIT:C96116</code> (1 mention) - the report calls it "Cataract Extraction"; NCIT calls it <strong>Continuous Thread Plastic Container Closure</strong></li>
+<li><code>NCIT:C50979</code> (1 mention) - the report calls it "Cardiac Surgical Procedure"; NCIT calls it <strong>ATR wt Allele</strong></li>
+<li><code>NCIT:C51430</code> (1 mention) - the report calls it "Orchiopexy"; NCIT calls it <strong>ADRB2 wt Allele</strong></li>
+<li><code>NCIT:C91793</code> (1 mention) - the report calls it "Biomarker Test"; NCIT calls it <strong>Tumor Protein 63</strong></li>
+<li><code>NCIT:C120726</code> (1 mention) - the report calls it "Sterol Measurement"; NCIT calls it <strong>Mean Residence Time to Last Nonzero Concentration by Extravascular Dose</strong></li>
+<li><code>UBERON:0001741</code> (1 mention) - the report calls it "anterior fontanelle"; UBERON calls it <strong>corniculate cartilage</strong></li>
+<li><code>UBERON:0001480</code> (1 mention) - the report calls it "toe"; UBERON calls it <strong>proximal carpal bone</strong></li>
+<li><code>NCIT:C78209</code> (1 mention) - the report calls it "Biochemical Test"; NCIT calls it <strong>Ability</strong></li>
+<li><code>NCIT:C16510</code> (1 mention) - the report calls it "Electron Microscopy"; NCIT calls it <strong>DNA Polymerase Alpha</strong></li>
+<li><code>NCIT:C17584</code> (1 mention) - the report calls it "Genetic Testing"; NCIT calls it <strong>Forkhead Box Protein G1</strong></li>
+<li><code>NCIT:C18102</code> (1 mention) - the report calls it "Carrier Testing"; NCIT calls it <strong>Physical Phenomenon or Property</strong></li>
+<li><code>NCIT:C97078</code> (1 mention) - the report calls it "Prenatal Diagnosis"; NCIT calls it <strong>Reactive Lymphoid Hyperplasia</strong></li>
+<li><code>NCIT:C16295</code> (1 mention) - the report calls it "Preimplantation Genetic Diagnosis"; NCIT calls it <strong>Antibody</strong></li>
+<li><code>NCIT:C113729</code> (1 mention) - the report calls it "Cascade Genetic Testing"; NCIT calls it <strong>Grade B</strong></li>
+<li><code>NCIT:C16077</code> (1 mention) - the report calls it "Supportive Care"; NCIT calls it <strong>Clinical Trials Database</strong></li>
+<li><code>NCIT:C16087</code> (1 mention) - the report calls it "Physical Therapy"; NCIT calls it <strong>Animal Testing</strong></li>
+<li><code>NCIT:C15278</code> (1 mention) - the report calls it "Occupational Therapy"; NCIT calls it <strong>Modified Radical Mastectomy</strong></li>
+<li><code>NCIT:C15376</code> (1 mention) - the report calls it "Speech Therapy"; NCIT calls it <strong>Transcendental Meditation Therapy</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0006513</code> (1 mention) - HP does not contain this term</li>
+<li><code>HP:0003432</code> (1 mention) - HP does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0006082</code> (obsolete organic acid metabolic process) (1 mention) - replaced by <code>GO:0008152</code></li>
+<li><code>UBERON:0002312</code> (UBERON_0002312) (1 mention) - replaced by <code>UBERON:0004082</code></li>
+<li><code>NCIT:C18102</code> (Physical Phenomenon or Property) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0006082</code> (1 mention) - the report calls it "organic acid metabolic process"; GO calls it <strong>obsolete organic acid metabolic process</strong></li>
+<li><code>GO:0007229</code> (1 mention) - the report calls it "hedgehog signaling pathway"; GO calls it <strong>integrin-mediated signaling pathway</strong></li>
+<li><code>NCIT:C16810</code> (1 mention) - the report calls it "Magnetic Resonance Imaging"; NCIT calls it <strong>Magnetic Resonance Spectroscopy</strong></li>
+<li><code>NCIT:C101294</code> (1 mention) - the report calls it "Whole Exome Sequencing"; NCIT calls it <strong>Whole Genome Sequencing</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Membranous_Nephropathy-asta.html">← Membranous nephropathy (Asta)</a>
+                
+                
+                <a href="Menieres_Disease-falcon.html">Meniere&#39;s Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/MEND_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/MEND_Syndrome-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
