@@ -1,6 +1,6 @@
 """Unit tests for the entity-reference resolver (issue #9193).
 
-`tests/test_data.py::test_entity_ref_foreign_keys` exercises this against real
+`tests/test_data.py::test_entity_reference_file` (via `check_entity_ref_foreign_keys`) exercises this against real
 content; these cover the resolution rules themselves — in particular the three
 sections that are *not* keyed on `name`, and the two ways a reference is
 skipped rather than failed.
