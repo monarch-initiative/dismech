@@ -29,7 +29,7 @@ build still renders, just slowly.
 from __future__ import annotations
 
 import csv
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 #: Field separator inside the two pipe-joined columns. A label containing this
@@ -53,7 +53,7 @@ def default_cache_root() -> Path:
     return Path(__file__).resolve().parents[2] / "cache"
 
 
-@lru_cache(maxsize=None)
+@cache
 def load_hierarchy_cache(
     prefix: str, cache_root: str | None = None
 ) -> dict[str, tuple[tuple[str, str], ...]]:

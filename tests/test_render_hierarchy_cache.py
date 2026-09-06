@@ -18,7 +18,6 @@ from dismech.render import (
     STRICT_HIERARCHIES,
     _build_hierarchy_path,
     _get_oak_adapter,
-    _resolve_hierarchy_path,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -139,7 +138,7 @@ def test_resolved_path_is_memoised_per_process(monkeypatch) -> None:
         def label(self, term_id: str) -> str:
             return f"label for {term_id}"
 
-    import dismech.render as render
+    from dismech import render
 
     monkeypatch.setattr(render, "_get_oak_adapter", lambda _s: CountingAdapter())
     # Force the OAK path rather than a committed-cache hit.
@@ -167,7 +166,7 @@ def test_unresolvable_terms_are_memoised_too(monkeypatch) -> None:
         def label(self, term_id: str) -> str:
             return term_id
 
-    import dismech.render as render
+    from dismech import render
 
     monkeypatch.setattr(render, "_get_oak_adapter", lambda _s: BrokenAdapter())
     monkeypatch.setattr(hierarchy_cache, "lookup", lambda *_a, **_k: None)
@@ -184,7 +183,7 @@ def test_cache_hit_short_circuits_the_adapter(monkeypatch) -> None:
     def explode(_adapter_str):  # pragma: no cover - must never run
         raise AssertionError("the adapter was opened despite a cache hit")
 
-    import dismech.render as render
+    from dismech import render
 
     monkeypatch.setattr(render, "_get_oak_adapter", explode)
     monkeypatch.setattr(
@@ -241,7 +240,7 @@ def test_committed_cache_agrees_with_the_live_adapter() -> None:
     if adapter is None:
         pytest.skip(f"{hierarchy['adapter']} is not available in this environment")
 
-    curie = sorted(cached)[0]
+    curie = min(cached)
     live = _build_hierarchy_path(adapter, curie, hierarchy["root"])
     if not live:
         pytest.skip(f"local build could not resolve {curie}")

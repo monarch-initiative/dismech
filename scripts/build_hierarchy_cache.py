@@ -29,13 +29,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from dismech import hierarchy_cache  # noqa: E402
-from dismech.render import (  # noqa: E402
+from dismech import hierarchy_cache
+from dismech.render import (
     STRICT_HIERARCHIES,
     _build_hierarchy_path,
     _get_oak_adapter,
 )
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 
 def mapped_curies(kb_root: Path) -> dict[str, set[str]]:
@@ -205,7 +205,9 @@ def main() -> int:
         )
 
     all_curies = mapped_curies(kb_root)
-    retrieved_at = datetime.datetime.now(datetime.UTC).replace(microsecond=0).isoformat()
+    retrieved_at = (
+        datetime.datetime.now(datetime.UTC).replace(microsecond=0).isoformat()
+    )
 
     for prefix in selected:
         curies = all_curies.get(prefix, set())
