@@ -24,3 +24,4 @@ numbers can be regenerated rather than trusted.
 | Experiment | Question | Runs |
 |---|---|---|
 | [`interannotator/`](interannotator/) | How much of a dismech entry is determined by the evidence, and how much by the curator? Each run curates one disease twice, independently, and measures where the versions agree. | 1 |
+| [`rhea_reaction_grounding/`](rhea_reaction_grounding/) | Could dismech ground mechanism nodes in Rhea biochemical reactions, and how much of the KB would that reach? Measures coverage via the rhea2go GO bridge before any schema commitment. | 1 |
