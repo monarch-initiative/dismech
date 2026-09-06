@@ -88,6 +88,13 @@ The data does not support that. 99.9% of rhea2go rows (7,738 of 7,745) carry `DI
 directional. A reaction ID obtained this way tells a curator what transforms into what, but
 not which way flux runs in vivo.
 
+To be precise about what *is* available: directional variants do exist in Rhea and sit one
+hop from the master, reachable through `rhea:hasLeftToRightReaction` /
+`rhea:hasRightToLeftReaction` (for `RHEA:23844`, those are `RHEA:23845` and `RHEA:23846`).
+So directional identifiers are obtainable — what is not obtainable is *which* of the two is
+physiological for a given enzyme, tissue, and disease. Rhea does not encode that, and it is
+the only part a causal edge needs.
+
 The physiomap assessment independently documents why that matters. Its IEM enzyme edges are
 Rhea-grounded, and its header records that *"Physiological flux direction was curated per
 enzyme (can reverse the canonical Rhea equation, e.g. CPT2 vs CPT1A on
