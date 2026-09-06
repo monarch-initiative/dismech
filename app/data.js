@@ -80915,6 +80915,114 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "DHRSX-Congenital Disorder of Glycosylation",
+    "disease_id": "MONDO:0975846",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "congenital disorder of glycosylation",
+      "inborn error of dolichol metabolism"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DHRSX-CDG (congenital disorder of glycosylation type 1DD) is a type I congenital disorder of glycosylation caused by biallelic missense variants in DHRSX. Two things make it unusual. First, its inheritance is pseudoautosomal-recessive: DHRSX lies in pseudoautosomal region 1, present on both the X and the Y chromosome, so the gene behaves autosomally despite its sex-chromosome location. Second, identifying the disease rewrote a textbook pathway. Dolichol had been thought to be made directly from polyprenol by SRD5A3; the work describing these patients showed instead that the conversion takes three steps, with DHRSX performing the first and third \u2014 acting as an NAD+-dependent dehydrogenase and, non-consecutively, as an NADPH-dependent reductase \u2014 and SRD5A3 only the second. Losing DHRSX raises the polyprenol-to-dolichol ratio, and because polyprenol-phosphate is a poor substrate for DPAGT1, DPM synthase, and ALG3, the lipid-linked oligosaccharide fails to mature and immature glycans are transferred to nascent proteins. Four individuals from three families have been described, with distinct facial features, severe neurological involvement, profound sensorineural hearing loss with absent cochlear and vestibular nerves, and severe failure to thrive.",
+    "pathophysiology": [
+      "DHRSX Oxidoreductase Deficiency",
+      "Impaired Dolichol Synthesis from Polyprenol",
+      "Defective Lipid-Linked Oligosaccharide Maturation",
+      "Protein Hypoglycosylation",
+      "Multisystem Glycoprotein Dysfunction"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "dolichol-linked oligosaccharide biosynthetic process",
+      "protein N-linked glycosylation"
+    ],
+    "phenotypes": [
+      "Abnormal facial shape",
+      "Profound intellectual disability",
+      "Axial hypotonia",
+      "Seizure",
+      "Sensorineural hearing impairment",
+      "Cochlear nerve aplasia",
+      "Neurotrophic keratopathy",
+      "Scoliosis",
+      "Joint contracture",
+      "Failure to thrive",
+      "Respiratory insufficiency",
+      "Abnormality of the skin",
+      "Thin corpus callosum",
+      "Gastroesophageal reflux",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Neurologic",
+      "Auditory",
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Respiratory",
+      "Dermatologic",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001999",
+      "HP:0002187",
+      "HP:0008936",
+      "HP:0001250",
+      "HP:0000407",
+      "HP:6000988",
+      "HP:0011495",
+      "HP:0002650",
+      "HP:0034392",
+      "HP:0001508",
+      "HP:0002093",
+      "HP:0000951",
+      "HP:0033725",
+      "HP:0002020",
+      "HP:0002240"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "DHRSX"
+    ],
+    "treatments": [
+      "Gastrostomy Feeding",
+      "Non-Invasive Ventilation",
+      "Antiepileptic Pharmacotherapy",
+      "Supportive and Multidisciplinary Care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum transferrin isoelectric focusing"
+    ],
+    "source_file": "DHRSX-Congenital_Disorder_of_Glycosylation.yaml",
+    "page_url": "../pages/disorders/DHRSX-Congenital_Disorder_of_Glycosylation.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "DICER1 Tumor Predisposition Syndrome",
     "disease_id": "MONDO:0100216",
     "category": "Mendelian",
@@ -279271,17 +279379,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2712,
+  "total_disorder_pages": 2713,
   "total_subtypes": 3645,
-  "total_disorders_and_subtypes": 6357,
-  "total_unique_evidence_sources": 38249,
-  "total_unique_publications": 36020,
+  "total_disorders_and_subtypes": 6358,
+  "total_unique_evidence_sources": 38252,
+  "total_unique_publications": 36023,
   "total_unique_disease_categories": 54,
   "total_unique_phenotype_categories": 273,
-  "total_pathographs": 2707,
-  "total_unique_pathological_events": 16017,
+  "total_pathographs": 2708,
+  "total_unique_pathological_events": 16020,
   "total_modules": 169,
-  "total_research_reports": 2823,
+  "total_research_reports": 2824,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
