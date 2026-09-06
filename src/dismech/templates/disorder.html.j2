@@ -3840,6 +3840,17 @@
        merges Orphanet's 1-5 and 6-9 classes into it), so the mechanical form
        understates the range. Unmapped values fall back to it rather than
        vanishing, so a new enum member still shows. #}
+    {# `rate_per_100000` carries no dimension on its own; the denominator does.
+       POPULATION maps to "" deliberately -- it is the implicit reading and needs
+       no label. An *unmapped* value is different and must not vanish, so the
+       lookup below humanises unknown members rather than dropping them, matching
+       how PREVALENCE_CLASS_LABELS handles the same case. #}
+    {% set RATE_DENOMINATOR_LABELS = {
+        "POPULATION": "",
+        "LIVE_BIRTHS": "live births",
+        "PERSON_YEARS": "person-years",
+        "POPULATION_PER_YEAR": "per year",
+    } %}
     {% set PREVALENCE_CLASS_LABELS = {
         "ABOVE_1_IN_1000": ">1 in 1,000",
         "BAND_1_5_PER_10000": "1–9 per 10,000",
@@ -3848,9 +3859,32 @@
         "BELOW_1_IN_1000000": "<1 in 1,000,000",
         "NOT_YET_DOCUMENTED": "Not yet documented",
     } %}
-    {% macro render_prevalence_class(value) %}
+    {# A numeric band reports magnitude only; `measure_type` says what is being
+       measured (dismech#8431). A bare "1-9 per 100,000" tag reads as a
+       population disease prevalence, which is wrong on a carrier frequency,
+       an incidence, or a per-live-births rate — so qualify the label rather
+       than emitting it alone.
+
+       Only the NUMERIC bands take a qualifier. The qualitative tiers
+       (COMMON/RARE/ULTRA_RARE) are explicitly *not* magnitude statements, so a
+       denominator does not apply to them: "Rare per year" would repeat, in the
+       renderer, exactly the numerator/denominator conflation this is fixing.
+       Those records are invalid anyway and are tracked in design-decisions §8
+       deferred item (a); they surface here via the adjacent measure_type tag. #}
+    {% set PREVALENCE_CLASS_QUALIFIERS = {
+        "ANNUAL_INCIDENCE": "per year",
+        "CARRIER_FREQUENCY": "(carriers)",
+        "BIRTH_PREVALENCE": "(births)",
+    } %}
+    {% set NUMERIC_PREVALENCE_CLASSES = [
+        "ABOVE_1_IN_1000", "BAND_1_5_PER_10000", "BAND_1_9_PER_100000",
+        "BAND_1_9_PER_1000000", "BELOW_1_IN_1000000",
+    ] %}
+    {% macro render_prevalence_class(value, measure_type=none) %}
     {%- if value -%}
-    <span class="tag">{{ PREVALENCE_CLASS_LABELS.get(value) or (value | replace('_', ' ') | title) }}</span>
+    {%- set label = PREVALENCE_CLASS_LABELS.get(value) or (value | replace('_', ' ') | title) -%}
+    {%- set qualifier = PREVALENCE_CLASS_QUALIFIERS.get(measure_type) if measure_type and value in NUMERIC_PREVALENCE_CLASSES else none -%}
+    <span class="tag">{{ label }}{% if qualifier %} {{ qualifier }}{% endif %}</span>
     {%- endif -%}
     {% endmacro %}
 
@@ -6600,6 +6634,8 @@
                         {%- elif rec.get('rate_low') is not none %}
                         (from {{ rec.rate_low }})
                         {%- endif %}
+                        {%- set den_label = RATE_DENOMINATOR_LABELS.get(rec.rate_denominator, rec.rate_denominator | replace('_', ' ') | lower) if rec.get('rate_denominator') else '' %}
+                        {%- if den_label %} {{ den_label }}{% endif %}
                     </span>
                     {# 273 records carry a range and no point rate, so this has to
                        be a sibling branch rather than nested in the one above. #}
@@ -6612,11 +6648,13 @@
                         {%- else -%}
                         &le;{{ rec.rate_high }}
                         {%- endif %} per 100,000
+                        {%- set den_label = RATE_DENOMINATOR_LABELS.get(rec.rate_denominator, rec.rate_denominator | replace('_', ' ') | lower) if rec.get('rate_denominator') else '' %}
+                        {%- if den_label %} {{ den_label }}{% endif %}
                     </span>
                     {% elif rec.percentage %}
                     <span class="tag">{{ rec.percentage }}</span>
                     {% endif %}
-                    {{ render_prevalence_class(rec.prevalence_class) }}
+                    {{ render_prevalence_class(rec.prevalence_class, rec.measure_type) }}
                     {% if rec.subtype %}
                     <span class="tag tag-subtype">{{ rec.subtype }}</span>
                     {% endif %}
