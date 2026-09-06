@@ -351,6 +351,9 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         "MED13",
         "MED13L",
         "MED12",
+        "MED12L",
+        "CDK8",
+        "CDK19",
     ]
     assert node_meta["Tail Module Disruption and Immediate Early Gene Dysregulation"][
         "subtypes"

@@ -45,6 +45,62 @@ curation pipeline on the disorder YAML. This file exists only to evaluate and
 compare claims across providers, so the only reference provenance it keeps is the
 per-provider `citations` (which sources each report leaned on).
 
+## Recording how a provider run went
+
+A `providers[]` entry describes the run as well as the report. Omit these slots
+for an ordinary successful run; set them when the run was not ordinary:
+
+- `run_status` — `COMPLETED` / `FAILED` / `UNUSABLE`. `FAILED` means no report
+  file was produced (API error, credit exhaustion, timeout), and is the one case
+  where `report` may legitimately be absent. `UNUSABLE` means a file exists but
+  its content is off-topic or empty; commit the file anyway so the coverage gap
+  is attributable.
+- `status_detail` — why. Record the actual HTTP status or what the off-topic
+  report retrieved instead.
+- `nec_preflight_verdict` / `nec_preflight_detail` — the result of
+  `just preflight-dr <report> <mondo>` (`PASS` / `WARN` / `FAIL` / `SKIP` /
+  `NOT_RUN`). Recording `PASS` matters as much as recording `FAIL`: it tells a
+  later reader the Named Entity Confusion check was actually run.
+
+This exists so that an absent provider reads as *attempted and failed* rather
+than as *never tried*.
+
+## Recording identifier hallucinations
+
+`identifier_issues[]` on a provider entry records identifier- and quote-level
+defects in that report — the failure modes enumerated in
+[CLAUDE.md §2a/§2b](https://github.com/monarch-initiative/dismech/blob/main/CLAUDE.md).
+Each issue carries an `identifier`, an `issue_kind`, what the report `cited_as`,
+what it actually `resolves_to`, an optional `report_quote`, how it was
+`verified_with`, and a `disposition` (`DISCARDED` / `CORRECTED` /
+`RETAINED_WITH_CAVEAT`).
+
+`issue_kind` values:
+
+| Kind | Meaning |
+|---|---|
+| `NONEXISTENT_IDENTIFIER` | The ID does not resolve at all — a fabricated PMID/DOI/NCT/accession. |
+| `MISATTRIBUTED_IDENTIFIER` | The ID resolves, but to a different work than the report claims. |
+| `FABRICATED_QUOTE` | A quoted snippet is not present in the cited source. |
+| `NONEXISTENT_ONTOLOGY_TERM` | An HP/GO/CL/CHEBI/NCIT/MONDO CURIE does not exist. |
+| `MISMATCHED_ONTOLOGY_LABEL` | The CURIE exists but the report's label for it is not canonical. |
+| `NAMED_ENTITY_CONFUSION` | The identifier or passage belongs to a different disease entity (§2b). |
+| `OTHER` | Anything else, e.g. a correct identifier described with the wrong journal. |
+
+These are properties of the **report**, not of a harmonized finding, so they are
+recorded on the provider rather than on a claim. That placement is deliberate: a
+hallucinated citation is most often attached to a claim that gets dropped, so
+recording it against the claim would delete the very finding worth keeping. The
+point is that the next curator to read that report does not re-trust a citation
+this review already disproved.
+
+Note that `MISATTRIBUTED_IDENTIFIER` is the class that defeats eyeballing.
+`research/Mitchell-Riley_Syndrome-research-synthesis.yaml` is the worked example:
+a report cited `PMID:20040488` for a real RFX6 paper whose actual identifier is
+`PMID:20040487`, one digit away, in the same journal and issue. The citation
+looks right, resolves successfully, and is wrong. Only resolving the identifier
+catches it.
+
 ## Free-text narrative
 
 The structured findings capture *what* each provider claimed; an optional

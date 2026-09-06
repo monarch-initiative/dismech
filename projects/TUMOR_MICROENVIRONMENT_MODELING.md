@@ -15,10 +15,7 @@ diseases:
 - Hepatocellular_Carcinoma
 - KRAS_G12C_Mutant_NSCLC
 - MSI_High_Colorectal_Cancer
-- Metastatic_Colorectal_Cancer
-- Metastatic_NSCLC
-- Metastatic_Pancreatic_Adenocarcinoma
-- Metastatic_Renal_Cell_Carcinoma
+- Renal_Cell_Carcinoma
 - Non-Small_Cell_Lung_Cancer
 - Ovarian_High-Grade_Serous_Carcinoma
 - Pancreatic_Ductal_Adenocarcinoma
@@ -27,6 +24,8 @@ modules:
 - fibrotic_response
 - immune_checkpoint_blockade
 ---
+
+> **Note (2026-08-28):** the `Metastatic_*` entries named in this project were folded into their histologic parent entries per design decisions §3a (Metastatic_NSCLC → Non-Small_Cell_Lung_Cancer, Metastatic_Colorectal_Cancer → Colon_Adenocarcinoma, Metastatic_Pancreatic_Adenocarcinoma → Pancreatic_Ductal_Adenocarcinoma, Metastatic_Renal_Cell_Carcinoma → Renal_Cell_Carcinoma). Historical tables below retain the old names.
 
 # Tumor Microenvironment Modeling
 
