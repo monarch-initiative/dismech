@@ -265,7 +265,7 @@ the ILAE mapping is settled once.
 - [ ] Backfill `definitions` (EHR/OMOP phenotype algorithms) — see the `create-definitions-from-ohdsi` skill
 - [ ] Backfill `epidemiology` + `prevalence` from a shared incidence source
 - [ ] Sweep `datasets` with `just discover-datasets`, then `just verify-datasets`
-- [ ] Add `animal_models` with `modeled_mechanisms` links — **blocked on #8320**, which invalidates 229 files carrying unnamed animal models
+- [ ] Add `animal_models` with `modeled_mechanisms` links — not blocked. #8320 described this as invalidating 229 files, but the regression was fixed by making `name` a class-local `recommended` attribute rather than the global identifier slot; unnamed models validate. Name a model when you give it `modeled_mechanisms`, since that is where the label becomes a pathograph node
 
 ### Structural and inflammatory cardiac (6 of the bottom 30)
 
@@ -346,9 +346,14 @@ These are real backlogs but have their own homes:
   items in `tests/title_snippet_baseline.txt`; issue #8296 (182 environmental
   exposures with no evidence) and #8185 (environmental entries that are disease
   states, not exposures).
-- **Live regression** — issue #8320: `AnimalModel.name` became implicitly
-  required, invalidating 224 entries. This blocks animal-model backfill in
-  Workstream 3 and should be fixed first.
+- **Animal-model naming** — issue #8320 reported `AnimalModel.name` as
+  implicitly required, invalidating 224 entries. That regression is fixed: `name`
+  is now a class-local `recommended` attribute, not the global `identifier` slot,
+  and files with and without it validate. 441 of 1,044 models remain unnamed,
+  which is a recommendation gap and not an error — models that reach the
+  pathograph are named 589 times out of 607. The invariant that does matter,
+  no two models in one file sharing a fallback label, is enforced by
+  `test_animal_model_labels_are_unique_within_a_file`.
 - **Thematic projects** with large open checklists: `REACTOME_DISEASES` (659
   open), `CANCER` (79), `NICU` (40), `GWAS_MECHANISMS` (35), `CHILDHOOD_CANCER`
   (35), `MONDO_EHR_MAPPINGS` (35).

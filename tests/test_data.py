@@ -16,6 +16,7 @@ from linkml.validator.plugins import JsonschemaValidationPlugin
 # validation logic shared with the CLI tools.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+from dismech.graph import animal_model_label
 from dismech.entity_refs import (
     canonical_kind,
     entity_ref_errors,
@@ -2118,4 +2119,39 @@ def test_dataset_accession_prefix_and_shape(filepath):
     assert not errors, (
         f"{Path(filepath).name} has malformed dataset accessions:\n"
         + "\n".join(f"  - {e}" for e in errors)
+    )
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_animal_model_labels_are_unique_within_a_file(filepath):
+    """Two animal models in one file must not resolve to the same display label.
+
+    `name` on AnimalModel is a class-local attribute and deliberately optional:
+    it is `recommended` rather than required, because AnimalModel is an inlined
+    object needing no identifier, and requiring it would force a mechanical
+    `genotype + species` backfill that regenerates the very fallback label the
+    slot exists to replace (dismech#8320).
+
+    What actually has to hold is weaker and more useful: whatever label a model
+    ends up with must identify it. `animal_model_label()` falls back to
+    `genotype + species`, so two unnamed mice in one entry collapse to one
+    label — the pathograph draws a single node where there should be two, and
+    an `animal_models#Mus musculus` entity reference cannot say which is meant.
+    Naming either one resolves it.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    labels = Counter()
+    for model in data.get("animal_models") or []:
+        if isinstance(model, dict):
+            label = animal_model_label(model)
+            if label:
+                labels[label] += 1
+
+    collisions = {label: n for label, n in labels.items() if n > 1}
+    assert not collisions, (
+        f"{Path(filepath).name} has animal models sharing a display label: "
+        f"{collisions}. Give each a distinct `name`."
     )
