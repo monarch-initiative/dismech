@@ -54940,6 +54940,94 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Cardiomyopathy Dilated 2H",
+    "disease_id": "MONDO:0859358",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "familial isolated dilated cardiomyopathy"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 2H (CMD2H) is an autosomal recessive, early infantile-onset cardiomyopathy caused by biallelic variants in GET3 (long known as ASNA1, and also called TRC40). It is mechanistically unlike most familial dilated cardiomyopathy: the causal gene encodes no sarcomeric or cytoskeletal protein but the central ATP-dependent chaperone of the GET/TRC pathway, which inserts tail-anchored proteins post-translationally into the endoplasmic reticulum membrane. Loss of that targeting factor destabilizes the pre-targeting complex, depletes a broad set of tail-anchored substrates, and disrupts membrane trafficking and cardiomyocyte proteostasis. The clinical course is rapidly progressive dilated cardiomyopathy with death in early infancy. It was the first evidence that the tail-anchored protein insertion pathway causes human disease.",
+    "pathophysiology": [
+      "Biallelic GET3 Loss of Function",
+      "Impaired Tail-Anchored Protein Insertion",
+      "Disrupted Cardiomyocyte Membrane Trafficking and Proteostasis",
+      "Cardiomyocyte Structural Disorganization",
+      "Impaired Cardiac Contractility and Ventricular Remodeling"
+    ],
+    "cell_types": [
+      "cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "tail-anchored membrane protein insertion into ER membrane",
+      "vesicle-mediated transport",
+      "intracellular protein transport"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Ventricular septal defect",
+      "Atrial septal defect",
+      "Tachypnea",
+      "Feeding difficulties",
+      "Prolonged QRS complex",
+      "Cardiac arrest",
+      "Left ventricular thrombus"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Respiratory",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001629",
+      "HP:0001684",
+      "HP:0002789",
+      "HP:0011968",
+      "HP:0006677",
+      "HP:0001695",
+      "HP:0040412"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GET3",
+      "GET3 heterozygous modifier candidate"
+    ],
+    "treatments": [
+      "Genetic Counseling",
+      "Supportive Heart Failure Management",
+      "Extracorporeal Membrane Oxygenation",
+      "Heart Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum transferrin and apolipoprotein C-III isoelectric focusing"
+    ],
+    "source_file": "Cardiomyopathy_Dilated_2H.yaml",
+    "page_url": "../pages/disorders/Cardiomyopathy_Dilated_2H.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Cardiospondylocarpofacial syndrome",
     "disease_id": "MONDO:0008005",
     "category": "Mendelian",
@@ -80913,6 +81001,114 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "DHRSX-Congenital Disorder of Glycosylation",
+    "disease_id": "MONDO:0975846",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "congenital disorder of glycosylation",
+      "inborn error of dolichol metabolism"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DHRSX-CDG (congenital disorder of glycosylation type 1DD) is a type I congenital disorder of glycosylation caused by biallelic missense variants in DHRSX. Two things make it unusual. First, its inheritance is pseudoautosomal-recessive: DHRSX lies in pseudoautosomal region 1, present on both the X and the Y chromosome, so the gene behaves autosomally despite its sex-chromosome location. Second, identifying the disease rewrote a textbook pathway. Dolichol had been thought to be made directly from polyprenol by SRD5A3; the work describing these patients showed instead that the conversion takes three steps, with DHRSX performing the first and third \u2014 acting as an NAD+-dependent dehydrogenase and, non-consecutively, as an NADPH-dependent reductase \u2014 and SRD5A3 only the second. Losing DHRSX raises the polyprenol-to-dolichol ratio, and because polyprenol-phosphate is a poor substrate for DPAGT1, DPM synthase, and ALG3, the lipid-linked oligosaccharide fails to mature and immature glycans are transferred to nascent proteins. Four individuals from three families have been described, with distinct facial features, severe neurological involvement, profound sensorineural hearing loss with absent cochlear and vestibular nerves, and severe failure to thrive.",
+    "pathophysiology": [
+      "DHRSX Oxidoreductase Deficiency",
+      "Impaired Dolichol Synthesis from Polyprenol",
+      "Defective Lipid-Linked Oligosaccharide Maturation",
+      "Protein Hypoglycosylation",
+      "Multisystem Glycoprotein Dysfunction"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "dolichol-linked oligosaccharide biosynthetic process",
+      "protein N-linked glycosylation"
+    ],
+    "phenotypes": [
+      "Abnormal facial shape",
+      "Profound intellectual disability",
+      "Axial hypotonia",
+      "Seizure",
+      "Sensorineural hearing impairment",
+      "Cochlear nerve aplasia",
+      "Neurotrophic keratopathy",
+      "Scoliosis",
+      "Joint contracture",
+      "Failure to thrive",
+      "Respiratory insufficiency",
+      "Abnormality of the skin",
+      "Thin corpus callosum",
+      "Gastroesophageal reflux",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Neurologic",
+      "Auditory",
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Respiratory",
+      "Dermatologic",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001999",
+      "HP:0002187",
+      "HP:0008936",
+      "HP:0001250",
+      "HP:0000407",
+      "HP:6000988",
+      "HP:0011495",
+      "HP:0002650",
+      "HP:0034392",
+      "HP:0001508",
+      "HP:0002093",
+      "HP:0000951",
+      "HP:0033725",
+      "HP:0002020",
+      "HP:0002240"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "DHRSX"
+    ],
+    "treatments": [
+      "Gastrostomy Feeding",
+      "Non-Invasive Ventilation",
+      "Antiepileptic Pharmacotherapy",
+      "Supportive and Multidisciplinary Care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum transferrin isoelectric focusing"
+    ],
+    "source_file": "DHRSX-Congenital_Disorder_of_Glycosylation.yaml",
+    "page_url": "../pages/disorders/DHRSX-Congenital_Disorder_of_Glycosylation.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "DICER1 Tumor Predisposition Syndrome",
@@ -279271,17 +279467,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2712,
+  "total_disorder_pages": 2714,
   "total_subtypes": 3645,
-  "total_disorders_and_subtypes": 6357,
-  "total_unique_evidence_sources": 38249,
-  "total_unique_publications": 36020,
+  "total_disorders_and_subtypes": 6359,
+  "total_unique_evidence_sources": 38254,
+  "total_unique_publications": 36025,
   "total_unique_disease_categories": 54,
   "total_unique_phenotype_categories": 273,
-  "total_pathographs": 2707,
-  "total_unique_pathological_events": 16017,
+  "total_pathographs": 2709,
+  "total_unique_pathological_events": 16025,
   "total_modules": 169,
-  "total_research_reports": 2823,
+  "total_research_reports": 2825,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
