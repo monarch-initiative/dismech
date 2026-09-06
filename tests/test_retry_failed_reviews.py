@@ -305,6 +305,15 @@ def test_late_success_on_old_commit_does_not_hide_current_failure():
     assert reason(peers=[old]) is None
 
 
+def test_deleted_reviewer_does_not_crash_recovery():
+    assert reason(reviews=[{"id": 1, "user": None, "state": "APPROVED"}]) is None
+
+
+def test_zero_delay_explicitly_bypasses_backoff():
+    assert retry.delay_hours(1, 0) == 0
+    assert retry.delay_hours(5, 0) == 0
+
+
 def test_workflow_job_is_independent_and_respects_dry_run():
     config = yaml.safe_load((ROOT / ".github/workflows/pr-shepherd.yml").read_text())
     job = config["jobs"]["retry-reviews"]

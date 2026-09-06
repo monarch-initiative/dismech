@@ -199,9 +199,7 @@ generating tool.
 
 ---
 
-## Review states and merge state
-
-### Recovering failed review Actions
+## Recovering failed review Actions
 
 `pr-shepherd` runs `scripts/retry_failed_reviews.py` in an independent
 `retry-reviews` job on every scheduled or manual run. It uses no model, has its
@@ -227,6 +225,7 @@ Backoff is measured from the latest attempt's completion: 1 hour after the first
 failure, 6 after the second, then 24 hours. `review_retry_delay_hours` sets a
 minimum delay and `max_review_retries` caps retries per sweep (default 5; 0
 disables recovery). The common `dry_run` and optional `pr_number` inputs apply.
+Setting `review_retry_delay_hours` to 0 explicitly bypasses the backoff.
 The retry cap and backoff bound repeated usage-limit failures; this does not
 automatically repair credentials or detect an account-wide quota reset.
 
@@ -239,8 +238,10 @@ authorize retries. Discovery subdivides time ranges above the Actions API's
 1000-result limit rather than silently dropping older failures.
 
 ```bash
-python scripts/retry_failed_reviews.py --repo monarch-initiative/dismech --dry-run
+just review-retry-preview
 ```
+
+## Review states and merge state
 
 The vocabulary GitHub uses here is genuinely confusing, and it is the vocabulary
 the merge sweep's criteria are written in. Three different fields are involved.

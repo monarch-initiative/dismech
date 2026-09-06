@@ -9,6 +9,7 @@ import json
 import os
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
@@ -16,6 +17,7 @@ from urllib.parse import urlencode
 WORKFLOW = "claude-code-review.yml"
 RETRYABLE = {"failure", "timed_out"}
 REVIEWERS = {"ai4c-reviewer[bot]", "github-actions[bot]"}
+RERUN_WINDOW_DAYS = 30
 
 
 def timestamp(value):
@@ -106,7 +108,7 @@ def run_pr(run, repo):
     prs = run.get("pull_requests", [])
     if len(prs) == 1:
         return prs[0]["number"]
-    match = re.fullmatch(r"Review PR #(\d+)", run.get("display_title", ""))
+    match = re.fullmatch(r"Review PR #(\d+)", run.get("display_title") or "")
     if match:
         return int(match[1])
     if run["event"] == "pull_request":
@@ -135,13 +137,23 @@ def run_pr(run, repo):
 
 
 def delay_hours(attempt, minimum):
+    if minimum == 0:
+        return 0
     return max(minimum, (1, 6, 24)[min(max(attempt - 1, 0), 2)])
+
+
+def resolve_run(run, repo):
+    """Bounded, read-only metadata lookup; retain deterministic report order."""
+    try:
+        return run, run_pr(run, repo), None
+    except (subprocess.SubprocessError, ValueError, KeyError, RuntimeError) as exc:
+        return run, None, type(exc).__name__
 
 
 def skip_reason(run, pr, peers, reviews, now, minimum):
     if run["status"] != "completed" or run["conclusion"] not in RETRYABLE:
         return "latest attempt is not a failed or timed-out run"
-    if now - timestamp(run["created_at"]) >= timedelta(days=30):
+    if now - timestamp(run["created_at"]) >= timedelta(days=RERUN_WINDOW_DAYS):
         return "outside GitHub's 30-day rerun window"
     if run.get("run_attempt", 1) >= 50:
         return "GitHub's 50-attempt limit reached"
@@ -164,8 +176,9 @@ def skip_reason(run, pr, peers, reviews, now, minimum):
             return "another review succeeded after this failure"
     latest = {}
     for review in sorted(reviews, key=lambda row: row["id"]):
-        if review["user"]["login"] in REVIEWERS and review["state"] != "COMMENTED":
-            latest[review["user"]["login"]] = review
+        login = (review.get("user") or {}).get("login")
+        if login in REVIEWERS and review["state"] != "COMMENTED":
+            latest[login] = review
     if any(
         r["commit_id"] == pr["head"]["sha"]
         and r["state"] in {"APPROVED", "CHANGES_REQUESTED"}
@@ -178,7 +191,15 @@ def skip_reason(run, pr, peers, reviews, now, minimum):
     return None
 
 
-def sweep(repo, now, minimum=1, limit=5, lookback=30, dry_run=False, specific_pr=None):
+def sweep(
+    repo,
+    now,
+    minimum=1,
+    limit=5,
+    lookback=RERUN_WINDOW_DAYS,
+    dry_run=False,
+    specific_pr=None,
+):
     if limit == 0:
         return ["Review retries disabled (budget 0)."], 0
     runs = {
@@ -186,12 +207,13 @@ def sweep(repo, now, minimum=1, limit=5, lookback=30, dry_run=False, specific_pr
     }
     runs = [r for r in runs.values() if r.get("conclusion") != "skipped"]
     rows, errors, indexed, unknown_active = [], 0, {}, False
-    for run in runs:
-        try:
-            number = run_pr(run, repo)
-        except (subprocess.SubprocessError, ValueError, KeyError, RuntimeError) as exc:
-            number = None
-            rows.append(f"Run {run['id']}: cannot resolve PR ({type(exc).__name__}).")
+    # Historic manual runs require separate jobs/log requests. Bound lookup
+    # concurrency so the 30-day census fits the job lifetime. Writes stay serial.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        resolved = list(pool.map(lambda run: resolve_run(run, repo), runs))
+    for run, number, error in resolved:
+        if error:
+            rows.append(f"Run {run['id']}: cannot resolve PR ({error}).")
         if number:
             indexed.setdefault(number, []).append(run)
         elif run["status"] != "completed":
@@ -241,7 +263,10 @@ def sweep(repo, now, minimum=1, limit=5, lookback=30, dry_run=False, specific_pr
             # created_at. Include active attempts across the full rerun window.
             for state in ("queued", "in_progress", "waiting", "pending", "requested"):
                 recent += workflow_runs(
-                    repo, now - timedelta(days=30), datetime.now(UTC), state
+                    repo,
+                    now - timedelta(days=RERUN_WINDOW_DAYS),
+                    datetime.now(UTC),
+                    state,
                 )
             peers = list(fresh["workflow_runs"])
             for peer in recent:
@@ -296,7 +321,12 @@ def main(argv=None):
     parser.add_argument("--repo", required=True)
     parser.add_argument("--min-delay-hours", type=nonnegative, default=1)
     parser.add_argument("--max-retries", type=nonnegative, default=5)
-    parser.add_argument("--lookback-days", type=int, choices=range(1, 31), default=30)
+    parser.add_argument(
+        "--lookback-days",
+        type=int,
+        choices=range(1, RERUN_WINDOW_DAYS + 1),
+        default=RERUN_WINDOW_DAYS,
+    )
     parser.add_argument("--specific-pr", type=int)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)

@@ -2987,7 +2987,7 @@ dismiss. It can approve; that is what
 instructs it to do. In PR #7433 that claim was made hours after the same reviewer
 had approved three other PRs, and acting on it removed a blocking review.
 
-### Deterministic auto-merge of ready PRs
+### Deterministic retry of failed review Actions
 
 Failed review Actions are recovered separately by `pr-shepherd`'s independent
 `retry-reviews` job (`scripts/retry_failed_reviews.py`). It reruns existing failed
@@ -2996,6 +2996,8 @@ status. It checks for newer/running reviews and existing current-commit verdicts
 before retrying. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
 the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
+
+### Deterministic auto-merge of ready PRs
 
 The `pr-shepherd` workflow has a separate, fresh-runner **deterministic** sweep
 (`scripts/auto_merge_ready_prs.py`) that squash-merges any open PR — **by any
