@@ -5,12 +5,18 @@ PR #10358 — found 42 `environmental[]` diet entries that carry a supporting,
 snippet-backed citation but no `influences_mechanisms` link, so they never appear
 in the mechanism graph. This records what was decided for each.
 
-**20 got an edge. 8 are proposed but not added. 14 were left alone.**
+**27 got an edge. 2 remain unsupported. 13 were left alone.**
 
-Two of those 20 were reached independently by `main` while this work was in
-review, and `main`'s version won on the merits in both cases — see *Superseded
-by main* below. The change here is 19 new links across 11 entries, plus an
-evidence block on one edge main created.
+Two of those were reached independently by `main` while this work was in review,
+and `main`'s version won on the merits in both cases — see *Superseded by main*
+below. The change here is 25 new links across 14 entries, plus evidence blocks on
+two edges main created.
+
+An earlier revision of this file recorded 20 added, 8 proposed-not-added and 14
+left alone. Six of the eight proposed were then resolved by finding a citation
+that measures the target node, and one entry from the left-alone list the same
+way — see *Resolved by finding node-level evidence* below. Nothing was moved by
+relaxing the rule.
 
 ## The rule applied
 
@@ -37,7 +43,7 @@ They vary independently. Wilson Disease's dietary copper edge is topologically
 evidence is `INDIRECT`, because the source says lowering intake prevents
 re-accumulation and the forward claim is inferred from that removal design.
 
-## Added (19 links across 11 entries, plus evidence on one of main's)
+## Added (25 links across 14 entries, plus evidence on two of main's)
 
 | Entry | Exposure | Target node | Effect | Why |
 |---|---|---|---|---|
@@ -57,6 +63,13 @@ re-accumulation and the forward claim is inferred from that removal design.
 | Migraine | Dietary Triggers | Headache | TRIGGERS | Provocation studies for caffeine withdrawal and MSG |
 | Carotid Stenosis | Smoking and diet | Atherosclerotic carotid plaque formation | PREDISPOSES | Snippet names plaque development specifically |
 | Lathyrism | Grass pea overconsumption | Beta-ODAP Receptor Agonism | TRIGGERS | Study attributes the disease to prolonged overconsumption |
+| Gout | Red Meat and Organ Meat Intake | Hyperuricemia | EXACERBATES | NHANES III measures serum uric acid rising with meat intake |
+| Gout | Shellfish Intake | Hyperuricemia | EXACERBATES | Same source, seafood arm |
+| Gout | Beer Intake | Hyperuricemia | EXACERBATES | 78,153 participants; beer raises serum urate where sake at matched ethanol does not |
+| Gout | Fructose-Sweetened Soft Drink Intake | Hyperuricemia | EXACERBATES | Meta-analysis measuring serum uric acid, not incident gout |
+| Liver Cirrhosis | Alcohol Consumption | Hepatocyte Injury and Death | TRIGGERS | Hepatocyte apoptosis markers ~5x normal in 114 heavy drinkers |
+| Polycystic Kidney Disease | Caffeine Consumption | Vasopressin/cAMP-Driven Cyst Expansion | EXACERBATES | Caffeine potentiates desmopressin-driven cAMP in ADPKD cyst cells |
+| Coronary Artery Disease | High-Fat Diet | Coronary Endothelial Injury and Subendothelial LDL Retention | PREDISPOSES | Controlled-feeding meta-analysis quantifies the LDL step. **Edge created by main; this adds its evidence block** |
 
 Every edge carries its own evidence, copied byte-exact from the entry it sits on
 so the snippet stays verified and `evidence_source` cannot drift.
@@ -89,11 +102,14 @@ The history record written for the Marchiafava-Bignami session is left untouched
 since history is append-only and it accurately describes what that session did. A
 later record notes the supersession.
 
-## Proposed, not added — these need a curator's ruling (8)
+## Originally withheld (8), and why
 
-Each of these has good evidence for a *risk* claim and a plausible target node,
-but the snippet does not reach the node. Adding them means accepting a
-disease-level association as node-level support.
+Kept for the record: this is the state each of these was in before the citation
+search below. Each had good evidence for a *risk* claim and a plausible target
+node, but the snippet did not reach the node — so adding the edge would have meant
+accepting a disease-level association as node-level support. Six were
+subsequently resolved by finding a citation that does reach the node; two were
+not.
 
 | Entry | Exposure | Proposed target | The problem |
 |---|---|---|---|
@@ -111,7 +127,69 @@ best fix is probably not a judgement call at all — it is a citation that measu
 serum urate after a purine load, which would turn all four into ordinary
 `EXACERBATES` edges on `Hyperuricemia`.
 
-## Left alone (14)
+**That is what happened.** Six of these eight, and one entry from the left-alone
+list, were resolved by citation rather than by ruling. See the next section; the
+two that remain are the two where no such citation exists.
+
+## Resolved by finding node-level evidence (7)
+
+The rule was never "these exposures are not real". It was that the *cited quote*
+stopped at disease risk. That is a citation problem, so the fix is a citation —
+and for seven of these it exists. Each one below is now an ordinary edge with
+evidence that measures the target node itself. **No edge here was added by
+relaxing the rule.**
+
+| Entry | Exposure | Node | New citation | What it measures |
+|---|---|---|---|---|
+| Gout | Red Meat and Organ Meat | Hyperuricemia | PMID:15641075 | Serum uric acid across meat intake quintiles, NHANES III, n=14,809 |
+| Gout | Shellfish | Hyperuricemia | PMID:15641075 | Same study's seafood arm |
+| Gout | Beer | Hyperuricemia | PMID:36930152 | Serum urate by beverage at 20 g ethanol per standard drink, n=78,153 |
+| Gout | Fructose-Sweetened Soft Drink | Hyperuricemia | PMID:32683776 | Serum uric acid, +0.18 mg/dL highest vs lowest intake |
+| Liver Cirrhosis | Alcohol Consumption | Hepatocyte Injury and Death | PMID:34305638 | Caspase-cleaved CK-18 (M30) and M65 in 114 heavy drinkers |
+| Polycystic Kidney Disease | Caffeine Consumption | Vasopressin/cAMP-Driven Cyst Expansion | PMID:12397042 | cAMP in ADPKD-derived cyst epithelium under caffeine |
+| Coronary Artery Disease | High-Fat Diet | Coronary Endothelial Injury and Subendothelial LDL Retention | PMID:40885400 | LDL cholesterol in 24 randomised complete-feeding trials |
+
+Three of these are worth reading closely, because they change what the entry says
+rather than just adding to it:
+
+- **The four Gout edges turn on the difference between incident gout and serum
+  urate.** Every citation the entries already carried measured who *develops
+  gout*, which is a disease-risk claim. Choi's NHANES analysis measures serum uric
+  acid itself, so it reaches the `Hyperuricemia` node directly, and the beer study
+  is stronger still: sake at the same standardised ethanol content shows no urate
+  association, so the effect is attributable to beer rather than to ethanol.
+- **The Liver Cirrhosis edge is graded `DIRECT`, not `INDIRECT`,** because M30 is
+  caspase-cleaved cytokeratin-18 released by dying hepatocytes. The quote measures
+  the node, not a proxy for it.
+- **The Coronary Artery Disease evidence contradicts the edge's own
+  description.** That description said the trial effect on LDL is small, which came
+  from free-living trials. Controlled feeding gives 15.72 mg/dL when the diets
+  differ in saturated fat, which is not small, so the qualifier was removed rather
+  than left standing beside a citation that refutes it. The link is still graded
+  `directness: INDIRECT`, because the trials *lower* saturated fat and the forward
+  claim is inferred from that removal.
+
+The PKD edge is `evidence_source: IN_VITRO` — cultured patient-derived cyst
+epithelium, not patients. That is a weaker footing than the other six and is
+recorded as such rather than smoothed over.
+
+## Still unsupported (2)
+
+Searched and not found. These are not withheld on judgement any more; there is no
+quote to add.
+
+| Entry | Exposure | Why no edge |
+|---|---|---|
+| Generalized Anxiety Disorder | Caffeine | The one human imaging study (PMID:21972425, double-blind crossover fMRI) is 14 healthy males, not GAD patients, and its amygdala result is a *tolerance* finding — the caffeine effect correlated negatively with habitual intake. It does not support `Amygdala Hyperactivity`, and no other node in the entry matches caffeine's adenosine-antagonist action |
+| Tyrosinemia Type I | Catabolic and dietary stress | The node is `Toxic fumarylacetoacetate and maleylacetoacetate accumulation`. FAA and MAA are not measured in patients — succinylacetone is the clinical surrogate — and no study links catabolic stress to either. The GeneReviews avoid-list remains the only source |
+
+The GAD case is the more interesting of the two: the gap is not missing
+literature but a missing node. Caffeine acts on adenosine signalling, and the
+entry models GABA, serotonin, noradrenergic, HPA and amygdala mechanisms with no
+adenosine node to attach to. Adding one is a curation decision beyond this PR's
+scope.
+
+## Left alone (13)
 
 All have solid evidence for a disease-level risk association and no node the
 snippet reaches. This is the correct resting state, not a backlog.
@@ -120,9 +198,9 @@ Breast Carcinoma (alcohol), Colon Adenocarcinoma (alcohol), Essential
 Hypertension (alcohol), Familial Hypercholesterolemia (alcohol), HPV-Negative
 Head and Neck Cancer (ethanol), Laryngeal SCC (alcohol), Oral Cavity SCC
 (ethanol), Postcricoid Region Cancer (tobacco and alcohol), Obstructive Sleep
-Apnea (alcohol), Polycystic Kidney Disease (caffeine), Scurvy (vitamin C
-deficiency), Thyroid Follicular Carcinoma (iodine deficiency), Type 2 Diabetes
-Mellitus (high-calorie diet), Congestive Splenomegaly (alcohol).
+Apnea (alcohol), Scurvy (vitamin C deficiency), Thyroid Follicular Carcinoma
+(iodine deficiency), Type 2 Diabetes Mellitus (high-calorie diet), Congestive
+Splenomegaly (alcohol).
 
 Four are worth singling out:
 
@@ -136,11 +214,14 @@ Four are worth singling out:
   is about anemia from direct bone-marrow toxicity. **The evidence does not
   support the claim the entry makes.** That is an evidence defect, not a missing
   edge, and it is not fixed here.
-- **Scurvy** and **Polycystic Kidney Disease** rest on a case report and a
-  GeneReviews avoid-list respectively, neither carrying an `evidence_source`.
-  Vitamin C → collagen hydroxylation and caffeine → cAMP are both textbook, so
-  both would become straightforward edges with a citation that states the
-  mechanism.
+- **Polycystic Kidney Disease** has moved. It was in this list because its only
+  citation was a GeneReviews avoid-list; it now carries an edge on the strength of
+  PMID:12397042. See the resolved section above.
+- **Scurvy** stays. Vitamin C → collagen prolyl hydroxylation is textbook, but
+  searches for a human or fibroblast study stating it returned guinea-pig and
+  mouse work and general biochemistry reviews, nothing quotable that names the
+  `Collagen Synthesis Impairment` node in humans. The entry's case report is still
+  the only source.
 
 ## One thing fixed in passing
 
