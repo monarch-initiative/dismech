@@ -1546,13 +1546,23 @@ is live in the corpus.
 just list-gene-term-mismatches                                # whole KB (offline)
 just list-gene-term-mismatches kb/disorders/Gaucher_Disease.yaml
 just list-gene-term-mismatches --format tsv --findings-only
-just list-gene-term-mismatches-online                         # ask HGNC about the advisory rows
+just list-gene-term-mismatches-online                         # ask HGNC about the uncached + advisory rows
 ```
 
 **Report-only, and deliberately not in `just qc`.** It exits 0 even with
-findings. The whole-KB rate is 12,665 HGNC-bound gene descriptors with **no**
-detectable wrong binding, so there is nothing to gate on yet; `--strict` exists
-for whoever decides to gate the confident class later.
+findings. Across the whole KB it examines 12,665 gene descriptors, 12,656 of them
+HGNC-bound, and finds **no** wrong binding, so there is nothing to gate on yet;
+`--strict` exists for whoever decides to gate the confident class later.
+
+**Read the coverage line, not just the finding count.** Offline it compares only
+the CURIEs that have a row in `cache/hgnc/terms.csv` — 12,622 of the 12,656 — so
+34 get no opinion at all rather than a clean one, and a wrong binding among them
+is invisible. `--resolve` fetches those labels and closes the gap (all 12,656
+compared, and those 34 come back clean). The remaining 9 descriptors bind mouse
+`MGI:` orthologs under animal models, which this check structurally cannot judge;
+they are reported as `not_hgnc` rather than folded into `uncached`, because an
+uncached HGNC CURIE is one `just validate-terms` run from being checkable and an
+MGI one never will be.
 
 Two finding classes, and the difference between them is what the check can
 honestly claim:

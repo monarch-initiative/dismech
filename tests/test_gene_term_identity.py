@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import check_gene_term_identity as gti
 from check_gene_term_identity import (
     NAMES_ANOTHER_GENE,
+    NOT_HGNC,
     OK,
     SYMBOL_UNEXPLAINED,
     UNCACHED,
@@ -53,14 +54,14 @@ LABELS = {
 
 
 def binding(**kwargs) -> Binding:
-    defaults = dict(
-        path="x.yaml",
-        slot="gene_term",
-        curie="hgnc:20856",
-        curated_label="THAP1",
-        preferred_term="",
-        entry_name="",
-    )
+    defaults = {
+        "path": "x.yaml",
+        "slot": "gene_term",
+        "curie": "hgnc:20856",
+        "curated_label": "THAP1",
+        "preferred_term": "",
+        "entry_name": "",
+    }
     return Binding(**{**defaults, **kwargs})
 
 
@@ -168,6 +169,44 @@ def test_an_uncached_curie_gets_no_opinion():
     assert verdicts([binding(curie="hgnc:99999")]) == [UNCACHED]
 
 
+def test_a_non_hgnc_term_is_out_of_scope_rather_than_uncached():
+    """Nine animal-model `genes[]` entries bind mouse `MGI:` orthologs.
+
+    This script resolves HGNC only, so it cannot have an opinion on those. They
+    are kept apart from `uncached` because the remedies differ: an uncached HGNC
+    CURIE is one `just validate-terms` run from being checkable, and an MGI one
+    is not, so folding them together sends a curator chasing rows that will never
+    resolve.
+    """
+    assert verdicts([binding(slot="genes", curie="MGI:94872")]) == [NOT_HGNC]
+
+
+def test_hyphenated_prose_still_matches_the_bound_symbol():
+    """`GUCY1A3-associated ...` is one greedy token, and the symbol is in it."""
+    assert verdicts(
+        [
+            binding(
+                curie="hgnc:4177",
+                preferred_term="",
+                entry_name="GBA-associated parkinsonism susceptibility",
+            )
+        ]
+    ) == [OK]
+
+
+def test_hyphen_parts_are_never_read_as_naming_another_gene():
+    """Splitting in the accusing direction would invent findings out of
+    punctuation: `MT-TE` would offer `TE` as the gene the entry "really" means.
+    Parts satisfy a binding; only whole tokens may accuse one."""
+    # `TE` is a known gene here; the whole token `MT-TE` is not. Splitting in
+    # the accusing direction is what would turn this into a confident finding.
+    labels = {**LABELS, "hgnc:11800": "TE"}
+    (found,) = classify(
+        [binding(slot="genes", curie="hgnc:4177", preferred_term="MT-TE")], labels
+    )
+    assert found.verdict == SYMBOL_UNEXPLAINED
+
+
 def test_enclosing_name_is_read_only_where_it_names_the_gene():
     """`Genetic.name` is the gene. A `Pathophysiology` or `Variant` `name` is a
     mechanism or an HGVS change, so a symbol appearing in it is incidental --
@@ -216,17 +255,32 @@ def test_a_descriptor_without_a_term_is_skipped():
     assert iter_gene_bindings(data, "x.yaml") == []
 
 
+def test_findings_only_is_refused_rather_than_ignored():
+    """It filters the TSV rows; silently doing nothing to a report is worse than
+    saying so."""
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--findings-only", "tests/data"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "--findings-only applies to --format tsv" in result.stderr
+
+
 def test_the_report_is_advisory_and_exits_zero():
     """New and unproven, so it reports rather than gates (#10948). Wiring this
-    into `just qc` needs a decision about the 19 advisory rows first."""
+    into `just qc` needs a decision about the advisory rows first."""
     result = subprocess.run(
         [sys.executable, str(SCRIPT)],
         capture_output=True,
         text=True,
         cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "gene bindings with an HGNC term:" in result.stdout
+    assert "gene bindings examined:" in result.stdout
 
 
 def test_strict_gates_the_confident_class_only(tmp_path):
@@ -252,6 +306,7 @@ def test_strict_gates_the_confident_class_only(tmp_path):
             capture_output=True,
             text=True,
             cwd=ROOT,
+            check=False,
         )
         assert result.returncode == expected, result.stdout
         assert "hgnc:20856" in result.stdout
@@ -273,6 +328,7 @@ def test_strict_gates_the_confident_class_only(tmp_path):
         capture_output=True,
         text=True,
         cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 1, result.stdout
     assert "NAMES A DIFFERENT GENE             : 1" in result.stdout

@@ -1199,10 +1199,12 @@ check-qualifier-terms-online *files:
 list-gene-term-mismatches *files:
     uv run python scripts/check_gene_term_identity.py "$@"
 
-# Also ask HGNC about the advisory rows, which offline cannot be told apart: a
-# previous/alias symbol the OBO build lags on (#10102) is benign and is
-# reclassified, while a symbol resolving to a DIFFERENT gene is promoted to the
-# confident class. Needs network; run when auditing, not in CI.
+# Also ask HGNC about the rows the cache cannot settle. Note this covers MORE
+# than `check-qualifier-terms --resolve`, whose `--resolve` means the uncached
+# CURIEs only: here it does those AND the advisory rows, which offline cannot be
+# told apart -- a previous/alias symbol the OBO build lags on (#10102) is benign
+# and is reclassified, while a symbol resolving to a DIFFERENT gene is promoted
+# to the confident class. Needs network; run when auditing, not in CI.
 [group('QC')]
 list-gene-term-mismatches-online *files:
     uv run python scripts/check_gene_term_identity.py --resolve "$@"

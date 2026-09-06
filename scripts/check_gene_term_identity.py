@@ -71,17 +71,33 @@ Tolerated, and reported as counts rather than findings:
 
 `uncached`
     The CURIE is not in `cache/hgnc/terms.csv`, so there is no label to compare
-    and this script has no opinion.
+    and this script has no opinion. Not a clean result -- a wrong binding hides
+    here as readily as a right one, which is why the report says so in a note
+    rather than only in a count. `just validate-terms` on the file populates the
+    cache; `--resolve` fetches the label directly.
+
+`not_hgnc`
+    The binding is not to an HGNC CURIE at all, so nothing here can judge it --
+    nine animal-model `genes[]` entries bind mouse `MGI:` orthologs. Kept apart
+    from `uncached` because the remedies differ: that one is a cache refresh away
+    from being checkable, and this one is not.
 
 Order matters: `names_another_gene` is decided before the tolerances, so a
 tolerance can never swallow a confident finding.
 
 `--resolve`
 -----------
-Asks the configured HGNC adapter about the `symbol_unexplained` rows. Needs
-network the first time (OAK downloads the build); not part of any gate.
+Asks the configured HGNC adapter about the rows the cache cannot settle. Needs
+network the first time (OAK downloads the build); not part of any gate. Note this
+is broader than the `--resolve` of `scripts/check_qualifier_terms.py`, which
+covers the uncached CURIEs only.
 
-For each row it takes the symbols the text names and asks two questions:
+First the `uncached` rows: fetching a label makes the binding checkable, and it
+is then classified exactly as a cached one would have been. Without that pass a
+wrong binding to an uncached CURIE is invisible in *both* modes, which is a hole
+rather than a caveat.
+
+Then the `symbol_unexplained` rows. For each, it takes the symbols the text names and asks two questions:
 a symbol that is a *synonym of the bound term* explains the row and reclassifies
 it `previous_symbol` (`GBA1` -> `GBA`); a symbol that resolves to a *different*
 HGNC id promotes the row to `names_another_gene` (`THAP11` -> `hgnc:23194`,
@@ -113,8 +129,9 @@ import csv
 import re
 import sys
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable, NamedTuple
+from typing import Any, NamedTuple
 
 import yaml
 
@@ -123,6 +140,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from dismech.yaml_io import safe_load
 
+#: ``kb/hypotheses/`` is omitted deliberately: those records validate against
+#: the hypothesis schemas, not ``dismech.yaml``, and carry no ``GeneDescriptor``.
 DEFAULT_ROOTS = ("kb/disorders", "kb/modules", "kb/comorbidities", "kb/groupings")
 
 #: Slots whose range is ``GeneDescriptor`` in ``src/dismech/schema/dismech.yaml``.
@@ -138,6 +157,10 @@ NAME_BEARING_SLOTS = frozenset({"gene_term"})
 #: apostrophes (``MT-TE``, ``HLA-DQ2.5``, ``C21orf2``).
 TOKEN_RE = re.compile(r"[A-Za-z0-9]+(?:[-.'][A-Za-z0-9]+)*")
 
+#: ``hgnc:`` in either case. Other prefixes are out of scope rather than wrong:
+#: nine animal-model ``genes[]`` entries bind mouse ``MGI:`` orthologs.
+HGNC_PREFIXES = frozenset({"hgnc"})
+
 OK = "ok"
 NAMES_ANOTHER_GENE = "names_another_gene"
 SYMBOL_UNEXPLAINED = "symbol_unexplained"
@@ -145,6 +168,7 @@ PREVIOUS_SYMBOL = "previous_symbol"
 ORTHOLOG_CASE = "ortholog_case"
 HLA_SEROTYPE = "hla_serotype"
 UNCACHED = "uncached"
+NOT_HGNC = "not_hgnc"
 
 #: Reported as findings. ``symbol_unexplained`` is advisory; only the first gates
 #: under ``--strict``.
@@ -254,7 +278,35 @@ def iter_gene_bindings(data: Any, display: str) -> list[Binding]:
 
 
 def symbol_tokens(text: str) -> list[str]:
+    """The symbol-shaped runs in ``text``, as written."""
     return TOKEN_RE.findall(text)
+
+
+def match_tokens(texts: Iterable[str]) -> list[str]:
+    """Tokens that may *satisfy* a bound label, hyphen-separated parts included.
+
+    ``TOKEN_RE`` is greedy across hyphens, so ``GUCY1A3-associated vascular
+    signaling susceptibility`` yields the single token ``GUCY1A3-associated``.
+    A ``gene_term`` whose ``preferred_term`` is absent or a product name and
+    whose ``Genetic.name`` is hyphenated prose would then be reported for a
+    purely lexical reason, so the parts count here too.
+
+    Only here. ``claim_tokens`` stays whole, because splitting in the accusing
+    direction would let ``MT-TE`` offer ``MT`` and ``TE`` as the genes the entry
+    "really" means and manufacture a confident finding out of punctuation.
+    """
+    tokens: list[str] = []
+    for text in texts:
+        for token in symbol_tokens(text):
+            tokens.append(token)
+            if "-" in token:
+                tokens.extend(part for part in token.split("-") if part)
+    return tokens
+
+
+def claim_tokens(texts: Iterable[str]) -> list[str]:
+    """Tokens that may *accuse* a binding of naming another gene. Whole only."""
+    return [t for text in texts for t in symbol_tokens(text)]
 
 
 def _matches_case_insensitively(label: str, token: str) -> bool:
@@ -297,45 +349,68 @@ def classify(
     results: list[Finding] = []
     for binding in bindings:
         curie = binding.curie.lower()
+        if curie.split(":", 1)[0] not in HGNC_PREFIXES:
+            # Not a defect and not an oversight: this script resolves HGNC only,
+            # so it cannot have an opinion. Kept separate from `uncached` because
+            # the remedies differ -- an uncached HGNC CURIE is one
+            # `just validate-terms` run away from being checkable, and this is
+            # not.
+            results.append(Finding(binding, NOT_HGNC, ""))
+            continue
         label = labels.get(curie)
         if not label:
             results.append(Finding(binding, UNCACHED, ""))
             continue
 
-        tokens = [t for text in binding.texts for t in symbol_tokens(text)]
-        if label in tokens:
+        satisfying = match_tokens(binding.texts)
+        if label in satisfying:
             results.append(Finding(binding, OK, label))
             continue
 
         # Before any tolerance: does the text name a *different* known gene?
         others = sorted(
-            {t for t in tokens if t in by_label and curie not in by_label[t]}
+            {
+                t
+                for t in claim_tokens(binding.texts)
+                if t in by_label and curie not in by_label[t]
+            }
         )
         if others:
             results.append(Finding(binding, NAMES_ANOTHER_GENE, label, tuple(others)))
             continue
 
-        if any(_matches_case_insensitively(label, t) for t in tokens):
+        if any(_matches_case_insensitively(label, t) for t in satisfying):
             results.append(Finding(binding, ORTHOLOG_CASE, label))
             continue
-        if any(_is_hla_serotype(label, t) for t in tokens):
+        if any(_is_hla_serotype(label, t) for t in satisfying):
             results.append(Finding(binding, HLA_SEROTYPE, label))
             continue
         results.append(
-            Finding(binding, SYMBOL_UNEXPLAINED, label, tuple(sorted(set(tokens))))
+            Finding(binding, SYMBOL_UNEXPLAINED, label, tuple(sorted(set(satisfying))))
         )
     return results
 
 
-def resolve_unexplained(
-    findings: list[Finding], adapter_spec: str | None = None
+def resolve_online(
+    findings: list[Finding],
+    labels: dict[str, str] | None = None,
+    adapter_spec: str | None = None,
 ) -> list[Finding]:
-    """Ask HGNC about the advisory rows. Needs network on first use.
+    """Ask HGNC about the rows the cache cannot settle. Network on first use.
 
-    A named symbol that is a synonym of the bound term explains the row; one that
-    resolves to a different id condemns it. A symbol the build does not know
-    leaves the row alone -- the OBO build carries only some retired symbols, so
-    silence there is a fact about the build, not about the binding.
+    Two passes, because offline there are two different kinds of silence:
+
+    ``uncached``
+        No cache row, so there was no label to compare at all. Fetching one makes
+        the binding checkable, and it is then classified exactly as a cached one
+        would have been. Without this pass a wrong binding to an uncached CURIE
+        is invisible in *both* modes, which is a hole rather than a caveat.
+
+    ``symbol_unexplained``
+        A named symbol that is a synonym of the bound term explains the row; one
+        that resolves to a different id condemns it. A symbol the build does not
+        know leaves the row alone -- the OBO build carries only some retired
+        symbols, so silence there is a fact about the build, not the binding.
     """
     from oaklib import get_adapter
 
@@ -377,6 +452,29 @@ def resolve_unexplained(
             symbol_cache[symbol] = hits
         return symbol_cache[symbol]
 
+    def fetch_label(curie: str) -> str:
+        try:
+            return str(adapter.label(curie) or "")
+        except Exception as exc:
+            print(f"  could not resolve {curie}: {exc}", file=sys.stderr)
+            return ""
+
+    # Pass one: give the uncached bindings a label, then classify them normally.
+    fetched = dict(labels or {})
+    uncached = [f.binding for f in findings if f.verdict == UNCACHED]
+    for binding in uncached:
+        label = fetch_label(binding.curie)
+        if label:
+            fetched[binding.curie.lower()] = label
+    if uncached:
+        # Same order as the walk that produced them, so position identifies the
+        # row -- two identical bindings compare equal, so a lookup would not.
+        replacements = iter(classify(uncached, fetched))
+        findings = [
+            next(replacements) if f.verdict == UNCACHED else f for f in findings
+        ]
+
+    # Pass two: settle the advisory rows, including any produced by pass one.
     resolved: list[Finding] = []
     for finding in findings:
         if finding.verdict != SYMBOL_UNEXPLAINED:
@@ -446,9 +544,10 @@ def collect(paths: list[str]) -> list[Binding]:
     return bindings
 
 
+#: Read after a count, so these are plural: "29 binding(s) that bind ...".
 HEADLINE = {
-    NAMES_ANOTHER_GENE: "names a different gene than it binds",
-    SYMBOL_UNEXPLAINED: "binds a symbol the entry does not name",
+    NAMES_ANOTHER_GENE: "name a different gene than they bind",
+    SYMBOL_UNEXPLAINED: "bind a symbol the entry does not name",
 }
 
 EXPLAIN = {
@@ -469,8 +568,20 @@ EXPLAIN = {
 
 def print_report(findings: list[Finding], *, resolved: bool) -> None:
     counts = Counter(f.verdict for f in findings)
-    total = len(findings)
-    print(f"gene bindings with an HGNC term: {total}")
+    checkable = sum(
+        counts[v]
+        for v in (
+            OK,
+            NAMES_ANOTHER_GENE,
+            SYMBOL_UNEXPLAINED,
+            PREVIOUS_SYMBOL,
+            ORTHOLOG_CASE,
+            HLA_SEROTYPE,
+        )
+    )
+    hgnc = len(findings) - counts[NOT_HGNC]
+    print(f"gene bindings examined: {len(findings)} ({hgnc} with an HGNC term)")
+    print(f"  compared against HGNC              : {checkable}")
     print(f"  gene named by the entry            : {counts[OK]}")
     print(f"  NAMES A DIFFERENT GENE             : {counts[NAMES_ANOTHER_GENE]}")
     print(f"  symbol not named (advisory)        : {counts[SYMBOL_UNEXPLAINED]}")
@@ -478,7 +589,21 @@ def print_report(findings: list[Finding], *, resolved: bool) -> None:
         print(f"  previous/alias symbol (benign)     : {counts[PREVIOUS_SYMBOL]}")
     print(f"  model-organism symbol case (benign): {counts[ORTHOLOG_CASE]}")
     print(f"  HLA serotype detail (benign)       : {counts[HLA_SEROTYPE]}")
-    print(f"  CURIE not cached (no opinion)      : {counts[UNCACHED]}")
+    print(f"  HGNC CURIE not cached (no opinion) : {counts[UNCACHED]}")
+    if counts[NOT_HGNC]:
+        prefixes = Counter(
+            f.binding.curie.split(":", 1)[0] for f in findings if f.verdict == NOT_HGNC
+        )
+        named = ", ".join(f"{p} {n}" for p, n in prefixes.most_common())
+        print(f"  not an HGNC term (out of scope)    : {counts[NOT_HGNC]} ({named})")
+    if counts[UNCACHED]:
+        # Said plainly, because the count above is otherwise read as coverage.
+        print(
+            f"\nnote: {counts[UNCACHED]} HGNC CURIE(s) have no row in "
+            "cache/hgnc/terms.csv, so there was no label to compare and this run "
+            "has no opinion on them. `just validate-terms` on their files "
+            "populates the cache; --resolve fetches the labels directly."
+        )
 
     for verdict in FINDING_CLASSES:
         rows = [f for f in findings if f.verdict == verdict]
@@ -486,17 +611,34 @@ def print_report(findings: list[Finding], *, resolved: bool) -> None:
             continue
         print(f"\n{len(rows)} binding(s) that {HEADLINE[verdict]}.\n")
         print(EXPLAIN[verdict] + "\n")
-        for finding in rows:
+        # One CURIE bound in several slots of one file is ONE mistake to look at
+        # -- `AFG2A-Related_Encephalopathy` binds the same gene in `gene_term`,
+        # `genes` and three `variants[].gene`. Collapsed here for reading; the
+        # TSV stays one row per binding for anything counting them.
+        grouped: dict[tuple[str, str], list[Finding]] = {}
+        for f in rows:
+            grouped.setdefault((f.binding.path, f.binding.curie), []).append(f)
+        for (path, _curie), group in grouped.items():
+            finding = group[0]
             binding = finding.binding
-            print(f"  {binding.path}")
-            print(f"     {binding.where}")
+            print(f"  {path}")
+            slots = ", ".join(dict.fromkeys(f.binding.where for f in group))
+            suffix = f"  [{len(group)} bindings]" if len(group) > 1 else ""
+            print(f"     {slots}{suffix}")
             print(f"     binding      : {binding.curie} -> {finding.ontology_label!r}")
-            if binding.preferred_term:
-                print(f"     preferred_term: {binding.preferred_term!r}")
-            if binding.entry_name and binding.slot in NAME_BEARING_SLOTS:
-                print(f"     name          : {binding.entry_name!r}")
+            for term in dict.fromkeys(
+                f.binding.preferred_term for f in group if f.binding.preferred_term
+            ):
+                print(f"     preferred_term: {term!r}")
+            for name in dict.fromkeys(
+                f.binding.entry_name
+                for f in group
+                if f.binding.entry_name and f.binding.slot in NAME_BEARING_SLOTS
+            ):
+                print(f"     name          : {name!r}")
             if verdict == NAMES_ANOTHER_GENE:
-                print(f"     names instead : {', '.join(finding.detail)}")
+                instead = dict.fromkeys(s for f in group for s in f.detail)
+                print(f"     names instead : {', '.join(instead)}")
 
     if counts[PREVIOUS_SYMBOL]:
         print(
@@ -561,7 +703,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--resolve",
         action="store_true",
-        help="ask HGNC about the advisory rows (needs network; not for CI)",
+        help="ask HGNC about the uncached and advisory rows "
+        "(needs network; not for CI)",
     )
     parser.add_argument(
         "--strict",
@@ -569,10 +712,13 @@ def main(argv: list[str] | None = None) -> int:
         help=f"exit 1 on {NAMES_ANOTHER_GENE} findings (advisory otherwise)",
     )
     args = parser.parse_args(argv)
+    if args.findings_only and args.format != "tsv":
+        parser.error("--findings-only applies to --format tsv")
 
-    findings = classify(collect(args.paths), load_hgnc_labels())
+    labels = load_hgnc_labels()
+    findings = classify(collect(args.paths), labels)
     if args.resolve:
-        findings = resolve_unexplained(findings)
+        findings = resolve_online(findings, labels)
 
     if args.format == "tsv":
         print_tsv(
