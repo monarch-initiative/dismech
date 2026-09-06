@@ -2457,6 +2457,12 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - `cache/<prefix>/terms.csv` caches CURIE existence and canonical labels.
 - `cache/enums/*.csv` caches membership in schema dynamic enums. Presence in
   the label cache does not establish enum membership.
+- `cache/<prefix>/hierarchy.csv` caches the **ancestor path** the renderer draws
+  as a mapping breadcrumb, for the strict-hierarchy prefixes only (ICD10CM,
+  NCIT). It answers a different question from `terms.csv`: not "does this CURIE
+  exist and what is it called" but "what is the whole root-to-term chain, with
+  every node's label". Rebuild with `just build-hierarchy-cache`; audit
+  staleness with `just check-hierarchy-cache`.
 - Never hand-write, append, or reorder cache rows. Populate term caches through
   `just validate-terms` or `just validate`, then use `just normalize-cache` for
   canonical CURIE ordering.
@@ -2474,6 +2480,30 @@ If a row is wrong, do not retype its label or timestamp. Follow the cache
 recovery procedure in the `dismech-terms` skill to remove and re-derive it from
 the ontology. If normalization exposes unrelated existing churn, surface it
 rather than reverting or hand-placing rows.
+
+**The hierarchy cache is a speed cache, never a correctness gate.** A miss falls
+back to a live OAK walk, so an entry curated after the last rebuild still
+renders — just slowly. That is why `check-hierarchy-cache` is advisory and is
+not in `just qc`: it reports staleness, and staleness costs seconds, not a wrong
+page. The reason it exists at all is that one `hierarchical_parents` call
+against the local NCIT build takes roughly 4.7 s, so a single ten-node
+breadcrumb costs about 47 s (#11186).
+
+Two things worth knowing before you touch it:
+
+- **`STRICT_HIERARCHIES` declares an ICD10CM root that the walk never reaches.**
+  `ICD10CM:ICD-10-CM` exists in the `sqlite:obo:icd10cm` build but nothing links
+  up to it: chapter codes such as `ICD10CM:C00-D49` report no
+  `hierarchical_parents`, so every ICD10CM breadcrumb tops out at its chapter.
+  None of the mapped CURIEs reach the declared root. This predates the cache and
+  the cache reproduces it faithfully; it is pinned by
+  `test_icd10cm_paths_stop_at_a_chapter_not_at_the_configured_root` so a future
+  build that does connect the chapters is noticed rather than silently changing
+  every ICD10CM breadcrumb. NCIT reaches its root for every mapped CURIE.
+- **Rebuilding needs the local SQLite build for that prefix**
+  (`just fetch-ontology-dbs icd10cm ncit`). The builder memoises parent and
+  label lookups across CURIEs, which matters: the mapped NCIT set resolves in
+  146 parent queries rather than one full walk per CURIE.
 
 ## Duplicate YAML Keys (dismech#8623)
 
