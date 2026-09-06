@@ -69443,6 +69443,101 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Combined Immunodeficiency Due to CTPS1 Deficiency",
+    "disease_id": "MONDO:0014391",
+    "category": "Mendelian",
+    "parents": [
+      "Combined Immunodeficiency",
+      "Inborn Error of Nucleotide Metabolism"
+    ],
+    "creation_date": "2026-09-06T08:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A combined immunodeficiency in which lymphocytes cannot build the nucleotide pool that rapid clonal expansion requires. CTPS1 catalyses the last step of de novo CTP synthesis, converting UTP to CTP. CTP is a precursor for DNA, RNA and phospholipid, so a resting lymphocyte needs little of it and a lymphocyte that has just met its antigen needs a great deal. CTPS1 is barely expressed at rest and is sharply upregulated on antigen-receptor activation, which is what makes its loss a lymphocyte-selective defect rather than a general one.\nThe resulting immunological picture is unusual, and it is the reason this entry is worth separating from the signalling immunodeficiencies it sits among. Proximal and distal T-cell receptor signalling is close to intact; the cells sense antigen, activate, and then fail to divide. Effector functions other than proliferation are largely preserved. Clinically that produces severe and recurrent herpesvirus disease - Epstein-Barr virus above all, with EBV-driven B-cell lymphoproliferation and CNS lymphoma, and varicella zoster alongside it - because controlling these viruses depends specifically on expanding a large virus-specific CD8 T-cell population.\nTwo things are curated carefully because they change how the evidence should be read. First, the human disease rests almost entirely on a single founder allele shared by patients with ancestry in north-west England, so what looks like a genotype-phenotype relationship is really a single-allele observation. Second, the literature disagrees with itself about what that allele does: the 2018 transplant series describes it as causing complete absence of protein, and the 2020 characterisation measured 10-20% residual protein with normal catalytic activity per molecule. That disagreement is curated as a controversy rather than resolved silently, because which reading is right determines whether the human phenotype describes partial or complete deficiency - and the mouse says complete deletion is embryonic lethal.",
+    "pathophysiology": [
+      "CTPS1 Loss of Function from a Founder Splice Variant",
+      "Failure to Expand the CTP Pool on Lymphocyte Activation",
+      "Failure of Antigen-Driven Lymphocyte Clonal Expansion",
+      "Impaired Development of Memory and Innate-like Lymphocyte Subsets",
+      "Impaired T-Independent B-Cell Response to Polysaccharide Antigen",
+      "Failure to Control Herpesvirus-Infected B Cells",
+      "EBV-driven B-cell lymphoproliferation and lymphoma"
+    ],
+    "cell_types": [
+      "T cell",
+      "B cell",
+      "mucosal-associated invariant T cell",
+      "memory B cell",
+      "natural killer cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000236",
+      "CL:0000940",
+      "CL:0000787",
+      "CL:0000623"
+    ],
+    "biological_processes": [
+      "CTP biosynthetic process",
+      "lymphocyte proliferation"
+    ],
+    "phenotypes": [
+      "Severe recurrent herpesvirus infection",
+      "Recurrent encapsulated bacterial infection",
+      "EBV-associated lymphoproliferative disease",
+      "Impaired lymphocyte proliferative response",
+      "Reduced NK cell number",
+      "Chronic diarrhea",
+      "Invasive fungal infection"
+    ],
+    "phenotype_categories": [
+      "Infectious",
+      "Hematologic",
+      "Immunologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0004429",
+      "HP:0002718",
+      "HP:0005523",
+      "HP:0031402",
+      "HP:0040218",
+      "HP:0002028",
+      "HP:0002841"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VARIABLE"
+    ],
+    "genes": [
+      "CTPS1"
+    ],
+    "treatments": [
+      "Allogeneic Haematopoietic Stem Cell Transplantation",
+      "Cytidine or CTP Supply Restoration",
+      "Rituximab and EBV-Specific Cytotoxic T Lymphocytes for EBV Complications"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Immunodeficiency_Due_To_CTPS1_Deficiency.yaml",
+    "page_url": "../pages/disorders/Combined_Immunodeficiency_Due_to_CTPS1_Deficiency.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Combined Immunodeficiency Due To GINS1 Deficiency",
     "disease_id": "MONDO:0044725",
     "category": "Mendelian",
@@ -150492,6 +150587,103 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Kasabach-Merritt Syndrome",
+    "disease_id": "MONDO:0007708",
+    "category": "",
+    "parents": [
+      "blood coagulation disease",
+      "vascular neoplasm"
+    ],
+    "creation_date": "2026-09-05T17:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A life-threatening consumptive coagulopathy that arises inside a vascular tumour and nowhere else. Profound thrombocytopenia, hypofibrinogenemia and a rising D-dimer appear in an infant with an enlarging purpuric mass, and the platelets are not being destroyed in the circulation but trapped and consumed within the lesion itself. The tumour is kaposiform hemangioendothelioma, or less often tufted angioma, and the two are regarded as one neoplastic spectrum. Ordinary infantile hemangioma does not do this. The modern literature prefers \"Kasabach-Merritt phenomenon\" precisely because the entity is a complication of a specific tumour rather than an independent inherited syndrome; the name kept here is the MONDO label. The initiating lesion of the tumour is unknown in most cases, so this pathograph begins at the abnormal vascular bed and follows the platelet.",
+    "pathophysiology": [
+      "Abnormal Angiogenic and Lymphangiogenic Tumour Vasculature",
+      "Podoplanin-CLEC-2 Platelet Adhesion Signalling",
+      "Intralesional Platelet Trapping and Activation",
+      "Shear-Driven Amplification Loop",
+      "Consumptive Coagulopathy",
+      "Intralesional Haemorrhage and Tumour Engorgement",
+      "Local Infiltrative Tissue Destruction"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "lymphatic endothelial cell",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0002138",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "angiogenesis",
+      "lymphangiogenesis",
+      "platelet activation",
+      "platelet aggregation",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Profound Thrombocytopenia",
+      "Hypofibrinogenemia",
+      "Microangiopathic Hemolytic Anemia",
+      "Locally Aggressive Blue-Purple Cutaneous Mass",
+      "Bruising and Bleeding",
+      "Pain and Joint Dysfunction",
+      "Lymphedema",
+      "Anemia"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Cutaneous",
+      "Musculoskeletal",
+      "Lymphatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0011900",
+      "HP:0001937",
+      "HP:0100742",
+      "HP:0000978",
+      "HP:0001376",
+      "HP:0001004",
+      "HP:0001903"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GNA14"
+    ],
+    "treatments": [
+      "Sirolimus",
+      "Corticosteroid Therapy",
+      "Vincristine",
+      "Surgical Resection",
+      "Supportive Transfusion Management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Kasabach-Merritt_Syndrome.yaml",
+    "page_url": "../pages/disorders/Kasabach-Merritt_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Kawasaki Disease",
@@ -279467,17 +279659,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2714,
+  "total_disorder_pages": 2716,
   "total_subtypes": 3645,
-  "total_disorders_and_subtypes": 6359,
-  "total_unique_evidence_sources": 38254,
-  "total_unique_publications": 36025,
+  "total_disorders_and_subtypes": 6361,
+  "total_unique_evidence_sources": 38273,
+  "total_unique_publications": 36039,
   "total_unique_disease_categories": 54,
   "total_unique_phenotype_categories": 273,
-  "total_pathographs": 2709,
-  "total_unique_pathological_events": 16025,
+  "total_pathographs": 2711,
+  "total_unique_pathological_events": 16039,
   "total_modules": 169,
-  "total_research_reports": 2825,
+  "total_research_reports": 2827,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
