@@ -1507,6 +1507,85 @@ Given all this, prefer a dedicated slot over `qualifiers` wherever one exists �
 see the next section, and note that `therapeutic_agent` already covers most of
 what these qualifier pairs were expressing.
 
+### A Gene Binding Only Has To Be Self-Consistent (dismech#10948)
+
+`just validate-terms` checks that a `term.label` is HGNC's canonical label for
+that `term.id`. Nothing checks that the resolved gene is **the gene the entry
+says the record is about**, so this validates clean under both
+`linkml-validate` and `linkml-term-validator`:
+
+```yaml
+genetic:
+- name: THAP11
+  gene_term:
+    preferred_term: THAP11
+    term:
+      id: hgnc:20856      # THAP1 — a different gene, causing DYT6 dystonia
+      label: THAP1        # ...and the label does agree with the CURIE
+```
+
+Two fields directly above the binding say THAP11. The binding says THAP1.
+Nothing compared them.
+
+The perverse part is that the *inconsistent* version (`hgnc:20856` labelled
+`THAP11`) **is** caught. So filling `label:` in from the ontology — the careful,
+responsible-looking thing to do with a CURIE copied out of a deep-research
+report — converts a caught error into a silent one.
+
+The path is short, because the two lanes give different guarantees. The research
+lane skips the prefix entirely (`--term-skip-prefix HGNC`, because the uppercase
+form misresolves through both adapters), so a gene CURIE is **unchecked where it
+is emitted**; the KB lane checks the CURIE against its label and nothing else, so
+it is **half-checked where it lands**. #10948 reports an OpenScientist run
+offering `HGNC:20856` as *THAP11* in four places; that report is not committed
+here, but the same identifier is used correctly for THAP1 in
+`research/Spasmodic_Dysphonia-deep-research-openscientist.md`, so the confusion
+is live in the corpus.
+
+```bash
+just list-gene-term-mismatches                                # whole KB (offline)
+just list-gene-term-mismatches kb/disorders/Gaucher_Disease.yaml
+just list-gene-term-mismatches --format tsv --findings-only
+just list-gene-term-mismatches-online                         # ask HGNC about the advisory rows
+```
+
+**Report-only, and deliberately not in `just qc`.** It exits 0 even with
+findings. The whole-KB rate is 12,665 HGNC-bound gene descriptors with **no**
+detectable wrong binding, so there is nothing to gate on yet; `--strict` exists
+for whoever decides to gate the confident class later.
+
+Two finding classes, and the difference between them is what the check can
+honestly claim:
+
+| Class | What it means |
+|---|---|
+| `names_another_gene` | The text names a gene that resolves elsewhere in HGNC, and does not name the gene it binds. Two known genes; the entry disagrees with its own binding. |
+| `symbol_unexplained` | The text names no symbol the check can resolve. **Usually benign** — a previous symbol, or a protein/product name. Advisory. |
+
+Offline the confident class needs the *other* gene to be cached, which happens
+only because some other entry has bound it. So the demonstration above reports as
+`symbol_unexplained` offline and is promoted to `names_another_gene` by
+`--resolve`, which asks HGNC directly: a symbol that is a **synonym of the bound
+term** explains the row (`GBA1` → `hgnc:4177`/`GBA` is a *correct* binding the
+OBO build lags on, #10102), while a symbol resolving to a **different id**
+condemns it (`THAP11` → `hgnc:23194`). A symbol the build has never heard of
+leaves the row alone — `WDR34` is absent from `hgnc:28296` (`DYNC2I2`)
+altogether, and the build's silence is a fact about the build, not about the
+binding.
+
+**The tolerances are load-bearing, so do not tighten them casually.** 27
+bindings are model-organism ortholog symbols (`Adnp`, `Pkhd1`, `smchd1`,
+including a zebrafish paralog's trailing letter in `inppl1a`) and 4 are HLA
+serotype detail (`HLA-B27` bound to `HLA-B` — allele-level detail in a gene field
+is legitimate, #9017). Note the serotype rule is restricted to `HLA-*` on
+purpose: generalizing it to "the label followed by digits" would excuse `THAP1`
+under a `THAP11` entry, which is the exact defect this exists to find. For the
+same reason the confident class is decided **before** any tolerance is applied.
+
+Beyond genes, the same shape applies to any descriptor where `preferred_term`
+names the entity and `term` binds it. Genes are the sharpest case because the
+label is usually an exact symbol.
+
 ### Descriptor Qualifier Slots
 
 Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
