@@ -19,7 +19,7 @@ tags: [SCHEMA_EVOLUTION, PATHOGRAPH, PATHOPHYSIOLOGY, BRAINSTORM]
 
 The authoritative tree is
 [`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt), which carries
-the glosses and ~1,600 worked `[Disease] <node name>` examples. Reproduced here
+the glosses and ~1,900 worked `[Disease] <node name>` examples. Reproduced here
 is only its top level, which is what the proposal actually is; do not treat this
 copy as the tree, and regenerate it rather than editing it:
 
@@ -862,7 +862,7 @@ Then, in order:
    interior causal-function values, the rest computed or moved to a leaf --
    waits on the tree settling, since 277 of the residue land there.
 2. ~~Classify ~100 nodes against the 9+2 tree~~ — **done, and then some.** The
-   tree now carries ~1,600 worked examples across ~1,275 entries, placed in five
+   tree now carries ~1,900 worked examples across ~1,570 entries, placed in six
    random draws plus a sweep of MPATH/MeSH/SNOMED/NCIT. The build notes at the
    foot of the tree file record what each draw forced, including the leaves that
    reversed earlier decisions.
