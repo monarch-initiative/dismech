@@ -154,6 +154,8 @@ def skip_reason(run, pr, peers, reviews, now, minimum):
             continue
         if peer["status"] != "completed":
             return "another review is queued or running"
+        if peer["event"] == "pull_request" and peer["head_sha"] != pr["head"]["sha"]:
+            continue
         if timestamp(peer["created_at"]) > timestamp(run["created_at"]):
             return "a newer review run exists"
         if peer.get("conclusion") == "success" and timestamp(

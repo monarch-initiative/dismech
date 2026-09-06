@@ -300,6 +300,11 @@ def test_newer_manual_review_prevents_write(monkeypatch):
     assert not writes
 
 
+def test_late_success_on_old_commit_does_not_hide_current_failure():
+    old = run(id=15, head_sha="old", conclusion="success", updated_at=NOW.isoformat())
+    assert reason(peers=[old]) is None
+
+
 def test_workflow_job_is_independent_and_respects_dry_run():
     config = yaml.safe_load((ROOT / ".github/workflows/pr-shepherd.yml").read_text())
     job = config["jobs"]["retry-reviews"]
