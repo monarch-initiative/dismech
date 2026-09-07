@@ -1,0 +1,101 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Friedreich_Ataxia
+  path: kb/disorders/Friedreich_Ataxia.yaml
+session:
+  id: 2026-09-07T152156Z-claude-code-3357e7
+  timestamp: '2026-09-07T15:21:56Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/11338
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - treatments
+  - clinical_trials
+  - differential_diagnoses
+  - diagnosis
+  - animal_models
+  - evidence
+  summary: 'Address ai4c-reviewer findings: MOXIe efficacy evidence, differentials,
+    ocular model'
+  details: |
+    Addresses the ai4c-reviewer verdict on PR #11338 (REQUEST CHANGES, one
+    blocking finding plus suggestions).
+
+    BLOCKING FINDING, FIXED. The reviewer found that PMID:33068037 (MOXIe) had
+    been fetched into references_cache and never cited, so omaveloxolone - the
+    only approved disease-modifying therapy for FRDA - carried no efficacy
+    evidence anywhere in the entry. Its treatment block cited only a general
+    review whose snippet described the approval as having "created much
+    excitement", which is sentiment rather than effect, and the NCT02255435
+    trial node cited only the registry description of what mFARS measures.
+    Confirmed by inspection: zero occurrences of 33068037 in the entry. Now
+    cited in three places, each a different claim and a different quote:
+    the registrational efficacy result (placebo-corrected mFARS -2.40 +/- 0.96,
+    p = 0.014) and the transaminase safety signal on the treatment; the Nrf2
+    mechanism sentence on its target_mechanisms link; and the trial's own
+    conclusion on the NCT02255435 node. The Nrf2 sentence is graded OTHER
+    because it is the trial report's background summary of preclinical model
+    work and does not name the model systems.
+
+    SUGGESTIONS TAKEN.
+    - differential_diagnoses added (the section did not exist): AVED
+      (MONDO:0010188), ataxia-telangiectasia (MONDO:0008840), ARSACS
+      (MONDO:0010041), AOA1/2 (MONDO:0008842), and POLG-related ataxia, all
+      cited to the EFNS/ENS consensus PMID:24418350. AVED carries a note that
+      this differential is clinically load-bearing rather than academic, since
+      it is treatable with vitamin E. POLG is deliberately left unbound: the
+      consensus names the gene, and POLG-related disease is a spectrum rather
+      than one MONDO concept.
+    - A retinal conditional Fxn knockout model with intravitreal AAV2-FXN rescue
+      (PMID:41137390) added to animal_models, with RECAPITULATES and RESCUES
+      links to Optic Atrophy. This consumes the second reference the reviewer
+      flagged and complements the AAV9 cardiac rescue already curated.
+    - diagnosis gained a Cardiac Evaluation and Surveillance entry (EKG plus
+      echocardiography at diagnosis and at least annually, PMID:25928624),
+      graded OTHER because the recommendation carries the guideline's GPP
+      expert-opinion marker. Bound to NCIT:C18020 Diagnostic Procedure with the
+      specificity in preferred_term: NCIT's echocardiography terms are data
+      elements, not clinical actions, so none is reachable from the
+      TreatmentActionTerm root (NCIT:C15986/C25218). This is the same pattern
+      CLAUDE.md records for cochlear implantation.
+
+    A DUPLICATE KEY WAS INTRODUCED AND CAUGHT. While adding
+    differential_diagnoses, a section-level notes block landed inside the POLG
+    entry, giving it two `notes` keys. PyYAML would have silently kept the last
+    one; the ruamel-backed reference validator raised DuplicateKeyError, which
+    is exactly the failure mode dismech#8623 describes. Resolved by merging
+    rather than deleting: the POLG entry keeps its own note about the absent
+    MONDO binding, and the clinical-load-bearing remark moved to the AVED entry,
+    where the claim actually applies.
+
+    ONE FINDING REPORTED RATHER THAN FIXED, AND IT IS LARGER THAN REPORTED. The
+    reviewer noted as a nit that references_cache/PMID_25112865.md lost its
+    trailing newline. Checking the class rather than the instance: all 53 cache
+    files this PR adds or touches lack a trailing newline, while 400 of 400
+    sampled cache files on origin/main have one. Re-running `just
+    fetch-reference` does not restore it, so this is the behaviour of the
+    installed writer, which is linkml-reference-validator (an external
+    dependency, not repository code), not carelessness in this change. It cannot
+    be fixed here: hand-editing references_cache is prohibited, regeneration
+    reproduces the same bytes, and pinning or patching the dependency would
+    affect every cache in the repository and does not belong in a curation PR.
+    Reported on the PR for a separate change.
+
+    VALIDATION. `just validate-disorders` passes: schema clean, terms clean,
+    187/187 snippets verified (was 174/174). Full `pytest tests/test_data.py`:
+    6158 passed. Also passing: model-scale-audit --strict, verify-datasets
+    (6/6), check-duplicate-keys, check-entity-refs, check-causal-targets,
+    check-qualifier-terms, check-enum-values, check-snippet-length,
+    check-title-snippets, check-snippet-grading, check-folded-hyphens.
+    Compliance 98.9% -> 99.0% (398/402), over a larger denominator.
