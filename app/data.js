@@ -6523,7 +6523,11 @@ window.searchData = [
       "Glutathione and Inflammatory Metabolomic Signature",
       "Peripheral and Autonomic Nerve Injury",
       "Cardiac Amyloid Infiltration and Dysfunction",
-      "Ocular and Renal Involvement"
+      "Ocular and Renal Involvement",
+      "Hepatic TTR Transcript Abundance",
+      "Hepatocyte-Directed siRNA Delivery",
+      "siRNA-Directed TTR Transcript Cleavage",
+      "Reduced Circulating TTR Precursor Pool"
     ],
     "cell_types": [
       "Schwann cell",
@@ -6538,7 +6542,11 @@ window.searchData = [
       "protein homotetramerization",
       "amyloid fibril formation",
       "glutathione metabolic process",
-      "inflammatory response"
+      "inflammatory response",
+      "mRNA metabolic process",
+      "receptor-mediated endocytosis of a GalNAc-conjugated siRNA",
+      "siRNA-mediated degradation of the TTR transcript",
+      "gene expression"
     ],
     "phenotypes": [
       "Sensorimotor neuropathy",
@@ -6618,10 +6626,10 @@ window.searchData = [
     "source_file": "ATTR_Amyloidosis.yaml",
     "page_url": "../pages/disorders/Hereditary_Transthyretin_Amyloidosis.html",
     "num_phenotypes": 16,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 11,
-    "causal_graph_edges": "34",
+    "causal_graph_edges": "40",
     "causal_graph_longest_path": "6"
   },
   {
@@ -106577,6 +106585,112 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Fibrolamellar Hepatocellular Carcinoma",
+    "disease_id": "MONDO:0006210",
+    "category": "",
+    "parents": [
+      "hepatocellular carcinoma"
+    ],
+    "creation_date": "2026-09-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Fibrolamellar carcinoma is a rare primary liver cancer of adolescents and young adults that arises in an otherwise normal, non-cirrhotic liver and without the viral, alcoholic or metabolic risk factors that define conventional hepatocellular carcinoma. Nearly every tumour carries the same single lesion: a somatic ~400 kb deletion on chromosome 19 that fuses exon 1 of DNAJB1 to the catalytic domain of PRKACA, producing a chimeric protein kinase A catalytic subunit. That chimera is not merely more PKA - it is overexpressed relative to wild-type, it acquires an Hsp70-recruiting scaffolding function the normal kinase lacks, and overexpressing wild-type PRKACA does not reproduce its oncogenic effect. Engineering the equivalent fusion into mouse liver, with no other genetic change and no carcinogen, produces tumours resembling the human disease. Whole-genome sequencing finds no recurrent second hit, which leaves this among the closest things in solid oncology to a one-lesion cancer. Histologically the tumour is built of large eosinophilic, mitochondria-rich polygonal cells separated by the parallel lamellar collagen bands that give the disease its name. Surgical resection is the only intervention with a demonstrated survival effect; chemotherapy and radiation have none.",
+    "pathophysiology": [
+      "Chromosome 19 Deletion Creating the DNAJB1-PRKACA Fusion",
+      "Chimeric DNAJ-PKAc Kinase Expression",
+      "Elevated cAMP-Stimulated PKA Activity",
+      "Acquired Hsp70 Scaffolding Function",
+      "ERK-Biased MAPK Signalling",
+      "SIK Inactivation",
+      "CRTC2-p300 Transcriptional Reprogramming",
+      "AURKA-GSK3 Sub-Network Activation",
+      "MYC Protein Accumulation",
+      "Wnt/beta-Catenin Cooperation",
+      "Hepatocyte Transformation and Clonal Proliferation",
+      "Lamellar Fibrous Stroma Formation",
+      "Hepatic Mass in a Non-Cirrhotic Liver",
+      "Ornithine Transcarbamylase Suppression",
+      "Hyperammonemic Encephalopathy"
+    ],
+    "cell_types": [
+      "neoplastic hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "MAPK cascade",
+      "positive regulation of transcription by RNA polymerase II",
+      "canonical Wnt signaling pathway",
+      "urea cycle"
+    ],
+    "phenotypes": [
+      "Liver Mass Without Cirrhosis",
+      "Hyperammonemia",
+      "Encephalopathy",
+      "Abdominal Pain",
+      "Weight Loss",
+      "Hepatomegaly",
+      "Normal Serum Alpha-Fetoprotein",
+      "Abdominal Distension",
+      "Jaundice",
+      "Gynecomastia"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Neurologic",
+      "Constitutional",
+      "Laboratory",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002896",
+      "HP:0001987",
+      "HP:0001298",
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0002240",
+      "HP:0006254",
+      "HP:0003270",
+      "HP:0000952",
+      "HP:0000771"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DNAJB1-PRKACA"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Cytotoxic Chemotherapy",
+      "DNAJB1-PRKACA Fusion-Neoantigen Peptide Vaccine with Nivolumab and Ipilimumab",
+      "Liver Transplantation",
+      "Regional Lymph Node Sampling",
+      "Aurora Kinase A Inhibition"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum unsaturated vitamin B12 binding capacity"
+    ],
+    "source_file": "Fibrolamellar_Hepatocellular_Carcinoma.yaml",
+    "page_url": "../pages/disorders/Fibrolamellar_Hepatocellular_Carcinoma.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 15,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Fibromuscular Dysplasia",
@@ -281492,17 +281606,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2732,
+  "total_disorder_pages": 2733,
   "total_subtypes": 3649,
-  "total_disorders_and_subtypes": 6381,
-  "total_unique_evidence_sources": 38504,
-  "total_unique_publications": 36268,
+  "total_disorders_and_subtypes": 6382,
+  "total_unique_evidence_sources": 38533,
+  "total_unique_publications": 36293,
   "total_unique_disease_categories": 54,
   "total_unique_phenotype_categories": 275,
-  "total_pathographs": 2727,
-  "total_unique_pathological_events": 16159,
-  "total_modules": 169,
-  "total_research_reports": 2844,
+  "total_pathographs": 2728,
+  "total_unique_pathological_events": 16177,
+  "total_modules": 171,
+  "total_research_reports": 2845,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
