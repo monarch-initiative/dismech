@@ -14,7 +14,6 @@ URI: [dismech:enum/GroupingMemberTypeEnum](https://w3id.org/monarch-initiative/d
 | --- | --- | --- |
 | DISEASE | None | A Disease entry in kb/disorders/ |
 | SUBTYPE | None | A named subtype within a Disease entry |
-| MODULE | None | A mechanism module in kb/modules/ |
 | GROUPING | None | Another Grouping (nested grouping) |
 
 
@@ -66,9 +65,6 @@ permissible_values:
   SUBTYPE:
     text: SUBTYPE
     description: A named subtype within a Disease entry.
-  MODULE:
-    text: MODULE
-    description: A mechanism module in kb/modules/.
   GROUPING:
     text: GROUPING
     description: Another Grouping (nested grouping).

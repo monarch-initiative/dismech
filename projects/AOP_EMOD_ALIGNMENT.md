@@ -267,7 +267,7 @@ that merely resemble each other across the two models are left out.
 | Experiment Type | `EvidenceItem.evidence_source` | Mappable term by term, with one named gap: no clinical or epidemiological term on the AOP side |
 | Evidence (attached to the KER) | `CausalEdge.evidence` | A validated verbatim quote supporting causality between two Events — the unit a KER with no weight-of-evidence assessment needs |
 | Observation (attached to the Event) | `EnvironmentalMechanismTarget.evidence`, `ExperimentalReadout.evidence` | Grounds a stressor/exposure-to-mechanism record, with direction, in a quote validated against the cited source |
-| Event reuse across AOPs; consensus Events | `kb/modules/` plus `Pathophysiology.conforms_to` | Both frameworks factor a recurring mechanism out of the entries sharing it. A module node is dismech's consensus Event, and `conforms_to` declares an entry's node "an organ-specific instance of" it — the relation needed when two AOP authors name one process differently. It is deliberately not inheritance: conforming entries duplicate the content, so this checks consistency and does not merge graphs |
+| Event reuse across AOPs; consensus Events | `kb/modules/` plus `Pathophysiology.conforms_to` | Both frameworks factor a recurring mechanism out of the entries sharing it. A module node is dismech's consensus Event, and `conforms_to` declares an entry's node "an organ-specific instance of" it — the relation needed when two AOP authors name one process differently. It is deliberately not inheritance: conforming entries duplicate the content, so this checks consistency and does not merge graphs. Event reuse does not make an AOP a mechanism boundary, though — see [An AOP is a publication unit, not a mechanism boundary](#an-aop-is-a-publication-unit-not-a-mechanism-boundary) |
 
 The module layer is the part of dismech with no counterpart named elsewhere in this table,
 and it is the closest dismech comes to the AOP's stressor-agnostic posture — a module
@@ -288,6 +288,65 @@ not land on a mechanism node.
 | No taxonomic applicability | AOPs qualify Events, KERs, and whole pathways by species; dismech records species only at model level, never on a mechanism |
 | Toxicokinetics inside the causal chain | ADME sits outside an AOP by design — it determines dose at the MIE, and folding it in is what makes an AOP chemical-specific. dismech chains ADME steps and key events together with nothing marking which is which |
 | Stressor-agnostic vs disease-anchored | An AOP deliberately excludes the stressor so one pathway serves many chemicals; a dismech graph is anchored to a single disease and pulls the exposure in as a node |
+| AOP identity is provenance, not structure | A dismech module is a mechanism boundary; an AOP is a publication unit. One relationship, KER 2124, is listed in 10 AOPs — the same causal step asserted ten times over. Mapping between modules and AOPs is therefore many-to-many, and a count of AOPs is not a count of mechanisms |
+
+### Where the toxicokinetic boundary falls, in the pilot entry
+
+The toxicokinetics row above is not an abstract difference. In `Lead_Poisoning` it is where
+every exposure lands: all ten `environmental:` entries — paint, household dust, drinking
+water, spices, lead-soldered cans, battery manufacture, mining, e-waste recycling, and both
+adulterated-opioid routes — carry `environmental_effect: TRIGGERS` into one node,
+`Lead absorption` (`kb/disorders/Lead_Poisoning.yaml:105`). That node flows to
+`Systemic lead distribution` (line 131) before the chain reaches either
+initiating-event-shaped node: `Inhibition of delta-aminolevulinic acid dehydratase`
+(line 268) and `NMDA receptor blockade in glutamatergic neurons` (line 436,
+`biological_scale: MOLECULAR`). Absorption and systemic distribution are ADME.
+
+That is a negative result for one row of the candidate-correspondence table in
+[#8309](https://github.com/monarch-initiative/dismech/issues/8309), produced by #8309's own
+pilot entry. The table read the molecular initiating event as the "node targeted by a
+`TRIGGERS` `influences_mechanisms` link", hedged as loose because dismech targets "aren't
+required to be molecular or measurable". In this entry the fit is not loose but wrong in a
+specific direction: ten of ten `TRIGGERS` edges land on a toxicokinetic node, and every
+candidate for the initiating event sits two hops downstream. Neither the edge nor
+`biological_scale` marks which kind of step a node is.
+
+Worth stating alongside it: **none of the 35 Key Events tabulated below is a heme-synthesis
+or ALAD event.** The 21 cardiac Events are electrophysiologic and the 14 neurodevelopmental
+ones are glutamatergic, MEK/ERK, mitochondrial and BDNF. So the node this correction
+nominates as initiating-event-shaped has no counterpart anywhere in the comparator set —
+material for the seeding direction, where dismech supplies a candidate the eight lead AOPs
+never reach, rather than a gap on the dismech side.
+
+Recorded as a schema question at
+[question 6](#6-should-a-node-be-markable-as-toxicokinetic-rather-than-as-a-mechanism-step).
+
+### An AOP is a publication unit, not a mechanism boundary
+
+A dismech module draws a boundary around a mechanism. An AOP does not: it packages one
+causal story for publication and evaluation, so the same causal step is routinely carried by
+many AOPs, and one AOP set routinely spans several mechanisms. Three rules follow, and they
+bind on anything consuming AOP-Wiki lookups in bulk.
+
+1. An AOP identifier says which pathway *asserted* a causal step. It is provenance — carried
+   on the edge, and cited when reporting.
+2. It is not a grouping, counting, or de-duplication key.
+3. A mechanism is recovered from a set of relationships by grouping on shared Key Events —
+   the connected components of the relationship graph — not by parent AOP.
+
+This is the framework's own design rather than an artifact of how AOP-Wiki has been curated.
+Villeneuve et al. 2014 state it as three of the five founding principles
+([PMID:25466378](https://pubmed.ncbi.nlm.nih.gov/25466378/)):
+
+> (2) AOPs are modular and composed of reusable components-notably key events (KEs) and key
+> event relationships (KERs); (3) an individual AOP, composed of a single sequence of KEs and
+> KERs, is a pragmatic unit of AOP development and evaluation; (4) networks composed of
+> multiple AOPs that share common KEs and KERs are likely to be the functional unit of
+> prediction for most real-world scenarios
+
+The companion best-practices paper ([PMID:25466379](https://pubmed.ncbi.nlm.nih.gov/25466379/))
+instructs authors to build on existing KE and KER descriptions rather than write redundant
+ones, which is what produces the reuse in the first place.
 
 ---
 
@@ -313,21 +372,13 @@ has run on this constraint across ~2000 entries.
 
 ## The Lead_Poisoning use case
 
-<!--
-TODO: write this section. `Lead_Poisoning` is declared in the frontmatter and named in
-Scope as the pilot comparator, but nothing in the body currently uses it.
-
-Material is available in AOP_EMOD_ALIGNMENT/draft-sections-1-6.md, section 3, but two
-things there need rework before reuse:
-  - the "terminal mechanism node cannot sit in an AOP" claim is flagged SUSPECT — it
-    rests on the false premise that a Key Event requires KERs on both sides;
-  - the AOP 17 comparison predates the MIE and toxicokinetics reframing. Lead absorption
-    and systemic distribution are ADME and sit outside an AOP; `Inhibition of
-    delta-aminolevulinic acid dehydratase` is the MIE-shaped node.
-
-The AOP side of the comparison is expected to come from the OpenScientist network work
-rather than from a single published AOP, so AOP 17 may not remain the comparator.
--->
+[#8309](https://github.com/monarch-initiative/dismech/issues/8309) named one pilot
+comparison: [AOP 17](https://aopwiki.org/aops/17) against `Lead_Poisoning`. AOP 17's
+prototypical stressors are methylmercuric(II) chloride, mercuric chloride and acrylamide;
+lead is not among them, and #8309 named the pair as a mechanism-class comparator rather
+than a chemical one. The AOP side used below is drawn from lead's own pathways instead.
+The dismech side did not change — `Lead_Poisoning` remains the pilot comparator entry
+named in Scope.
 
 The AOP side draws on the eight AOPs that AOP-Wiki aggregates under lead as a prototypical
 stressor ([stressor 59](https://aopwiki.org/stressors/59)): AOPs 12, 499, and 500

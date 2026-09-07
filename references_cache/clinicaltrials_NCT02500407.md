@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02500407"
+reference_id: clinicaltrials:NCT02500407
 title: "An Open-Label, Multicenter, Phase I/II Trial Evaluating the Safety, Efficacy, and Pharmacokinetics of Escalating Doses of Mosunetuzumab (BTCT4465A) as a Single Agent and Combined With Atezolizumab in Patients With Relapsed or Refractory B-Cell Non-Hodgkin's Lymphoma and Chronic Lymphocytic Leukemia"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Open-Label, Multicenter, Phase I/II Trial Evaluating the Safety, Efficacy, and Pharmacokinetics of Escalating Doses of Mosunetuzumab (BTCT4465A) as a Single Agent and Combined With Atezolizumab in Patients With Relapsed or Refractory B-Cell Non-Hodgkin's Lymphoma and Chronic Lymphocytic Leukemia
