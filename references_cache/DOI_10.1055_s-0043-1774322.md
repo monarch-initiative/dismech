@@ -14,6 +14,7 @@ year: '2023'
 doi: 10.1055/s-0043-1774322
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Molecular Diagnosis of Hemophilia A and Pathogenesis of Novel F8 Variants in Shanxi, China

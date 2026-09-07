@@ -15,6 +15,7 @@ year: '2023'
 doi: 10.3389/fcvm.2023.1296389
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Comprehensive review on gene mutations contributing to dilated cardiomyopathy

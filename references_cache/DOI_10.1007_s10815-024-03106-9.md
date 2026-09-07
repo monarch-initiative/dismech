@@ -20,6 +20,7 @@ year: '2024'
 doi: 10.1007/s10815-024-03106-9
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel SPEF2 variants cause male infertility and likely primary ciliary dyskinesia

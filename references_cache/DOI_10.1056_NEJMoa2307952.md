@@ -36,6 +36,7 @@ year: '2024'
 doi: 10.1056/NEJMoa2307952
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Intrathecal Gene Therapy for Giant Axonal Neuropathy

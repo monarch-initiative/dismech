@@ -24,6 +24,7 @@ year: '2024'
 doi: 10.1093/cvr/cvad154
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <i>Prdm16</i> mutation determines sex-specific cardiac metabolism and identifies two novel cardiac metabolic regulators

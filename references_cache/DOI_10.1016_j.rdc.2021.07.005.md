@@ -12,6 +12,7 @@ year: '2021'
 doi: 10.1016/j.rdc.2021.07.005
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Uveitis in Children and Adolescents

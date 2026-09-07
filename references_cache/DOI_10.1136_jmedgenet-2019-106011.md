@@ -28,6 +28,7 @@ year: '2020'
 doi: 10.1136/jmedgenet-2019-106011
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Homozygous mutations in <i>SPEF2</i> induce multiple morphological abnormalities of the sperm flagella and male infertility

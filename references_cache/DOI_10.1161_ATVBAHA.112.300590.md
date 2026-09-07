@@ -24,6 +24,7 @@ year: '2013'
 doi: 10.1161/ATVBAHA.112.300590
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Loss of Function of Parathyroid Hormone Receptor 1 Induces Notch-Dependent Aortic Defects During Zebrafish Vascular Development

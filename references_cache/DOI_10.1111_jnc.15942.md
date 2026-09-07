@@ -1,16 +1,6 @@
 ---
 reference_id: DOI:10.1111/jnc.15942
-title: "Differential responses of disease‐related
-                    <scp>
-                      <i>GRIN</i>
-                    </scp>
-                    variants located in pore‐forming
-                    <scp>M2</scp>
-                    domain of
-                    <scp>N‐methyl‐D</scp>
-                    ‐aspartate receptor to
-                    <scp>FDA</scp>
-                    ‐approved inhibitors"
+title: "Differential responses of disease‐related <scp> <i>GRIN</i> </scp> variants located in pore‐forming <scp>M2</scp> domain of <scp>N‐methyl‐D</scp> ‐aspartate receptor to <scp>FDA</scp> ‐approved inhibitors"
 authors:
 - Rui Song
 - Jin Zhang
@@ -30,19 +20,10 @@ year: '2024'
 doi: 10.1111/jnc.15942
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Differential responses of disease‐related
-                    <scp>
-                      <i>GRIN</i>
-                    </scp>
-                    variants located in pore‐forming
-                    <scp>M2</scp>
-                    domain of
-                    <scp>N‐methyl‐D</scp>
-                    ‐aspartate receptor to
-                    <scp>FDA</scp>
-                    ‐approved inhibitors
+# Differential responses of disease‐related <scp> <i>GRIN</i> </scp> variants located in pore‐forming <scp>M2</scp> domain of <scp>N‐methyl‐D</scp> ‐aspartate receptor to <scp>FDA</scp> ‐approved inhibitors
 **Authors:** Rui Song, Jin Zhang, Riley E. Perszyk, Chad R. Camp, Weiting Tang, Varun Kannan, Jia Li, Yuchen Xu, Jiahui Chen, Yinlong Li, Steven H. Liang, Stephen F. Traynelis, Hongjie Yuan
 **Journal:** Journal of Neurochemistry (2024)
 **DOI:** [10.1111/jnc.15942](https://doi.org/10.1111/jnc.15942)

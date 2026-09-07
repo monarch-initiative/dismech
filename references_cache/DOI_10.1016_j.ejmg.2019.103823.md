@@ -17,6 +17,7 @@ year: '2020'
 doi: 10.1016/j.ejmg.2019.103823
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A new case of KIAA0753-related variant of Jeune asphyxiating thoracic dystrophy

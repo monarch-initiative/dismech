@@ -29,6 +29,7 @@ year: '2021'
 doi: 10.1161/CIRCULATIONAHA.120.049844
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Unfolded Protein Response as a Compensatory Mechanism and Potential Therapeutic Target in PLN R14del Cardiomyopathy

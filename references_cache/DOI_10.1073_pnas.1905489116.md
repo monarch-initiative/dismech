@@ -16,6 +16,7 @@ year: '2019'
 doi: 10.1073/pnas.1905489116
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The RNA demethylase FTO is required for maintenance of bone mass and functions to protect osteoblasts from genotoxic damage

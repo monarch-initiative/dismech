@@ -15,6 +15,7 @@ year: '2013'
 doi: 10.1016/j.joca.2013.08.011
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Articular osteochondrosis: a comparison of naturally-occurring human and animal disease

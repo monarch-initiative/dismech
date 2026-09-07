@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.1055/s-0041-1722862
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Gene Therapy for Inherited Bleeding Disorders

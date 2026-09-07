@@ -18,6 +18,7 @@ year: '2023'
 doi: 10.3389/fgene.2023.1098795
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # F8 gene inversion and duplication cause no obvious hemophilia A phenotype

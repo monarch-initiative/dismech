@@ -20,6 +20,7 @@ year: '2023'
 doi: 10.1016/j.ebiom.2023.104849
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # GLUT-1 changes in paediatric Huntington disease brain cortex and fibroblasts: an observational case-control study

@@ -41,6 +41,7 @@ year: '2022'
 doi: 10.1002/ana.26293
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Variants in Mitochondrial <scp>ATP</scp> Synthase Cause Variable Neurologic Phenotypes

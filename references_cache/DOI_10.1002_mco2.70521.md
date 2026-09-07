@@ -12,6 +12,7 @@ year: '2025'
 doi: 10.1002/mco2.70521
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Idiopathic Pulmonary Fibrosis: Cellular Heterogeneity, Mechanisms, and Therapeutic Implications

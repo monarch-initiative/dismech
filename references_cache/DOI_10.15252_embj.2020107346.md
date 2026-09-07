@@ -17,6 +17,7 @@ year: '2021'
 doi: 10.15252/embj.2020107346
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Cancer‐associated POT1 mutations lead to telomere elongation without induction of a DNA damage response

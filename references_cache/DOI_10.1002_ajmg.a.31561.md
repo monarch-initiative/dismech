@@ -11,6 +11,7 @@ year: '2007'
 doi: 10.1002/ajmg.a.31561
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Branchio‐oto‐renal syndrome

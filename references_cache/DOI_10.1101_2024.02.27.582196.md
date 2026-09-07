@@ -10,6 +10,7 @@ doi: 10.1101/2024.02.27.582196
 content_type: abstract_only
 is_preprint: true
 peer_review_status: preprint
+full_text_attempted: true
 ---
 
 # Bioinformatic analysis of human ZPR1 gene pathogenic exome mutations

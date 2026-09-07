@@ -12,6 +12,7 @@ year: '1996'
 doi: 10.1128/MCB.16.3.771
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Use of Transmitochondrial Cybrids To Assign a Complex I Defect to the Mitochondrial DNA-Encoded NADH Dehydrogenase Subunit 6 Gene Mutation at Nucleotide Pair 14459 That Causes Leber Hereditary Optic Neuropathy and Dystonia

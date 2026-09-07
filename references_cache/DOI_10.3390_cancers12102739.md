@@ -10,6 +10,7 @@ year: '2020'
 doi: 10.3390/cancers12102739
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Role of POT1 in Human Cancer

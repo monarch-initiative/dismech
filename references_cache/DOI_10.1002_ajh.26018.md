@@ -10,6 +10,7 @@ year: '2021'
 doi: 10.1002/ajh.26018
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <scp>2021</scp> clinical trials update: Innovations in hemophilia therapy

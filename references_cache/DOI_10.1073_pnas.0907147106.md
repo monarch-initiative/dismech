@@ -17,6 +17,7 @@ year: '2009'
 doi: 10.1073/pnas.0907147106
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # DNA polymerase ε and δ proofreading suppress discrete mutator and cancer phenotypes in mice

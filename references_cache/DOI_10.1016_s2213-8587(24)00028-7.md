@@ -21,6 +21,7 @@ year: '2024'
 doi: 10.1016/s2213-8587(24)00028-7
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Classes and predictors of reversal in male patients with congenital hypogonadotropic hypogonadism: a cross-sectional study of six international referral centres

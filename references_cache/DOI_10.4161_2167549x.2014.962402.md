@@ -9,6 +9,7 @@ year: '2014'
 doi: 10.4161/2167549x.2014.962402
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Motor neuron degeneration in spinal and Bulbar Muscular Atrophy is a skeletal muscle-driven process: Relevance to therapy development and implications for related motor neuron diseases

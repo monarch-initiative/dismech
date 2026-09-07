@@ -28,6 +28,7 @@ year: '2021'
 doi: 10.1080/13816810.2021.1946704
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Expanding the clinical phenotype in patients with disease causing variants associated with atypical Usher syndrome

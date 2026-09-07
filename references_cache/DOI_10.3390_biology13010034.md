@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.3390/biology13010034
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Lysosomal Dysfunction: Connecting the Dots in the Landscape of Human Diseases

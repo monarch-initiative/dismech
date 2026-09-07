@@ -10,6 +10,7 @@ year: '2022'
 doi: 10.3390/cardiogenetics12010006
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetics of Heritable Thoracic Aortic Disease

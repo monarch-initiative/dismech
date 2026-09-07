@@ -15,6 +15,7 @@ year: '2023'
 doi: 10.1016/j.ajhg.2023.02.004
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Epigenetic regulation of plastin 3 expression by the macrosatellite DXZ4 and the transcriptional regulator CHD4

@@ -17,6 +17,7 @@ year: '2006'
 doi: 10.1093/hmg/ddl154
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # KCNJ11 gene knockout of the Kir6.2 K ATP channel causes maladaptive remodeling and heart failure in hypertension

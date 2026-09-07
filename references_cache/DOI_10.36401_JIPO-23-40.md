@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.36401/JIPO-23-40
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Advanced Granulosa Cell Tumors of the Ovary: A Review with a Focus on Current and Novel Therapeutic Approaches

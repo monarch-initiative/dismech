@@ -1,10 +1,6 @@
 ---
 reference_id: DOI:10.1002/jimd.70017
-title: "Setting the Stage for Treatment of Aminoacyl‐
-                    <scp>tRNA</scp>
-                    Synthetase (
-                    <scp>ARS</scp>
-                    )1‐Deficiencies: Phenotypic Characterization and a Review of Treatment Effects"
+title: "Setting the Stage for Treatment of Aminoacyl‐ <scp>tRNA</scp> Synthetase ( <scp>ARS</scp> )1‐Deficiencies: Phenotypic Characterization and a Review of Treatment Effects"
 authors:
 - Eva M. M. Hoytema van Konijnenburg
 - Joline Rohof
@@ -18,13 +14,10 @@ year: '2025'
 doi: 10.1002/jimd.70017
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Setting the Stage for Treatment of Aminoacyl‐
-                    <scp>tRNA</scp>
-                    Synthetase (
-                    <scp>ARS</scp>
-                    )1‐Deficiencies: Phenotypic Characterization and a Review of Treatment Effects
+# Setting the Stage for Treatment of Aminoacyl‐ <scp>tRNA</scp> Synthetase ( <scp>ARS</scp> )1‐Deficiencies: Phenotypic Characterization and a Review of Treatment Effects
 **Authors:** Eva M. M. Hoytema van Konijnenburg, Joline Rohof, Gautam Kok, Peter M. van Hasselt, Clara D. van Karnebeek, Irena J. J. Muffels, Sabine A. Fuchs
 **Journal:** Journal of Inherited Metabolic Disease (2025)
 **DOI:** [10.1002/jimd.70017](https://doi.org/10.1002/jimd.70017)

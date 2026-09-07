@@ -26,6 +26,7 @@ year: '2025'
 doi: 10.1161/circulationaha.124.072445
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mavacamten in Patients With Hypertrophic Cardiomyopathy Referred for Septal Reduction: Week 128 Results From VALOR-HCM

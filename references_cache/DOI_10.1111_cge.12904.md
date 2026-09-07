@@ -10,6 +10,7 @@ year: '2017'
 doi: 10.1111/cge.12904
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Connections between constitutional mismatch repair deficiency syndrome and neurofibromatosis type 1

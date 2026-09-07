@@ -11,6 +11,7 @@ year: '2019'
 doi: 10.3390/ijms20215324
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Recent Advances in Basic Research for Brain Arteriovenous Malformation

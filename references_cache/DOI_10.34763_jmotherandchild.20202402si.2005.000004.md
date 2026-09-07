@@ -7,6 +7,7 @@ journal: "Journal of Mother and Child. Medycyna Wieku Rozwojowego. 2020;24(2):14
 year: '2020'
 doi: 10.34763/jmotherandchild.20202402si.2005.000004
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Congenital disorders of glycosylation (CDG), a multigenetic disease family with multiple subcellular locations

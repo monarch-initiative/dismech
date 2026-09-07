@@ -25,6 +25,7 @@ year: '2018'
 doi: 10.1016/j.ymthe.2018.05.016
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Specific Inhibition of Hepatic Lactate Dehydrogenase Reduces Oxalate Production in Mouse Models of Primary Hyperoxaluria

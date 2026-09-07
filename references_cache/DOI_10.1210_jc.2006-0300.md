@@ -13,6 +13,7 @@ year: '2007'
 doi: 10.1210/jc.2006-0300
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel Mutations in the Parathyroid Hormone (PTH)/PTH-Related Peptide Receptor Type 1 Causing Blomstrand Osteochondrodysplasia Types I and II

@@ -12,6 +12,7 @@ year: '2023'
 doi: 10.1167/tvst.12.3.27
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Systemic Administration of Acazicolcept, a Dual CD28 and Inducible T cell Costimulator Inhibitor, Ameliorates Experimental Autoimmune Uveitis

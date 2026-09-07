@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.1002/mds.29657
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Dystonia in <scp>ATP</scp> Synthase Defects: Reconnecting Mitochondria and Dopamine

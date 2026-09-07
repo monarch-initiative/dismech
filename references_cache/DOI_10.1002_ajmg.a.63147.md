@@ -15,6 +15,7 @@ year: '2023'
 doi: 10.1002/ajmg.a.63147
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Portrait of autosomal recessive diseases in the <scp>French‐Canadian</scp> founder population of <scp>Saguenay‐Lac‐Saint‐Jean</scp>

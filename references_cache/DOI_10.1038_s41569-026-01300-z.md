@@ -12,6 +12,7 @@ year: '2026'
 doi: 10.1038/s41569-026-01300-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Epidemiology of non-ischaemic dilated cardiomyopathy

@@ -14,6 +14,7 @@ year: '2026'
 doi: 10.3389/fphar.2026.1750573
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Toxicology and detoxification processing of Fuzi (Aconitum carmichaelii Debeaux lateral root): a comprehensive review integrating historical perspectives and modern research

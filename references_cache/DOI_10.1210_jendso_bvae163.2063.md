@@ -10,6 +10,7 @@ year: '2024'
 doi: 10.1210/jendso/bvae163.2063
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # 7684 Resistance to Thyroid Hormone Beta Mistaken as Primary Hypothyroidism: Variable Phenotypes and Diagnostic Dilemmas

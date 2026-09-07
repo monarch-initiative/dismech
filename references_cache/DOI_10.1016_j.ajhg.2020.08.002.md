@@ -25,6 +25,7 @@ year: '2020'
 doi: 10.1016/j.ajhg.2020.08.002
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # De Novo KAT5 Variants Cause a Syndrome with Recognizable Facial Dysmorphisms, Cerebellar Atrophy, Sleep Disturbance, and Epilepsy

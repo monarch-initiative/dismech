@@ -13,6 +13,7 @@ year: '2018'
 doi: 10.4172/2165-7920.10001120
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Familial Glucocorticoid Deficiency Presenting as Progressive Hyperpigmentation: A Case Report

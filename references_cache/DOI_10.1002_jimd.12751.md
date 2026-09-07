@@ -9,6 +9,7 @@ year: '2024'
 doi: 10.1002/jimd.12751
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Pathological variants in nuclear genes causing mitochondrial complex <scp>III</scp> deficiency: <scp>An</scp> update

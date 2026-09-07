@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.1080/14728222.2023.2218616
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Renal ciliopathies: promising drug targets and prospects for clinical trials

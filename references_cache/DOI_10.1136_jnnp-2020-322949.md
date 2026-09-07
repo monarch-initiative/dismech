@@ -12,6 +12,7 @@ year: '2020'
 doi: 10.1136/jnnp-2020-322949
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Disease mechanism, biomarker and therapeutics for spinal and bulbar muscular atrophy (SBMA)

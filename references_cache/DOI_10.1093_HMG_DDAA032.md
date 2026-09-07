@@ -21,6 +21,7 @@ year: '2020'
 doi: 10.1093/HMG/DDAA032
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biallelic variants in PSMB1 encoding the proteasome subunit β6 cause impairment of proteasome function, microcephaly, intellectual disability, developmental delay and short stature

@@ -14,6 +14,7 @@ year: '2024'
 doi: 10.3390/children11050582
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Congenital Long QT Syndrome in Children and Adolescents: A General Overview

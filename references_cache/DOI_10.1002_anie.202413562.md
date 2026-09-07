@@ -13,6 +13,7 @@ year: '2024'
 doi: 10.1002/anie.202413562
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Live‐Cell Identification of Inhibitors of the Lipid Transfer Protein CERT Using Nanoluciferase Bioluminescence Resonance Energy Transfer (NanoBRET)

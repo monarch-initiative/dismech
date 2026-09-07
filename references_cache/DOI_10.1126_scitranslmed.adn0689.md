@@ -19,6 +19,7 @@ year: '2024'
 doi: 10.1126/scitranslmed.adn0689
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Targeted genome editing restores auditory function in adult mice with progressive hearing loss caused by a human microRNA mutation

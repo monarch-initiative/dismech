@@ -8,6 +8,7 @@ year: '2021'
 doi: 10.1146/annurev-vision-093019-114307
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Axonal Growth Abnormalities Underlying Ocular Cranial Nerve Disorders

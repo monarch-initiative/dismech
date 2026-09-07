@@ -9,6 +9,7 @@ year: '2009'
 doi: 10.1136/jmg.2008.062158
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetics of microtia and associated syndromes

@@ -17,6 +17,7 @@ year: '2012'
 doi: 10.1016/j.bbr.2012.01.007
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # GluA3-deficiency in mice is associated with increased social and aggressive behavior and elevated dopamine in striatum

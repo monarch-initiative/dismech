@@ -34,6 +34,7 @@ year: '2021'
 doi: 10.1038/s41436-020-01049-x
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Systematic large-scale assessment of the genetic architecture of left ventricular noncompaction reveals diverse etiologies

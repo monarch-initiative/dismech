@@ -15,6 +15,7 @@ year: '2021'
 doi: 10.1016/j.ijporl.2021.110764
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Congenital abnormalities associated with microtia: A 10-YEARS retrospective study

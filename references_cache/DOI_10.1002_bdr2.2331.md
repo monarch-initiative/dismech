@@ -19,6 +19,7 @@ year: '2024'
 doi: 10.1002/bdr2.2331
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genome‐wide analysis of spina bifida risk variants in a case–control study from Bangladesh

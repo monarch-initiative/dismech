@@ -1,10 +1,6 @@
 ---
 reference_id: DOI:10.1111/mve.12634
-title: "Prevalence of
-                    <scp>
-                      <i>Oestrus ovis</i>
-                    </scp>
-                    in small ruminants from the eastern Iberian Peninsula. A long‐term study"
+title: "Prevalence of <scp> <i>Oestrus ovis</i> </scp> in small ruminants from the eastern Iberian Peninsula. A long‐term study"
 authors:
 - María Magdalena Garijo‐Toledo
 - José Sansano‐Maestre
@@ -18,13 +14,10 @@ year: '2023'
 doi: 10.1111/mve.12634
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Prevalence of
-                    <scp>
-                      <i>Oestrus ovis</i>
-                    </scp>
-                    in small ruminants from the eastern Iberian Peninsula. A long‐term study
+# Prevalence of <scp> <i>Oestrus ovis</i> </scp> in small ruminants from the eastern Iberian Peninsula. A long‐term study
 **Authors:** María Magdalena Garijo‐Toledo, José Sansano‐Maestre, Ana Elena Ahuir‐Baraja, Carlos Martínez‐Carrasco, Francisco Domingo Alonso de Vega, Lola Llobat, María Rocío Ruiz de Ybáñez‐Carnero
 **Journal:** Medical and Veterinary Entomology (2023)
 **DOI:** [10.1111/mve.12634](https://doi.org/10.1111/mve.12634)

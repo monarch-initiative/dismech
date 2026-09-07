@@ -11,6 +11,7 @@ year: '2010'
 doi: 10.1111/j.1365-2265.2009.03663.x
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phenotypic characteristics of familial glucocorticoid deficiency (FGD) type 1 and 2

@@ -13,6 +13,7 @@ year: '2023'
 doi: 10.3390/children10030577
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Frasier Syndrome: A 15-Year-Old Phenotypically Female Adolescent Presenting with Delayed Puberty and Nephropathy

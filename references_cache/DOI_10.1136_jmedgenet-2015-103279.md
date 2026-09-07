@@ -14,6 +14,7 @@ year: '2015'
 doi: 10.1136/jmedgenet-2015-103279
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Old gene, new phenotype: mutations in heparan sulfate synthesis enzyme, EXT2 leads to seizure and developmental disorder, no exostoses

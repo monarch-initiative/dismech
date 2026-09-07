@@ -8,6 +8,7 @@ year: '2015'
 doi: 10.1007/s10545-014-9768-6
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mitochondrial disease associated with complex I (NADH‐CoQ oxidoreductase) deficiency

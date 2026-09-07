@@ -9,6 +9,7 @@ year: '2017'
 doi: 10.1111/hae.13280
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Defective acid hydrolase secretion in <i><scp>RUNX</scp>1</i> haplodeficiency: Evidence for a global platelet secretory defect

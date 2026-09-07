@@ -8,6 +8,7 @@ year: '2023'
 doi: 10.1146/annurev-pharmtox-051921-123023
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Personalized Therapeutics for K<sub>ATP</sub>-Dependent Pathologies

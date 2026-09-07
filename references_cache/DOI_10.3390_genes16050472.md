@@ -27,6 +27,7 @@ year: '2025'
 doi: 10.3390/genes16050472
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Clinical Relevance of IFT140 Loss-of-Function Variants in Development of Renal Cysts

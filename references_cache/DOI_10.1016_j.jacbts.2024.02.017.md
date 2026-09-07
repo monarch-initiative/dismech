@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1016/j.jacbts.2024.02.017
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Reassessing the Mechanisms of PLN-R14del Cardiomyopathy

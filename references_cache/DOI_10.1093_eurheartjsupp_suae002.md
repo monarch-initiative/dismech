@@ -20,6 +20,7 @@ year: '2024'
 doi: 10.1093/eurheartjsupp/suae002
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The new 2023 ESC guidelines for the management of cardiomyopathies: a guiding path for cardiologist decisions

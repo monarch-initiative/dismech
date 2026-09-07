@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1073/pnas.2318413121
-title: "Incomplete-penetrant hypertrophic cardiomyopathy
-                    <i>MYH7</i>
-                    G256E mutation causes hypercontractility and elevated mitochondrial respiration"
+title: "Incomplete-penetrant hypertrophic cardiomyopathy <i>MYH7</i> G256E mutation causes hypercontractility and elevated mitochondrial respiration"
 authors:
 - Soah Lee
 - Alison S. Vander Roest
@@ -33,11 +31,10 @@ year: '2024'
 doi: 10.1073/pnas.2318413121
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Incomplete-penetrant hypertrophic cardiomyopathy
-                    <i>MYH7</i>
-                    G256E mutation causes hypercontractility and elevated mitochondrial respiration
+# Incomplete-penetrant hypertrophic cardiomyopathy <i>MYH7</i> G256E mutation causes hypercontractility and elevated mitochondrial respiration
 **Authors:** Soah Lee, Alison S. Vander Roest, Cheavar A. Blair, Kerry Kao, Samantha B. Bremner, Matthew C. Childers, Divya Pathak, Paul Heinrich, Daniel Lee, Orlando Chirikian, Saffie E. Mohran, Brock Roberts, Jacqueline E. Smith, James W. Jahng, David T. Paik, Joseph C. Wu, Ruwanthi N. Gunawardane, Kathleen M. Ruppel, David L. Mack, Beth L. Pruitt, Michael Regnier, Sean M. Wu, James A. Spudich, Daniel Bernstein
 **Journal:** Proceedings of the National Academy of Sciences (2024)
 **DOI:** [10.1073/pnas.2318413121](https://doi.org/10.1073/pnas.2318413121)

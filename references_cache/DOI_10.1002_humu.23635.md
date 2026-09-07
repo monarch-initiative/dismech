@@ -42,6 +42,7 @@ year: '2018'
 doi: 10.1002/humu.23635
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <i>STAC3</i>variants cause a congenital myopathy with distinctive dysmorphic features and malignant hyperthermia susceptibility

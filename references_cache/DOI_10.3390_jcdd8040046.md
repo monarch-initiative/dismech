@@ -13,6 +13,7 @@ year: '2021'
 doi: 10.3390/jcdd8040046
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # A Heterozygous Mutation in Cardiac Troponin T Promotes Ca2+ Dysregulation and Adult Cardiomyopathy in Zebrafish

@@ -36,6 +36,7 @@ year: '2024'
 doi: 10.1093/brain/awae010
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Novel loss-of-function variants expand <i>ABCC9</i>-related intellectual disability and myopathy syndrome

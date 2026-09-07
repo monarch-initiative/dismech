@@ -9,6 +9,7 @@ year: '2009'
 doi: 10.1007/s00335-009-9230-5
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # MicroRNAs and epigenetic regulation in the mammalian inner ear: implications for deafness

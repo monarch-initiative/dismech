@@ -82,6 +82,7 @@ year: '2017'
 doi: 10.1136/jmedgenet-2016-104509
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # <i>GRIN2B</i> encephalopathy: novel findings on phenotype, variant clustering, functional consequences and treatment aspects

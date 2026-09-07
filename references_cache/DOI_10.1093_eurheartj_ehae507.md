@@ -10,6 +10,7 @@ year: '2025'
 doi: 10.1093/eurheartj/ehae507
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Hypertrophic cardiomyopathy evolving management: American Heart Association/American College of Cardiology vs. European Society of Cardiology guidelines

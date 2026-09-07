@@ -17,6 +17,7 @@ year: '2025'
 doi: 10.1212/WNL.0000000000214144
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Intrinsic Capacity Defined Using 4 Domains, Genetic Risk, and Incident Parkinson Disease

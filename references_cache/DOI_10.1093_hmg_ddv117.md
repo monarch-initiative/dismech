@@ -19,6 +19,7 @@ year: '2015'
 doi: 10.1093/hmg/ddv117
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Germline recessive mutations in PI4KA are associated with perisylvian polymicrogyria, cerebellar hypoplasia and arthrogryposis

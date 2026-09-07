@@ -14,6 +14,7 @@ year: '2021'
 doi: 10.1101/gad.348636.121
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # CEP120-mediated KIAA0753 recruitment onto centrioles is required for timely neuronal differentiation and germinal zone exit in the developing cerebellum

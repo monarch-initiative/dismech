@@ -32,6 +32,7 @@ year: '2022'
 doi: 10.1161/circresaha.121.320565
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Piezo1-Regulated Mechanotransduction Controls Flow-Activated Lymphatic Expansion

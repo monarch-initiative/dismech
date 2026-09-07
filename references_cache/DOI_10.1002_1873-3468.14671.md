@@ -10,6 +10,7 @@ year: '2023'
 doi: 10.1002/1873-3468.14671
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Cytochrome <i>c</i> oxidase biogenesis – from translation to early assembly of the core subunit <scp>COX1</scp>

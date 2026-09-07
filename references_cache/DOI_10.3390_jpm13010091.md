@@ -10,6 +10,7 @@ year: '2022'
 doi: 10.3390/jpm13010091
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Genetic Approaches for the Treatment of Giant Axonal Neuropathy

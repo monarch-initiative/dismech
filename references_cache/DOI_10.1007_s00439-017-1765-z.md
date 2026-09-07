@@ -22,6 +22,7 @@ year: '2017'
 doi: 10.1007/s00439-017-1765-z
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in KIAA0753 cause Joubert syndrome associated with growth hormone deficiency

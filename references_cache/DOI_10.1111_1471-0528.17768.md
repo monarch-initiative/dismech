@@ -11,6 +11,7 @@ year: '2024'
 doi: 10.1111/1471-0528.17768
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # The difference in extracellular matrix metabolism in women with and without pelvic organ prolapse: A systematic review and meta‐analysis

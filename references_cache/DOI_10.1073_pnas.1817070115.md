@@ -17,6 +17,7 @@ year: '2018'
 doi: 10.1073/pnas.1817070115
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mechanically activated ion channel PIEZO1 is required for lymphatic valve formation

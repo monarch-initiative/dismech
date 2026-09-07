@@ -27,6 +27,7 @@ year: '2023'
 doi: 10.1111/bjh.18871
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Expanding the clinical phenotype of <scp>FADD</scp> deficiency with a novel mutation and its role in Fas‐mediated apoptotic pathway

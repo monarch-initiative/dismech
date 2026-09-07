@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1111/epi.17876
-title: "Developmental epileptic encephalopathy in
-                    <i>DLG4</i>
-                    ‐related synaptopathy"
+title: "Developmental epileptic encephalopathy in <i>DLG4</i> ‐related synaptopathy"
 authors:
 - Benedetta Kassabian
 - Amanda M. Levy
@@ -73,11 +71,10 @@ year: '2024'
 doi: 10.1111/epi.17876
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Developmental epileptic encephalopathy in
-                    <i>DLG4</i>
-                    ‐related synaptopathy
+# Developmental epileptic encephalopathy in <i>DLG4</i> ‐related synaptopathy
 **Authors:** Benedetta Kassabian, Amanda M. Levy, Elena Gardella, Angel Aledo‐Serrano, Amitha L. Ananth, Alejandro J. Brea‐Fernández, Roseline Caumes, Nicolas Chatron, Alice Dainelli, Matthias De Wachter, Anne‐Sophie Denommé‐Pichon, Thomas J. Dye, Elisa Fazzi, Roxanne Felt, Alberto Fernández‐Jaén, Montse Fernández‐Prieto, Emily Gantz, Piotr Gasperowicz, Antonio Gil‐Nagel, David Gómez‐Andrés, Hansel M. Greiner, Renzo Guerrini, Maria K. Haanpää, Minttu Helin, Juliane Hoyer, Anna C. E. Hurst, Staci Kallish, Shefali N. Karkare, Amjad Khan, Lotte Kleinendorst, Johannes Koch, Sanjeev V. Kothare, Suzanna M. Koudijs, Lieven Lagae, Phillis Lakeman, Kathleen A. Leppig, Gaetan Lesca, Diego Lopergolo, Laina Lusk, Alex Mackenzie, Davide Mei, Rikke S. Møller, Elaine M. Pereira, Konrad Platzer, Chloe Quelin, Anya Revah‐Politi, Sylvain Rheims, Agustí Rodríguez‐Palmero, Andrea Rossi, Filippo Santorelli, Syndi Seinfeld, Erick Sell, Donna Stephenson, Krzysztof Szczaluba, Eugen Trinka, Muhammad Umair, Hilde Van Esch, Mieke M. van Haelst, Danielle C. M. Veenma, Sacha Weber, Sarah Weckhuysen, Pia Zacher, Zeynep Tümer, Guido Rubboli
 **Journal:** Epilepsia (2024)
 **DOI:** [10.1111/epi.17876](https://doi.org/10.1111/epi.17876)

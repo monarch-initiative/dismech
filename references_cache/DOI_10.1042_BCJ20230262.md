@@ -12,6 +12,7 @@ year: '2024'
 doi: 10.1042/BCJ20230262
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mechanisms and pathologies of human mitochondrial DNA replication and deletion formation

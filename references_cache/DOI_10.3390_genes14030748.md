@@ -14,6 +14,7 @@ year: '2023'
 doi: 10.3390/genes14030748
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Homozygous TNNI3 Mutations and Severe Early Onset Dilated Cardiomyopathy: Patient Report and Review of the Literature
