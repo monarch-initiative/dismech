@@ -3364,6 +3364,12 @@ auto-merge-preview days='3':
         --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
         --min-age-days {{days}} --dry-run
 
+# Preview failed review Action retries without changing any workflow runs.
+[group('Auto-merge')]
+review-retry-preview:
+    uv run --no-project python scripts/retry_failed_reviews.py \
+        --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" --dry-run
+
 # ============== Phenoagent: case-to-disease matching ==============
 
 # Step 1 - Deterministic init: build an initial matching YAML from a phenopacket
