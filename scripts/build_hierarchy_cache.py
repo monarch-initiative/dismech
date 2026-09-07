@@ -299,7 +299,18 @@ def main() -> int:
         out.write_text(
             render_csv(resolved, retrieved_at, previous, carried), encoding="utf-8"
         )
-        print(f"  wrote {len(resolved)} path(s) to {out.relative_to(REPO_ROOT)}")
+        # Count what the file holds, not what this run resolved. The two differ
+        # only when rows were carried forward -- which is exactly when the
+        # operator is reading this line to work out whether the file shrank.
+        print(
+            f"  wrote {len(resolved) + len(carried)} path(s) "
+            f"to {out.relative_to(REPO_ROOT)}"
+        )
+        if carried:
+            print(
+                f"    ({len(resolved)} re-resolved, "
+                f"{len(carried)} carried forward unchanged)"
+            )
         for curie in unresolved:
             if curie in carried:
                 print(f"  unresolved this run; KEPT the committed row for {curie}")
