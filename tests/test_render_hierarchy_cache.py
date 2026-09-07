@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from dismech import hierarchy_cache
+from dismech import hierarchy_cache, oak_db
 from dismech.render import (
     STRICT_HIERARCHIES,
     _build_hierarchy_path,
@@ -251,6 +251,24 @@ def test_cache_hit_short_circuits_the_adapter(monkeypatch) -> None:
 # --- the real adapter -------------------------------------------------------
 
 
+def _require_local_build(adapter_spec: str) -> None:
+    """Skip unless this adapter's SQLite build is already on disk.
+
+    The `oak_db` marker alone guards nothing — a marker deselects only where an
+    invocation asks it to, and `pytest -m "not kb_data"` does not. Nor does
+    `_get_oak_adapter(...) is None`, which was the guard here and never fires:
+    semsql *downloads* a missing build, so on a CI runner these two tests ran
+    for 11m35s and pulled 3.6 GB instead of skipping. Only asking about the file
+    is a guard, and it holds under a bare `pytest` too.
+    """
+    if not oak_db.local_build_present(adapter_spec):
+        pytest.skip(
+            f"{adapter_spec} has no local build at "
+            f"{oak_db.local_build_path(oak_db.adapter_build_name(adapter_spec) or '')}"
+            " -- fetch it with `just fetch-ontology-dbs`"
+        )
+
+
 @pytest.mark.oak_db
 def test_real_oak_adapter_resolves_a_known_ncit_path() -> None:
     """The one test that still exercises a real OAK walk.
@@ -259,15 +277,17 @@ def test_real_oak_adapter_resolves_a_known_ncit_path() -> None:
     notice if the live lookup broke — a renderer that silently stopped
     producing breadcrumbs would still pass.
 
-    **This runs on a developer machine and nowhere else.** No CI workflow
-    fetches the OAK SQLite builds, so the skip below is taken in every CI lane
-    including the nightly sweep. `just check-hierarchy-cache` is the offline
-    coverage check that does run there.
+    **This runs on a developer machine and nowhere else** -- but only because
+    of the file check below, not because CI lacks the build. Nothing has to
+    fetch these builds for them to appear; OAK fetches them on demand. See
+    `_require_local_build`. `just check-hierarchy-cache` is the offline coverage
+    check that does run in CI.
     """
     hierarchy = STRICT_HIERARCHIES["NCIT"]
+    _require_local_build(hierarchy["adapter"])
     adapter = _get_oak_adapter(hierarchy["adapter"])
     if adapter is None:
-        pytest.skip(f"{hierarchy['adapter']} is not available in this environment")
+        pytest.skip(f"{hierarchy['adapter']} could not be opened")
 
     path = _build_hierarchy_path(adapter, "NCIT:C9120", hierarchy["root"])
     if not path:
@@ -311,18 +331,21 @@ def test_committed_cache_agrees_with_the_live_adapter(prefix: str) -> None:
     the other 87 rows unverified, and opening the adapter is the expensive part,
     so this compares the whole prefix once it is paying for that.
 
-    Local-only, like its neighbour above: no CI workflow fetches the OAK builds.
-    Budget about 15 minutes for the pair against the local ICD10CM and NCIT
-    builds; the memoisation below is what keeps it to that rather than hours.
+    Local-only, like its neighbour above, and for the same reason: the build has
+    to be on disk already. Budget about 15 minutes for the pair against the
+    local ICD10CM and NCIT builds; the memoisation below is what keeps it to
+    that rather than hours.
     """
+    hierarchy = STRICT_HIERARCHIES[prefix]
+    _require_local_build(hierarchy["adapter"])
+
     cached = hierarchy_cache.load_hierarchy_cache(prefix)
     if not cached:
         pytest.skip(f"no committed {prefix} hierarchy cache to compare against")
 
-    hierarchy = STRICT_HIERARCHIES[prefix]
     raw = _get_oak_adapter(hierarchy["adapter"])
     if raw is None:
-        pytest.skip(f"{hierarchy['adapter']} is not available in this environment")
+        pytest.skip(f"{hierarchy['adapter']} could not be opened")
     adapter = _MemoisingAdapter(raw)
 
     mismatches = []

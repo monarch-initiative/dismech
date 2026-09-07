@@ -29,7 +29,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from dismech import hierarchy_cache
+from dismech import hierarchy_cache, oak_db
 from dismech.render import (
     STRICT_HIERARCHIES,
     _build_hierarchy_path,
@@ -112,12 +112,21 @@ def resolve(
 ) -> tuple[dict[str, list[tuple[str, str]]], list[str]]:
     """Walk each CURIE to the vocabulary root. Returns (resolved, unresolved)."""
     hierarchy = STRICT_HIERARCHIES[prefix]
+    # Check for the build before opening the adapter. semsql downloads a missing
+    # one rather than failing, so `_get_oak_adapter(...) is None` would never be
+    # true and this message would never print -- the operator would just watch
+    # gigabytes arrive with no explanation.
+    if not oak_db.local_build_present(hierarchy["adapter"]):
+        raise SystemExit(
+            f"no local SQLite build for {prefix} at "
+            f"{oak_db.local_build_path(oak_db.adapter_build_name(hierarchy['adapter']) or '')}. "
+            f"Fetch it with `just fetch-ontology-dbs {prefix.lower()}` first "
+            "(rather than letting OAK download it mid-run)."
+        )
     raw = _get_oak_adapter(hierarchy["adapter"])
     if raw is None:
         raise SystemExit(
-            f"could not open the OAK adapter {hierarchy['adapter']!r} for {prefix}. "
-            "The local SQLite build is required to rebuild this cache. "
-            f"Try `just fetch-ontology-dbs {prefix.lower()}` first."
+            f"could not open the OAK adapter {hierarchy['adapter']!r} for {prefix}."
         )
     adapter = MemoisingAdapter(raw)
 

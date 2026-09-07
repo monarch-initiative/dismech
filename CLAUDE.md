@@ -2597,9 +2597,21 @@ Two things worth knowing before you touch it:
 - **The drift guard is local-only, deliberately.** The test that compares the
   committed cache against a live OAK walk is marked `oak_db`, a marker meaning
   "needs a local ontology database" — distinct from `kb_data`, which is about KB
-  files. **No CI workflow fetches the OAK SQLite builds**, so every `oak_db`
-  test skips in every CI lane, the nightly sweep included. Do not treat one as a
-  CI gate. What runs in CI is `just check-hierarchy-cache` in the nightly sweep:
+  files. Do not treat one as a CI gate.
+
+  **An `oak_db` test needs two guards, and the obvious one is not enough.**
+  `just test-code` deselects the marker, and each such test must *also* check
+  for the build file with `dismech.oak_db.local_build_present`. Opening the
+  adapter is not a check: `get_adapter("sqlite:obo:ncit")` does **not** fail
+  when the build is missing — semsql downloads it. So an
+  `if adapter is None: pytest.skip(...)` guard never fires, and a lane that
+  forgets the marker (a bare `pytest`, as `test-linkml-rc3.yml` runs) pulls
+  gigabytes instead of skipping. This is not hypothetical: it cost one CI run
+  11m35s and 3.6 GB. The same trap applies to any script that means to *require*
+  a local build — `scripts/build_hierarchy_cache.py` asks about the file for
+  exactly this reason.
+
+  What runs in CI is `just check-hierarchy-cache` in the nightly sweep:
   offline, seconds, and it catches the drift case that actually happens — a
   curator adds an ICD10CM/NCIT mapping and nobody rebuilds. The `oak_db` drift
   test compares **every** committed row in both prefixes against a live walk,
