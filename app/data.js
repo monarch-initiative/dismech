@@ -126673,6 +126673,114 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Hereditary Hemorrhagic Telangiectasia Type 1",
+    "disease_id": "MONDO:0008535",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Hemorrhagic Telangiectasia",
+      "Vascular Malformation",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hereditary hemorrhagic telangiectasia type 1 (HHT1) is the ENG-related form of hereditary hemorrhagic telangiectasia, an autosomal dominant vascular dysplasia in which arteriovenous malformations lack an intervening capillary bed and connect arteries directly to veins. It is defined molecularly by a heterozygous loss-of-function variant in ENG at 9q34, which encodes endoglin, an endothelial co-receptor of the TGF-beta receptor superfamily; endoglin was the first HHT gene identified and established HHT as the first human disease attributed to a mutation in a member of the TGF-beta receptor complex. The germline variant produces endoglin haploinsufficiency in vascular endothelium and impairs BMP9-driven ALK1/SMAD1/5/8 signaling, but the germline lesion is present in every cell while lesions arise in only a small minority of vessels; somatic second-hit biallelic inactivation in the lesional endothelium supplies the focal trigger. HHT1 is separated from ACVRL1-related HHT2 by a reproducible genotype-phenotype contrast rather than by any difference in diagnostic criteria: pulmonary and cerebral arteriovenous malformations are substantially more frequent in HHT1, epistaxis begins earlier, and the neurological consequences of right-to-left shunting - paradoxical embolic stroke and brain abscess - fall disproportionately on HHT1 patients, whereas symptomatic hepatic involvement and gastrointestinal bleeding are the HHT2 pattern. This entry is curated to what the literature reports for ENG/HHT1 specifically; general HHT material is cited as such and the parent entry Hereditary Hemorrhagic Telangiectasia carries the disease-wide account.",
+    "pathophysiology": [
+      "ENG Loss-of-Function Germline Variant",
+      "Endoglin Haploinsufficiency in Vascular Endothelium",
+      "Impaired BMP9-ALK1-SMAD1/5/8 Endothelial Signaling",
+      "Somatic Second-Hit Biallelic ENG Inactivation",
+      "Dysregulated Endothelial Angiogenic Response",
+      "Loss of the Intervening Capillary Bed",
+      "Mucocutaneous Telangiectasia Formation",
+      "Pulmonary Arteriovenous Malformation Formation",
+      "Cerebral Arteriovenous Malformation Formation",
+      "Right-to-Left Shunt Physiology"
+    ],
+    "cell_types": [
+      "vascular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002139"
+    ],
+    "biological_processes": [
+      "BMP9-driven endothelial BMP signaling",
+      "SMAD1/5/8 signal transduction",
+      "dysregulated angiogenesis",
+      "blood vessel remodeling"
+    ],
+    "phenotypes": [
+      "Recurrent epistaxis",
+      "Mucocutaneous telangiectasia",
+      "Pulmonary arteriovenous malformation",
+      "Cerebral arteriovenous malformation",
+      "Brain abscess",
+      "Ischemic stroke",
+      "Hypoxemia",
+      "Gastrointestinal hemorrhage",
+      "Iron deficiency anemia",
+      "Congestive heart failure",
+      "Hepatic arteriovenous malformation"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0004406",
+      "HP:0001009",
+      "HP:0006548",
+      "HP:0002408",
+      "HP:0030049",
+      "HP:0002140",
+      "HP:0012418",
+      "HP:0002239",
+      "HP:0001891",
+      "HP:0001635",
+      "HP:0006574"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ENG"
+    ],
+    "treatments": [
+      "Pulmonary AVM Embolization",
+      "Antibiotic Prophylaxis for Right-to-Left Shunt",
+      "Pomalidomide",
+      "Tranexamic Acid",
+      "Bevacizumab",
+      "Iron Replacement and Transfusion",
+      "Cerebral AVM Treatment",
+      "Genetic Counseling and Predictive Testing",
+      "Avoidance of Antithrombotic Agents and Shunt-Related Hazards"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Soluble endoglin"
+    ],
+    "source_file": "Hereditary_Hemorrhagic_Telangiectasia_Type_1.yaml",
+    "page_url": "../pages/disorders/Hereditary_Hemorrhagic_Telangiectasia_Type_1.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hereditary Hyperekplexia",
     "disease_id": "MONDO:0021022",
     "category": "Mendelian",
@@ -281696,17 +281804,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2734,
+  "total_disorder_pages": 2735,
   "total_subtypes": 3649,
-  "total_disorders_and_subtypes": 6383,
-  "total_unique_evidence_sources": 38542,
-  "total_unique_publications": 36302,
+  "total_disorders_and_subtypes": 6384,
+  "total_unique_evidence_sources": 38554,
+  "total_unique_publications": 36313,
   "total_unique_disease_categories": 54,
   "total_unique_phenotype_categories": 275,
-  "total_pathographs": 2729,
-  "total_unique_pathological_events": 16184,
+  "total_pathographs": 2730,
+  "total_unique_pathological_events": 16194,
   "total_modules": 171,
-  "total_research_reports": 2845,
+  "total_research_reports": 2846,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
