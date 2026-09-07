@@ -245,7 +245,9 @@ def check(kb_root: Path, cache_root: Path) -> int:
     if stale:
         print(
             f"\n{stale} mapped CURIE(s) are not in the hierarchy cache. "
-            "These still render, via a live OAK walk that costs ~1 s each. "
+            "These still render, but via a live OAK walk costing roughly 30 s "
+            "each against the local builds -- the renderer's memo is keyed on "
+            "the whole CURIE, so a second one pays nearly full price again. "
             "Run `just build-hierarchy-cache` to refresh."
         )
         return 1
