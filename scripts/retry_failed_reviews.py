@@ -316,6 +316,78 @@ def nonnegative(value):
     return number
 
 
+def render_summary(repo, rows, dry_run, limit):
+    """Make actions prominent without changing sweep decisions."""
+    groups = {
+        "Restarted reviews": [],
+        "Would restart (dry run)": [],
+        "Deferred at retry limit": [],
+        "Errors": [],
+        "Notices": [],
+        "Skipped": [],
+        "PR lookup diagnostics": [],
+    }
+    for row in rows:
+        if ": retried failed jobs" in row:
+            group = "Restarted reviews"
+        elif ": would retry failed jobs" in row:
+            group = "Would restart (dry run)"
+        elif ": deferred; retry budget reached" in row:
+            group = "Deferred at retry limit"
+        elif row.startswith("Run "):
+            group = "PR lookup diagnostics"
+        elif ": skipped;" in row:
+            group = "Skipped"
+        elif ": error (" in row or row.startswith("Discovery failed"):
+            group = "Errors"
+        else:
+            group = "Notices"
+        linked = re.sub(
+            r"\bPR #(\d+)",
+            lambda m: f"[{m[0]}](https://github.com/{repo}/pull/{m[1]})",
+            row,
+        )
+        linked = re.sub(
+            r"\b([Rr]un) (\d+)",
+            lambda m: f"[{m[0]}](https://github.com/{repo}/actions/runs/{m[2]})",
+            linked,
+        )
+        groups[group].append(linked)
+    restarted = len(groups["Restarted reviews"])
+    preview = len(groups["Would restart (dry run)"])
+    if dry_run:
+        lead = f"Dry run: no rerun requests issued; {preview} would restart (limit: {limit})."
+    else:
+        lead = f"Live run: {restarted} rerun requests accepted (limit: {limit})."
+    parts = [
+        "## Review retry sweep",
+        lead,
+        "Accepted requests restart failed jobs on existing workflow runs; they do not "
+        "mean the reviews have completed or passed.",
+        f"{len(groups['Deferred at retry limit'])} PRs deferred at the retry limit. "
+        "They are reconsidered on the next sweep, subject to fresh eligibility checks; "
+        "they have not been queued by this sweep.",
+    ]
+    for title, items in groups.items():
+        if not items:
+            continue
+        listing = "\n".join(f"- {item}" for item in items)
+        if title == "PR lookup diagnostics":
+            # One unresolved run can produce both an error and a deferral row.
+            listing = (
+                "Messages, not unique PRs or runs; no retry issued for these entries.\n\n"
+                + listing
+            )
+        if title in {"Skipped", "PR lookup diagnostics"}:
+            parts.append(
+                f"<details>\n<summary>{title} ({len(items)} messages)</summary>\n\n"
+                f"{listing}\n\n</details>"
+            )
+        else:
+            parts.append(f"### {title} ({len(items)})\n\n{listing}")
+    return "\n\n".join(parts) + "\n"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True)
@@ -345,8 +417,7 @@ def main(argv=None):
             [f"Discovery failed ({type(exc).__name__}); no retries issued."],
             1,
         )
-    summary = "## Review retry sweep" + (" (dry run)" if args.dry_run else "")
-    summary += "\n\n" + "\n".join(f"- {row}" for row in rows) + "\n"
+    summary = render_summary(args.repo, rows, args.dry_run, args.max_retries)
     print(summary)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as stream:
