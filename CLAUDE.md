@@ -2543,6 +2543,12 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - `cache/<prefix>/terms.csv` caches CURIE existence and canonical labels.
 - `cache/enums/*.csv` caches membership in schema dynamic enums. Presence in
   the label cache does not establish enum membership.
+- `cache/<prefix>/hierarchy.csv` caches the **ancestor path** the renderer draws
+  as a mapping breadcrumb, for the strict-hierarchy prefixes only (ICD10CM,
+  NCIT). It answers a different question from `terms.csv`: not "does this CURIE
+  exist and what is it called" but "what is the whole root-to-term chain, with
+  every node's label". Rebuild with `just build-hierarchy-cache`; audit
+  staleness with `just check-hierarchy-cache`.
 - Never hand-write, append, or reorder cache rows. Populate term caches through
   `just validate-terms` or `just validate`, then use `just normalize-cache` for
   canonical CURIE ordering.
@@ -2560,6 +2566,57 @@ If a row is wrong, do not retype its label or timestamp. Follow the cache
 recovery procedure in the `dismech-terms` skill to remove and re-derive it from
 the ontology. If normalization exposes unrelated existing churn, surface it
 rather than reverting or hand-placing rows.
+
+**The hierarchy cache is a speed cache, never a correctness gate.** A miss falls
+back to a live OAK walk, so an entry curated after the last rebuild still
+renders — just slowly. That is why `check-hierarchy-cache` is advisory and is
+not in `just qc`: it reports staleness, and staleness costs seconds, not a wrong
+page. The reason it exists at all is that one `hierarchical_parents` call
+against the local NCIT build takes roughly 4.7 s, so a single ten-node
+breadcrumb costs about 47 s (#11186).
+
+Two things worth knowing before you touch it:
+
+- **`STRICT_HIERARCHIES` declares an ICD10CM root that the walk never reaches.**
+  `ICD10CM:ICD-10-CM` exists in the `sqlite:obo:icd10cm` build but nothing links
+  up to it: chapter codes such as `ICD10CM:C00-D49` report no
+  `hierarchical_parents`, so every ICD10CM breadcrumb tops out at its chapter.
+  None of the mapped CURIEs reach the declared root. This predates the cache and
+  the cache reproduces it faithfully; it is pinned by
+  `test_icd10cm_paths_stop_at_a_chapter_not_at_the_configured_root` so a future
+  build that does connect the chapters is noticed rather than silently changing
+  every ICD10CM breadcrumb. NCIT reaches its root for every mapped CURIE.
+- **Rebuilding needs the local SQLite build for that prefix**
+  (`just fetch-ontology-dbs icd10cm ncit`). The builder memoises parent and
+  label lookups across CURIEs, which matters: the mapped NCIT set resolves in
+  146 parent queries rather than one full walk per CURIE. It also keeps the
+  existing `retrieved_at` on any row whose path and labels did not move, so
+  adding one mapping is a one-line diff rather than a whole-file restamp — the
+  same incremental contract `cache/<prefix>/terms.csv` follows, and for the
+  reason the `cache/dataset_accessions.json` post-mortem above records.
+- **The drift guard is local-only, deliberately.** The test that compares the
+  committed cache against a live OAK walk is marked `oak_db`, a marker meaning
+  "needs a local ontology database" — distinct from `kb_data`, which is about KB
+  files. Do not treat one as a CI gate.
+
+  **An `oak_db` test needs two guards, and the obvious one is not enough.**
+  `just test-code` deselects the marker, and each such test must *also* check
+  for the build file with `dismech.oak_db.local_build_present`. Opening the
+  adapter is not a check: `get_adapter("sqlite:obo:ncit")` does **not** fail
+  when the build is missing — semsql downloads it. So an
+  `if adapter is None: pytest.skip(...)` guard never fires, and a lane that
+  forgets the marker (a bare `pytest`, as `test-linkml-rc3.yml` runs) pulls
+  gigabytes instead of skipping. This is not hypothetical: it cost one CI run
+  11m35s and 3.6 GB. The same trap applies to any script that means to *require*
+  a local build — `scripts/build_hierarchy_cache.py` asks about the file for
+  exactly this reason.
+
+  What runs in CI is `just check-hierarchy-cache` in the nightly sweep:
+  offline, seconds, and it catches the drift case that actually happens — a
+  curator adds an ICD10CM/NCIT mapping and nobody rebuilds. The `oak_db` drift
+  test compares **every** committed row in both prefixes against a live walk,
+  which takes about 15 minutes against the local builds — budget for that before
+  running `pytest -m oak_db`, and do not put it in a loop.
 
 ## Duplicate YAML Keys (dismech#8623)
 
