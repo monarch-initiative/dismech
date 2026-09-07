@@ -116533,6 +116533,87 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Glycogen Storage Disease Type 0b",
+    "disease_id": "MONDO:0012693",
+    "category": "Mendelian",
+    "parents": [
+      "glycogen storage disease"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Glycogen storage disease type 0b is an autosomal recessive glycogenosis caused by biallelic pathogenic variants in GYS1, which encodes the muscle isoform of glycogen synthase. It is the inverse of most glycogenoses: the defect is in glycogen synthesis rather than in its breakdown, so skeletal muscle and myocardium contain too little glycogen rather than too much, and muscle biopsy shows glycogen depletion instead of storage. Because GYS1 is the muscle/heart isoform and the liver isoform GYS2 is intact, fasting glucose homeostasis is preserved and glucose tolerance is normal - the distinguishing physiology against the hepatic type 0a disease. Loss of the rapidly mobilizable intramuscular glycogen reserve produces exertional fatigability, myalgia and weakness; the myocardium is the site of the severe end of the spectrum, with hypertrophic cardiomyopathy and childhood sudden cardiac arrest. The clinical range is unusually wide for a disorder with so few reported families: the original siblings had childhood cardiomyopathy and sudden death, while later patients have presented as adult-onset proximal myopathy with no cardiac involvement at all.",
+    "pathophysiology": [
+      "Glycogen Synthase 1 Deficiency",
+      "Muscle and Cardiac Glycogen Store Depletion",
+      "Loss of Rapidly Mobilizable Muscle Energy Reserve",
+      "Compensatory Oxidative Metabolic Shift",
+      "Cardiomyocyte Energy Reserve Failure",
+      "Myocardial Hypertrophic Remodeling"
+    ],
+    "cell_types": [
+      "Skeletal muscle fiber",
+      "Cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "glycogen biosynthetic process",
+      "aerobic respiration"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Sudden cardiac death",
+      "Abnormal haemodynamic response to exercise",
+      "Muscle fatigability",
+      "Myalgia",
+      "Muscle weakness",
+      "Limb-girdle and axial weakness",
+      "Exertional syncope",
+      "Normal glucose tolerance"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Neurologic",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001645",
+      "HP:0500018",
+      "HP:0009020",
+      "HP:0003326",
+      "HP:0001324",
+      "HP:0003325",
+      "HP:0001279"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GYS1 pathogenic variants"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Glycogen_Storage_Disease_Type_0b.yaml",
+    "page_url": "../pages/disorders/Glycogen_Storage_Disease_Type_0b.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Glycogen Storage Disease Type I",
     "disease_id": "MONDO:0002413",
     "category": "Mendelian",
@@ -171969,6 +172050,7 @@ window.searchData = [
       "Complement activation at the glomerular capillary wall",
       "Podocyte structural injury",
       "Glomerular filtration barrier failure and proteinuria",
+      "Programmed cell death dysregulation in podocytes",
       "Progressive kidney function decline"
     ],
     "cell_types": [
@@ -171986,7 +172068,11 @@ window.searchData = [
       "immunoglobulin production",
       "complement activation",
       "actin cytoskeleton organization",
-      "glomerular filtration"
+      "glomerular filtration",
+      "apoptotic process",
+      "pyroptotic inflammatory response",
+      "ferroptosis",
+      "autophagy"
     ],
     "phenotypes": [
       "Nephrotic syndrome",
@@ -172021,7 +172107,11 @@ window.searchData = [
     "treatments": [
       "Rituximab",
       "Cyclophosphamide-based immunosuppression",
-      "Supportive CKD therapy"
+      "Supportive CKD therapy",
+      "Shenqi Particle (herbal formula)",
+      "Mahuang Fuzi and Shenzhuo Decoction (herbal formula)",
+      "Jianpi Qushi Heluo Formula (herbal formula)",
+      "Jian Pi Qu Shi Formula (herbal formula)"
     ],
     "environmental": [],
     "biochemical": [
@@ -172031,10 +172121,10 @@ window.searchData = [
     "source_file": "Membranous_Nephropathy.yaml",
     "page_url": "../pages/disorders/Membranous_nephropathy.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 2,
-    "num_treatments": 3,
-    "causal_graph_edges": "13",
+    "num_treatments": 7,
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "6"
   },
   {
@@ -281606,15 +281696,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2733,
+  "total_disorder_pages": 2734,
   "total_subtypes": 3649,
-  "total_disorders_and_subtypes": 6382,
-  "total_unique_evidence_sources": 38533,
-  "total_unique_publications": 36293,
+  "total_disorders_and_subtypes": 6383,
+  "total_unique_evidence_sources": 38542,
+  "total_unique_publications": 36302,
   "total_unique_disease_categories": 54,
   "total_unique_phenotype_categories": 275,
-  "total_pathographs": 2728,
-  "total_unique_pathological_events": 16177,
+  "total_pathographs": 2729,
+  "total_unique_pathological_events": 16184,
   "total_modules": 171,
   "total_research_reports": 2845,
   "total_classifications": 19,
