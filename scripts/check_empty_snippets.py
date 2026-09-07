@@ -25,7 +25,7 @@ not support the claim" -- by construction there may be no quotable sentence to
 attach, and this is already an established (if unstated) convention in
 ``kb/``: a repo-wide scan at the time this check was written found 25 empty
 snippets, and every single one carried ``supports: NO_EVIDENCE``. A positive
-item (``SUPPORT``/``PARTIAL``/``REFUTE``) asserts something the reference must
+item (``SUPPORT``/``REFUTE``) asserts something the reference must
 actually say, so an empty snippet there is always a defect, never a
 legitimate annotation -- that is the actual failure mode #8550 describes (a
 ``SUPPORT`` item produced by a slicing bug that ran backwards).
@@ -195,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
     if findings:
         print(
             "Empty (non-NO_EVIDENCE) evidence snippet(s) detected. An evidence "
-            "item that SUPPORTs/PARTIALly supports/REFUTEs a claim must quote "
+            "item that SUPPORTs or REFUTEs a claim must quote "
             "real text from the reference -- an empty snippet asserts nothing "
             "while still lending the citation's authority. Quote the real "
             "sentence, change `supports` to NO_EVIDENCE if that is genuinely "

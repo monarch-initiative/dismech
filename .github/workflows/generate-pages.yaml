@@ -7,6 +7,13 @@ on:
     paths:
       - 'kb/disorders/*.yaml'
       - 'kb/comorbidities/*.yaml'
+      # This run owns app/models/data.js, and ModelsExporter reads module YAML
+      # and the perturb configs as well as kb/disorders. Without these two, a
+      # module-level computational model or a new config would only reach the
+      # index via the daily full rebuild.
+      - 'kb/modules/*.yaml'
+      - 'kb/module_collections/*.yaml'
+      - 'models/**'
       # Grouping pages are handled by generate-grouping-pages.yaml (they re-parse
       # every disorder and so run on their own, less-frequent schedule).
       # Deep-research reports render to per-report pages under pages/research/
@@ -50,14 +57,26 @@ jobs:
   generate-pages:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
+
+    env:
+      # The derived artifacts this workflow owns. Change-detection and `git add`
+      # must agree on this list: a path missing from the first makes the run
+      # skip its PR, and one missing from the second silently never updates.
+      # Both consumers expand it UNQUOTED on purpose -- they need word
+      # splitting into separate pathspecs. Do not add quotes: "$BUILT_PATHS"
+      # is one path that does not exist, which silently matches nothing.
+      # A bash array would be the usual fix but cannot cross a step boundary.
+      BUILT_PATHS: >-
+        pages/ app/data.js app/models/data.js pathographs/ dashboard/ elements/
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # "Stale" has to mean ABANDONED, not merely OLD.
       #
@@ -92,11 +111,14 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --head "auto/generate-pages" \
               --state open \
-              --author "app/github-actions" \
-              --json number,updatedAt,headRefOid \
+              --json number,updatedAt,headRefOid,author \
               --limit 100 \
             | jq -r --arg tip "$BRANCH_TIP" '
                 .[]
+                | select(
+                    .author.login == "app/github-actions"
+                    or .author.login == "app/ai4c-agent"
+                  )
                 | select(.headRefOid != $tip)
                 | select((now - (.updatedAt | fromdateiso8601)) >= 3600)
                 | .number
@@ -196,9 +218,10 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Park this build's pages in a throwaway commit so changing base cannot
-          # lose them. Only pages/ needs parking: app/data.js, pathographs/,
-          # dashboard/ and elements/ are all generated further down, and doing so
-          # AFTER this step is what makes them come from the fresh KB.
+          # lose them. Only pages/ needs parking: every other BUILT_PATHS entry
+          # -- app/data.js, app/models/data.js, pathographs/, dashboard/ and
+          # elements/ -- is generated further down, and doing so AFTER this step
+          # is what makes them come from the fresh KB.
           BASE="$(git rev-parse HEAD)"
           git add -A pages/
           git commit -q -m "wip: rendered pages" || echo "no page changes to park"
@@ -292,6 +315,17 @@ jobs:
       - name: Verify browser data links resolve to rendered pages
         run: just check-browser-links
 
+      # The models index is rebuilt from the same KB and committed alongside
+      # app/data.js. It belongs to this run for the same reason app/data.js
+      # does: it is derived from the whole KB, so a curation PR that
+      # regenerates it collides with every sibling PR that also did
+      # (issue #9804).
+      - name: Generate models browser data
+        run: just gen-models-data
+
+      - name: Verify models browser data links resolve to rendered pages
+        run: just check-models-links
+
       - name: Generate pathograph artifact
         run: just gen-pathographs
 
@@ -311,20 +345,33 @@ jobs:
           # only reports unstaged changes, so it would see nothing and skip the PR.
           # Against HEAD (= current origin/main after the re-anchor) this is
           # exactly the regeneration delta.
-          if git diff --quiet HEAD -- pages/ app/data.js pathographs/ dashboard/ elements/; then
+          if git diff --quiet HEAD -- $BUILT_PATHS; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
             echo "Changed files:"
-            git diff --stat HEAD -- pages/ app/data.js pathographs/ dashboard/ elements/
+            git diff --stat HEAD -- $BUILT_PATHS
           fi
+
+      - name: Generate ai4c-agent auto-lane token
+        id: auto-merge-token
+        if: steps.check-changes.outputs.has_changes == 'true'
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Create or update Pull Request
         if: steps.check-changes.outputs.has_changes == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.auto-merge-token.outputs.token }}
         shell: bash
         run: |
+          # With checkout credentials deliberately absent, this makes the App
+          # the actor for branch pushes as well as PR creation and auto-merge.
+          gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
@@ -343,7 +390,7 @@ jobs:
             exit 1
           fi
 
-          git add pages/ app/data.js pathographs/ dashboard/ elements/
+          git add $BUILT_PATHS
 
           PAGE_COUNT=$(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ')
           COMORB_PAGE_COUNT=$(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ')
@@ -368,6 +415,18 @@ jobs:
           enable_auto_merge() {
             local pr_number="$1"
 
+            # Replace a request armed by an older workflow run so enabledBy is
+            # the App rather than github-actions[bot]. A no-request state is
+            # normal for a newly created PR.
+            if [ "$(gh pr view "$pr_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json autoMergeRequest \
+              --jq '.autoMergeRequest != null')" = "true" ]; then
+              gh pr merge "$pr_number" \
+                --repo "$GITHUB_REPOSITORY" \
+                --disable-auto
+            fi
+
             gh pr merge "$pr_number" \
               --repo "$GITHUB_REPOSITORY" \
               --squash \
@@ -378,9 +437,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH_NAME" \
             --state open \
-            --json number \
-            --limit 1 \
-            --jq '.[0].number // empty')"
+            --json number,author \
+            --limit 100 \
+            --jq '[.[] | select(.author.login == "app/github-actions" or .author.login == "app/ai4c-agent")][0].number // empty')"
 
           if [ -n "$EXISTING_BRANCH_PR_NUMBER" ]; then
             echo "Updated existing regen PR #$EXISTING_BRANCH_PR_NUMBER; enabling auto-merge."
@@ -392,10 +451,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --head "auto/generate-pages" \
             --state open \
-            --author "app/github-actions" \
-            --json number,createdAt,headRefName \
+            --json number,createdAt,headRefName,author \
             --limit 100 \
-            --jq '[.[] | select(.headRefName != "'"$BRANCH_NAME"'" and (now - (.createdAt | fromdateiso8601)) < 3600)][0].number // empty')"
+            --jq '[.[] | select((.author.login == "app/github-actions" or .author.login == "app/ai4c-agent") and .headRefName != "'"$BRANCH_NAME"'" and (now - (.createdAt | fromdateiso8601)) < 3600)][0].number // empty')"
 
           if [ -n "$RECENT_REGEN_PR_NUMBER" ]; then
             echo "Recent regen PR #$RECENT_REGEN_PR_NUMBER already exists; skipping PR creation for $BRANCH_NAME."
@@ -448,9 +506,9 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH_NAME" \
             --state open \
-            --json number \
-            --limit 1 \
-            --jq '.[0].number // empty')"
+            --json number,author \
+            --limit 100 \
+            --jq '[.[] | select(.author.login == "app/github-actions" or .author.login == "app/ai4c-agent")][0].number // empty')"
 
           if [ -z "$CREATED_PR_NUMBER" ]; then
             echo "Failed to resolve created regen PR number for $BRANCH_NAME."
