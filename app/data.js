@@ -40353,6 +40353,140 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Blastic Plasmacytoid Dendritic Cell Neoplasm",
+    "disease_id": "MONDO:0019467",
+    "category": "",
+    "parents": [
+      "myeloid neoplasm"
+    ],
+    "creation_date": "2026-09-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Blastic plasmacytoid dendritic cell neoplasm (BPDCN) is a rare, aggressive haematologic malignancy arising from precursors of plasmacytoid dendritic cells (pDCs). It typically presents with disseminated violaceous or bluish-livid cutaneous plaques and nodules, followed by bone marrow, peripheral blood, lymph node and \u2014 often occultly \u2014 central nervous system involvement. Diagnosis rests on an immunophenotype combining CD123 (IL3RA) with pDC-lineage markers (TCF4, TCL1, CD303/BDCA2, CD304/BDCA4) and CD4 and/or CD56, in the absence of lineage-defining myeloid, B-cell and T-cell markers. BPDCN is a somatic clonal disease: recurrent loss-of-function lesions in epigenetic regulators (TET2, ASXL1), in the X-linked splicing factor ZRSR2, and in the pDC differentiation factor IKZF1 arise in a hematopoietic progenitor, frequently on a background of clonal hematopoiesis shared with a preceding or concurrent myeloid neoplasm. The transformed clone remains addicted to the normal pDC master transcription factor TCF4 acting through BRD4-bound super-enhancers, retains high surface CD123, and depends on BCL2 for survival \u2014 the three dependencies that underpin its current and investigational targeted therapies.",
+    "pathophysiology": [
+      "Epigenetic Regulator Loss in a Hematopoietic Progenitor",
+      "Clonal Hematopoiesis of the Mutant Progenitor",
+      "CDKN2A and CDKN2B Deletion at 9p21.3",
+      "MYC Rearrangement at 8q24",
+      "Glucocorticoid Resistance",
+      "Lymphoid Organ Infiltration",
+      "ZRSR2 Loss-of-Function Splicing Defect",
+      "IKZF1 Structural Inactivation",
+      "MYB Rearrangement",
+      "Plasmacytoid Dendritic Cell Differentiation Block",
+      "TCF4-Dependent Super-Enhancer Network Addiction",
+      "CD123 Overexpression on Malignant pDC Blasts",
+      "Apoptosis Resistance in the pDC Compartment",
+      "Aberrant G2/M Cell Cycle Gene Regulation",
+      "NR3C1 Haploinsufficiency",
+      "UV-Selected Survival of TET2-Mutant pDC Precursors in Sun-Exposed Skin",
+      "Aberrant Cell Adhesion Program",
+      "Clonal Expansion of pDC-Lineage Blasts",
+      "Cutaneous Infiltration by Malignant pDC Blasts",
+      "Bone Marrow and Leukemic Dissemination",
+      "Marrow Failure Cytopenias",
+      "Central Nervous System Infiltration",
+      "Diphthamide Pathway Silencing",
+      "T Cell Exhaustion in the Marrow Microenvironment"
+    ],
+    "cell_types": [
+      "plasmacytoid dendritic cell precursor",
+      "malignant plasmacytoid dendritic cell blast",
+      "CD8-positive T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000784",
+      "CL:0000625"
+    ],
+    "biological_processes": [
+      "RNA splicing",
+      "plasmacytoid dendritic cell differentiation",
+      "negative regulation of apoptotic process",
+      "G2/M transition of mitotic cell cycle",
+      "cell adhesion",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Violaceous Cutaneous Plaques and Nodules",
+      "Pruritus",
+      "Anemia",
+      "Thrombocytopenia",
+      "Neutropenia",
+      "Lymphadenopathy",
+      "Splenomegaly",
+      "Night Sweats",
+      "Weight Loss",
+      "Central Nervous System Involvement"
+    ],
+    "phenotype_categories": [
+      "Cutaneous",
+      "Hematologic",
+      "Lymphoreticular",
+      "Constitutional",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200036",
+      "HP:0000989",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0001875",
+      "HP:0002716",
+      "HP:0001744",
+      "HP:0030166",
+      "HP:0001824",
+      "HP:0002921"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TET2",
+      "ASXL1",
+      "ZRSR2",
+      "IKZF1",
+      "MYB",
+      "NR3C1",
+      "CDKN2A/CDKN2B",
+      "MYC"
+    ],
+    "treatments": [
+      "Tagraxofusp",
+      "Venetoclax",
+      "Allogeneic Hematopoietic Cell Transplantation",
+      "Intrathecal CNS-Directed Chemotherapy",
+      "Intensive Induction Chemotherapy",
+      "Hypomethylating Agent Therapy",
+      "All-Trans Retinoic Acid",
+      "BET Inhibition",
+      "CD123-Directed CAR-T and CAR-NK Cell Therapy",
+      "CD123-Directed Antibody-Based Agents"
+    ],
+    "environmental": [
+      "Cutaneous ultraviolet radiation exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Blastic_Plasmacytoid_Dendritic_Cell_Neoplasm.yaml",
+    "page_url": "../pages/disorders/Blastic_Plasmacytoid_Dendritic_Cell_Neoplasm.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 24,
+    "num_genes": 8,
+    "num_treatments": 10,
+    "causal_graph_edges": "59",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Blau Syndrome",
     "disease_id": "MONDO:0008523",
     "category": "Mendelian",
@@ -128255,6 +128389,103 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "29",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Hereditary Xanthinuria",
+    "disease_id": "MONDO:0018106",
+    "category": "",
+    "parents": [
+      "inborn error of purine metabolism",
+      "autosomal recessive disease"
+    ],
+    "creation_date": "2026-09-05T17:15:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Type I",
+      "Type II"
+    ],
+    "description": "An autosomal recessive block at the last two steps of purine degradation. Xanthine oxidoreductase converts hypoxanthine to xanthine and xanthine to uric acid, and when it fails the patient has almost no uric acid and a great deal of xanthine. The paradox is that a disease of purine excess presents as hypouricemia. Xanthine is the least soluble purine, so it crystallises in the urine and forms radiolucent stones. Two forms exist: type I from biallelic XDH variants, and type II from biallelic MOCOS variants, which also costs the patient aldehyde oxidase because the sulfurase that activates the molybdenum cofactor serves both enzymes. Roughly a third of affected people are symptomatic. The rest are found by an incidental urate of nearly zero.",
+    "pathophysiology": [
+      "Biallelic Loss of Xanthine Oxidoreductase Function",
+      "Molybdenum Cofactor Sulfuration Failure",
+      "Failure of Hypoxanthine and Xanthine Oxidation",
+      "Hypouricemia with Xanthine and Hypoxanthine Accumulation",
+      "Urinary Xanthine Supersaturation",
+      "Xanthine Crystal and Stone Formation",
+      "Obstructive and Crystal-Induced Kidney Injury"
+    ],
+    "cell_types": [
+      "epithelial cell of proximal tubule"
+    ],
+    "cell_type_ids": [
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "purine nucleobase catabolic process",
+      "urate biosynthetic process"
+    ],
+    "phenotypes": [
+      "Hypouricemia",
+      "Xanthinuria",
+      "Nephrolithiasis",
+      "Hematuria",
+      "Hydronephrosis",
+      "Crystalluria",
+      "Recurrent Urinary Tract Infections",
+      "Renal Colic",
+      "Renal Insufficiency",
+      "Myalgia",
+      "Arthropathy"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Renal",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003537",
+      "HP:0010934",
+      "HP:0000804",
+      "HP:0000790",
+      "HP:0000126",
+      "HP:0020074",
+      "HP:0000010",
+      "HP:0030157",
+      "HP:0000083",
+      "HP:0003326",
+      "HP:0003040"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "XDH",
+      "MOCOS"
+    ],
+    "treatments": [
+      "High Fluid Intake",
+      "Dietary Purine Restriction",
+      "Surgical Stone Removal"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hereditary_Xanthinuria.yaml",
+    "page_url": "../pages/disorders/Hereditary_Xanthinuria.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Hereditary von Willebrand Disease",
@@ -281261,17 +281492,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2730,
-  "total_subtypes": 3647,
-  "total_disorders_and_subtypes": 6377,
-  "total_unique_evidence_sources": 38472,
-  "total_unique_publications": 36236,
+  "total_disorder_pages": 2732,
+  "total_subtypes": 3649,
+  "total_disorders_and_subtypes": 6381,
+  "total_unique_evidence_sources": 38504,
+  "total_unique_publications": 36268,
   "total_unique_disease_categories": 54,
-  "total_unique_phenotype_categories": 274,
-  "total_pathographs": 2725,
-  "total_unique_pathological_events": 16128,
+  "total_unique_phenotype_categories": 275,
+  "total_pathographs": 2727,
+  "total_unique_pathological_events": 16159,
   "total_modules": 169,
-  "total_research_reports": 2842,
+  "total_research_reports": 2844,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
