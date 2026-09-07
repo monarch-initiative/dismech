@@ -142,66 +142,90 @@ developmental and epileptic encephalopathy, so a category must never be copied f
 entry to the other. The DEE entry is curated as `DOMINANT_NEGATIVE` in this branch; no
 BFNS entry exists yet.
 
-## Can a deep-research provider resolve these? A two-hypothesis pilot
+## Can a deep-research provider resolve these? All five screened
 
 The repository already has the plumbing: `just research-hypothesis <provider> <disorder>
 <hypothesis_group_id>` runs a focused hypothesis search whose template asks for competing
 mechanisms, explicit knowledge gaps, and the experiments that would distinguish them, and
-writes to `kb/hypotheses/<Disorder>/<hypothesis_group_id>/<provider>.md`.
+writes to `kb/hypotheses/<Disorder>/<hypothesis_group_id>/<provider>.md`. The hypothesis
+blocks added above are what make these runnable at all: the runner seeds the provider with
+the hypothesis YAML, so a controversy that exists only as prose in a node description
+cannot be searched, while one curated as two competing hypotheses can.
 
-```bash
-just research-hypothesis openscientist Weaver_Syndrome dominant_negative_prc2
-just research-hypothesis openscientist Bainbridge-Ropers_Syndrome asxl3_nmd_escaping_truncated_protein
-just research-hypothesis openscientist Bohring-Opitz_syndrome asxl1_truncated_protein_dominant_or_gain
-just research-hypothesis openscientist Arboleda-Tham_Syndrome late_truncating_nmd_escape
-just research-hypothesis openscientist ADNP-Related_Syndrome nmd_escape_truncation_branch
-```
+All five contested hypotheses were screened against OpenScientist, each about 20-25
+minutes, and each assessed into a sidecar under
+[Hypothesis Report Assessments](../hypothesis-report-assessments.md).
 
-The hypothesis blocks added above are what make these runnable at all: the runner seeds the
-provider with the hypothesis YAML, so a controversy that exists only as prose in a node
-description cannot be searched, while one curated as two competing hypotheses can.
+| Hypothesis screened | Verdict | Promoted | Category |
+|---|---|---|---|
+| Weaver / `dominant_negative_prc2` | Partially supported | Whole-gene *EZH2* deletion case; reciprocal GoF arm marked single-source | `UNKNOWN` |
+| Bainbridge-Ropers / `asxl3_nmd_escaping_truncated_protein` | Partially supported | Cohort core-severity counter-evidence as a `REFUTE` item; hypothesis qualified | `UNKNOWN` |
+| Bohring-Opitz / `asxl1_truncated_protein_dominant_or_gain` | Partially supported | Three references, two for the truncated-protein reading and one for the null reading | `UNKNOWN` |
+| Arboleda-Tham / `late_truncating_nmd_escape` | Partially supported | Nothing; hypothesis reframed as a severity modifier | `UNKNOWN` |
+| ADNP / `nmd_escape_truncation_branch` | Weakly supported, unresolved | Mutant mRNA detection, and a failed protein hunt as a `REFUTE` item | `UNKNOWN` |
 
-The first two were run against OpenScientist (about 22 minutes each) and assessed under
-[Hypothesis Report Assessments](../hypothesis-report-assessments.md). **Neither moved its
-category off `UNKNOWN`, and both changed the entry anyway.** The prior expectation — that a
-provider can only add completeness to the evidence matrix, since these controversies are
-open for want of an experiment rather than for want of literature — held for the category
-and was too pessimistic about everything else.
+**Not one moved a category, and four of five changed their entry anyway.** The prior
+expectation recorded here — that a provider can only add completeness, since these
+controversies are open for want of an experiment rather than for want of literature — held
+exactly for the categories and was too pessimistic about everything else.
 
-**Weaver.** The run surfaced PMID:28696078, a de novo 1.2-Mb deletion removing the whole
-`EZH2` gene in a child with tall stature and intellectual disability, whose authors conclude
-that haploinsufficiency may replicate the Weaver phenotype. That is the nearest human
-approximation to the null arm of the discriminating experiment, it was not in the entry, and
-it argues a poison protein is not required for the phenotype. The run also established by
-targeted search that the reciprocal germline gain-of-function growth-restriction arm
-asserted in the hypothesis rests on a single study; that arm was overstated and is now
-marked single-source.
+### What the screens were actually good at
 
-**Bainbridge-Ropers.** The more useful of the two, and it cut against the hypothesis it was
-asked to explore. The entry cited the largest ASXL3 cohort for an autism enrichment in the
-decay-escaping allele class, reading as support for the truncated-protein hypothesis. The
-run read the same paper further: the *core* severity measures run the other way, being worse
-in the decay-subject null class. If a decay-escaping truncated protein were simply more
-toxic than a null, the no-decay class should carry the greater core burden, and it does not.
-That hypothesis is now qualified as a candidate modifier rather than a symmetric competitor,
-with the counter-sentence curated as a `REFUTE` item.
+**Reading a paper the curator had already cited, more completely than the curator did.**
+Twice. The Bainbridge-Ropers entry cited the largest ASXL3 cohort for an autism enrichment
+in the decay-escaping class; the same paper's core severity measures run the other way,
+worse in the null class, which is the opposite of what a more toxic truncated protein
+predicts. The ADNP entry said mutant protein "has never been unambiguously demonstrated",
+which reads as nobody having looked; a study had looked systematically across
+patient-derived materials and multiple antibodies and found none, concluding degradation
+or absence. Both are corrections to curation written days earlier in this same branch.
 
-**What the runs did not do.** Neither performed the comparison that would settle its
-question, and both said so. Both correctly identified the same missing experiment this
-audit had already recorded, which is a useful independent check on the curation but adds no
-evidence. Both computational bundles are only partially auditable: neither shipped a
-`MANIFEST.yaml`, and the Bainbridge-Ropers report claims checksums and two analysis scripts
-that are not in its bundle, so its analyses are recorded as `PARTIAL`. The Weaver
-variant-spectrum computation does reproduce exactly from its committed data — 27 ClinVar
-Weaver-annotated pathogenic alleles, 21 missense, 3 truncating at codons 730/733/738 — but
-its code survives only as an embedded string inside a provenance JSON, not at the path the
-report names.
+**Supplying the null-side evidence a curator writing a hypothesis tends not to hunt for.**
+The Weaver run found a whole-gene *EZH2* deletion producing a Weaver-like phenotype; the
+Bohring-Opitz run found that constitutive *Asxl1* deletion reproduces BOS-like
+malformations in mouse. Both show the null route reaches the phenotype without a poison
+protein. Writing a hypothesis pair, it is easy to evidence the interesting branch well and
+the boring one thinly, and these runs corrected exactly that asymmetry.
 
-**Reading for the remaining three.** Run them, but budget for the assessment rather than the
-search: the run is 20 minutes and the review that decides what may be promoted is longer.
-The value is a second reader over the same literature who is not the curator who wrote the
-hypothesis, and on this evidence that reader is most useful when it reads a paper the
-curator already cited more completely than the curator did.
+**Reaching the same structural conclusion by three different routes.** Bainbridge-Ropers
+(cohort severity), Arboleda-Tham (population constraint) and ADNP (a failed protein hunt)
+independently concluded that the decay-escape branch is a candidate modifier on a
+dosage-loss baseline rather than a symmetric competitor. Three of five, by different
+evidence, is worth more than any one of them. All three hypothesis descriptions were
+amended accordingly.
+
+### What they could not do, and one systematic defect
+
+None performed the comparison that would settle its question, and all five said so. All
+five independently identified the same missing step this audit had already recorded — an
+isogenic comparison of the disease allele against a heterozygous null, preceded by
+truncated-protein detection where the allele class is truncating. That is a useful
+independent check on the curation and adds no evidence.
+
+**Every one of the five bundles omitted the `MANIFEST.yaml` its own report or README
+listed, and four of five omitted the analysis code they named.** That is a provider
+bundling defect, not five coincidences. Consequences: no analysis-run gate can be applied
+to any of them, so every computational analysis across the five is recorded `PARTIAL` and
+`PARTIALLY_AUDITABLE`, and **nothing from any computational analysis was promoted**. The
+ADNP run additionally states its PubMed queries are logged in the bundle when no log was
+delivered, so its reported zero-hit searches are unauditable and that source is recorded
+`UNVERIFIABLE`. The assessment validator caught that one, not a careful read.
+
+Bundle quality otherwise varied usefully. Arboleda-Tham was best provisioned, the only run
+carrying an environment record and committing search logs that include the negative
+queries. ADNP reported provenance best in prose — full package versions, a disclosed
+ClinGen API failure, a sandbox-only figure declared rather than claimed — while delivering
+least. Weaver's analysis code survives only as an embedded string inside a provenance
+JSON, not at the path its report names.
+
+### Reading for future screens
+
+Worth running, and budget for the assessment rather than the search: a run is 20 minutes
+and the review that decides what may be promoted is several times that. The value is a
+second reader over the same literature who is not the curator who wrote the hypothesis,
+and on this evidence that reader is most useful on the branch the curator found less
+interesting and on papers the curator already cited. Treat every computational result as
+unpromotable until the bundling defect is fixed.
 
 ## Worklist for the next tranches
 
