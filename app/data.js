@@ -63990,6 +63990,134 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Chromosome 17q12 Deletion Syndrome",
+    "disease_id": "MONDO:0013797",
+    "category": "Mendelian",
+    "parents": [
+      "Chromosomal deletion syndrome"
+    ],
+    "creation_date": "2026-09-03T15:05:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chromosome 17q12 deletion syndrome is a recurrent 1.4 Mb heterozygous deletion spanning about fifteen genes, one of which is HNF1B. Its renal and pancreatic phenotype - cystic and dysplastic kidneys, and maturity-onset diabetes of the young type 5 - is HNF1B haploinsufficiency, and it is the same phenotype seen with an HNF1B point mutation. Its neurodevelopmental and neuropsychiatric phenotype is not.\nThat asymmetry is the reason this deserves an entry of its own rather than a subtype line on HNF1B disease. A cytogenomic screen of 15,749 patients referred for neurodevelopmental testing found the deletion in 18, and in none of 4,519 controls; a follow-up sample found it in 4 of 6,340 patients with schizophrenia and in none of 47,929 controls. The authors' conclusion is the mechanistic claim this entry is built around: the phenotype is a contiguous gene syndrome that extends beyond renal cysts and diabetes syndrome, which HNF1B mutations alone cause. Which of the other fourteen genes carries the brain phenotype is not known, and the entry records that as a knowledge gap rather than guessing.\nA second contrast runs the other way, and it is counterintuitive enough to be worth stating. In a 201-patient cohort split evenly between HNF1B point mutations and 17q12 deletions, the deletion carriers had advanced chronic kidney disease and end-stage renal disease *less* often than the mutation carriers, at diagnosis and in the long term. So the deletion is not simply the more severe lesion; it is a differently shaped one, milder in the kidney and broader in the brain. Any account that treats a whole-gene deletion as the maximal HNF1B allele has to answer that observation.\nBecause the deletion is invisible to sequencing-based MODY panels, patients are routinely diagnosed with MODY5 without the syndrome being recognised. Ascertainment therefore skews by referral route, and reported frequencies depend heavily on whether a cohort was collected through nephrology, diabetology or developmental paediatrics. The frequencies curated below are taken from the GeneReviews figures, which were derived with a method intended to avoid exactly that bias.\n",
+    "pathophysiology": [
+      "Recurrent 1.4 Mb Heterozygous Deletion at 17q12",
+      "HNF1B Haploinsufficiency",
+      "Haploinsufficiency of Additional Dosage-Sensitive Interval Genes",
+      "Disrupted Nephron and Collecting System Development",
+      "Impaired Pancreatic Beta Cell Development and Insulin Secretion",
+      "Disrupted Hepatic and Otic Development",
+      "Mullerian Duct Maldevelopment",
+      "Impaired Neurodevelopment"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "nephron development",
+      "pancreas development",
+      "liver development",
+      "inner ear development",
+      "mesonephric duct development"
+    ],
+    "phenotypes": [
+      "Multicystic kidney dysplasia",
+      "Renal cyst",
+      "Chronic kidney disease",
+      "Maturity-onset diabetes of the young",
+      "Global developmental delay",
+      "Autism spectrum disorder",
+      "Schizophrenia",
+      "Attention deficit hyperactivity disorder",
+      "Bipolar affective disorder",
+      "Macrocephaly",
+      "Hypomagnesemia",
+      "Hyperparathyroidism",
+      "Exocrine pancreatic insufficiency",
+      "Abnormality of the liver",
+      "Abnormality of the eye",
+      "Abnormal heart morphology",
+      "Hypokalemia",
+      "Hyperuricemia",
+      "Aplasia of the uterus",
+      "Seizure",
+      "Sensorineural hearing impairment"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Endocrine",
+      "Neurodevelopmental",
+      "Psychiatric",
+      "Growth",
+      "Metabolic",
+      "Gastrointestinal",
+      "Hepatic",
+      "Ophthalmologic",
+      "Cardiovascular",
+      "Genitourinary",
+      "Neurologic",
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000003",
+      "HP:0000107",
+      "HP:0012622",
+      "HP:0004904",
+      "HP:0001263",
+      "HP:0000717",
+      "HP:0100753",
+      "HP:0007018",
+      "HP:0007302",
+      "HP:0000256",
+      "HP:0002917",
+      "HP:0000843",
+      "HP:0001738",
+      "HP:0001392",
+      "HP:0000478",
+      "HP:0001627",
+      "HP:0002900",
+      "HP:0002149",
+      "HP:0000151",
+      "HP:0001250",
+      "HP:0000407"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HNF1B",
+      "Other genes in the 17q12 interval"
+    ],
+    "treatments": [
+      "Insulin Therapy for MODY5",
+      "Renal Replacement and Transplantation",
+      "Avoidance of Lithium and Nephrotoxic or Hepatotoxic Agents",
+      "Genetic Counseling and Parental Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chromosome_17q12_Deletion_Syndrome.yaml",
+    "page_url": "../pages/disorders/Chromosome_17q12_Deletion_Syndrome.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Chromosome 18p Deletion Syndrome",
     "disease_id": "MONDO:0007800",
     "category": "Mendelian",
@@ -171669,6 +171797,81 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Meester-Loeys Syndrome",
+    "disease_id": "MONDO:0010515",
+    "category": "Mendelian",
+    "parents": [
+      "Heritable Thoracic Aortic Disease"
+    ],
+    "creation_date": "2026-09-06T19:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Meester-Loeys syndrome (MRLS) is an X-linked syndromic aortopathy caused by loss-of-function variants in BGN, which encodes biglycan, a small leucine-rich proteoglycan of the arterial extracellular matrix. Biglycan binds and sequesters latent TGF-beta in the matrix, so losing it releases TGF-beta signalling: affected aortic wall shows increased nuclear pSMAD2.\nTwo features make it worth separating from the Marfan and Loeys-Dietz syndromes it overlaps clinically. First, the histology is unusual for an aneurysm syndrome: elastic fibres are *preserved* rather than fragmented, which is the opposite of what a Marfan-like reading would predict. Second, the disease is not confined to the thoracic aorta. As the cohort grew from five probands to eighteen, aneurysms and dissections were found throughout the arterial tree, and cardiovascular disease was found coexisting with non-specific connective-tissue features such as joint hypermobility, so patients can be, and have been, labelled Ehlers-Danlos syndrome first.\nDissections occur at young ages and males are affected more severely and more penetrantly than females. Only loss-of-function alleles are established: no pathogenic missense variant without an additional splice effect has been reported, and the discoverers recommend proving loss of function at RNA or protein level before calling a missense variant pathogenic.",
+    "pathophysiology": [
+      "Loss-of-Function BGN Variants",
+      "Loss of Biglycan from the Arterial Extracellular Matrix",
+      "Increased TGF-beta Signaling in the Aortic Wall",
+      "Medial Weakening and Progressive Arterial Dilatation"
+    ],
+    "cell_types": [
+      "Vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "transforming growth factor beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Aortic root aneurysm",
+      "Aortic dissection",
+      "Arterial aneurysm and dilatation",
+      "Hypertelorism",
+      "Pectus deformity",
+      "Joint hypermobility",
+      "Flexion contracture",
+      "Skeletal dysplasia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Craniofacial",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002616",
+      "HP:0002647",
+      "HP:0002617",
+      "HP:0000316",
+      "HP:0000766",
+      "HP:0001382",
+      "HP:0001371",
+      "HP:0002652"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BGN"
+    ],
+    "treatments": [
+      "Cardiovascular Surveillance of the Whole Arterial Tree"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Meester-Loeys_Syndrome.yaml",
+    "page_url": "../pages/disorders/Meester-Loeys_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Meier-Gorlin syndrome",
     "disease_id": "MONDO:0016817",
     "category": "Mendelian",
@@ -185893,6 +186096,104 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "44",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "NAD(P)HX Dehydratase Deficiency",
+    "disease_id": "MONDO:0034121",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Errors of Metabolism"
+    ],
+    "creation_date": "2026-09-06T19:15:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Combined isoform",
+      "Mitochondrial isoform"
+    ],
+    "description": "NAD(P)HX dehydratase (NAXD) deficiency, also catalogued as PEBEL2, is an autosomal recessive metabolite repair disorder. NAD(P)H is chemically fragile: spontaneous hydration, accelerated by heat, converts it into redox-inactive NAD(P)HX derivatives that inhibit dehydrogenases. NAXD is the ATP-dependent enzyme that reverses this damage. When it fails, the damaged cofactors accumulate and mitochondrial function degrades.\nThe clinically distinctive feature is that the disease is largely silent until a trigger arrives. A trivial febrile illness precipitates rapid, often irreversible neurological deterioration with brain oedema, leukoencephalopathy, seizures, lactic acidosis and characteristic skin lesions, and children commonly die during or shortly after the first crisis. A single adult case was precipitated at 32 by mild head trauma rather than fever, which widens the trigger set beyond hyperthermia. Which tissues fail depends on which NAXD isoform the variants hit: variants affecting both the cytosolic and mitochondrial isoforms give the neurological picture, while variants restricted to the mitochondrial isoform give myopathy, neuropathy and cardiac disease without seizures or skin lesions. Niacin-based treatment has partly relieved symptoms but is not curative.",
+    "pathophysiology": [
+      "Biallelic NAXD Loss of Function",
+      "Failure of NAD(P)HX Repair",
+      "Accumulation of Damaged NAD(P)HX Cofactors",
+      "Inhibition of De Novo Serine Synthesis",
+      "Mitochondrial Respiratory Chain Dysfunction",
+      "Trigger-Precipitated Neurometabolic Crisis",
+      "Progressive Neurodegeneration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "NAD+ metabolic process",
+      "L-serine biosynthetic process",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Developmental regression",
+      "Seizure",
+      "Cerebral edema",
+      "Leukoencephalopathy",
+      "Cutaneous necrosis",
+      "Skin erosion",
+      "Peripheral neuropathy",
+      "Cardiomyopathy",
+      "Axial hypotonia",
+      "Increased CSF lactate",
+      "Increased circulating lactate concentration",
+      "Muscle weakness",
+      "Sparse hair"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neuroimaging",
+      "Dermatologic",
+      "Cardiovascular",
+      "Laboratory",
+      "Musculoskeletal",
+      "Hair"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002376",
+      "HP:0001250",
+      "HP:0002181",
+      "HP:0002352",
+      "HP:0033126",
+      "HP:0200041",
+      "HP:0009830",
+      "HP:0001638",
+      "HP:0008936",
+      "HP:0002490",
+      "HP:0002151",
+      "HP:0001324",
+      "HP:0008070"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NAXD"
+    ],
+    "treatments": [
+      "Niacin-Based Supplementation"
+    ],
+    "environmental": [
+      "Febrile illness or intercurrent infection",
+      "Mild head trauma",
+      "Routine childhood immunization"
+    ],
+    "biochemical": [],
+    "source_file": "NAD_P_HX_Dehydratase_Deficiency.yaml",
+    "page_url": "../pages/disorders/NADPHX_Dehydratase_Deficiency.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "NAGA Deficiency Type 3",
@@ -230684,6 +230985,101 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Retinitis Pigmentosa With or Without Situs Inversus",
+    "disease_id": "MONDO:0014186",
+    "category": "Mendelian",
+    "parents": [
+      "Retinitis Pigmentosa"
+    ],
+    "creation_date": "2026-09-06T19:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Retinitis pigmentosa with or without situs inversus (RP66) is an ultra-rare autosomal recessive ciliopathy caused by biallelic loss-of-function variants in ARL2BP, an effector of the small GTPases ARL2 and ARL3 that localises to the basal body and connecting cilium of photoreceptors.\nThe disease is an unusually clean natural experiment in how one ciliary gene divides into organ-specific consequences. Rod-cone degeneration is present in every reported patient, because the photoreceptor outer segment is a modified primary cilium whose maintenance depends on continuous ARL2/ARL3-directed trafficking. The other manifestations follow the same protein's role in motile cilia, and each is variable: situs inversus totalis from failed left-right determination at the embryonic node, oligo- and asthenozoospermia from sperm flagellar defects, anosmia, and in one patient unilateral renal agenesis with microcysts. The disease name carries the variability in it.\nThere is no proven disease-modifying therapy for retinitis pigmentosa. This entry deliberately carries no `treatments:` section: the supportive measures such a patient actually receives (low-vision rehabilitation, fertility counselling, surveillance for the extra-ocular features) are generic to syndromic retinal dystrophy and no source in this entry states them of RP66, so asserting them here would attach disease-specific claims to citations that do not make them. The gap is recorded as a discussion instead.",
+    "pathophysiology": [
+      "Biallelic ARL2BP Loss of Function",
+      "Loss of ARL2BP from the Photoreceptor Basal Body and Connecting Cilium",
+      "Defective Ciliary Axoneme and Doublet Microtubule Assembly",
+      "Photoreceptor Outer Segment Disorganization",
+      "Progressive Rod and Cone Photoreceptor Degeneration",
+      "Motile Cilia and Flagellar Dysfunction"
+    ],
+    "cell_types": [
+      "Photoreceptor cell",
+      "Retinal cone cell",
+      "Retinal rod cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000573",
+      "CL:0000604"
+    ],
+    "biological_processes": [
+      "axoneme assembly",
+      "determination of left/right symmetry"
+    ],
+    "phenotypes": [
+      "Rod-cone dystrophy",
+      "Constriction of peripheral visual field",
+      "Spicular pigmentation of the retina",
+      "Nyctalopia",
+      "Photophobia",
+      "Abnormal electroretinogram",
+      "Situs inversus totalis",
+      "Oligozoospermia",
+      "Abnormal sperm motility",
+      "Anosmia",
+      "Unilateral renal agenesis",
+      "Renal cyst",
+      "Cryptorchidism"
+    ],
+    "phenotype_categories": [
+      "Ocular",
+      "Laterality",
+      "Reproductive",
+      "Neurologic",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000510",
+      "HP:0001133",
+      "HP:0007737",
+      "HP:0000662",
+      "HP:0000613",
+      "HP:0000512",
+      "HP:0001696",
+      "HP:0000798",
+      "HP:0012206",
+      "HP:0000458",
+      "HP:0000122",
+      "HP:0000107",
+      "HP:0000028"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "ARL2BP"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Retinitis_Pigmentosa_With_or_Without_Situs_Inversus.yaml",
+    "page_url": "../pages/disorders/Retinitis_Pigmentosa_With_or_Without_Situs_Inversus.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Retinoblastoma",
@@ -278435,6 +278831,78 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "X-Linked Spondyloepiphyseal Dysplasia Tarda",
+    "disease_id": "MONDO:0010737",
+    "category": "Mendelian",
+    "parents": [
+      "Spondyloepiphyseal Dysplasia"
+    ],
+    "creation_date": "2026-09-06T19:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "X-linked spondyloepiphyseal dysplasia tarda (SEDT) is a late-onset X-linked recessive osteochondrodysplasia caused by loss-of-function variants in TRAPPC2 (formerly SEDL), which encodes the 140-amino-acid protein sedlin, the Trs20 adaptor subunit of the TRAPP tethering complex.\nThe mechanism is unusually satisfying for a skeletal dysplasia because it explains the tissue restriction. Sedlin binds Sar1 and promotes its GTPase cycling at endoplasmic reticulum exit sites, which is what allows COPII carriers to enlarge into the megacarriers needed to export procollagen prefibrils. Procollagen is simply too bulky for a standard COPII vesicle. Any cell that secretes ordinary cargo can manage without sedlin; a growth-plate chondrocyte, whose whole job is exporting collagen, cannot. Patient articular cartilage shows the predicted secretory bottleneck as dilated rough endoplasmic reticulum.\nAffected hemizygous males are normal at birth and present in late childhood or adolescence with disproportionate short-trunk short stature, a barrel chest and the near-pathognomonic hump-shaped platyspondyly, followed by premature osteoarthritis of spine and hips. Because the lesion is confined to the skeleton, metabolic laboratory values are normal, which is the finding that separates SEDT from the mucopolysaccharidoses it can resemble radiographically. Life expectancy is normal. There is no disease-modifying therapy; management is orthopaedic, and hip arthroplasty is the definitive treatment for end-stage hip disease.",
+    "pathophysiology": [
+      "TRAPPC2 Loss of Function",
+      "Absent or Misfolded Sedlin",
+      "Impaired Sar1 Cycling and COPII Megacarrier Formation",
+      "Procollagen Retention in Dilated Rough Endoplasmic Reticulum",
+      "Defective Growth Plate Chondrogenesis",
+      "Altered Spinal and Hip Joint Biomechanics"
+    ],
+    "cell_types": [
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "COPII-coated vesicle cargo loading",
+      "endoplasmic reticulum to Golgi vesicle-mediated transport"
+    ],
+    "phenotypes": [
+      "Platyspondyly",
+      "Disproportionate short-trunk short stature",
+      "Barrel-shaped chest",
+      "Epiphyseal dysplasia",
+      "Flattened femoral head",
+      "Osteoarthritis"
+    ],
+    "phenotype_categories": [
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0000926",
+      "HP:0003521",
+      "HP:0001552",
+      "HP:0002656",
+      "HP:0008812",
+      "HP:0002758"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TRAPPC2"
+    ],
+    "treatments": [
+      "Hip Arthroplasty for End-Stage Hip Osteoarthritis",
+      "Molecular Carrier Testing and Presymptomatic Diagnosis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "X-Linked_Spondyloepiphyseal_Dysplasia_Tarda.yaml",
+    "page_url": "../pages/disorders/X-Linked_Spondyloepiphyseal_Dysplasia_Tarda.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "X-linked Agammaglobulinemia",
     "disease_id": "MONDO:0010421",
     "category": "Mendelian",
@@ -281804,17 +282272,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2735,
-  "total_subtypes": 3649,
-  "total_disorders_and_subtypes": 6384,
-  "total_unique_evidence_sources": 38554,
-  "total_unique_publications": 36313,
+  "total_disorder_pages": 2740,
+  "total_subtypes": 3651,
+  "total_disorders_and_subtypes": 6391,
+  "total_unique_evidence_sources": 38595,
+  "total_unique_publications": 36354,
   "total_unique_disease_categories": 54,
-  "total_unique_phenotype_categories": 275,
-  "total_pathographs": 2730,
-  "total_unique_pathological_events": 16194,
+  "total_unique_phenotype_categories": 276,
+  "total_pathographs": 2735,
+  "total_unique_pathological_events": 16222,
   "total_modules": 171,
-  "total_research_reports": 2846,
+  "total_research_reports": 2851,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
