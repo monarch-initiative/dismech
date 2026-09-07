@@ -97,11 +97,12 @@ is then classified exactly as a cached one would have been. Without that pass a
 wrong binding to an uncached CURIE is invisible in *both* modes, which is a hole
 rather than a caveat.
 
-Then the `symbol_unexplained` rows. For each, it takes the symbols the text names and asks two questions:
-a symbol that is a *synonym of the bound term* explains the row and reclassifies
-it `previous_symbol` (`GBA1` -> `GBA`); a symbol that resolves to a *different*
-HGNC id promotes the row to `names_another_gene` (`THAP11` -> `hgnc:23194`,
-which is how the issue's demonstration is caught definitively). A symbol the
+Then the `symbol_unexplained` rows. For each, it takes the symbols the text
+names and asks two questions: a symbol that is a *synonym of the bound term*
+explains the row and reclassifies it `previous_symbol` (`GBA1` -> `GBA`); a
+symbol that resolves to a *different* HGNC id promotes the row to
+`names_another_gene` (`THAP11` -> `hgnc:23194`, which is how the issue's
+demonstration is caught definitively). A symbol the
 build has never heard of leaves the row where it was: the OBO build does not
 carry every retired symbol -- `WDR34` is absent from `hgnc:28296` (`DYNC2I2`)
 entirely -- and "the ontology does not know this string" is not evidence about
@@ -118,8 +119,8 @@ Usage
 -----
     python scripts/check_gene_term_identity.py             # report, exit 0
     python scripts/check_gene_term_identity.py --format tsv
-    python scripts/check_gene_term_identity.py --resolve   # split the advisory bucket
-    python scripts/check_gene_term_identity.py --strict    # exit 1 on confident findings
+    python scripts/check_gene_term_identity.py --resolve   # settle uncached+advisory
+    python scripts/check_gene_term_identity.py --strict    # exit 1 on confident rows
 """
 
 from __future__ import annotations

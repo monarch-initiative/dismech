@@ -21,7 +21,9 @@ model-organism symbols and 4 HLA serotypes would be turned off rather than fixed
 
 import subprocess
 import sys
+import types
 from pathlib import Path
+from typing import ClassVar
 
 # See the note in test_causal_targets.py: the `sys.path` preamble must sit
 # directly before the import for ruff's E402 allowance to apply.
@@ -332,3 +334,123 @@ def test_strict_gates_the_confident_class_only(tmp_path):
     )
     assert result.returncode == 1, result.stdout
     assert "NAMES A DIFFERENT GENE             : 1" in result.stdout
+
+
+class _FakeAdapter:
+    """The three HGNC lookups `resolve_online` makes, backed by a fixed table."""
+
+    LABELS: ClassVar[dict[str, str]] = {
+        "hgnc:20856": "THAP1",
+        "hgnc:23194": "THAP11",
+        "hgnc:4177": "GBA",
+        "hgnc:26019": "BPNT2",
+    }
+    ALIASES: ClassVar[dict[str, set[str]]] = {
+        "hgnc:4177": {"GBA", "GBA1", "glucocerebrosidase"}
+    }
+
+    def label(self, curie):
+        return self.LABELS.get(curie.lower())
+
+    def entity_aliases(self, curie):
+        return self.ALIASES.get(curie.lower(), {self.LABELS.get(curie.lower(), "")})
+
+    def basic_search(self, symbol):
+        return [c for c, label in self.LABELS.items() if label == symbol]
+
+
+def _with_fake_adapter(monkeypatch):
+    """`resolve_online` imports oaklib lazily, so stub the module it reaches for."""
+    module = types.ModuleType("oaklib")
+    module.get_adapter = lambda spec: _FakeAdapter()
+    monkeypatch.setitem(sys.modules, "oaklib", module)
+
+
+def test_resolve_gives_the_uncached_rows_a_verdict(monkeypatch):
+    """Offline an uncached CURIE gets no opinion, so a wrong binding hides there.
+
+    `--resolve` fetches the label and classifies the row as a cached one would be,
+    which is what stops that being invisible in both modes.
+    """
+    _with_fake_adapter(monkeypatch)
+    findings = classify([binding(preferred_term="THAP11", entry_name="THAP11")], {})
+    assert [f.verdict for f in findings] == [UNCACHED]
+
+    (resolved,) = gti.resolve_online(findings, {})
+    assert resolved.verdict == NAMES_ANOTHER_GENE
+    assert resolved.ontology_label == "THAP1"
+    assert resolved.detail == ("THAP11",)
+
+
+def test_resolve_explains_a_previous_symbol(monkeypatch):
+    """`GBA1` is a synonym of `hgnc:4177`, so the binding is correct (#10102)."""
+    _with_fake_adapter(monkeypatch)
+    findings = classify(
+        [binding(curie="hgnc:4177", preferred_term="GBA1")], {"hgnc:4177": "GBA"}
+    )
+    assert [f.verdict for f in findings] == [SYMBOL_UNEXPLAINED]
+
+    (resolved,) = gti.resolve_online(findings, {"hgnc:4177": "GBA"})
+    assert resolved.verdict == gti.PREVIOUS_SYMBOL
+    assert resolved.detail == ("GBA1",)
+
+
+def test_resolve_substitutes_uncached_rows_positionally(monkeypatch):
+    """The subtlest part of the two-pass design, and the reason for a test.
+
+    Pass one replaces only the `uncached` rows, identifying them by position
+    because two identical `Binding`s compare equal — so a value-keyed lookup
+    would collapse them. This pins order preservation with other verdicts
+    interleaved, and that pass two still sees the rows pass one produced.
+    """
+    _with_fake_adapter(monkeypatch)
+    labels = {"hgnc:4177": "GBA"}
+    bindings = [
+        binding(path="a.yaml", preferred_term="THAP11", entry_name="THAP11"),
+        binding(path="b.yaml", curie="hgnc:4177", preferred_term="GBA"),
+        binding(path="c.yaml", slot="genes", curie="MGI:94872"),
+        binding(path="d.yaml", curie="hgnc:4177", preferred_term="GBA1"),
+    ]
+    offline = classify(bindings, labels)
+    assert [f.verdict for f in offline] == [
+        UNCACHED,
+        OK,
+        NOT_HGNC,
+        SYMBOL_UNEXPLAINED,
+    ]
+
+    online = gti.resolve_online(offline, labels)
+    assert [f.binding.path for f in online] == ["a.yaml", "b.yaml", "c.yaml", "d.yaml"]
+    assert [f.verdict for f in online] == [
+        NAMES_ANOTHER_GENE,
+        OK,
+        NOT_HGNC,
+        gti.PREVIOUS_SYMBOL,
+    ]
+
+
+def test_resolve_leaves_an_unresolvable_uncached_row_alone(monkeypatch):
+    """A CURIE the build has no label for stays `uncached`, not a finding.
+
+    Silence from the ontology is a fact about the build, not about the binding.
+    """
+    _with_fake_adapter(monkeypatch)
+    findings = classify([binding(curie="hgnc:99999", preferred_term="NOPE")], {})
+    (resolved,) = gti.resolve_online(findings, {})
+    assert resolved.verdict == UNCACHED
+
+
+def test_resolve_keeps_an_uppercase_hgnc_binding_in_scope(monkeypatch):
+    """#10948's report offered the CURIE as uppercase `HGNC:20856`.
+
+    The prefix test runs on the lowercased CURIE, so an uppercase binding is
+    still checked rather than dismissed as out-of-scope.
+    """
+    _with_fake_adapter(monkeypatch)
+    findings = classify(
+        [binding(curie="HGNC:20856", preferred_term="THAP11", entry_name="THAP11")],
+        {},
+    )
+    assert [f.verdict for f in findings] == [UNCACHED]
+    (resolved,) = gti.resolve_online(findings, {})
+    assert resolved.verdict == NAMES_ANOTHER_GENE

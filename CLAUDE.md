@@ -1550,19 +1550,24 @@ just list-gene-term-mismatches-online                         # ask HGNC about t
 ```
 
 **Report-only, and deliberately not in `just qc`.** It exits 0 even with
-findings. Across the whole KB it examines 12,665 gene descriptors, 12,656 of them
-HGNC-bound, and finds **no** wrong binding, so there is nothing to gate on yet;
+findings. Across the whole KB — twelve-odd thousand gene descriptors, nearly all
+HGNC-bound — it finds **no** wrong binding, so there is nothing to gate on yet;
 `--strict` exists for whoever decides to gate the confident class later.
 
 **Read the coverage line, not just the finding count.** Offline it compares only
-the CURIEs that have a row in `cache/hgnc/terms.csv` — 12,622 of the 12,656 — so
-34 get no opinion at all rather than a clean one, and a wrong binding among them
-is invisible. `--resolve` fetches those labels and closes the gap (all 12,656
-compared, and those 34 come back clean). The remaining 9 descriptors bind mouse
-`MGI:` orthologs under animal models, which this check structurally cannot judge;
-they are reported as `not_hgnc` rather than folded into `uncached`, because an
-uncached HGNC CURIE is one `just validate-terms` run from being checkable and an
-MGI one never will be.
+the CURIEs that have a row in `cache/hgnc/terms.csv`, so a few dozen get no
+opinion at all rather than a clean one, and a wrong binding among them would be
+invisible. `--resolve` fetches those labels and closes that gap; at the time of
+writing every one of them comes back clean. A handful of further descriptors bind
+mouse `MGI:` orthologs under animal models, which this check structurally cannot
+judge; they are reported as `not_hgnc` rather than folded into `uncached`, because
+an uncached HGNC CURIE is one `just validate-terms` run from being checkable and
+an MGI one never will be.
+
+Exact totals are deliberately not quoted here. They moved by ~100 within a day of
+this section being written, because every curation PR that adds an entry adds
+bindings — so a number here is stale by construction, while the report's own count
+line is current by construction. Run the recipe for figures.
 
 Two finding classes, and the difference between them is what the check can
 honestly claim:
@@ -1583,11 +1588,12 @@ leaves the row alone — `WDR34` is absent from `hgnc:28296` (`DYNC2I2`)
 altogether, and the build's silence is a fact about the build, not about the
 binding.
 
-**The tolerances are load-bearing, so do not tighten them casually.** 27
+**The tolerances are load-bearing, so do not tighten them casually.** Dozens of
 bindings are model-organism ortholog symbols (`Adnp`, `Pkhd1`, `smchd1`,
-including a zebrafish paralog's trailing letter in `inppl1a`) and 4 are HLA
+including a zebrafish paralog's trailing letter in `inppl1a`) and a few are HLA
 serotype detail (`HLA-B27` bound to `HLA-B` — allele-level detail in a gene field
-is legitimate, #9017). Note the serotype rule is restricted to `HLA-*` on
+is legitimate, #9017). Without those two classes the real findings would be
+buried. Note the serotype rule is restricted to `HLA-*` on
 purpose: generalizing it to "the label followed by digits" would excuse `THAP1`
 under a `THAP11` entry, which is the exact defect this exists to find. For the
 same reason the confident class is decided **before** any tolerance is applied.
