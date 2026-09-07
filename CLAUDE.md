@@ -128,6 +128,28 @@ HGNC gene CURIEs use lowercase `hgnc:` in this repository (for example,
 `hgnc:746`, not `HGNC:746`). This is the canonical form that passes term
 validation; do not flag lowercase `hgnc:` as an error in reviews.
 
+### Parsed-KB Cache (`src/dismech/kb_cache.py`)
+Many code paths walk `kb/disorders/` and parse every file to build a small
+index. One walk parses ~2,700 files (~17 s). `kb_cache.load_document(path)`
+keeps one parsed copy per file per process, keyed on the file's content hash,
+so later walks cost a read and a hash. The returned object is **shared and
+read-only**: code that decorates or edits a document must parse its own copy
+(`dismech.yaml_io.safe_load_path`), which is what `render.load_disorder` does
+for the page being rendered while the index walks use `load_disorder_shared`.
+Holding the parsed disorder corpus costs ~450 MB per process;
+`DISMECH_KB_CACHE=0` turns the cache off. Route a new corpus walk through it
+rather than adding another `glob` + `safe_load` loop (issue #11003).
+
+**A CLI that walks the corpus exactly once should call `kb_cache.default_off()`
+from its `main()`.** With no second walk there are no hits to collect, so the
+cache is pure cost -- `check_snippet_length` measures 17.1 s / 34 MB without it
+against 20.5 s / 522 MB with it, while the two-walk
+`check_environmental_evidence` goes the other way (28.0 s -> 18.3 s). Put the
+call in `main()`, never at import: pytest imports these scripts' `scan_repo`
+functions directly and runs several of them in one process, which is exactly
+the case the cache exists for. `default_off()` uses `setdefault`, so an
+explicit `DISMECH_KB_CACHE` still wins.
+
 ### HTML Rendering (`src/dismech/render.py`)
 - Jinja2 templates in `src/dismech/templates/`
 - Generates browsable HTML pages in `pages/disorders/`
