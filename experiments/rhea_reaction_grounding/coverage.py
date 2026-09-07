@@ -10,7 +10,7 @@ of that bridge -- and how ambiguous the crossing is.
 It reads only. It does not write to ``kb/``, the schema, or any cache.
 
 Usage:
-    python coverage.py --kb-root kb --rhea2go 2026-09-06/rhea2go.tsv
+    python coverage.py --kb-root kb --rhea2go 2026-09-07-coverage/rhea2go.tsv
 """
 
 from __future__ import annotations
@@ -165,7 +165,7 @@ def main():
     )
     parser.add_argument(
         "--rhea2go",
-        default=os.path.join(here, "2026-09-06", "rhea2go.tsv"),
+        default=os.path.join(here, "2026-09-07-coverage", "rhea2go.tsv"),
         help="pinned rhea2go.tsv snapshot",
     )
     args = parser.parse_args()

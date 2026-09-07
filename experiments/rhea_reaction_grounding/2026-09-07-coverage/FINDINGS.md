@@ -1,4 +1,4 @@
-# How much of dismech could Rhea actually reach? (2026-09-06)
+# How much of dismech could Rhea actually reach? (2026-09-07)
 
 **Question.** Issue [#973](https://github.com/monarch-initiative/dismech/issues/973)
 asks what the relationship between [Rhea](https://www.rhea-db.org/) and dismech should be,
@@ -224,7 +224,7 @@ molecular-function layer. That is a smaller, more defensible change than #973 as
 | | |
 |---|---|
 | `rhea2go.tsv` | https://ftp.expasy.org/databases/rhea/tsv/rhea2go.tsv |
-| Retrieved | 2026-09-06 |
+| Retrieved | 2026-09-07 |
 | sha256 | `a6695b6938942615d4529dea0125277b03bd025c42e0f314557091a08a489b07` |
 | Bytes | 201,401 |
 | KB commit | `d985fb64` |

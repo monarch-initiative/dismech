@@ -20,18 +20,27 @@ mapped to GO terms, which dismech already curates in its `molecular_functions` a
 `biological_processes` slots. Each run pins its own `rhea2go.tsv` snapshot by sha256, since
 the upstream URL is unversioned.
 
-`coverage.py` is shared across runs. It reads only, uses dismech's own YAML loader, and
-takes both paths as arguments:
+Two scripts are shared across runs. Both read only and use dismech's own YAML loader.
+
+`coverage.py` measures how much of the KB's GO annotation Rhea can reach:
 
 ```bash
-python3 coverage.py --kb-root kb --rhea2go 2026-09-06/rhea2go.tsv
+python3 coverage.py --kb-root kb --rhea2go 2026-09-07-coverage/rhea2go.tsv
+```
+
+`concordance.py` tests whether a reached reaction is the *right* one, by checking the
+entry's curated ChEBI biomarker against the reaction's ChEBI participants:
+
+```bash
+python3 concordance.py --out-dir 2026-09-07-biomarker-concordance
 ```
 
 ## Runs
 
 | Run | KB commit | Headline |
 |---|---|---|
-| [`2026-09-06/`](2026-09-06/) | `d985fb64` | 43.8% of molecular-function terms reachable; **0%** of biological-process terms; 99.9% of mappings undirected; 24.6% of reachable terms ambiguous |
+| [`2026-09-07-coverage/`](2026-09-07-coverage/) | `d985fb64` | 43.8% of molecular-function terms reachable; **0%** of biological-process terms; 99.9% of mappings undirected; 24.6% of reachable terms ambiguous |
+| [`2026-09-07-biomarker-concordance/`](2026-09-07-biomarker-concordance/) | `d985fb64` | 107 entries pair a mappable MF term with a ChEBI biomarker; **42 (39.3%)** have a biomarker that is a participant of the mapped reaction; 35 of those monogenic |
 
 ## Reading these numbers
 
@@ -41,4 +50,5 @@ Two cautions carry across every run:
   a Rhea ID by hand from UniProt could exceed it. These figures bound automated backfill and
   mechanical validation, not what curation could achieve.
 - Availability is not appropriateness. That a GO term maps to a reaction says nothing about
-  whether that reaction is the right claim for the node carrying it.
+  whether that reaction is the right claim for the node carrying it. The concordance run
+  probes appropriateness on one axis, but a non-match there is a lead to read, not a verdict.
