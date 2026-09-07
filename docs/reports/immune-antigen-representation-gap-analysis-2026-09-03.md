@@ -4,13 +4,17 @@ A census of how the knowledge base records **antigen identity** in immune and
 autoimmune entries, and whether the recorded antigen can be attributed to the
 lymphocyte lineage that recognises it.
 
-Scope: all 2,535 files in `kb/disorders/` plus all 167 in `kb/modules/`
-(2,702 entries), narrowed to a 573-entry immune cohort. Numbers are regenerable
-with `scripts/immune_antigen_audit.py`; nothing here is gated, and no KB or
-schema file was changed.
+Scope, **as of 2026-09-03**: all 2,535 files in `kb/disorders/` plus all 167 in
+`kb/modules/` (2,702 entries), narrowed to a 573-entry immune cohort. Every
+number below is regenerable with `scripts/immune_antigen_audit.py`, but this is a
+dated snapshot and the KB grows daily — a run today scans more entries and will
+not reproduce these totals verbatim. The conclusions are robust to that drift:
+re-run on 2026-09-07 against 2,881 entries, the headline 64.0% / 36.0% split and
+the zero-bindable-HLA-rows result of §5 were unchanged. Nothing here is gated,
+and no KB or schema file was changed.
 
 ```bash
-just immune-antigen-audit                                            # the summary below
+just immune-antigen-audit                                # the run behind this report
 just immune-antigen-audit --format tsv --out /tmp/antigen.tsv
 just immune-antigen-audit --entry Celiac_Disease
 ```
@@ -368,7 +372,8 @@ and the AChR peptide seen by the T cell are the same protein.
 
 ## 7. What already exists to build on
 
-Nothing here requires a new ontology.
+Almost nothing here requires a new ontology. The one exception is HLA, and even
+that is a configuration line rather than a modelling problem — see §7a.
 
 | Need | Existing resource |
 |---|---|
@@ -380,6 +385,8 @@ Nothing here requires a new ontology.
 | Recognising lineage | B/T-lineage CL bindings already on 531 cohort pathophysiology nodes (2,158 carry some `cell_types`) |
 | Attaching an antigen to a node | the `<kind>#<name>` entity-reference grammar |
 | Recording *how* an antigen acts | the `ModelMechanismLink` / `influences_mechanisms` link-object pattern |
+| HLA serotype, allele, haplotype, presenting complex | **MRO** (IEDB's MHC Restriction Ontology) — not yet in `conf/oak_config.yaml`; see §7a |
+| Antigen as a protein, by accession | **UniProt**, the form IEDB publishes antigens in — `GeneProductDescriptor` is the existing slot |
 
 The pattern the KB already uses for exactly this shape of problem is the
 **link object**: `treatments.target_mechanisms`, `environmental.influences_mechanisms`,
@@ -388,6 +395,133 @@ from an entity to a pathograph node. An antigen link would be the same shape —
 antigen descriptor, target node, a recognising-lineage value (B / T / both), and
 its own evidence — and would inherit the pathograph rendering and export for
 free.
+
+## 7a. Alignment with IEDB
+
+*Added 2026-09-07. All IEDB figures in this section were queried on that date
+against `https://query-api.iedb.org`; they are a snapshot, like the rest of this
+document.*
+
+The four senses this report separates are not novel distinctions. The Immune
+Epitope Database has modelled them for twenty years, its data is public domain,
+and its identifiers are already in the CURIE form dismech uses. Two things follow
+that change the recommendations above.
+
+### The HLA gap has an ontology, and §5 stops one step short of it
+
+§5 concludes that "the KB has nowhere to put a serotype, an allele or a
+haplotype." That is true of dismech's descriptors and remains the finding. But
+the resource that fills it exists, is maintained by IEDB, and reaches dismech
+through the adapter pattern `conf/oak_config.yaml` already uses:
+
+| §5 calls this unbindable | MRO term |
+|---|---|
+| `HLA-DQ2` (serotype) | `MRO:0000283` HLA-DQ2 serotype |
+| `HLA-B27` (serotype) | `MRO:0000217` HLA-B27 serotype |
+| `HLA-DRB1*03:01` (allele) | `MRO:0000703` HLA-DRB1\*03:01 chain |
+| the presenting molecule | `MRO:0001284` HLA-DRB1\*03:01 protein complex |
+| `HLA-DR3-DQ2` (haplotype) | `MRO:0000005` MHC haplotype, with the `MRO:0000000` *haplotype member of* relation |
+
+MRO (the MHC Restriction Ontology, PMID:26759709) is an IEDB product. It carries
+51,436 terms at version 2026-08-26, is loaded in OLS, and resolves today through
+the same `ols:` adapter as HP, GO and CL:
+
+```bash
+uv run runoak -i ols:mro info MRO:0000283 MRO:0001620 MRO:0000217
+# MRO:0000283 ! HLA-DQ2 serotype
+# MRO:0001620 ! HLA protein complex with DQ2 serotype
+# MRO:0000217 ! HLA-B27 serotype
+```
+
+So adding `MRO: ols:mro` to `conf/oak_config.yaml` is a one-line change, after
+which HLA serotypes and alleles validate and cache exactly like every other bound
+term. This does **not** reopen the backfill §5 closed: the 41 unbound rows still
+name no HGNC gene, and binding them to `gene_term` would still be wrong. It
+changes which slot they are waiting for, not whether they are waiting.
+
+MRO also separates the **chain** from the **protein complex** — the distinction
+§5 needs when it observes that `hgnc:4948` (*HLA-DRB1*) cannot tell the DR15
+haplotype of anti-GBM disease from the DRB1\*04 shared epitope of rheumatoid
+arthritis. The complex term is what a peptide is presented *by*, so it is the
+natural target of the peptide-to-allele link §5 says is missing everywhere.
+
+### IEDB's schema answers the report's central question, and answers it asymmetrically
+
+`bcell_search` and `tcell_search` are parallel tables over the same assay corpus.
+Both carry `parent_source_antigen_iri` (a UniProt accession), `disease_iris`,
+`assay_iris` (OBI), `host_organism_iri` (NCBITaxon), `qualitative_measure` and
+`pubmed_id`. They differ in one place, and the difference is not incidental:
+
+| Human-host records, queried 2026-09-07 | B cell | T cell |
+|---|---:|---:|
+| with a disease assigned | 1,352,189 | 268,067 |
+| with an MHC allele (`mhc_allele_iri`, an MRO term) | **0** | **297,935** |
+
+MHC restriction is a field only the T-cell table ever populates. That is the
+strongest available argument against modelling this in dismech as one generic
+"antigen" slot shared by both lineages: the recognising lineage determines which
+fields are even meaningful. A B-cell antigen link needs an antigen and an
+isotype; a T-cell antigen link needs an antigen, an MRO restriction and a
+presentation relation. A single slot would leave one of those two permanently
+half-empty, which is the failure mode §3a already documents in the `genetic`
+block.
+
+### The Celiac exemplar, tested
+
+§6 asserts that in celiac disease B cells target tissue transglutaminase while T
+cells target deamidated gliadin peptides on HLA-DQ2/DQ8, and notes that the entry
+names the antigen on neither node. IEDB holds that claim as data:
+
+| Celiac disease, IEDB, queried 2026-09-07 | B cell | T cell |
+|---|---:|---:|
+| assay records | 824 | 2,748 |
+| against TGM2 (`UNIPROT:P21980`) | **256** | **0** |
+| carrying an MRO restriction | 0 | 1,876 |
+
+Zero of 2,748 celiac T-cell records are against TGM2, against 256 of 824 on the B
+side; the T-cell antigens are the gliadins (`UNIPROT:D2T2K3`, `UNIPROT:A0A060N479`,
+`UNIPROT:Q402I5`), and the dominant restrictions are `MRO:0001229`
+(HLA-DQA1\*05:01/DQB1\*02:01) and `MRO:0001620` (HLA protein complex with DQ2
+serotype). The divergence this report was commissioned to look for is not a
+curatorial hypothesis — it is a clean separation in a public dataset, addressable
+by identifier.
+
+### Divergence is disease-specific, which is itself the argument for a slot
+
+Celiac is not the general case, and a recommendation built only on it would be
+wrong:
+
+| Disease (IEDB, 2026-09-07) | B-cell records | T-cell records | Dominant antigen |
+|---|---:|---:|---|
+| celiac disease | 824 | 2,748 | **divergent** — TGM2 vs gliadins |
+| type 1 diabetes mellitus | 550 | 4,407 | convergent — GAD65 (`UNIPROT:Q05329`) leads both |
+| myasthenia gravis | 77 | 726 | convergent — AChR α (`UNIPROT:P02708`) leads both |
+| pemphigus | — | — | DSG3 (`UNIPROT:P32926`): 145 B / 134 T |
+
+B and T sometimes see the same protein and sometimes do not. A curator cannot
+infer which from the disease, and dismech currently has no field in which to
+record the answer either way — so the information is lost precisely where it is
+most informative. That is a stronger case for the link object in §7 than the
+uniform-divergence story would have been.
+
+### What IEDB does not solve
+
+- **Diseases are DOID, not MONDO.** Any join runs through a DOID→MONDO mapping
+  and inherits its gaps. Matching on disease *name* is worse: `pemphigus vulgaris`
+  returns nothing because IEDB files those records under `pemphigus`, so a naive
+  name join silently under-reports rather than failing.
+- **Antigens are UniProt, not HGNC.** dismech's `GeneDescriptor` binds `hgnc:`.
+  A protein-level antigen is a different entity from the gene that encodes it,
+  which is the distinction §3a shows the `genetic` block currently collapsing;
+  `GeneProductDescriptor` is the slot that already exists for it.
+- **An assay count is not a mechanism.** These are counts of published
+  experiments, weighted by what was studied and fundable. They say what has been
+  measured, never what matters — and `qualitative_measure` includes `Negative`
+  records, which a naive count silently treats as support.
+- **Coverage is uneven and cannot be assumed.** Prevalent, heavily-studied
+  autoimmune diseases are deep; rarer entries in this cohort may have nothing.
+
+IEDB data is public domain and its 2024 update is PMID:39558162.
 
 ## 8. What this audit deliberately does not decide
 
@@ -399,9 +533,11 @@ free.
 - **Which sense of "different antigens" matters most.** All four are gaps, but
   they are not equally expensive. Note that the one that *looked* mechanical is
   not: §5 shows all 41 unbound HLA rows name a serotype, allele or haplotype
-  rather than a gene, so there is no `gene_term` backfill to do — the HLA work
-  is the genuinely new modelling problem (somewhere to put an allele, and a
-  peptide-to-allele link), not a sweep.
+  rather than a gene, so there is no `gene_term` backfill to do. What the HLA
+  work needs is somewhere to put an allele and a peptide-to-allele link — and
+  §7a finds that MRO already supplies both, reachable through the `ols:` adapter
+  dismech already uses. That makes it a smaller job than this report first
+  judged, but still a slot decision rather than a sweep.
 - **Whether an unbound antigen is a defect.** Many are correctly unbound —
   `Anti-Endomysial Antibodies` names a *tissue staining pattern*, not a molecule,
   and forcing a CURIE onto it would be worse than leaving it. The
@@ -412,6 +548,18 @@ free.
 `scripts/immune_antigen_audit.py` (`just immune-antigen-audit`), offline, over
 `kb/disorders/` and `kb/modules/`. Runtime is hardware-bound: ~70 s on a CI
 runner, ~3 min 40 s on a throttled container.
+
+The IEDB figures in §7a come from a different method and carry different
+caveats. They were obtained by ad-hoc HTTP queries against
+`https://query-api.iedb.org` on 2026-09-07, not by the committed script, so
+**they do not regenerate with `just immune-antigen-audit`** and are reproducible
+only by re-issuing the queries. Counts are exact (`Prefer: count=exact`) rather
+than sampled, but they are counts of assay records, so a protein studied often
+outranks a protein that matters; `qualitative_measure` includes `Negative`
+records, which these totals do not exclude. Disease selection is by IEDB's own
+disease *name*, which is DOID-derived and does not match dismech's MONDO labels
+— `pemphigus vulgaris` matches nothing while `pemphigus` matches 145 B-cell and
+134 T-cell DSG3 records, so a name join under-reports silently.
 
 - **Only three classes can answer the lineage question, and the headline is
   reported over those.** `cell_types` is a slot on `Pathophysiology`,
