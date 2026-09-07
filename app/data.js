@@ -152063,6 +152063,128 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Kashin-Beck Disease",
+    "disease_id": "MONDO:0005610",
+    "category": "Environmental Osteochondropathy",
+    "parents": [
+      "Osteochondropathy",
+      "Environmental Disease"
+    ],
+    "creation_date": "2026-09-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Kashin-Beck disease is an endemic osteochondropathy of children and adolescents in a narrow belt running from Siberia through northern and western China into Tibet. Chondrocytes die in the deep and middle zones of the growth plate and articular cartilage; endochondral ossification fails where they die, and the result is symmetric shortening of the fingers and limbs, enlarged joints, and a degenerative arthropathy that persists for life. Onset is in childhood, usually between three and twelve years of age. The cause is environmental and, after seventy years, still unsettled: the factors most consistently associated with the disease are selenium deficiency, iodine deficiency, grain contaminated by the Fusarium trichothecene T-2 toxin, and organic matter - chiefly fulvic acid - in drinking water, and no single one of them has been shown to be sufficient. What is not disputed is that the disease is preventable: changing the grain supply, supplementing selenium and improving the water supply each cut incidence sharply, and China's national incidence fell from 22.1% in 1990 to 0.18% in 2015.",
+    "pathophysiology": [
+      "Chronic Dietary Selenium Deficiency",
+      "Dietary T-2 Toxin Exposure",
+      "Iodine Deficiency and Hypothyroidism",
+      "Fulvic Acid Free-Radical Generation in Cartilage",
+      "Selenoenzyme Antioxidant Capacity Deficit",
+      "Selenoprotein S Loss and Wnt Derepression",
+      "Chondrocyte Oxidative Stress",
+      "Chondrocyte Mitochondrial Dysfunction",
+      "Smad2 and Smad3 Depletion",
+      "Ferroptotic Chondrocyte Death",
+      "Mixed-Mode Chondrocyte Death in Deep and Middle Cartilage Zones",
+      "Type H Vessel Proliferation at the Epiphyseal Plate",
+      "Articular Cartilage Matrix Degradation",
+      "Endochondral Ossification Failure at the Growth Plate",
+      "Symmetric Growth Arrest and Joint Deformity",
+      "Secondary Degenerative Arthropathy"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "hypertrophic chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000743"
+    ],
+    "biological_processes": [
+      "cellular oxidant detoxification",
+      "canonical Wnt signaling pathway",
+      "terminal chondrocyte differentiation",
+      "response to oxidative stress",
+      "mitochondrial electron transport chain activity",
+      "ferroptosis",
+      "necroptotic process",
+      "apoptotic process",
+      "extracellular matrix disassembly",
+      "ossification"
+    ],
+    "phenotypes": [
+      "Short Stature",
+      "Brachydactyly",
+      "Enlarged Joints",
+      "Joint Pain",
+      "Joint Stiffness and Restricted Movement",
+      "Sarcopenia Risk",
+      "Depression"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Musculoskeletal",
+      "Neuropsychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004322",
+      "HP:0001156",
+      "HP:0003037",
+      "HP:0002829",
+      "HP:0001387",
+      "HP:0003202",
+      "HP:0000716"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SELENOS susceptibility variant",
+      "SELENOF susceptibility variant",
+      "DIO2 variant",
+      "ADAM12 susceptibility variants",
+      "Selenoprotein loci tested and not associated"
+    ],
+    "treatments": [
+      "Grain Replacement",
+      "Selenium Supplementation",
+      "Drinking Water Improvement",
+      "Iodine Replacement",
+      "Chondroitin and Glucosamine",
+      "Intra-Articular Hyaluronic Acid",
+      "Nonsteroidal Anti-Inflammatory Drugs",
+      "Vitamin C and Aspirin for Radiographic Structure in Children",
+      "Arthrodesis and Reconstructive Surgery of the Damaged Joint",
+      "Conservative Orthotic Management and Activity Restriction"
+    ],
+    "environmental": [
+      "Habitual consumption of grain contaminated with Fusarium T-2 trichothecene mycotoxin",
+      "Residence on selenium-poor soil with correspondingly low dietary selenium",
+      "Residence in an iodine-deficient highland area",
+      "Fluoride exposure modifying T-2 toxin detoxification"
+    ],
+    "biochemical": [
+      "Serum selenium",
+      "Hair selenium",
+      "Urinary iodine",
+      "Serum thyrotropin",
+      "Serum thyroxine-binding globulin"
+    ],
+    "source_file": "Kashin-Beck_Disease.yaml",
+    "page_url": "../pages/disorders/Kashin-Beck_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 16,
+    "num_genes": 5,
+    "num_treatments": 10,
+    "causal_graph_edges": "51",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Kawasaki Disease",
     "disease_id": "MONDO:0012727",
     "category": "Pediatric Condition",
@@ -282817,17 +282939,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2746,
+  "total_disorder_pages": 2747,
   "total_subtypes": 3651,
-  "total_disorders_and_subtypes": 6397,
-  "total_unique_evidence_sources": 38642,
-  "total_unique_publications": 36399,
-  "total_unique_disease_categories": 55,
+  "total_disorders_and_subtypes": 6398,
+  "total_unique_evidence_sources": 38681,
+  "total_unique_publications": 36434,
+  "total_unique_disease_categories": 56,
   "total_unique_phenotype_categories": 277,
-  "total_pathographs": 2741,
-  "total_unique_pathological_events": 16265,
+  "total_pathographs": 2742,
+  "total_unique_pathological_events": 16281,
   "total_modules": 171,
-  "total_research_reports": 2857,
+  "total_research_reports": 2858,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
