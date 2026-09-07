@@ -140,6 +140,16 @@ Holding the parsed disorder corpus costs ~450 MB per process;
 `DISMECH_KB_CACHE=0` turns the cache off. Route a new corpus walk through it
 rather than adding another `glob` + `safe_load` loop (issue #11003).
 
+**A CLI that walks the corpus exactly once should call `kb_cache.default_off()`
+from its `main()`.** With no second walk there are no hits to collect, so the
+cache is pure cost -- `check_snippet_length` measures 17.1 s / 34 MB without it
+against 20.5 s / 522 MB with it, while the two-walk
+`check_environmental_evidence` goes the other way (28.0 s -> 18.3 s). Put the
+call in `main()`, never at import: pytest imports these scripts' `scan_repo`
+functions directly and runs several of them in one process, which is exactly
+the case the cache exists for. `default_off()` uses `setdefault`, so an
+explicit `DISMECH_KB_CACHE` still wins.
+
 ### HTML Rendering (`src/dismech/render.py`)
 - Jinja2 templates in `src/dismech/templates/`
 - Generates browsable HTML pages in `pages/disorders/`

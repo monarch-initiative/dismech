@@ -37,6 +37,7 @@ import glob
 import os
 from collections import defaultdict
 
+from dismech import kb_cache
 from dismech.kb_cache import load_document
 from dismech.nec_risk import (
     ACRONYM_RE,
@@ -174,6 +175,10 @@ def print_markdown(rows, findings):
 
 
 def main():
+    # One walk over kb/ per run, so the shared-parse cache would cost a hash
+    # per file and 500 MB of retention for no hits. Under pytest, which
+    # imports scan_repo directly alongside the other scans, it stays on.
+    kb_cache.default_off()
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--markdown", action="store_true", help="emit full markdown report")
     args = ap.parse_args()

@@ -23,6 +23,13 @@ Contract
 * Memory: the parsed disorder corpus is roughly 450 MB per process. Under
   ``pytest -n 6`` that is per worker. Set ``DISMECH_KB_CACHE=0`` to turn caching
   off; every call then parses afresh and nothing is retained.
+
+Caching only pays off when a process walks the corpus more than once, and the
+cost when it does not is real -- measured on this corpus, ``check_snippet_length``
+(one walk) goes from 17.1 s / 34 MB to 20.5 s / 522 MB, while
+``check_environmental_evidence`` (two walks) goes from 28.0 s / 34 MB down to
+18.3 s / 522 MB. A single-walk CLI should therefore call :func:`default_off` in
+its ``main`` -- see that function for why it belongs there and not at import.
 """
 
 from __future__ import annotations
@@ -35,9 +42,18 @@ from typing import Any
 
 from dismech.yaml_io import safe_load
 
-__all__ = ["cache_size", "clear_cache", "iter_documents", "load_document"]
+__all__ = [
+    "cache_size",
+    "clear_cache",
+    "default_off",
+    "iter_documents",
+    "load_document",
+]
 
-#: resolved path -> (content digest, parsed document)
+#: absolute (but not symlink-resolved) path -> (content digest, parsed
+#: document). Resolving would cost a stat per call to merge the entries for
+#: two paths reaching one file; the digest makes that a duplicate rather
+#: than a stale answer, so it is not worth paying for on every load.
 _CACHE: dict[str, tuple[bytes, Any]] = {}
 
 
@@ -48,6 +64,21 @@ def _enabled() -> bool:
         "no",
         "off",
     }
+
+
+def default_off() -> None:
+    """Default this process to no caching, unless the operator asked for it.
+
+    For a CLI that walks the corpus exactly once there are no cache hits to
+    collect, so the cache is pure cost: an extra hash per file and the whole
+    parsed corpus retained. Call this from ``main`` -- **not** at import, because
+    pytest imports these scripts' ``scan_repo`` functions directly and runs
+    several of them in one process, which is exactly the case caching is for.
+
+    Uses ``setdefault``, so an explicit ``DISMECH_KB_CACHE`` in the environment
+    still wins.
+    """
+    os.environ.setdefault("DISMECH_KB_CACHE", "0")
 
 
 def load_document(path: str | os.PathLike[str]) -> Any:
