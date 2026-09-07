@@ -362,11 +362,15 @@ def render_summary(repo, rows, dry_run, limit):
     parts = [
         "## Review retry sweep",
         lead,
-        "Accepted requests restart failed jobs on existing workflow runs; they do not "
-        "mean the reviews have completed or passed.",
-        f"{len(groups['Deferred at retry limit'])} PRs deferred at the retry limit. "
-        "They are reconsidered on the next sweep, subject to fresh eligibility checks; "
-        "they have not been queued by this sweep.",
+        (
+            "Accepted requests restart failed jobs on existing workflow runs; they do not "
+            "mean the reviews have completed or passed."
+        ),
+        (
+            f"{len(groups['Deferred at retry limit'])} PRs deferred at the retry limit. "
+            "They are reconsidered on the next sweep, subject to fresh eligibility checks; "
+            "they have not been queued by this sweep."
+        ),
     ]
     for title, items in groups.items():
         if not items:
