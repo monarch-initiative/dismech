@@ -925,7 +925,7 @@ never gated. It means a grouping wearing a Disease entry's clothes
 cell-of-origin subtypes (DLBCL's GCB/ABC — remedy `has_subtypes`), or an
 unsettled origin (melanoma in congenital melanocytic nevus — remedy a note).
 
-The check is **advisory** and runs inside `just qc`, exiting 0 because 122 of 245
+The check is **advisory** and runs inside `just qc`, exiting 0 because 128 of 252
 assessed neoplasm entries are still unmarked; `--fail-on <CLASS>` or `--strict`
 gates when you want one. `ORIGIN_WITHOUT_CELL` is currently at zero — every entry
 that marks an origin binds a cell there — so that class is ready to become a real

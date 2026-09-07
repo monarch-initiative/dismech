@@ -368,9 +368,9 @@ class is a curator's judgement, not a computed match.
 
 **Enacted.** `scripts/check_cancer_origin.py` (`just check-cancer-origin`, advisory,
 inside `just qc`), `scripts/backfill_cancer_origin.py`, `tests/test_cancer_origin.py`, and
-105 entries marked. 123 of 245 assessed neoplasm entries now derive a cell of origin, and
+105 entries marked. 124 of 252 assessed neoplasm entries now derive a cell of origin, and
 `ORIGIN_WITHOUT_CELL` is at zero — every entry that marks an origin binds a cell there,
-which makes that class ready to become a hard gate. **Still open:** the remaining 122
+which makes that class ready to become a hard gate. **Still open:** the remaining 128
 unmarked entries, whose pathographs name no genetic lesion, or name one with no cell type
 anywhere in the entry — both need a curator rather than a script; and whether CL should
 gain lineage-specific transformed-cell terms, or `CellTypeTerm` gain `NCIT:C12913` as a

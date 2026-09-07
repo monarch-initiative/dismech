@@ -144,10 +144,11 @@ Always re-validate afterwards — `just validate-disorders` on the changed files
        remedy is `has_subtypes`;
     3. an origin the literature has not settled —
        `Melanoma_in_Congenital_Melanocytic_Nevus` names melanocyte and neural
-       crest cell on one node. Naming both is the honest answer, and the remedy
-       is a note saying so.
+       crest cell on one node, and `Ewing_Sarcoma` names mesenchymal stem cell
+       and migratory neural crest cell. Naming both is the honest answer, and
+       the remedy is a note saying so.
 
-  The seven current findings are all of these kinds, which is the point: the
+  The eight current findings are all of these kinds, which is the point: the
   list is short enough to work through, and every row is a real modeling
   question. `Gastrointestinal_Lymphoma` is the clearest — B cell *and*
   intraepithelial lymphocyte, because the entry covers both MALT lymphoma and
@@ -185,7 +186,7 @@ colon-space would make a nested mapping instead of a string.
   since the marking is already there.
 
 `NO_ORIGIN`
-: Neither marker is present. This is the remaining backlog: 122 of 245 assessed
+: Neither marker is present. This is the remaining backlog: 128 of 252 assessed
   neoplasm entries, down from 220 before the backfill. Most are entries whose
   pathograph names no genetic lesion at all, or names one with no cell type
   anywhere in the entry — both need a curator, not a script.
@@ -198,7 +199,7 @@ just check-cancer-origin --fail-on ORIGIN_WITHOUT_CELL # gate one class
 just list-cancer-origin
 ```
 
-It runs inside `just qc` as a report and exits 0 by default, because 122 entries
+It runs inside `just qc` as a report and exits 0 by default, because 128 entries
 are still unmarked. `ORIGIN_WITHOUT_CELL` is currently at **zero**, though, so
 that class is a candidate for a real gate: every entry that marks an origin
 binds a cell there, and it would be a regression for one to stop doing so.
