@@ -19,7 +19,7 @@ tags: [SCHEMA_EVOLUTION, PATHOGRAPH, PATHOPHYSIOLOGY, BRAINSTORM]
 
 The authoritative tree is
 [`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt), which carries
-the glosses and ~1,900 worked `[Disease] <node name>` examples. Reproduced here
+the glosses and ~2,200 worked `[Disease] <node name>` examples. Reproduced here
 is only its top level, which is what the proposal actually is; do not treat this
 copy as the tree, and regenerate it rather than editing it:
 
@@ -37,7 +37,8 @@ just node-classes --format summary
                                receptor / adaptor activity; structural-protein activity
  4. MOLECULAR SUBSTANCE EFFECT metabolite accumulation; metabolite depletion;
                                protein misfolding / aggregation; protein abundance loss;
-                               post-translational modification state
+                               protein abundance excess; post-translational
+                               modification state
  5. PATHWAY EFFECT             signalling reduced / failed; signalling increased;
                                metabolic flux block
  6. CELLULAR EFFECT            cell death; differentiation / identity; metaplasia; haemolysis;
@@ -551,7 +552,7 @@ spaces", which is exactly the kind of thing a hand edit breaks:
 `--format text` renders the tree back to its own bytes (a test enforces it),
 and the YAML/JSON forms are the migration path when the design settles.
 
-### Logical definitions: 46 classes, 42 of the 85 leaves
+### Logical definitions: 46 classes, 42 of the 86 leaves
 
 A definition is a **sufficient condition** over the ontology-bound slots a node
 already carries -- `slot some TERM ['label'] [modifier V|W]`, joined by `and`
@@ -863,7 +864,7 @@ Then, in order:
    interior causal-function values, the rest computed or moved to a leaf --
    waits on the tree settling, since 277 of the residue land there.
 2. ~~Classify ~100 nodes against the 9+2 tree~~ — **done, and then some.** The
-   tree now carries ~1,900 worked examples across ~1,570 entries, placed in six
+   tree now carries ~2,200 worked examples across ~1,870 entries, placed in seven
    random draws plus a sweep of MPATH/MeSH/SNOMED/NCIT. The build notes at the
    foot of the tree file record what each draw forced, including the leaves that
    reversed earlier decisions.
