@@ -50532,6 +50532,111 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "COG4-Congenital Disorder of Glycosylation",
+    "disease_id": "MONDO:0013281",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder of Glycosylation"
+    ],
+    "creation_date": "2026-09-06T15:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COG4-CDG (CDG-IIj) is an autosomal recessive type II congenital disorder of glycosylation caused by biallelic loss-of-function variants in COG4, a subunit of lobe A of the conserved oligomeric Golgi complex. The COG complex tethers vesicles during intra-Golgi and Golgi-to-ER retrograde transport, which is how the Golgi keeps its resident glycosyltransferases in the right cisternae. Losing that tethering does not disable any single glycosylation enzyme; it lets the enzymes drift, and the result is a combined N- and O-glycosylation defect with deficient galactosylation and sialylation.\nClinically it is a progressive neurometabolic disorder: severe global disability, secondary microcephaly with brain atrophy, seizures, coagulopathy, liver involvement and recurrent infections. Roughly six to ten patients have been reported.\nThe entry's central curation decision is that this is a different disease from Saul-Wilson syndrome, which is also caused by COG4 and is already curated separately. The argument is mechanistic and is set out in the differential and the notes: COG4-CDG is biallelic loss of function with reduced COG4 protein and delayed retrograde transport, while Saul-Wilson is a single recurrent heterozygous de novo allele with normal COG4 protein and accelerated retrograde recycling. They are not two severities of one lesion; they run in opposite directions.\n",
+    "pathophysiology": [
+      "Reduced COG4 Expression",
+      "Impaired Golgi Vesicle Tethering and Retrograde Transport",
+      "Disrupted Golgi Glycosyltransferase Localisation",
+      "Combined N- and O-Glycosylation Defect",
+      "Progressive Neurometabolic Multisystem Disease",
+      "Disrupted COG-Dependent Autophagy"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "intra-Golgi vesicle-mediated transport",
+      "Golgi organization",
+      "protein N-linked glycosylation",
+      "protein O-linked glycosylation",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Secondary microcephaly",
+      "Brain atrophy",
+      "Seizure",
+      "Abnormality of coagulation",
+      "Abnormality of the liver",
+      "Recurrent infections",
+      "Recurrent fever",
+      "Abnormal facial shape",
+      "Intellectual disability",
+      "Hearing impairment",
+      "Absent speech",
+      "Hypotonia",
+      "Failure to thrive"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Hematological",
+      "Hepatobiliary",
+      "Immunological",
+      "Constitutional",
+      "Craniofacial",
+      "Otological",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Ear",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0005484",
+      "HP:0012444",
+      "HP:0001250",
+      "HP:0001928",
+      "HP:0001392",
+      "HP:0002719",
+      "HP:0001954",
+      "HP:0001999",
+      "HP:0001249",
+      "HP:0000365",
+      "HP:0001344",
+      "HP:0001252",
+      "HP:0001508"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "COG4"
+    ],
+    "treatments": [
+      "Supportive and multidisciplinary care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "COG4-Congenital_Disorder_of_Glycosylation.yaml",
+    "page_url": "../pages/disorders/COG4-Congenital_Disorder_of_Glycosylation.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "COG7-congenital disorder of glycosylation",
     "disease_id": "MONDO:0012118",
     "category": "Mendelian",
@@ -147957,6 +148062,103 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Joint Laxity, Short Stature, and Myopia",
+    "disease_id": "MONDO:0060556",
+    "category": "Mendelian",
+    "parents": [
+      "Larsen Syndrome"
+    ],
+    "creation_date": "2026-09-06T15:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Joint laxity, short stature and myopia (JLSM), also called the GZF1-related phenotype, is an ultra-rare autosomal recessive connective tissue disorder caused by biallelic loss-of-function variants in GZF1, which encodes a GDNF-inducible BTB/POZ zinc finger transcriptional repressor. It was first defined molecularly in 2017 in two consanguineous families and has since been reported in roughly a dozen patients.\nIt was described from within the Larsen syndrome literature and is still sometimes called autosomal recessive Larsen syndrome, but the current view is that it is a distinguishable entity. It shares short stature and large-joint dislocation with FLNB-related Larsen syndrome, and adds severe ocular disease that Larsen does not have: high myopia with retinal detachment and congenital glaucoma.\nThe proposed mechanism is a transcription-factor disease acting on the extracellular matrix. Transcriptional profiling of patient cells showed enrichment of dysregulated matrix genes including P3H2, whose own biallelic loss independently causes non-syndromic high myopia, which is what makes it a credible route from a transcription factor to a scleral phenotype. That chain is an inference assembled from two separate findings rather than something demonstrated in a GZF1 patient's eye, and the entry grades and annotates it accordingly rather than presenting it as established.\n",
+    "pathophysiology": [
+      "Biallelic GZF1 Loss of Function",
+      "Dysregulation of Extracellular Matrix Gene Expression",
+      "Defective Collagen Prolyl 3-Hydroxylation in Ocular Tissue",
+      "Generalised Connective Tissue Laxity"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "peptidyl-proline hydroxylation",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "High myopia",
+      "Retinal detachment",
+      "Glaucoma",
+      "Abnormal iris morphology",
+      "Joint dislocation",
+      "Joint hypermobility",
+      "Short stature",
+      "Scoliosis",
+      "Thoracic deformity",
+      "Vertebral segmentation and sacralization defects",
+      "Progressive hearing loss",
+      "Abnormal facial shape",
+      "Umbilical hernia",
+      "Congenital heart disease",
+      "Hypodontia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological",
+      "Musculoskeletal",
+      "Otological",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011003",
+      "HP:0000541",
+      "HP:0001087",
+      "HP:0000525",
+      "HP:0001373",
+      "HP:0001382",
+      "HP:0004322",
+      "HP:0002650",
+      "HP:0000765",
+      "HP:0000925",
+      "HP:0000365",
+      "HP:0001999",
+      "HP:0001537",
+      "HP:0001627",
+      "HP:0000668"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GZF1"
+    ],
+    "treatments": [
+      "Supportive and multidisciplinary care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Joint_Laxity_Short_Stature_and_Myopia.yaml",
+    "page_url": "../pages/disorders/Joint_Laxity,_Short_Stature,_and_Myopia.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Joubert syndrome",
     "disease_id": "MONDO:0018772",
     "category": "Genetic",
@@ -211869,6 +212071,115 @@ window.searchData = [
     "num_treatments": 9,
     "causal_graph_edges": "38",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Periodic Fever, Immunodeficiency, and Thrombocytopenia Syndrome",
+    "disease_id": "MONDO:0007883",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Errors of Immunity"
+    ],
+    "creation_date": "2026-09-06T19:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Periodic fever, immunodeficiency, and thrombocytopenia syndrome (PFIT) is an ultra-rare autosomal recessive disorder caused by biallelic loss-of-function variants in WDR1, which encodes actin-interacting protein 1 (Aip1), the cofactor that accelerates cofilin-mediated severing and depolymerisation of actin filaments. PFIT is an \"actinopathy\": one defect in actin filament turnover produces three clinically unrelated-looking problems at once. In monocytes it permits inflammasome hyperactivation and excess interleukin-18 release, giving periodic fever with an extreme acute-phase response; in neutrophils it abolishes the polarisation and chemotaxis needed to reach a site of infection, giving recurrent infection, severe stomatitis and poor wound healing despite normal microbial killing; and in megakaryocytes it blocks the maturation step needed for platelet shedding, giving thrombocytopenia. The autoinflammatory arm is driven by IL-18 rather than IL-1-beta, which is why IL-1 blockade is at best partially effective and allogeneic haematopoietic stem cell transplantation, which replaces the whole mutant haematopoietic compartment, is the treatment that has worked.",
+    "pathophysiology": [
+      "Biallelic WDR1 Loss of Function",
+      "Impaired Cofilin-Mediated Actin Filament Disassembly",
+      "Pyrin Sequestration by Mutant WDR1 Aggregates",
+      "Inflammasome Hyperactivation in Monocytes",
+      "Excess Interleukin-18 Production",
+      "Defective Neutrophil Motility and Polarization",
+      "Impaired Innate Host Defense at Barrier Surfaces",
+      "Defective Immunological Synapse Formation in Lymphocytes",
+      "Defective Megakaryocyte Maturation and Platelet Shedding"
+    ],
+    "cell_types": [
+      "Monocyte",
+      "Neutrophil",
+      "B cell",
+      "T cell",
+      "Megakaryocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000775",
+      "CL:0000236",
+      "CL:0000084",
+      "CL:0000556"
+    ],
+    "biological_processes": [
+      "actin filament depolymerization",
+      "inflammasome-mediated signaling pathway",
+      "positive regulation of interleukin-18 production",
+      "neutrophil chemotaxis",
+      "platelet formation"
+    ],
+    "phenotypes": [
+      "Recurrent fever",
+      "Increased circulating interleukin 18 concentration",
+      "Recurrent respiratory infections",
+      "Reduced circulating follicular helper T cells",
+      "Thrombocytopenia",
+      "Recurrent bacterial infections",
+      "Stomatitis",
+      "Poor wound healing",
+      "Decreased total neutrophil count",
+      "Abnormal neutrophil morphology",
+      "Decreased total B cell count",
+      "Skin ulcer",
+      "Impaired neutrophil chemotaxis"
+    ],
+    "phenotype_categories": [
+      "Inflammatory",
+      "Laboratory",
+      "Immunologic",
+      "Hematologic",
+      "Infectious",
+      "Oral",
+      "Dermatologic",
+      "Cellular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001954",
+      "HP:0034447",
+      "HP:0002205",
+      "HP:0001873",
+      "HP:0002718",
+      "HP:0010280",
+      "HP:0001058",
+      "HP:0001875",
+      "HP:0011992",
+      "HP:0010976",
+      "HP:0200042",
+      "HP:0040238"
+    ],
+    "frequencies": [],
+    "genes": [
+      "WDR1"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Interleukin-1 Blockade with Anakinra"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Periodic_Fever_Immunodeficiency_and_Thrombocytopenia_Syndrome.yaml",
+    "page_url": "../pages/disorders/Periodic_Fever,_Immunodeficiency,_and_Thrombocytopenia_Syndrome.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Peripartum Cardiomyopathy",
@@ -282272,17 +282583,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2740,
+  "total_disorder_pages": 2743,
   "total_subtypes": 3651,
-  "total_disorders_and_subtypes": 6391,
-  "total_unique_evidence_sources": 38595,
-  "total_unique_publications": 36354,
+  "total_disorders_and_subtypes": 6394,
+  "total_unique_evidence_sources": 38614,
+  "total_unique_publications": 36373,
   "total_unique_disease_categories": 54,
-  "total_unique_phenotype_categories": 276,
-  "total_pathographs": 2735,
-  "total_unique_pathological_events": 16222,
+  "total_unique_phenotype_categories": 277,
+  "total_pathographs": 2738,
+  "total_unique_pathological_events": 16240,
   "total_modules": 171,
-  "total_research_reports": 2851,
+  "total_research_reports": 2854,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
