@@ -146,7 +146,7 @@ relaxing the rule.**
 | Gout | Beer | Hyperuricemia | PMID:36930152 | Serum urate by beverage at 20 g ethanol per standard drink, n=78,153 |
 | Gout | Fructose-Sweetened Soft Drink | Hyperuricemia | PMID:32683776 | Serum uric acid, +0.18 mg/dL highest vs lowest intake |
 | Liver Cirrhosis | Alcohol Consumption | Hepatocyte Injury and Death | PMID:34305638 | Caspase-cleaved CK-18 (M30) and M65 in 114 heavy drinkers |
-| Polycystic Kidney Disease | Caffeine Consumption | Vasopressin/cAMP-Driven Cyst Expansion | PMID:12397042 | cAMP in ADPKD-derived cyst epithelium under caffeine |
+| Polycystic Kidney Disease | Caffeine Consumption | Vasopressin/cAMP-Driven Cyst Expansion | PMID:12397042 | Proliferation and transepithelial fluid secretion in ADPKD cyst epithelium under caffeine |
 | Coronary Artery Disease | High-Fat Diet | Coronary Endothelial Injury and Subendothelial LDL Retention | PMID:40885400 | LDL cholesterol in 24 randomised complete-feeding trials |
 
 Three of these are worth reading closely, because they change what the entry says
@@ -164,14 +164,21 @@ rather than just adding to it:
 - **The Coronary Artery Disease evidence contradicts the edge's own
   description.** That description said the trial effect on LDL is small, which came
   from free-living trials. Controlled feeding gives 15.72 mg/dL when the diets
-  differ in saturated fat, which is not small, so the qualifier was removed rather
-  than left standing beside a citation that refutes it. The link is still graded
-  `directness: INDIRECT`, because the trials *lower* saturated fat and the forward
-  claim is inferred from that removal.
+  differ in saturated fat, so the qualifier was removed from the edge and the
+  entry-level `notes` rewritten to name both designs rather than leave a reader
+  hitting the older claim first. The link is still graded `directness: INDIRECT`,
+  because the trials *lower* saturated fat and the forward claim is inferred from
+  that removal. The snippet runs through the study's own null arm — no significant
+  LDL difference when the diets are saturated-fat-matched — so the quote carries
+  its own control instead of the caveat living only in prose.
 
 The PKD edge is `evidence_source: IN_VITRO` — cultured patient-derived cyst
 epithelium, not patients. That is a weaker footing than the other six and is
-recorded as such rather than smoothed over.
+recorded as such rather than smoothed over. Its snippet is the abstract's
+concluding sentence, which names proliferation and transepithelial fluid
+secretion; the same abstract identifies those two as the mechanisms underlying
+cyst expansion, so the quote reaches the node instead of stopping at cAMP and
+inferring the rest.
 
 ## Still unsupported (2)
 
