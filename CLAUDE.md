@@ -732,7 +732,7 @@ phenotypes#Memory Loss
 Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
 ```
 
-`test_entity_ref_foreign_keys` enforces these references across disorders,
+`check_entity_ref_foreign_keys` enforces these references across disorders,
 modules, and comorbidities. Renaming or splitting a node is the common way to
 break them, so search the file for the old name before committing.
 
@@ -750,7 +750,7 @@ the source of truth shared by validation and rendering. Important exceptions:
 The singular aliases still resolve and an entry carrying one is not a defect,
 but `kb/` was normalised to the slot-name form (#9394) so the prefix is
 derivable from the schema and `phenotypes#` greps every phenotype reference;
-`test_entity_ref_prefixes_are_schema_slot_names` keeps it that way. Cross-file
+`check_entity_ref_prefixes_are_schema_slot_names` keeps it that way. Cross-file
 references and prefixes absent from `SECTION_KEYS` are skipped rather than
 failed; add a missing prefix to `SECTION_KEYS` instead of working around it.
 
@@ -879,7 +879,7 @@ nothing — 78 of the 100 are standalone — so the tree shows the nested trees
 first and folds the standalone groupings into one collapsed list. A disease
 held through a nested grouping *is* a member of the parent: the evaluator
 reports it as `(via <nested grouping>)`, the parent page's coverage table marks
-it `nested via …` and counts it toward coverage, and `test_valid_grouping_files`
+it `nested via …` and counts it toward coverage, and `check_valid_grouping_files`
 still evaluates it against the parent's criteria. When you nest a grouping,
 replace the direct rows it covers rather than duplicating them (the
 `Lysosomal_Storage_Disorders` review removed exactly such a redundancy), folding
@@ -967,7 +967,7 @@ comparison is directional, and the directions are different claims:
 
 | Relation | Meaning |
 |---|---|
-| model scale **below** target scale | **Upward extrapolation.** The model cannot observe the outcome it is cited for; the claim is inferential. Requires `limitations` (`test_upward_extrapolating_links_are_caveated`). |
+| model scale **below** target scale | **Upward extrapolation.** The model cannot observe the outcome it is cited for; the claim is inferential. Requires `limitations` (`check_upward_extrapolating_links_are_caveated`). |
 | model scale **above** target scale | The model contains the target scale. Normally unremarkable — a whole animal can report a molecular readout. |
 | equal | No scale gap. |
 
@@ -1020,7 +1020,7 @@ Rules for using it:
   the single "best" one.
 - **The type is never the argument.** `description` is required and must say *which*
   component is outside the boundary, *which* quantity stands in for *which*. A description
-  that restates the enum value fails `test_model_divergences_are_typed_and_explained`.
+  that restates the enum value fails `check_model_divergences_are_typed_and_explained`.
 - **`PROXY_QUANTITY` vs `BOUNDARY_OMISSION`** is the distinction to get right. In a
   boundary omission the thing is not in the model; in a proxy divergence it *is*, but as a
   stand-in of a different quantity. Both can occur at the same scale, so neither follows
@@ -1029,7 +1029,7 @@ Rules for using it:
   recording — it stops a reader inferring that a known limitation of the model undermines
   *this* use of it.
 - **A `SCALE_EXTRAPOLATION` divergence must agree with the scale slots**
-  (`test_scale_extrapolation_divergence_agrees_with_scales`, and
+  (`check_scale_extrapolation_divergence_agrees_with_scales`, and
   `just model-scale-audit --strict`).
 - `divergences` and `limitations` coexist: the prose slot is the summary and holds the 831
   existing links' caveats. A typed divergence now satisfies the caveat requirement on a
@@ -1094,7 +1094,7 @@ grounded to an HP phenotype, a biomarker, a GO process, or an OBI assay.
   measurement made in a model system. `UNCHANGED` is a real negative result —
   omit `direction` entirely when the measurement was simply not made.
 - A readout's `target` is **required** and must repeat the link's `target`
-  (`test_model_readout_targets_match_link` enforces this). The redundancy keeps
+  (`check_model_readout_targets_match_link` enforces this). The redundancy keeps
   a readout self-describing so it can be lifted out of its link. Note this is
   forward-looking: today only `biochemical.readouts` and
   `investigations.reports_on` are lifted into the graph and cx2, and
@@ -1110,7 +1110,7 @@ grounded to an HP phenotype, a biomarker, a GO process, or an OBI assay.
 `HUMAN_MODEL_MISMATCH` discussion, which previously survived only as prose in
 `description` or `notes`. Because it is a substantive negative claim, it requires
 both `limitations` and `evidence`
-(`test_failure_to_recapitulate_links_are_substantiated`).
+(`check_failure_to_recapitulate_links_are_substantiated`).
 
 **`name` on an animal model** is optional but recommended once the model carries
 `modeled_mechanisms`: it is the stable pathograph label and in-page anchor. Absent
@@ -1156,7 +1156,7 @@ environmental:
 
 **Key points:**
 - `target` must match a `pathophysiology` (preferred) or `phenotype` name in the
-  same file; a test (`test_environmental_mechanism_targets`) enforces this.
+  same file; a test (`check_environmental_mechanism_targets`) enforces this.
 - `environmental_effect` (`EnvironmentalEffectEnum`: `TRIGGERS`, `EXACERBATES`,
   `PREDISPOSES`, `PROTECTS_AGAINST`, `MODULATES`) sets the edge predicate.
   A protective exposure is drawn green, dashed, with a tee head so it never
@@ -1273,7 +1273,7 @@ epistemic grounding so the two are never conflated (issue #6245):
   predicated on. The hypothesis basis is then inferred from those edges'
   `hypothesis_groups` → `mechanistic_hypotheses[].status` — do **not** add a
   standalone hypothesis id on the definition. A test
-  (`test_hypothesis_based_definition_attaches_to_foreign_keys`) requires these
+  (`check_hypothesis_based_definition_attaches_to_foreign_keys`) requires these
   refs to resolve.
 - **`validation_status`** (`AlgorithmValidationStatus` object): `status`
   (`PROPOSED` / `UNVALIDATED` / `VALIDATED_AGAINST_GOLD_STANDARD`) + free-text
@@ -1860,7 +1860,7 @@ combination — do not invent a regimen identity that OAK can't verify. Worked e
 `BRAF_V600E_Mutant_Colorectal_Cancer` (FOLFOXIRI, curated against the closest available
 NCIT term, `Folfirinox Regimen`, since NCIT does not separately code the FOLFOXIRI name).
 
-### Therapeutic Modality and Antisense Oligonucleotide (ASO) Detail
+### Therapeutic Modality and Oligonucleotide (ASO / siRNA) Detail
 
 A treatment's **modality** (the kind of therapeutic platform) is captured by the
 enum-backed `therapeutic_modality` slot — **not** the free-text `role` slot, which
@@ -1926,36 +1926,74 @@ depends on the specific drug/agent (see `therapeutic_agent`) or isn't a
 platform-classifiable action at all, and needs a real per-entry look rather
 than a blind ID-based rule.
 
-When `therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE`, add a structured
-`aso_details` block (`AntisenseOligonucleotideDetail`) capturing the molecular
-mechanism, RNA target, splice exon, chemistry, and conjugation:
+#### `oligonucleotide_details` — one block for ASOs and siRNAs
 
-- `aso_mechanism`: `RNASE_H_KNOCKDOWN`, `SPLICE_MODULATION_EXON_SKIPPING`,
-  `SPLICE_MODULATION_EXON_INCLUSION`, `STERIC_BLOCKADE`, `MIRNA_MODULATION`
+When `therapeutic_modality` is `ANTISENSE_OLIGONUCLEOTIDE` **or** `SIRNA`, add a
+structured `oligonucleotide_details` block (`OligonucleotideDetail`) capturing the
+molecular mechanism, RNA target, splice exon, chemistry, conjugation, and delivery
+platform:
+
+- `oligonucleotide_mechanism`: `RNASE_H_KNOCKDOWN`, `RNAI_KNOCKDOWN`,
+  `SPLICE_MODULATION_EXON_SKIPPING`, `SPLICE_MODULATION_EXON_INCLUSION`,
+  `STERIC_BLOCKADE`, `MIRNA_MODULATION`
 - `target_gene`: `GeneDescriptor` bound to HGNC (lowercase `hgnc:` prefix)
 - `target_transcript`: free text for the RNA target / element (e.g., `APOB mRNA`,
   `SMN2 ISS-N1`)
-- `target_exon`: free text for splice-switching ASOs (e.g., `exon 51`)
-- `aso_chemistry`: `PHOSPHOROTHIOATE`, `PHOSPHORODIAMIDATE_MORPHOLINO`,
-  `TWO_PRIME_O_METHYL`, `TWO_PRIME_O_METHOXYETHYL`, `LOCKED_NUCLEIC_ACID`,
-  `CONSTRAINED_ETHYL`, `OTHER`
+- `target_exon`: free text for splice-switching ASOs (e.g., `exon 51`). Not
+  applicable to siRNA, which acts on mature mRNA rather than on splicing.
+- `oligonucleotide_chemistry`: `PHOSPHOROTHIOATE`, `PHOSPHORODIAMIDATE_MORPHOLINO`,
+  `TWO_PRIME_O_METHYL`, `TWO_PRIME_FLUORO`, `TWO_PRIME_O_METHOXYETHYL`,
+  `LOCKED_NUCLEIC_ACID`, `CONSTRAINED_ETHYL`, `OTHER`
 - `conjugation`: `UNCONJUGATED`, `GALNAC`, `LIPID`, `PEPTIDE`, `ANTIBODY`, `OTHER`
+- `delivery_platform`: `UNFORMULATED`, `CONJUGATE`, `LIPID_NANOPARTICLE`,
+  `POLYMER_NANOPARTICLE`, `VIRAL_VECTOR`, `EXOSOME`, `OTHER`
+
+**One class covers both platforms on purpose.** A single-stranded ASO and a
+double-stranded siRNA differ in effector — RNase H1 versus Argonaute-2 — but are
+otherwise the same programmable medicine, described by the same target, chemistry,
+and delivery attributes. Keeping them in one class is what makes "every treatment
+in the KB that silences gene X, by any oligonucleotide route" a single query.
+
+**`conjugation` and `delivery_platform` are orthogonal — do not collapse them.**
+`conjugation` names the covalent targeting ligand; `delivery_platform` says how the
+drug is carried at all. Patisiran is `UNCONJUGATED` *and* `LIPID_NANOPARTICLE`;
+vutrisiran is `GALNAC` *and* `CONJUGATE`. Recording only the conjugate would make
+those two look like "no targeting" versus "GalNAc" when the real distinction is
+nanoparticle versus conjugate — which is what sets route, dosing interval, and
+whether premedication is needed.
+
+**Dosing interval lives on `Treatment`, not in this block**, because it applies to
+any treatment. Populate the pair together, mirroring the `Prevalence` convention of
+a verbatim string plus a normalized number:
+
+- `dosing_interval`: the label's own phrasing (`once every 3 weeks`)
+- `dosing_interval_days`: normalized to days (`21`; monthly = 30, quarterly = 90,
+  twice yearly = 182.5)
+
+Record loading or induction doses in the treatment `description` rather than
+bending the maintenance interval to describe them. Omit both slots rather than
+guessing an interval you cannot source.
+
+**Deprecated spellings.** `aso_details`, `aso_mechanism`, and `aso_chemistry` are
+retained as deprecated aliases so entries authored before the generalization keep
+validating. Do not populate them on new treatments.
 
 **Example — RNase H knockdown ASO (mipomersen, APOB):**
 ```yaml
 treatments:
 - name: Mipomersen
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: RNASE_H_KNOCKDOWN
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNASE_H_KNOCKDOWN
     target_gene:
       preferred_term: APOB
       term:
         id: hgnc:603
         label: APOB
     target_transcript: APOB mRNA
-    aso_chemistry: TWO_PRIME_O_METHOXYETHYL
+    oligonucleotide_chemistry: TWO_PRIME_O_METHOXYETHYL
     conjugation: UNCONJUGATED
+    delivery_platform: UNFORMULATED
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -1971,29 +2009,77 @@ treatments:
 **Example — splice-switching exon-skipping ASO (eteplirsen, DMD exon 51):**
 ```yaml
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: SPLICE_MODULATION_EXON_SKIPPING
+  oligonucleotide_details:
+    oligonucleotide_mechanism: SPLICE_MODULATION_EXON_SKIPPING
     target_gene:
       preferred_term: DMD
       term:
         id: hgnc:2928
         label: DMD
     target_exon: exon 51
-    aso_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
+    oligonucleotide_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
     conjugation: UNCONJUGATED
+    delivery_platform: UNFORMULATED
 ```
 
 **Example — GalNAc-conjugated ASO (eplontersen, TTR):** same as the RNase H
-example but with `conjugation: GALNAC` and the TTR `target_gene`.
+example but with `conjugation: GALNAC`, `delivery_platform: CONJUGATE`, and the TTR
+`target_gene`.
 
-Leave `aso_details` absent for non-ASO treatments. The structured fields are
-optional — populate what is documented and omit fields you cannot source.
+**Example — the same transcript by two delivery platforms (ATTR amyloidosis).**
+Patisiran and vutrisiran silence TTR with the same mechanism and differ only in how
+the duplex is carried, which is exactly what the block is for:
+
+```yaml
+- name: Patisiran
+  therapeutic_modality: SIRNA
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNAI_KNOCKDOWN
+    target_gene:
+      preferred_term: TTR
+      term:
+        id: hgnc:12405
+        label: TTR
+    target_transcript: TTR mRNA
+    conjugation: UNCONJUGATED
+    delivery_platform: LIPID_NANOPARTICLE
+  dosing_interval: once every 3 weeks
+  dosing_interval_days: 21
+
+- name: Vutrisiran
+  therapeutic_modality: SIRNA
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNAI_KNOCKDOWN
+    target_gene:
+      preferred_term: TTR
+      term:
+        id: hgnc:12405
+        label: TTR
+    target_transcript: TTR mRNA
+    conjugation: GALNAC
+    delivery_platform: CONJUGATE
+  dosing_interval: once every 3 months
+  dosing_interval_days: 90
+```
+
+Leave `oligonucleotide_details` absent for treatments that are not oligonucleotides.
+The structured fields are optional — populate what is documented and omit fields you
+cannot source. In particular, do not infer `oligonucleotide_chemistry` for an siRNA
+from the fact that stabilized duplexes usually mix 2'-OMe and 2'-F; the slot is
+single-valued, so pick one only when a source names the design.
+
+**Mechanism modules.** The two effector paradigms have sibling mechanism modules —
+`kb/modules/antisense_oligonucleotide_therapy.yaml` (RNase H1, splice modulation,
+steric blockade) and `kb/modules/rnai_gene_silencing.yaml` (RISC loading,
+Argonaute-2 cleavage). A disorder whose entry models the therapy itself should
+`conforms_to` the one matching its drug; they are not interchangeable.
+`ATTR_Amyloidosis` is the worked RNAi conformer.
 
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
 (phenotypes, biochemical, genetic, prevalence, progression, histopathology) reference it via their
-`subtype` field. A validation test (`test_subtype_foreign_keys`) enforces that all `subtype` values
+`subtype` field. A validation test (`check_subtype_foreign_keys`) enforces that all `subtype` values
 match a defined `has_subtypes[].name`.
 
 **Naming rules for `name`:**
@@ -2431,7 +2517,7 @@ most of that signal was the value's ambiguity rather than claim-relativity.
 Gating `supports` is worth revisiting.
 
 **Why the entity-ref check is a CI step and not just a test.** The same rules
-run in `test_entity_ref_foreign_keys`, but CI selects pytest by changed path,
+run in `check_entity_ref_foreign_keys`, but CI selects pytest by changed path,
 and a curation PR touches only `kb/` — matching neither the `python` nor the
 `schema` filter. So the checks written to protect KB content were the ones a
 content-only PR skipped, which is how two alias prefixes reached `main`
