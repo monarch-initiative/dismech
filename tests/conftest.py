@@ -106,10 +106,14 @@ def stub_oak_hierarchy(request, monkeypatch):
     real_get_oak_adapter = render._get_oak_adapter
     hierarchy_adapters = {h["adapter"] for h in render.STRICT_HIERARCHIES.values()}
 
+    # Captured now, while `_get_oak_adapter` is still the memoised original. On
+    # teardown the monkeypatch finalizer has not yet run, so the module
+    # attribute is the plain stub function, which has no `cache_clear` — going
+    # through the attribute there would silently clear nothing. Holding the
+    # bound method makes teardown independent of finalizer ordering.
+    real_factory_clear = getattr(real_get_oak_adapter, "cache_clear", None)
+
     def clear_caches() -> None:
-        # On teardown the monkeypatch is still in place — its finalizer runs
-        # after this fixture's — so `_get_oak_adapter` may currently be the
-        # plain stub function rather than the memoised original.
         for target in (
             render._resolve_hierarchy_path,
             render._get_oak_adapter,
@@ -120,6 +124,8 @@ def stub_oak_hierarchy(request, monkeypatch):
             clear = getattr(target, "cache_clear", None)
             if clear is not None:
                 clear()
+        if real_factory_clear is not None:
+            real_factory_clear()
 
     clear_caches()
 

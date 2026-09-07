@@ -758,8 +758,9 @@ build-hierarchy-cache *prefixes="":
 
 # Report mapped ICD10CM/NCIT CURIEs that are missing from the hierarchy cache.
 # Advisory: a miss costs render time, never a wrong page, so this is not in `qc`
-# and does not gate CI. Exits 1 when anything is missing so it can be wired into
-# a nightly sweep if that changes.
+# and does not gate a curation PR. It exits 1 when anything is missing, and runs
+# as a non-blocking step in the nightly sweep, which is where the drift that
+# actually happens shows up -- a curator adds a mapping and nobody rebuilds.
 [group('QC')]
 check-hierarchy-cache:
     uv run python scripts/build_hierarchy_cache.py --check

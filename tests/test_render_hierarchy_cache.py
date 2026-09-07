@@ -171,6 +171,58 @@ def test_rebuild_keeps_the_timestamp_on_unchanged_rows() -> None:
     assert stamps["NCIT:C3"] == now, "a new row must be stamped"
 
 
+def test_rebuild_keeps_a_row_it_could_not_re_resolve() -> None:
+    """A failed walk must not delete a row that was previously good.
+
+    The builder writes only what it resolved, so before this a transient OAK
+    problem silently pruned working rows and left a line on stdout as the only
+    trace -- the opposite of the incremental contract the timestamps follow. A
+    CURIE genuinely removed from kb/ is never asked about, so it is in neither
+    list and still falls out; only a re-resolution *failure* carries forward.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "build_hierarchy_cache", REPO_ROOT / "scripts" / "build_hierarchy_cache.py"
+    )
+    builder = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(builder)
+
+    previous = {
+        "NCIT:C1": {
+            "curie": "NCIT:C1",
+            "ancestor_curies": "NCIT:A|NCIT:C1",
+            "ancestor_labels": "Root|One",
+            "retrieved_at": "2020-01-01T00:00:00+00:00",
+        },
+    }
+    carried = builder.carried_forward(["NCIT:C1"], previous)
+    assert set(carried) == {"NCIT:C1"}
+
+    now = "2099-01-01T00:00:00+00:00"
+    rows = {
+        row["curie"]: row
+        for row in csv.DictReader(
+            builder.render_csv(
+                {"NCIT:C2": [("NCIT:A", "Root"), ("NCIT:C2", "Two")]},
+                now,
+                previous,
+                carried,
+            ).splitlines()
+        )
+    }
+
+    assert set(rows) == {"NCIT:C1", "NCIT:C2"}, "the unresolved row must survive"
+    assert rows["NCIT:C1"]["ancestor_curies"] == "NCIT:A|NCIT:C1"
+    assert rows["NCIT:C1"]["retrieved_at"] == "2020-01-01T00:00:00+00:00", (
+        "carrying a row forward must not restamp it as freshly verified"
+    )
+
+    assert builder.carried_forward(["NCIT:C9"], previous) == {}, (
+        "a CURIE with no prior row must not be invented"
+    )
+
+
 # --- the per-process memo ---------------------------------------------------
 
 

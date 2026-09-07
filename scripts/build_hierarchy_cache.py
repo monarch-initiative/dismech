@@ -159,10 +159,28 @@ def existing_rows(path: Path) -> dict[str, dict[str, str]]:
     }
 
 
+def carried_forward(
+    unresolved: list[str], previous: dict[str, dict[str, str]]
+) -> dict[str, dict[str, str]]:
+    """Prior rows for CURIEs this run could not re-resolve.
+
+    Dropping them would make a transient OAK problem delete rows that were fine,
+    with a line on stdout as the only trace -- the opposite of the incremental
+    contract the timestamps follow. A CURIE genuinely gone from kb/ is never
+    asked about, so it is in neither list and still falls out of the cache.
+    """
+    return {
+        curie: previous[curie]
+        for curie in unresolved
+        if previous.get(curie, {}).get("ancestor_curies")
+    }
+
+
 def render_csv(
     resolved: dict[str, list[tuple[str, str]]],
     retrieved_at: str,
     previous: dict[str, dict[str, str]] | None = None,
+    carried: dict[str, dict[str, str]] | None = None,
 ) -> str:
     """Serialize the cache, keeping the existing timestamp on unchanged rows.
 
@@ -175,10 +193,22 @@ def render_csv(
     Only a row whose path or labels actually moved gets the new timestamp.
     """
     previous = previous or {}
+    carried = carried or {}
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
     writer.writerow(hierarchy_cache.CACHE_HEADER)
-    for curie in sorted(resolved):
+    for curie in sorted(set(resolved) | set(carried)):
+        if curie not in resolved:
+            prior = carried[curie]
+            writer.writerow(
+                [
+                    curie,
+                    prior.get("ancestor_curies", ""),
+                    prior.get("ancestor_labels", ""),
+                    prior.get("retrieved_at", ""),
+                ]
+            )
+            continue
         pairs = resolved[curie]
         curies = hierarchy_cache.join_field([node for node, _ in pairs])
         labels = hierarchy_cache.join_field([label for _, label in pairs])
@@ -265,10 +295,16 @@ def main() -> int:
         out = hierarchy_cache.cache_path(prefix, cache_root)
         previous = existing_rows(out)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(render_csv(resolved, retrieved_at, previous), encoding="utf-8")
+        carried = carried_forward(unresolved, previous)
+        out.write_text(
+            render_csv(resolved, retrieved_at, previous, carried), encoding="utf-8"
+        )
         print(f"  wrote {len(resolved)} path(s) to {out.relative_to(REPO_ROOT)}")
         for curie in unresolved:
-            print(f"  unresolved (left to live lookup): {curie}")
+            if curie in carried:
+                print(f"  unresolved this run; KEPT the committed row for {curie}")
+            else:
+                print(f"  unresolved (left to live lookup): {curie}")
 
     return 0
 
