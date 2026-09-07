@@ -1882,7 +1882,7 @@ combination — do not invent a regimen identity that OAK can't verify. Worked e
 `BRAF_V600E_Mutant_Colorectal_Cancer` (FOLFOXIRI, curated against the closest available
 NCIT term, `Folfirinox Regimen`, since NCIT does not separately code the FOLFOXIRI name).
 
-### Therapeutic Modality and Antisense Oligonucleotide (ASO) Detail
+### Therapeutic Modality and Oligonucleotide (ASO / siRNA) Detail
 
 A treatment's **modality** (the kind of therapeutic platform) is captured by the
 enum-backed `therapeutic_modality` slot — **not** the free-text `role` slot, which
@@ -1948,36 +1948,74 @@ depends on the specific drug/agent (see `therapeutic_agent`) or isn't a
 platform-classifiable action at all, and needs a real per-entry look rather
 than a blind ID-based rule.
 
-When `therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE`, add a structured
-`aso_details` block (`AntisenseOligonucleotideDetail`) capturing the molecular
-mechanism, RNA target, splice exon, chemistry, and conjugation:
+#### `oligonucleotide_details` — one block for ASOs and siRNAs
 
-- `aso_mechanism`: `RNASE_H_KNOCKDOWN`, `SPLICE_MODULATION_EXON_SKIPPING`,
-  `SPLICE_MODULATION_EXON_INCLUSION`, `STERIC_BLOCKADE`, `MIRNA_MODULATION`
+When `therapeutic_modality` is `ANTISENSE_OLIGONUCLEOTIDE` **or** `SIRNA`, add a
+structured `oligonucleotide_details` block (`OligonucleotideDetail`) capturing the
+molecular mechanism, RNA target, splice exon, chemistry, conjugation, and delivery
+platform:
+
+- `oligonucleotide_mechanism`: `RNASE_H_KNOCKDOWN`, `RNAI_KNOCKDOWN`,
+  `SPLICE_MODULATION_EXON_SKIPPING`, `SPLICE_MODULATION_EXON_INCLUSION`,
+  `STERIC_BLOCKADE`, `MIRNA_MODULATION`
 - `target_gene`: `GeneDescriptor` bound to HGNC (lowercase `hgnc:` prefix)
 - `target_transcript`: free text for the RNA target / element (e.g., `APOB mRNA`,
   `SMN2 ISS-N1`)
-- `target_exon`: free text for splice-switching ASOs (e.g., `exon 51`)
-- `aso_chemistry`: `PHOSPHOROTHIOATE`, `PHOSPHORODIAMIDATE_MORPHOLINO`,
-  `TWO_PRIME_O_METHYL`, `TWO_PRIME_O_METHOXYETHYL`, `LOCKED_NUCLEIC_ACID`,
-  `CONSTRAINED_ETHYL`, `OTHER`
+- `target_exon`: free text for splice-switching ASOs (e.g., `exon 51`). Not
+  applicable to siRNA, which acts on mature mRNA rather than on splicing.
+- `oligonucleotide_chemistry`: `PHOSPHOROTHIOATE`, `PHOSPHORODIAMIDATE_MORPHOLINO`,
+  `TWO_PRIME_O_METHYL`, `TWO_PRIME_FLUORO`, `TWO_PRIME_O_METHOXYETHYL`,
+  `LOCKED_NUCLEIC_ACID`, `CONSTRAINED_ETHYL`, `OTHER`
 - `conjugation`: `UNCONJUGATED`, `GALNAC`, `LIPID`, `PEPTIDE`, `ANTIBODY`, `OTHER`
+- `delivery_platform`: `UNFORMULATED`, `CONJUGATE`, `LIPID_NANOPARTICLE`,
+  `POLYMER_NANOPARTICLE`, `VIRAL_VECTOR`, `EXOSOME`, `OTHER`
+
+**One class covers both platforms on purpose.** A single-stranded ASO and a
+double-stranded siRNA differ in effector — RNase H1 versus Argonaute-2 — but are
+otherwise the same programmable medicine, described by the same target, chemistry,
+and delivery attributes. Keeping them in one class is what makes "every treatment
+in the KB that silences gene X, by any oligonucleotide route" a single query.
+
+**`conjugation` and `delivery_platform` are orthogonal — do not collapse them.**
+`conjugation` names the covalent targeting ligand; `delivery_platform` says how the
+drug is carried at all. Patisiran is `UNCONJUGATED` *and* `LIPID_NANOPARTICLE`;
+vutrisiran is `GALNAC` *and* `CONJUGATE`. Recording only the conjugate would make
+those two look like "no targeting" versus "GalNAc" when the real distinction is
+nanoparticle versus conjugate — which is what sets route, dosing interval, and
+whether premedication is needed.
+
+**Dosing interval lives on `Treatment`, not in this block**, because it applies to
+any treatment. Populate the pair together, mirroring the `Prevalence` convention of
+a verbatim string plus a normalized number:
+
+- `dosing_interval`: the label's own phrasing (`once every 3 weeks`)
+- `dosing_interval_days`: normalized to days (`21`; monthly = 30, quarterly = 90,
+  twice yearly = 182.5)
+
+Record loading or induction doses in the treatment `description` rather than
+bending the maintenance interval to describe them. Omit both slots rather than
+guessing an interval you cannot source.
+
+**Deprecated spellings.** `aso_details`, `aso_mechanism`, and `aso_chemistry` are
+retained as deprecated aliases so entries authored before the generalization keep
+validating. Do not populate them on new treatments.
 
 **Example — RNase H knockdown ASO (mipomersen, APOB):**
 ```yaml
 treatments:
 - name: Mipomersen
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: RNASE_H_KNOCKDOWN
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNASE_H_KNOCKDOWN
     target_gene:
       preferred_term: APOB
       term:
         id: hgnc:603
         label: APOB
     target_transcript: APOB mRNA
-    aso_chemistry: TWO_PRIME_O_METHOXYETHYL
+    oligonucleotide_chemistry: TWO_PRIME_O_METHOXYETHYL
     conjugation: UNCONJUGATED
+    delivery_platform: UNFORMULATED
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -1993,23 +2031,71 @@ treatments:
 **Example — splice-switching exon-skipping ASO (eteplirsen, DMD exon 51):**
 ```yaml
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: SPLICE_MODULATION_EXON_SKIPPING
+  oligonucleotide_details:
+    oligonucleotide_mechanism: SPLICE_MODULATION_EXON_SKIPPING
     target_gene:
       preferred_term: DMD
       term:
         id: hgnc:2928
         label: DMD
     target_exon: exon 51
-    aso_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
+    oligonucleotide_chemistry: PHOSPHORODIAMIDATE_MORPHOLINO
     conjugation: UNCONJUGATED
+    delivery_platform: UNFORMULATED
 ```
 
 **Example — GalNAc-conjugated ASO (eplontersen, TTR):** same as the RNase H
-example but with `conjugation: GALNAC` and the TTR `target_gene`.
+example but with `conjugation: GALNAC`, `delivery_platform: CONJUGATE`, and the TTR
+`target_gene`.
 
-Leave `aso_details` absent for non-ASO treatments. The structured fields are
-optional — populate what is documented and omit fields you cannot source.
+**Example — the same transcript by two delivery platforms (ATTR amyloidosis).**
+Patisiran and vutrisiran silence TTR with the same mechanism and differ only in how
+the duplex is carried, which is exactly what the block is for:
+
+```yaml
+- name: Patisiran
+  therapeutic_modality: SIRNA
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNAI_KNOCKDOWN
+    target_gene:
+      preferred_term: TTR
+      term:
+        id: hgnc:12405
+        label: TTR
+    target_transcript: TTR mRNA
+    conjugation: UNCONJUGATED
+    delivery_platform: LIPID_NANOPARTICLE
+  dosing_interval: once every 3 weeks
+  dosing_interval_days: 21
+
+- name: Vutrisiran
+  therapeutic_modality: SIRNA
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNAI_KNOCKDOWN
+    target_gene:
+      preferred_term: TTR
+      term:
+        id: hgnc:12405
+        label: TTR
+    target_transcript: TTR mRNA
+    conjugation: GALNAC
+    delivery_platform: CONJUGATE
+  dosing_interval: once every 3 months
+  dosing_interval_days: 90
+```
+
+Leave `oligonucleotide_details` absent for treatments that are not oligonucleotides.
+The structured fields are optional — populate what is documented and omit fields you
+cannot source. In particular, do not infer `oligonucleotide_chemistry` for an siRNA
+from the fact that stabilized duplexes usually mix 2'-OMe and 2'-F; the slot is
+single-valued, so pick one only when a source names the design.
+
+**Mechanism modules.** The two effector paradigms have sibling mechanism modules —
+`kb/modules/antisense_oligonucleotide_therapy.yaml` (RNase H1, splice modulation,
+steric blockade) and `kb/modules/rnai_gene_silencing.yaml` (RISC loading,
+Argonaute-2 cleavage). A disorder whose entry models the therapy itself should
+`conforms_to` the one matching its drug; they are not interchangeable.
+`ATTR_Amyloidosis` is the worked RNAi conformer.
 
 ### Subtype Naming Conventions
 
@@ -2479,6 +2565,12 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - `cache/<prefix>/terms.csv` caches CURIE existence and canonical labels.
 - `cache/enums/*.csv` caches membership in schema dynamic enums. Presence in
   the label cache does not establish enum membership.
+- `cache/<prefix>/hierarchy.csv` caches the **ancestor path** the renderer draws
+  as a mapping breadcrumb, for the strict-hierarchy prefixes only (ICD10CM,
+  NCIT). It answers a different question from `terms.csv`: not "does this CURIE
+  exist and what is it called" but "what is the whole root-to-term chain, with
+  every node's label". Rebuild with `just build-hierarchy-cache`; audit
+  staleness with `just check-hierarchy-cache`.
 - Never hand-write, append, or reorder cache rows. Populate term caches through
   `just validate-terms` or `just validate`, then use `just normalize-cache` for
   canonical CURIE ordering.
@@ -2496,6 +2588,57 @@ If a row is wrong, do not retype its label or timestamp. Follow the cache
 recovery procedure in the `dismech-terms` skill to remove and re-derive it from
 the ontology. If normalization exposes unrelated existing churn, surface it
 rather than reverting or hand-placing rows.
+
+**The hierarchy cache is a speed cache, never a correctness gate.** A miss falls
+back to a live OAK walk, so an entry curated after the last rebuild still
+renders — just slowly. That is why `check-hierarchy-cache` is advisory and is
+not in `just qc`: it reports staleness, and staleness costs seconds, not a wrong
+page. The reason it exists at all is that one `hierarchical_parents` call
+against the local NCIT build takes roughly 4.7 s, so a single ten-node
+breadcrumb costs about 47 s (#11186).
+
+Two things worth knowing before you touch it:
+
+- **`STRICT_HIERARCHIES` declares an ICD10CM root that the walk never reaches.**
+  `ICD10CM:ICD-10-CM` exists in the `sqlite:obo:icd10cm` build but nothing links
+  up to it: chapter codes such as `ICD10CM:C00-D49` report no
+  `hierarchical_parents`, so every ICD10CM breadcrumb tops out at its chapter.
+  None of the mapped CURIEs reach the declared root. This predates the cache and
+  the cache reproduces it faithfully; it is pinned by
+  `test_icd10cm_paths_stop_at_a_chapter_not_at_the_configured_root` so a future
+  build that does connect the chapters is noticed rather than silently changing
+  every ICD10CM breadcrumb. NCIT reaches its root for every mapped CURIE.
+- **Rebuilding needs the local SQLite build for that prefix**
+  (`just fetch-ontology-dbs icd10cm ncit`). The builder memoises parent and
+  label lookups across CURIEs, which matters: the mapped NCIT set resolves in
+  146 parent queries rather than one full walk per CURIE. It also keeps the
+  existing `retrieved_at` on any row whose path and labels did not move, so
+  adding one mapping is a one-line diff rather than a whole-file restamp — the
+  same incremental contract `cache/<prefix>/terms.csv` follows, and for the
+  reason the `cache/dataset_accessions.json` post-mortem above records.
+- **The drift guard is local-only, deliberately.** The test that compares the
+  committed cache against a live OAK walk is marked `oak_db`, a marker meaning
+  "needs a local ontology database" — distinct from `kb_data`, which is about KB
+  files. Do not treat one as a CI gate.
+
+  **An `oak_db` test needs two guards, and the obvious one is not enough.**
+  `just test-code` deselects the marker, and each such test must *also* check
+  for the build file with `dismech.oak_db.local_build_present`. Opening the
+  adapter is not a check: `get_adapter("sqlite:obo:ncit")` does **not** fail
+  when the build is missing — semsql downloads it. So an
+  `if adapter is None: pytest.skip(...)` guard never fires, and a lane that
+  forgets the marker (a bare `pytest`, as `test-linkml-rc3.yml` runs) pulls
+  gigabytes instead of skipping. This is not hypothetical: it cost one CI run
+  11m35s and 3.6 GB. The same trap applies to any script that means to *require*
+  a local build — `scripts/build_hierarchy_cache.py` asks about the file for
+  exactly this reason.
+
+  What runs in CI is `just check-hierarchy-cache` in the nightly sweep:
+  offline, seconds, and it catches the drift case that actually happens — a
+  curator adds an ICD10CM/NCIT mapping and nobody rebuilds. The `oak_db` drift
+  test compares **every** committed row in both prefixes against a live walk,
+  which takes about 15 minutes against the local builds — budget for that before
+  running `pytest -m oak_db`, and do not put it in a loop.
 
 ## Duplicate YAML Keys (dismech#8623)
 
@@ -3008,6 +3151,16 @@ dismiss. It can approve; that is what
 [`claude-code-review.yml`](https://github.com/monarch-initiative/dismech/blob/main/.github/workflows/claude-code-review.yml)
 instructs it to do. In PR #7433 that claim was made hours after the same reviewer
 had approved three other PRs, and acting on it removed a blocking review.
+
+### Deterministic retry of failed review Actions
+
+Failed review Actions are recovered separately by `pr-shepherd`'s independent
+`retry-reviews` job (`scripts/retry_failed_reviews.py`). It reruns existing failed
+jobs after a 1/6/24-hour backoff, regardless of PR author, assignee or draft
+status. It checks for newer/running reviews and existing current-commit verdicts
+before retrying. The default budget is five retries per sweep; `dry_run`,
+`pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
+the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 
 ### Deterministic auto-merge of ready PRs
 

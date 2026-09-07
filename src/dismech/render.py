@@ -18,7 +18,7 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from dismech import kb_cache
+from dismech import hierarchy_cache, kb_cache
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
@@ -44,6 +44,7 @@ from dismech.perturb.results_export import load_results as load_model_run_result
 from dismech.perturb.results_export import threshold_kind
 from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
+from dismech.treatment_platform import treatment_platform_label
 from dismech.yaml_io import safe_load, safe_load_path
 
 # Module-local alias kept so existing call sites read unchanged. The
@@ -101,6 +102,11 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # degrades to a name-only match. Derived from SECTION_KEYS so the JS cannot
     # drift from the resolver. Page-independent, hence a global.
     env.globals["entity_ref_kind_aliases"] = ENTITY_REF_KIND_ALIASES
+    # Display labels for the enum-backed treatment-platform slots. A global, and
+    # in Python rather than a per-template Jinja map, because both
+    # disorder.html.j2 and module.html.j2 render these chips and a drifting map
+    # would describe the same treatment differently on the two pages.
+    env.globals["treatment_platform_label"] = treatment_platform_label
     return env
 
 
@@ -5526,6 +5532,42 @@ def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[str | Non
     return list(reversed(path))
 
 
+@cache
+def _resolve_hierarchy_path(prefix: str, term_id: str) -> tuple[tuple[str, str], ...]:
+    """Return the root-to-term path as ``((curie, label), ...)``.
+
+    Consults the committed `cache/<prefix>/hierarchy.csv` first and falls back to
+    a live OAK walk on a miss. The result is memoised for the life of the
+    process, which is what makes `render_all` cheap: one lookup per distinct
+    CURIE rather than one per page that mentions it.
+
+    An empty tuple means "no path available" and is cached too, so a term that
+    OAK cannot resolve is not re-queried on every subsequent page.
+    """
+    cached = hierarchy_cache.lookup(prefix, term_id)
+    if cached is not None:
+        return cached
+
+    hierarchy = STRICT_HIERARCHIES.get(prefix)
+    if not hierarchy:
+        return ()
+    adapter = _get_oak_adapter(hierarchy["adapter"])
+    if adapter is None:
+        return ()
+    path = _build_hierarchy_path(adapter, term_id, hierarchy["root"])
+    if not path:
+        return ()
+
+    resolved = []
+    for curie in path:
+        try:
+            label = adapter.label(curie) or curie
+        except Exception:
+            label = curie
+        resolved.append((curie, label))
+    return tuple(resolved)
+
+
 def _augment_mapping_hierarchies(disorder: dict) -> None:
     mappings = disorder.get("mappings") or {}
     for mapping_list in mappings.values():
@@ -5539,26 +5581,19 @@ def _augment_mapping_hierarchies(disorder: dict) -> None:
             if not term_id or ":" not in term_id:
                 continue
             prefix = term_id.split(":", 1)[0]
-            hierarchy = STRICT_HIERARCHIES.get(prefix)
-            if not hierarchy:
+            if prefix not in STRICT_HIERARCHIES:
                 continue
-            adapter = _get_oak_adapter(hierarchy["adapter"])
-            if adapter is None:
+            resolved = _resolve_hierarchy_path(prefix, term_id)
+            if not resolved:
                 continue
-            path = _build_hierarchy_path(adapter, term_id, hierarchy["root"])
-            if not path:
-                continue
-            compacted = _compact_hierarchy_path(path)
+            labels = dict(resolved)
+            compacted = _compact_hierarchy_path([curie for curie, _ in resolved])
             labeled_path = []
             for curie in compacted:
                 if curie is None:
                     labeled_path.append({"label": "...", "is_ellipsis": True})
                     continue
-                try:
-                    label = adapter.label(curie) or curie
-                except Exception:
-                    label = curie
-                labeled_path.append({"id": curie, "label": label})
+                labeled_path.append({"id": curie, "label": labels.get(curie, curie)})
             mapping["hierarchy_path"] = labeled_path
 
 
