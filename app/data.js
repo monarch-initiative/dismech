@@ -123265,6 +123265,71 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Hearing Loss Autosomal Dominant 83",
+    "disease_id": "MONDO:0030723",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Dominant Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNA83 is progressive autosomal dominant nonsyndromic sensorineural hearing loss caused by heterozygous missense variants in MAP1B, which encodes a microtubule-associated phosphoprotein. It was defined in 2020 in three unrelated Chinese pedigrees found by whole exome sequencing of 863 genetically uncharacterised hearing-impaired probands.\nWhat makes this entry worth reading is not the gene but where the lesion sits. Almost every dominant deafness gene curated in this knowledge base acts on the hair cell. DFNA83 does not. Distortion product otoacoustic emissions, which report outer hair cell function, were indistinguishable between affected and hearing-normal individuals in the index family, and stayed normal in the mouse at every age tested out to 32 weeks while auditory brainstem response thresholds were already raised. Cochlear morphology in the mouse was likewise unremarkable, with no hair cell loss and no change in spiral ganglion neuron density. The deficit is functional and it is in the neuron: shorter neurites, hyperstabilised microtubules at the growth cone, reduced potassium currents and degraded action potentials.\nAllele class also carries unusual weight for this gene. MAP1B loss-of-function alleles cause a different disease, periventricular nodular heterotopia 9, a neuronal migration disorder; the deafness alleles are missense. That matters when reading the mouse work below, because the mouse is a null.\nThat combination, raised ABR thresholds with preserved otoacoustic emissions, is the audiological signature of auditory neuropathy rather than of cochlear hearing loss, and it has a practical consequence: hearing aids that amplify sound into a cochlea whose hair cells work are addressing the wrong compartment. No management data exist for DFNA83, so this entry does not claim any.\nThe evidence is unusually deep for a two-paper deafness locus, because the founding report carried its own isogenic rescue. Patient-derived induced pluripotent stem cells were differentiated into otic sensory neuron-like cells, the p.Ser1400Gly allele was corrected by CRISPR/Cas9 in a sister line, and every measured defect returned toward the control value. That is a within-experiment causality argument of a kind most entries here do not have. It is still one allele of the three, in one family, in one laboratory.",
+    "pathophysiology": [
+      "Heterozygous MAP1B Missense Variants at Conserved Residues",
+      "Reduced MAP1B Level and Deficient Type I Phosphorylation",
+      "Microtubule Hyperstabilisation in the Growth Cone",
+      "Impaired Neurite Extension in Spiral Ganglion Neurons",
+      "Altered Spiral Ganglion Neuron Excitability",
+      "Failure of Auditory Nerve Signal Transmission"
+    ],
+    "cell_types": [
+      "spiral ganglion neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011113"
+    ],
+    "biological_processes": [
+      "protein phosphorylation",
+      "microtubule cytoskeleton organization",
+      "axon extension",
+      "action potential",
+      "potassium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Progressive sensorineural hearing impairment",
+      "High-frequency predominant hearing loss",
+      "Abnormal auditory brainstem response with preserved otoacoustic emissions"
+    ],
+    "phenotype_categories": [
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000408",
+      "HP:0005101",
+      "HP:0006958"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MAP1B"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hearing_Loss_Autosomal_Dominant_83.yaml",
+    "page_url": "../pages/disorders/Hearing_Loss_Autosomal_Dominant_83.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hearing Loss Autosomal Recessive 106",
     "disease_id": "MONDO:0033198",
     "category": "Mendelian",
@@ -175008,6 +175073,77 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Methylmalonic Aciduria and Homocystinuria cblL Type",
+    "disease_id": "MONDO:0975798",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Disorder of Cobalamin Metabolism and Transport"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MAHCL is a disorder of intracellular cobalamin metabolism caused by biallelic THAP11 variants. It is the second of the cobalamin complementation groups whose lesion is transcriptional rather than enzymatic: THAP11 and HCFC1 form the complex that drives MMACHC expression, so losing THAP11 function starves the cell of the cobalamin chaperone without touching the MMACHC gene itself. The result is a cblC phenocopy in a patient whose MMACHC sequence is normal.\nOne patient has been reported, homozygous for THAP11 p.Phe80Leu. Everything in this entry is therefore either from that report, from the functional work that followed it in cell lines and model organisms, or from the better-characterised cblX and cblC disorders that share the pathway downstream of MMACHC. The entry marks which is which.\nTwo things about the name are worth stating up front, because both are misleading. First, the MONDO label carries a typo, `cb1L` with the digit one; the ontology term is bound as-is because that is the canonical label, and every other field spells it cblL. Second, the OMIM clinical synopsis for the single reported patient records mild methylmalonic aciduria *without* homocystinuria, so the disorder is named for a biochemical pairing that its one described case did not fully show. That is not a contradiction to hide: it is the strongest available hint that the transcriptional disorders may sit differently on the cblC biochemical spectrum than the enzymatic ones, and it is recorded as a knowledge gap.\nThe relationship to cblX is the other thing to get right. cblX is X-linked and caused by hemizygous HCFC1 variants; MAHCL is autosomal recessive and caused by biallelic THAP11 variants. They converge on the same complex and produce overlapping biochemistry, which is why the literature and GeneReviews still describe THAP11 as a \"cblX-like\" gene. They are not the same disease and cannot be counselled as one.",
+    "pathophysiology": [
+      "Biallelic THAP11 p.Phe80Leu",
+      "Reduced THAP11 Occupancy of the MMACHC Promoter",
+      "Reduced MMACHC Expression",
+      "Loss of Cytosolic Cobalamin Processing",
+      "Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency",
+      "Impaired Neural Precursor Proliferation and Differentiation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "regulation of transcription by RNA polymerase II",
+      "cobalamin metabolic process"
+    ],
+    "phenotypes": [
+      "Methylmalonic aciduria",
+      "Severe global developmental impairment",
+      "Seizures",
+      "Hypomethioninemia"
+    ],
+    "phenotype_categories": [
+      "Biochemical",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0012120",
+      "HP:0001263",
+      "HP:0032794",
+      "HP:0003658"
+    ],
+    "frequencies": [],
+    "genes": [
+      "THAP11",
+      "MMACHC",
+      "HCFC1",
+      "ZNF143"
+    ],
+    "treatments": [
+      "Parenteral Hydroxocobalamin",
+      "Betaine",
+      "Folinic Acid",
+      "Levocarnitine",
+      "Dietary Management and Avoidance of Catabolic Stress"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Methylmalonic_Aciduria_and_Homocystinuria_cblL_Type.yaml",
+    "page_url": "../pages/disorders/Methylmalonic_Aciduria_and_Homocystinuria_cblL_Type.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Methylmalonic Aciduria, cblA Type",
     "disease_id": "MONDO:0009613",
     "category": "Mendelian",
@@ -217112,6 +217248,104 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Podoconiosis",
+    "disease_id": "MONDO:0005425",
+    "category": "Environmental Lymphatic Disease",
+    "parents": [
+      "Lymphedema",
+      "Neglected Tropical Disease"
+    ],
+    "creation_date": "2026-09-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Podoconiosis is a non-infectious lymphoedema of the lower legs caused by years of barefoot contact with red-clay soil derived from alkalic volcanic rock. It is the clearest gene-environment disease among the neglected tropical diseases: there is no pathogen and no vector, the exposure is a mineral, and the susceptibility is an HLA class II haplotype. Endemic soils carry kaolinite, smectite, quartz, iron oxides and trace beryllium and zirconium; kaolinite is the species actually identified in human lymph node tissue, and which of them is the trigger is unknown. Colloid-sized silicate particles cross the plantar skin, are taken up by dermal macrophages, and reach the lower-limb lymphatics. In people carrying the risk haplotypes this is followed by a sustained inflammatory response - read as CD4 T-cell-mediated from the class II association, though no antigen-specific response has been demonstrated - that collagenizes and obliterates the lymphatic lumen. The swelling starts at the feet, is bilateral in about seven of eight patients, is often asymmetric between the legs, and in almost all cases stays below the knee. The skin thickens into the warty, nodular \"mossy\" changes the disease is named for it, and recurrent bacterial acute dermatolymphangioadenitis drives further lymphatic damage in a self-reinforcing loop. Roughly four million people are affected across some 32 countries, about a quarter of them in Ethiopia. The disease is entirely preventable with shoes, and its early stages are reversible; established fibrosis is not.",
+    "pathophysiology": [
+      "Chronic Barefoot Contact with Alkalic Volcanic Clay Soil",
+      "Transdermal Entry of Silicate Mineral Particles",
+      "Macrophage Phagocytosis of Mineral Particles",
+      "Lymphatic Transport of Particle-Laden Macrophages",
+      "HLA Class II-Restricted CD4 T-Cell Response",
+      "Chronic Systemic Immune Activation",
+      "Endolymphangitis",
+      "Lymphatic Vessel Wall Collagenization",
+      "Luminal Obliteration and Loss of Conducting Lymphatics",
+      "Lymphatic Obstruction and Lymph Stasis",
+      "Dermal Sclerosis and Nodule Formation",
+      "Epidermal Hyperkeratosis and Barrier Failure",
+      "Acute Dermatolymphangioadenitis"
+    ],
+    "cell_types": [
+      "dermal macrophage",
+      "CD4-positive T cell",
+      "monocyte",
+      "dendritic cell",
+      "lymphatic vessel endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000624",
+      "CL:0000576",
+      "CL:0000451",
+      "CL:0002138"
+    ],
+    "biological_processes": [
+      "phagocytosis",
+      "antigen processing and presentation via MHC class II",
+      "inflammatory response",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Bilateral Below-Knee Lower-Limb Lymphedema",
+      "Mossy Warty Skin Lesions",
+      "Fibrotic Skin Nodules",
+      "Recurrent Acute Dermatolymphangioadenitis",
+      "Ankle Ankylosis"
+    ],
+    "phenotype_categories": [
+      "Lymphatic",
+      "Integumentary",
+      "Infectious",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001004",
+      "HP:0000962",
+      "HP:0200036",
+      "HP:0100658",
+      "HP:0031013"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HLA class II susceptibility haplotype"
+    ],
+    "treatments": [
+      "Lymphoedema Self-Care Package",
+      "Nodulectomy",
+      "Antibiotic Therapy for Acute Attacks",
+      "Consistent Footwear Use"
+    ],
+    "environmental": [
+      "Long-term barefoot contact with red-clay soil derived from alkalic volcanic rock"
+    ],
+    "biochemical": [],
+    "source_file": "Podoconiosis.yaml",
+    "page_url": "../pages/disorders/Podoconiosis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "14"
   },
   {
     "name": "Polycystic echinococcosis",
@@ -282583,17 +282817,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2743,
+  "total_disorder_pages": 2746,
   "total_subtypes": 3651,
-  "total_disorders_and_subtypes": 6394,
-  "total_unique_evidence_sources": 38614,
-  "total_unique_publications": 36373,
-  "total_unique_disease_categories": 54,
+  "total_disorders_and_subtypes": 6397,
+  "total_unique_evidence_sources": 38642,
+  "total_unique_publications": 36399,
+  "total_unique_disease_categories": 55,
   "total_unique_phenotype_categories": 277,
-  "total_pathographs": 2738,
-  "total_unique_pathological_events": 16240,
+  "total_pathographs": 2741,
+  "total_unique_pathological_events": 16265,
   "total_modules": 171,
-  "total_research_reports": 2854,
+  "total_research_reports": 2857,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
