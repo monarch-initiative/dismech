@@ -19,6 +19,7 @@ the most probable globally consistent assignment.
 ```
 analyses/boomer/
   index.tsv                     roll-up: one row per disorder
+  mendelian.tsv                 Mendelian selection reasons and grounding eligibility
   disorders/<NAME>/
     README.md                   what was checked, per-subtype verdicts, what boomer did
     kb.yaml                     boomer input; `pyboomer solve kb.yaml -t 60 -C 6`
@@ -32,6 +33,49 @@ analyses/boomer/
 One knowledge base per *disorder* rather than per subtype pair: an entry's
 subtypes share a parent, so solving them together lets a conflict in one bear on
 the others, and it matches how a curator reads the result.
+
+The scope also includes Mendelian diseases without grounded subtypes. These
+inputs test cross-source mappings and can expose conflicting MONDO equivalences;
+they do not assert or validate a subtype hierarchy.
+
+## Mendelian selection
+
+This first expansion uses the repository's explicit **`category: Mendelian`**
+designation. It does not infer category membership from gene associations,
+inheritance, disease names, or MONDO ancestry. Entries categorized as Genetic,
+Complex, Cancer, or another category are not newly added by this pass, even
+when they may be biologically Mendelian. Existing analyses are retained.
+
+This is a reproducible curation-defined cohort, not a reclassification of the
+KB. It includes chromosomal syndromes that the KB itself categorizes as
+Mendelian. [`mendelian.tsv`](mendelian.tsv) records every candidate with
+`KB_CATEGORY_MENDELIAN` and whether it has the primary MONDO grounding needed
+by the analysis. Candidates without that grounding are reported and skipped.
+
+`cd analyses && just boomer-expand-mendelian` adds eligible diseases absent from
+the existing index as **inputs only**, with `NOT_RUN` status and no solution files.
+It preserves every indexed analysis folder. It checks that
+the existing folders are complete and refuses to overwrite unindexed folders.
+It merges new index rows with the old rows; it does **not** refresh old results.
+Use `just boomer-disorders` for a full refresh of the union of the original
+grounded-subtype scope and the Mendelian scope. The CLI also supports
+`--scope subtypes` and `--scope mendelian` for either cohort alone.
+
+The initial expansion (2026-09-08) selected **1,562 candidates**: **1,550** have
+a primary MONDO grounding and **12** do not. Of the eligible entries, **193**
+already had an analysis, so **1,357 inputs were added**, bringing the combined
+index to **1,728**. **1,339 additions have no grounded subtypes**; the other 18
+have 54 grounded subtype pairs. The previous 371 analysis folders and their
+index values were retained. The new inputs have no solver verdict or posterior.
+Their `n_retracted` is `NA`, not zero: retractions have not been assessed.
+
+The solver stage was deferred after an 11-hypothesis Marfan input hit the
+60-second timeout. That smoke-test output was kept outside this tree. The
+current local Boomer implementation can limit clique size with `-C 6`, but
+that can separate interacting hypotheses; it is not a guarantee of a full
+joint solve. Do not treat lowering that limit as a semantics-preserving fix for
+timeouts. The older reproduction claims below describe the original run and
+should be rechecked against the installed Boomer version before relying on them.
 
 ## What each KB contains
 
@@ -77,10 +121,11 @@ enrichment proposal rather than a guess.
 Nothing contradicts dismech in any source, which is worth stating as its own
 result.
 
-## Current results
+## Original subtype-cohort results
 
-371 disorders, 1,471 grounded parent/subtype pairs. Full roll-up in
-[`index.tsv`](index.tsv).
+The original 371 disorders contain 1,471 grounded parent/subtype pairs. The
+figures in this section describe that original cohort; [`index.tsv`](index.tsv)
+also includes the later Mendelian expansion.
 
 | Per pair | n | | Per disorder | n |
 |---|---|---|---|---|
@@ -364,7 +409,8 @@ can produce substantive changes beyond labels if those inputs have changed.
 ```bash
 uv run --with networkx python analyses/boomer/scripts/build_analyses.py \
     --out analyses/boomer/disorders --index analyses/boomer/index.tsv \
-    --boomer-src ~/repos/boomer-py/src
+    --boomer-src ~/repos/boomer-py/src --scope expanded \
+    --selection-report analyses/boomer/mendelian.tsv
 
 uv run python analyses/boomer/scripts/grouping_audit.py \
     --out analyses/boomer/groupings/violations.tsv
