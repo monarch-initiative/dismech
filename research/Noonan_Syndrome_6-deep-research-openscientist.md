@@ -129,6 +129,32 @@ artifacts:
   description: OpenScientist final report
 ---
 
+> # ⛔ OFF-TARGET REPORT — DO NOT CURATE FROM THIS FILE
+>
+> **This report is about the wrong gene.** It is filed under the Noonan Syndrome 6 name,
+> but its content is `RAF1`-related Noonan syndrome, which is **Noonan syndrome 5**, not
+> NS6. NS6 is defined by germline `NRAS` variants.
+>
+> - The report body mentions **RAF1 71 times and NRAS zero times**.
+> - Its own heading reads "Noonan Syndrome 6 (RAF1-Related)" and states `**Gene:** *RAF1*`.
+> - `just preflight-dr research/Noonan_Syndrome_6-deep-research-openscientist.md MONDO:0013186`
+>   returns **WARN**: "Expected gene NRAS is never mentioned while RAF1 is mentioned 67 times."
+>
+> **Its own validation sections do not catch this and must not be read as reassurance.**
+> The `## Reference Validation` section below self-reports 26/26 resolved, 0 off topic and a
+> 0.0 confabulation rate. That is expected for a wrong-disease report: references are scored
+> against the report's *own* vocabulary, and this report's vocabulary is RAF1 vocabulary.
+> The `## Term Validation` section separately flags four wrong NCIT treatment bindings
+> (`NCIT:C15380` is Telemedicine, not heart transplantation; `NCIT:C2039` is Bevacizumab,
+> not beta-blockers; `NCIT:C51756` is Roux-en-Y Anastomosis; `NCIT:C1968` is a
+> Topoisomerase-II Inhibitor).
+>
+> This is a textbook Named Entity Confusion case. It is retained as a record of a real
+> provider failure mode, not as a curation input. **Nothing in `kb/disorders/Noonan_Syndrome_6.yaml`
+> is derived from it, and nothing should be.** For NS6 deep research, use
+> `Noonan_Syndrome_6-deep-research-falcon.md`, which preflights clean.
+
+
 ## Question
 
 # Disease Characteristics Research Template
@@ -589,6 +615,32 @@ This report will be used to populate a disease knowledge base entry with:
 
 
 ## Output
+
+> # ⛔ OFF-TARGET REPORT — DO NOT CURATE FROM THIS FILE
+>
+> **This report is about the wrong gene.** It is filed under the Noonan Syndrome 6 name,
+> but its content is `RAF1`-related Noonan syndrome, which is **Noonan syndrome 5**, not
+> NS6. NS6 is defined by germline `NRAS` variants.
+>
+> - The report body mentions **RAF1 71 times and NRAS zero times**.
+> - Its own heading reads "Noonan Syndrome 6 (RAF1-Related)" and states `**Gene:** *RAF1*`.
+> - `just preflight-dr research/Noonan_Syndrome_6-deep-research-openscientist.md MONDO:0013186`
+>   returns **WARN**: "Expected gene NRAS is never mentioned while RAF1 is mentioned 67 times."
+>
+> **Its own validation sections do not catch this and must not be read as reassurance.**
+> The `## Reference Validation` section below self-reports 26/26 resolved, 0 off topic and a
+> 0.0 confabulation rate. That is expected for a wrong-disease report: references are scored
+> against the report's *own* vocabulary, and this report's vocabulary is RAF1 vocabulary.
+> The `## Term Validation` section separately flags four wrong NCIT treatment bindings
+> (`NCIT:C15380` is Telemedicine, not heart transplantation; `NCIT:C2039` is Bevacizumab,
+> not beta-blockers; `NCIT:C51756` is Roux-en-Y Anastomosis; `NCIT:C1968` is a
+> Topoisomerase-II Inhibitor).
+>
+> This is a textbook Named Entity Confusion case. It is retained as a record of a real
+> provider failure mode, not as a curation input. **Nothing in `kb/disorders/Noonan_Syndrome_6.yaml`
+> is derived from it, and nothing should be.** For NS6 deep research, use
+> `Noonan_Syndrome_6-deep-research-falcon.md`, which preflights clean.
+
 
 # Noonan Syndrome 6 (RAF1-Related): Comprehensive Disease Characterization
 
