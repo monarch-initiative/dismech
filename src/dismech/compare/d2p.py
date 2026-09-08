@@ -28,6 +28,7 @@ from dismech.qc_plugins import causal_inlink_coverage
 from .support import default_kb_dir as _default_kb_dir
 from .support import get_disease_term_id as _get_mondo_id
 from .support import iter_disease_files as _iter_disease_files
+from .support import load_shared_yaml_object as _load_shared_disease_yaml
 from .support import load_yaml_object as _load_disease_yaml
 from .support import normalize_hp_id as _normalize_hp_id
 
@@ -44,7 +45,7 @@ _SOURCE_OMIM = "infores:omim"
 _SOURCE_ORDO = "infores:orphanet"
 
 _SOURCE_COLUMNS = ("omim", "ordo")
-_SUPPORTING_EVIDENCE_VALUES = {"SUPPORT", "PARTIAL"}
+_SUPPORTING_EVIDENCE_VALUES = {"SUPPORT"}
 _GENETIC_CATEGORY_KEYWORDS = ("mendelian", "genetic", "chromosomal")
 
 app = typer.Typer(help="Compare dismech phenotypes against OMIM/Orphanet databases.")
@@ -517,7 +518,7 @@ def build_completeness_audit(
                         "unlinked" if phenotype_name in unconnected_names else "linked"
                     ),
                     recommendation=(
-                        "Add exact SUPPORT/PARTIAL evidence for this phenotype or "
+                        "Add exact SUPPORT evidence for this phenotype or "
                         "remove the unsupported assertion."
                     ),
                 )
@@ -792,7 +793,7 @@ def _resolve_disease_ref(ref: str) -> tuple[str, Path]:
         ref_upper = reference_text.upper()
         matches: list[Path] = []
         for disease_file in disease_files:
-            disease_model = _load_disease_yaml(disease_file)
+            disease_model = _load_shared_disease_yaml(disease_file)
             term_id = _get_mondo_id(disease_model)
             if term_id and term_id.upper() == ref_upper:
                 matches.append(disease_file)
@@ -807,7 +808,7 @@ def _resolve_disease_ref(ref: str) -> tuple[str, Path]:
     normalized_ref = _normalize_disease_lookup(reference_text)
     name_matches: list[Path] = []
     for disease_file in disease_files:
-        disease_model = _load_disease_yaml(disease_file)
+        disease_model = _load_shared_disease_yaml(disease_file)
         disease_name = disease_model.get("name")
         if (
             _normalize_disease_lookup(str(disease_name) if disease_name else "")

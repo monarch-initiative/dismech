@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Immunodeficiency 25 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Immunodeficiency 25</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Immunodeficiency 25</h1>
+                
+                <p class="report-subtitle">Immunodeficiency 25 (CD247 / CD3ζ Deficiency): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0012426" target="_blank" rel="noopener noreferrer">MONDO:0012426</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">16 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Immunodeficiency 25 (CD247 / CD3ζ Deficiency): A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Immunodeficiency 25 (IMD25)
+<strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0012426" target="_blank" rel="noopener noreferrer">MONDO:0012426</a> · OMIM #610163 · MeSH C565712 · UMLS C1857798 · MedGen 346666 · GARD 0018294 · <a href="http://purl.obolibrary.org/obo/DOID_0060007" target="_blank" rel="noopener noreferrer">DOID:0060007</a> / <a href="http://purl.obolibrary.org/obo/DOID_0111942" target="_blank" rel="noopener noreferrer">DOID:0111942</a>
+<strong>Causal gene:</strong> <em>CD247</em> (CD3ζ/zeta chain), 1q24.2 · <a href="https://bioregistry.io/HGNC:1677" target="_blank" rel="noopener noreferrer">HGNC:1677</a> · NCBI Gene 919 · Ensembl ENSG00000198821 · UniProt P20963
+<strong>Category:</strong> Mendelian, autosomal-recessive inborn error of immunity (T–B+NK+ SCID)</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Immunodeficiency 25 (IMD25) is a rare autosomal-recessive severe combined immunodeficiency (SCID) caused by biallelic loss-of-function mutations in <em>CD247</em>, the gene on chromosome 1q24.2 encoding CD3ζ (the zeta signal-transducing subunit of the T-cell receptor [TCR]/CD3 complex).</strong> CD3ζ assembles as an invariant homodimer bearing three immunoreceptor tyrosine-based activation motifs (ITAMs) and is required both to assemble the TCR/CD3 complex and export it to the cell surface, and to transduce activating signals after antigen engagement. When CD3ζ is absent or non-functional, thymic T-cell development and peripheral T-cell signaling fail, producing the characteristic <strong>T-cell-low/absent, B-cell-normal, NK-cell-normal (T–B+NK+) SCID immunophenotype</strong> with low surface CD3 expression.</p>
+<p>The disease was first defined by two landmark reports. Rieux-Laucat et al. (<em>NEJM</em> 2006) described a 4-month-old boy with a homozygous germline nonsense mutation (Q70X) in <em>CD247</em> and, remarkably, somatic revertant mosaicism in which second-site somatic mutations partially restored TCR/CD3 expression in a subset of T cells. Roberts et al. (2007) reported a T–B+NK+ SCID patient homozygous for a frameshifting single-C insertion in exon 7, whose T cells had no detectable CD3ζ protein, low surface CD3ε, and were non-functional; transduced mutant CD3ζ failed to rescue TCR assembly and was unstable/degraded. Subsequent work (Briones et al. 2024) established that CD3ζ ITAMs are dosage-sensitive and that certain heterozygous truncating alleles behave as dominant negatives, expanding the phenotype toward a leakier combined immunodeficiency with autoimmune features.</p>
+<p><strong>Clinically, IMD25 behaves like other CD3-chain SCIDs:</strong> it presents in early infancy with recurrent/severe/opportunistic infections, failure to thrive, and susceptibility to disseminated disease from live vaccines (e.g., BCGosis). It is one of the ~19+ genetic causes of SCID, an emergency group with a modern population incidence of roughly 1 in 46,000–58,000 live births. Left untreated, SCID is usually fatal within the first year of life. The established curative treatment is <strong>allogeneic hematopoietic stem-cell transplantation (HCT)</strong>, and outcomes are markedly improved by early (pre-symptomatic) diagnosis, which is now achievable through TREC-based newborn screening. IMD25 is very rare — only a handful of families have been reported worldwide — so many disease characteristics are extrapolated from the broader T–B+NK+ SCID / CD3-chain deficiency literature, and this is flagged throughout.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — IMD25 is caused by biallelic loss-of-function of <em>CD247</em> (CD3ζ), producing T–B+NK+ SCID</h3>
+<p>Roberts et al. (2007) reported a patient with <strong>T–B+NK+ SCID who was homozygous for a single C insertion following nucleotide 411 in exon 7 of the <em>CD3zeta</em> (<em>CD247</em>) gene</strong>. The patient's T cells had <strong>no detectable CD3ζ protein</strong>, expressed only low levels of surface CD3ε, and were functionally inert. In a mechanistic complementation experiment, the mutant CD3ζ transduced into CD3ζ-deficient murine hybridoma cells <strong>failed to rescue TCR assembly and surface expression</strong>, and the mutant protein was unstable and rapidly degraded. This provided the first demonstration that complete CD3ζ deficiency in humans causes SCID specifically by preventing normal TCR assembly and surface expression. The corresponding OMIM phenotype entry is #610163, and the gene <em>CD247</em> maps to 1q24.2 (<a href="https://bioregistry.io/HGNC:1677" target="_blank" rel="noopener noreferrer">HGNC:1677</a>).</p>
+<blockquote>
+<p><em>"We report here a patient with T(-)B(+)NK(+) severe combined immunodeficiency (SCID) who was homozygous for a single C insertion following nucleotide 411 in exon 7 of the CD3zeta gene."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17170122/">PMID: 17170122</a></p>
+<p><em>"these findings provide the first demonstration that complete CD3zeta deficiency in humans can cause SCID by preventing normal TCR assembly and surface expression."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17170122/">PMID: 17170122</a></p>
+</blockquote>
+<p>This finding anchors the disease definition: the <strong>initiating molecular lesion</strong> (biallelic <em>CD247</em> LOF) has a direct, demonstrated causal link to the <strong>cellular defect</strong> (no TCR assembly/surface export) and the <strong>clinical phenotype</strong> (T–B+NK+ SCID).</p>
+<h3>F002 — CD3ζ has three ITAMs essential for TCR expression/signaling; certain heterozygous truncating variants act dominant-negatively</h3>
+<p>Briones et al. (2024) dissected genotype–phenotype relationships using <em>CD247</em> variants modeled in Jurkat T cells. They established that the <strong>invariant TCRζ/CD247 homodimer is crucial for TCR/CD3 expression and signaling through its three ITAMs</strong>, that <strong>homozygous null mutations cause immunodeficiency</strong>, and that <strong>heterozygous carriers exhibit ~50% reduced surface CD3</strong> — evidence of a strict gene-dosage relationship. Nonsense mutations ablating 1, 2, or 3 ITAMs restored only 60%, 22%, and 10% of surface CD3 in knockout cells, respectively, and, when co-expressed with wild-type CD3ζ, reduced WT surface CD3 to 39%, 19%, and 9% — a clear, ITAM-count-dependent <strong>dominant-negative effect</strong>. Two heterozygous nonsense variants (p.Y152X, p.Q101X) were identified in patients showing signs of immunodeficiency and autoimmunity, broadening the allelic/inheritance spectrum beyond classic recessive nulls.</p>
+<blockquote>
+<p><em>"The invariant TCR ζ/CD247 homodimer is crucial for TCR/CD3 expression and signaling through its 3 immunoreceptor tyrosine-based activation motifs (ITAMs). Homozygous null mutations in CD247 lead to immunodeficiency, while carriers exhibit 50% reduced surface CD3."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/38992472/">PMID: 38992472</a></p>
+</blockquote>
+<p>This finding is important for variant interpretation: truncating alleles that retain part of the protein but ablate ITAMs can poison WT complexes, meaning some heterozygotes are not silent carriers but may develop a milder combined immunodeficiency/autoimmunity phenotype.</p>
+<h3>F003 &amp; F004 — Recurrent somatic revertant mosaicism restores partial TCR expression; the founding IMD25 case</h3>
+<p>The founding case of IMD25 (Rieux-Laucat et al., <em>NEJM</em> 2006) was a <strong>4-month-old boy with primary immunodeficiency and a homozygous germline <em>CD247</em> (CD3ζ) mutation, Q70X</strong>. Some of his T cells carried Q70X on both alleles and showed low surface TCR/CD3, while other T cells had <strong>normal complex levels because they retained Q70X on only one allele plus one of three heterozygous somatic second-site mutations on the other allele</strong>, restoring poorly functional TCR/CD3 complexes. This established both germline causation and the striking phenomenon of somatic reversion in CD247 deficiency.</p>
+<blockquote>
+<p><em>"A four-month-old boy with primary immunodeficiency was found to have a homozygous germ-line mutation of the gene encoding the CD3zeta subunit of the T-cell receptor-CD3 complex."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/16672702/">PMID: 16672702</a></p>
+<p><em>"other T cells had normal levels of the complex and bore the Q70X mutation on only one allele of CD3zeta, plus one of three heterozygous somatic mutations of CD3zeta on the other allele, allowing expression of poorly functional T-cell receptor-CD3 complexes."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/16672702/">PMID: 16672702</a></p>
+</blockquote>
+<p>Follow-up work confirmed and mechanistically explained the phenomenon. Marin et al. (2017; <a href="https://pubmed.ncbi.nlm.nih.gov/27555457/">PMID: 27555457</a>) reported "primary T-cell immunodeficiency with functional revertant somatic mosaicism in CD247," and Blázquez-Moreno et al. (2017) showed that recovery of CD247/TCR surface expression occurred through <strong>both true reversion of the inactivating mutation and a compensating second-site mutation</strong>, and that <em>CD247</em> has a higher-than-expected mutation rate, with PID genes prone to reversion showing elevated mutation propensity.</p>
+<blockquote>
+<p><em>"Mutations in T-cell antigen receptor (TCR) subunit genes cause rare immunodeficiency diseases characterized by impaired expression of the TCR at the cell surface and selective T lymphopenia."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28743717/">PMID: 28743717</a></p>
+<p><em>"The recovery of CD247 expression in some patient T cells was associated with both reversion of the inactivating mutation and a variant with a compensating mutation that could reconstitute TCR expression"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28743717/">PMID: 28743717</a></p>
+</blockquote>
+<p>Clinically, revertant mosaicism can partially blunt lymphopenia and complicate diagnosis (a subset of T cells may show near-normal surface CD3), and it is a natural proof-of-concept that even partial restoration of CD3ζ can restore some TCR expression.</p>
+<h3>F005 — SCID incidence and TREC newborn screening prevention</h3>
+<p>CD3ζ/CD247 deficiency is a very rare subtype within the SCID group, for which contemporary TREC-based newborn screening provides population-level incidence estimates. Screening programs report an incidence of <strong>1:46,753 in Catalonia</strong> (105 screen-positive among 420,263 newborns; <a href="https://pubmed.ncbi.nlm.nih.gov/42079620/">PMID: 42079620</a>), <strong>~1:49,800–57,000 in Ukraine</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41459527/">PMID: 41459527</a>), and a severe T/B immunodeficiency birth prevalence of <strong>1:12,298 in Russia</strong> (2.3 million newborns; <a href="https://pubmed.ncbi.nlm.nih.gov/41727503/">PMID: 41727503</a>). Universal TREC screening enables presymptomatic diagnosis and, by deferring live BCG vaccination in affected neonates, "virtually eliminates fatal BCGosis."</p>
+<blockquote>
+<p><em>"Among 420,263 screened newborns, 105 screened positive (0.02%). SCID was diagnosed in eight infants and congenital athymia in one, corresponding to an overall incidence of 1:46,753 live births."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42079620/">PMID: 42079620</a></p>
+<p><em>"Implementation of universal newborn screening for severe combined immunodeficiency (SCID) using the T-cell receptor excision circle (TREC) assay now enables prospective identification and deferral of these high-risk neonates, virtually eliminating fatal BCGosis."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41441645/">PMID: 41441645</a></p>
+</blockquote>
+<p>Because CD3ζ deficiency causes profound T-lymphopenia, affected infants are expected to have <strong>low/absent TREC values</strong> on newborn screening and would be detected by these assays (an important caveat: revertant mosaicism could theoretically raise TREC values in rare cases, analogous to how ZAP70 deficiency with normal T-cell numbers has been missed).</p>
+<h3>F006 — HCT is curative; early diagnosis via screening improves survival</h3>
+<p>Allogeneic HCT is the established curative therapy for SCID, including CD3-chain defects. The PIDTC analysis of 796 children with SCID receiving non-sibling HCT (1982–2020) found that <strong>newborn screening "was associated with earlier diagnosis, reduced infection at HCT, and elimination of survival disparities"</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42416786/">PMID: 42416786</a>). Screening programs likewise report that early definitive treatment yields "excellent survival outcomes" (<a href="https://pubmed.ncbi.nlm.nih.gov/42079620/">PMID: 42079620</a>). This paradigm applies directly to CD3-chain SCID: durable T-cell reconstitution after HCT has been documented for CD3ε deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/24515816/">PMID: 24515816</a>) and CD3γ deficiency with resolution of inflammatory bowel disease (<a href="https://pubmed.ncbi.nlm.nih.gov/18482219/">PMID: 18482219</a>).</p>
+<blockquote>
+<p><em>"NBS was associated with earlier diagnosis, reduced infection at HCT, and elimination of survival disparities between Black and non-Hispanic White patients."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42416786/">PMID: 42416786</a></p>
+<p><em>"enabling early definitive treatment and excellent survival outcomes with a low false-positive burden"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42079620/">PMID: 42079620</a></p>
+</blockquote>
+<h3>F007 &amp; F008 — Verified ontology and gene identifiers</h3>
+<p>EBI OLS4 (Mondo) resolves "immunodeficiency 25" to <strong><a href="http://purl.obolibrary.org/obo/MONDO_0012426" target="_blank" rel="noopener noreferrer">MONDO:0012426</a></strong> with equivalentTo cross-references <a href="https://bioregistry.io/OMIM:610163" target="_blank" rel="noopener noreferrer">OMIM:610163</a>, MeSH:C565712, UMLS:C1857798, MedGen:346666, <a href="https://bioregistry.io/GARD:0018294" target="_blank" rel="noopener noreferrer">GARD:0018294</a>, and <a href="http://purl.obolibrary.org/obo/DOID_0060007" target="_blank" rel="noopener noreferrer">DOID:0060007</a>/<a href="http://purl.obolibrary.org/obo/DOID_0111942" target="_blank" rel="noopener noreferrer">DOID:0111942</a>. Mondo synonyms include "CD3zeta deficiency," "severe combined immunodeficiency caused by mutation in CD247," "CD247 severe combined immunodeficiency," and "IMD25." No direct Orphanet equivalentTo xref is listed in Mondo. mygene.info confirms human <em>CD247</em>: <strong><a href="https://bioregistry.io/HGNC:1677" target="_blank" rel="noopener noreferrer">HGNC:1677</a>, OMIM gene 186780, Ensembl ENSG00000198821, UniProt P20963, cytoband 1q24.2, NCBI Gene 919</strong>, protein-coding; the mouse ortholog <em>Cd247</em> is NCBI Gene 12503 (chromosome 1).</p>
+<hr />
+<h2>Detailed Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Immunodeficiency 25 is a Mendelian, autosomal-recessive inborn error of immunity in which biallelic loss-of-function mutations in <em>CD247</em> abolish or cripple the CD3ζ subunit of the TCR/CD3 complex. The result is a failure of TCR assembly, surface export, and signaling, blocking T-cell development and producing a <strong>T–B+NK+ SCID</strong> (T cells low/absent; B and NK cells present in number, though B-cell function is impaired secondary to the lack of T-cell help).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0012426" target="_blank" rel="noopener noreferrer">MONDO:0012426</a></td>
+</tr>
+<tr>
+<td>OMIM (phenotype)</td>
+<td>#610163</td>
+</tr>
+<tr>
+<td>OMIM (gene <em>CD247</em>)</td>
+<td>186780</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>C565712</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C1857798</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>346666</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0018294</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td>0060007 / 0111942</td>
+</tr>
+<tr>
+<td>HGNC (gene)</td>
+<td><a href="https://bioregistry.io/HGNC:1677" target="_blank" rel="noopener noreferrer">HGNC:1677</a></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>D81.x (combined immunodeficiencies; no CD247-specific code)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>4A01.1 (Combined immunodeficiencies; no CD247-specific code)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Falls within "Severe combined immunodeficiency" / T-B+ SCID group; no direct Mondo xref</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> CD3ZETA deficiency; CD3ζ deficiency; CD247 SCID; severe combined immunodeficiency due to CD247 (CD3zeta) deficiency; T-cell receptor/CD3 complex zeta-chain deficiency; IMD25.</p>
+<p><strong>Information source.</strong> The disease-level knowledge is derived predominantly from <strong>aggregated resources (OMIM, Mondo, ClinVar)</strong> and from a <strong>very small number of individual patient case reports</strong> (Rieux-Laucat 2006; Roberts 2007; Marin/Blázquez-Moreno 2017; Briones 2024). It is not an EHR/population-derived phenotype; conclusions rest on &lt;10 reported families plus extrapolation from the broader CD3-chain SCID literature.</p>
+<h3>2. Etiology</h3>
+<p><strong>Disease causal factors.</strong> Purely <strong>genetic and monogenic</strong>: biallelic (homozygous or compound-heterozygous) loss-of-function variants in <em>CD247</em>. No environmental or infectious cause; infections are downstream consequences, not causes. Certain <strong>heterozygous truncating alleles</strong> (e.g., p.Y152X, p.Q101X) act dominant-negatively and can produce a milder immunodeficiency/autoimmunity phenotype (F002).</p>
+<p><strong>Genetic risk factors.</strong> The causal variants are the risk factor. Reported alleles include Q70X (nonsense; founding case), a frameshifting single-C insertion in exon 7, and ITAM-truncating nonsense variants. <strong>Consanguinity</strong> raises the risk of homozygous recessive disease, as with other rare autosomal-recessive SCIDs.</p>
+<p><strong>Environmental risk factors.</strong> None established as causal. <strong>Live vaccines (BCG, oral polio)</strong> are a major <em>iatrogenic hazard</em> in undiagnosed infants (disseminated BCGosis, vaccine-associated paralytic polio; <a href="https://pubmed.ncbi.nlm.nih.gov/41441645/">PMID: 41441645</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41727494/">PMID: 41727494</a>), but they trigger complications rather than cause the disease.</p>
+<p><strong>Protective factors.</strong> No germline protective alleles are known. A disease-intrinsic partial "rescue" occurs via <strong>somatic revertant mosaicism</strong> (true reversion or compensating second-site mutation), which can partly restore TCR expression in a subset of T cells (F003/F004).</p>
+<p><strong>Gene–environment interactions.</strong> The dominant interaction is genotype × vaccination: the underlying T-cell defect converts attenuated live vaccines into life-threatening infections. Otherwise the disorder is essentially fully genetically determined.</p>
+<h3>3. Phenotypes</h3>
+<p>Because IMD25 is a SCID, phenotypes overlap those of other T–B+NK+ SCID/CD3-chain defects. Frequencies are qualitative given the tiny case series.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term (suggested)</th>
+<th>Onset</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Severe/recurrent infections</td>
+<td>Clinical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a> (Recurrent infections)</td>
+<td>Neonatal–early infancy</td>
+<td>Near-universal</td>
+</tr>
+<tr>
+<td>T-lymphopenia</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" rel="noopener noreferrer">HP:0005403</a> (Decreased circulating T cell count)</td>
+<td>Congenital</td>
+<td>Near-universal (may be attenuated by reversion)</td>
+</tr>
+<tr>
+<td>Reduced surface CD3/TCR</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0410002" target="_blank" rel="noopener noreferrer">HP:0410002</a> (Abnormal T cell count) / low CD3</td>
+<td>Congenital</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>Impaired T-cell function/proliferation</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002850" target="_blank" rel="noopener noreferrer">HP:0002850</a> (Decreased proliferation of T cells)</td>
+<td>Congenital</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>Failure to thrive</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> (Failure to thrive)</td>
+<td>Infancy</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Chronic diarrhea</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" rel="noopener noreferrer">HP:0002028</a> (Chronic diarrhea)</td>
+<td>Infancy</td>
+<td>Common (CD3-chain SCID)</td>
+</tr>
+<tr>
+<td>Recurrent respiratory infection/pneumonia</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" rel="noopener noreferrer">HP:0002090</a> (Pneumonia)</td>
+<td>Infancy</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Normal B- and NK-cell counts</td>
+<td>Lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" rel="noopener noreferrer">HP:0010976</a> (Abnormal B-cell morphology — normal count)</td>
+<td>Congenital</td>
+<td>Defining (T–B+NK+)</td>
+</tr>
+<tr>
+<td>Autoimmune features (with DN alleles)</td>
+<td>Sign/lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" rel="noopener noreferrer">HP:0002960</a> (Autoimmunity)</td>
+<td>Variable</td>
+<td>Subset (dominant-negative truncating alleles, F002)</td>
+</tr>
+<tr>
+<td>Susceptibility to disseminated BCG/live vaccines</td>
+<td>Clinical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0410282" target="_blank" rel="noopener noreferrer">HP:0410282</a> (BCG-related complication)</td>
+<td>Post-vaccination</td>
+<td>High if vaccinated</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics.</strong> Onset is <strong>neonatal/early-infantile</strong>; severity is <strong>severe</strong> (classic SCID) but <strong>variable</strong> and can be leakier where hypomorphic/dominant-negative alleles or revertant mosaicism partly restore function; course is <strong>progressive and fatal without treatment</strong>.</p>
+<p><strong>Quality-of-life impact.</strong> Untreated SCID is incompatible with survival beyond infancy; after successful HCT, most survivors achieve durable immune reconstitution with good QoL, though some develop late humoral defects requiring immunoglobulin replacement (analogous to the CD3ε-SCID case, <a href="https://pubmed.ncbi.nlm.nih.gov/24515816/">PMID: 24515816</a>). No IMD25-specific EQ-5D/SF-36 data exist.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal gene.</strong> <em>CD247</em> (CD3ζ), 1q24.2; <a href="https://bioregistry.io/HGNC:1677" target="_blank" rel="noopener noreferrer">HGNC:1677</a>; NCBI Gene 919; Ensembl ENSG00000198821; UniProt P20963; OMIM gene 186780. Encodes the invariant ζ-chain that homodimerizes and contributes <strong>three of the ten ITAMs</strong> in the TCR/CD3 complex.</p>
+<p><strong>Pathogenic variants (reported).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Type</th>
+<th>Zygosity</th>
+<th>Consequence</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.Q70X (p.Gln70*)</td>
+<td>Nonsense</td>
+<td>Homozygous germline (+ somatic reversion)</td>
+<td>LOF; low surface TCR/CD3</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16672702/">PMID: 16672702</a></td>
+</tr>
+<tr>
+<td>Single-C insertion after nt 411, exon 7</td>
+<td>Frameshift</td>
+<td>Homozygous</td>
+<td>No CD3ζ protein; unstable/degraded; TCR assembly failure</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17170122/">PMID: 17170122</a></td>
+</tr>
+<tr>
+<td>p.Y152X</td>
+<td>Nonsense (ITAM-truncating)</td>
+<td>Heterozygous</td>
+<td>Dominant-negative; immunodeficiency/autoimmunity</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38992472/">PMID: 38992472</a></td>
+</tr>
+<tr>
+<td>p.Q101X</td>
+<td>Nonsense (ITAM-truncating)</td>
+<td>Heterozygous</td>
+<td>Dominant-negative</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38992472/">PMID: 38992472</a></td>
+</tr>
+<tr>
+<td>Somatic second-site/reversion variants</td>
+<td>Missense/reversion</td>
+<td>Somatic (in T cells)</td>
+<td>Partially restores TCR/CD3</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16672702/">PMID: 16672702</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28743717/">PMID: 28743717</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Classification.</strong> Homozygous/compound-heterozygous null variants are <strong>pathogenic (ACMG)</strong>; the ITAM-truncating heterozygous alleles are supported as pathogenic by functional dominant-negative evidence (PS3).</p>
+<p><strong>Allele frequency.</strong> Pathogenic <em>CD247</em> LOF alleles are exceedingly rare/private in gnomAD; carrier frequency for classic recessive disease is not established but is expected to be very low.</p>
+<p><strong>Functional consequences.</strong> Predominantly <strong>loss of function</strong> (no protein / unstable protein / failed TCR assembly). ITAM-truncating alleles additionally exert a <strong>dominant-negative</strong> effect on WT complexes (F002).</p>
+<p><strong>Somatic vs germline.</strong> Disease-causing alleles are <strong>germline</strong>; the disorder is notable for recurrent <strong>somatic revertant mosaicism</strong> in T cells (F003/F004).</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> None specifically identified for IMD25. The main "modifier" is intrinsic — the presence and extent of somatic reversion.</p>
+<h3>5. Environmental Information</h3>
+<p>There are <strong>no environmental, toxic, lifestyle, or infectious causal factors</strong>. Infectious agents (bacteria, viruses, fungi, opportunists) are downstream <strong>consequences</strong> of the immunodeficiency, and <strong>live-attenuated vaccines</strong> are a specific iatrogenic danger (BCGosis, VAPP) in undiagnosed infants (<a href="https://pubmed.ncbi.nlm.nih.gov/41441645/">PMID: 41441645</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41727494/">PMID: 41727494</a>).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Biallelic LOF mutation in <em>CD247</em></strong> (germline) → <strong>leads to</strong> absent or unstable/degraded CD3ζ protein (demonstrated: mutant protein unstable, <a href="https://pubmed.ncbi.nlm.nih.gov/17170122/">PMID: 17170122</a>).</li>
+<li>Loss of CD3ζ homodimer → <strong>results in</strong> failure to assemble the complete TCR/CD3 complex and failure to export it to the cell surface (demonstrated: mutant CD3ζ fails to rescue TCR assembly/surface expression in ζ-deficient cells).</li>
+<li>Failure of surface TCR/CD3 expression → <strong>leads to</strong> absent pre-TCR and TCR signaling in developing thymocytes (inferred from ITAM/ZAP-70 signaling biology).</li>
+<li>Absent pre-TCR/TCR signaling → <strong>results in</strong> a block in thymic T-cell development (β-selection/positive selection failure) → profound peripheral <strong>T-lymphopenia</strong> (T–), with <strong>B and NK cells preserved in number</strong> (B+NK+).</li>
+<li>Absent functional T cells → <strong>leads to</strong> loss of T-cell help for B cells → impaired antibody responses despite normal B-cell counts, plus loss of cell-mediated immunity.</li>
+<li>Combined T-cell (and functional B-cell) failure → <strong>results in</strong> recurrent/severe/opportunistic infections, failure to thrive, and susceptibility to disseminated live-vaccine disease → <strong>clinical SCID</strong>, fatal in infancy without treatment.</li>
+</ol>
+<p><strong>Branch A — dominant-negative alleles:</strong> ITAM-truncating heterozygous variants → poison WT ζ-containing complexes (surface CD3 reduced to 39%/19%/9% for 1/2/3 ITAMs lost) → <strong>partial</strong> signaling deficiency → leakier combined immunodeficiency with autoimmunity (<a href="https://pubmed.ncbi.nlm.nih.gov/38992472/">PMID: 38992472</a>).</p>
+<p><strong>Branch B — somatic reversion:</strong> true reversion or compensating second-site somatic mutation in a T-cell precursor → restored (poorly functional) TCR/CD3 → partial reconstitution of a T-cell subset → attenuated lymphopenia and diagnostic mosaicism (<a href="https://pubmed.ncbi.nlm.nih.gov/16672702/">PMID: 16672702</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28743717/">PMID: 28743717</a>).</p>
+<p><strong>Molecular pathway.</strong> TCR/CD3 signaling (Reactome "TCR signaling"; KEGG hsa04660 "T cell receptor signaling pathway"). Downstream, ITAM phosphorylation by Lck recruits ZAP-70 (whose thymic role in sustaining pre-TCR/TCR signaling is established, <a href="https://pubmed.ncbi.nlm.nih.gov/17606633/">PMID: 17606633</a>); loss of CD3ζ abolishes the ITAM platform upstream of ZAP-70.</p>
+<p><strong>Suggested GO / CL terms.</strong> <a href="http://purl.obolibrary.org/obo/GO_0050852" target="_blank" rel="noopener noreferrer">GO:0050852</a> (T cell receptor signaling pathway); <a href="http://purl.obolibrary.org/obo/GO_0007166" target="_blank" rel="noopener noreferrer">GO:0007166</a> (cell surface receptor signaling); <a href="http://purl.obolibrary.org/obo/GO_0030217" target="_blank" rel="noopener noreferrer">GO:0030217</a> (T cell differentiation); <a href="http://purl.obolibrary.org/obo/GO_0033077" target="_blank" rel="noopener noreferrer">GO:0033077</a> (T cell differentiation in thymus); <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" rel="noopener noreferrer">GO:0002250</a> (adaptive immune response). Cell types: <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a> (T cell), <a href="http://purl.obolibrary.org/obo/CL_0000893" target="_blank" rel="noopener noreferrer">CL:0000893</a> (thymocyte), <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" rel="noopener noreferrer">CL:0000625</a> (CD8-positive αβ T cell), <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a> (CD4-positive αβ T cell).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ:</strong> thymus (<a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" rel="noopener noreferrer">UBERON:0002370</a>) — site of the developmental T-cell block; thymic shadow often absent on chest radiograph (a diagnostic clue in SCID).</li>
+<li><strong>Secondary/system involvement:</strong> immune/hematopoietic system (<a href="http://purl.obolibrary.org/obo/UBERON_0002405" target="_blank" rel="noopener noreferrer">UBERON:0002405</a>), bone marrow (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>), lymph nodes and secondary lymphoid organs, spleen; the <strong>gastrointestinal tract</strong> (chronic diarrhea, and inflammatory bowel-like disease reported in CD3-chain SCID) and <strong>respiratory tract</strong> (recurrent pneumonia) are affected secondarily.</li>
+<li><strong>Tissue/cell level:</strong> lymphoid tissue; the targeted population is the <strong>T lymphocyte / thymocyte lineage</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>, <a href="http://purl.obolibrary.org/obo/CL_0000893" target="_blank" rel="noopener noreferrer">CL:0000893</a>). B cells (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>) and NK cells (<a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" rel="noopener noreferrer">CL:0000623</a>) are numerically preserved.</li>
+<li><strong>Subcellular level:</strong> the TCR/CD3 complex at the <strong>plasma membrane</strong> (<a href="http://purl.obolibrary.org/obo/GO_0042101" target="_blank" rel="noopener noreferrer">GO:0042101</a> T cell receptor complex; <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> plasma membrane); assembly/quality control involves the <strong>endoplasmic reticulum</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a>).</li>
+<li><strong>Localization/lateralization:</strong> systemic/bilateral; not a focal or lateralized disorder.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> congenital defect, <strong>clinical onset in early infancy</strong> (first weeks–months); the founding case presented at 4 months (<a href="https://pubmed.ncbi.nlm.nih.gov/16672702/">PMID: 16672702</a>).</li>
+<li><strong>Onset pattern:</strong> insidious immunologically (present at birth) but often <strong>acute</strong> clinically at first severe infection.</li>
+<li><strong>Progression:</strong> rapidly progressive and <strong>fatal within the first year</strong> without treatment; leaky/dominant-negative or revertant cases may follow a more protracted, variable course.</li>
+<li><strong>Course:</strong> chronic/lifelong unless cured by HCT; post-HCT durable reconstitution, though late humoral decline can occur (CD3ε-SCID analogy, <a href="https://pubmed.ncbi.nlm.nih.gov/24515816/">PMID: 24515816</a>).</li>
+<li><strong>Critical period:</strong> the <strong>neonatal window</strong> is the key opportunity for intervention — TREC newborn screening enables presymptomatic detection and early HCT, which reduces pre-transplant infection and improves survival (<a href="https://pubmed.ncbi.nlm.nih.gov/42416786/">PMID: 42416786</a>).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Inheritance:</strong> autosomal recessive (biallelic <em>CD247</em> LOF); certain <strong>heterozygous truncating alleles</strong> are dominant-negative and can cause milder disease (F002).</li>
+<li><strong>Penetrance/expressivity:</strong> classic biallelic null disease is highly penetrant; <strong>expressivity is variable</strong>, modulated by allele type (null vs ITAM-truncating) and somatic reversion.</li>
+<li><strong>Anticipation:</strong> not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> not specifically reported; <strong>somatic</strong> mosaicism (reversion) is a hallmark.</li>
+<li><strong>Consanguinity/founder effects:</strong> consanguinity increases recessive disease risk generally; no specific founder allele established for <em>CD247</em>.</li>
+<li><strong>Carrier frequency:</strong> unknown/very low; pathogenic alleles are private/ultrarare in gnomAD.</li>
+<li><strong>Epidemiology:</strong> IMD25 itself is <strong>ultra-rare</strong> (&lt;10 reported families worldwide). As a SCID subtype, it falls within a group with modern incidence of <strong>~1:46,000–58,000 live births</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42079620/">PMID: 42079620</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41459527/">PMID: 41459527</a>); severe T/B immunodeficiency birth prevalence 1:12,298 in Russia (<a href="https://pubmed.ncbi.nlm.nih.gov/41727503/">PMID: 41727503</a>).</li>
+<li><strong>Demographics:</strong> no ethnic/geographic predilection established for CD247 specifically; sex ratio ~1:1 (autosomal).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Newborn screening:</strong> <strong>TREC assay</strong> on dried blood spot — low/absent TRECs flag profound T-lymphopenia; expected to detect CD3ζ-SCID (<a href="https://pubmed.ncbi.nlm.nih.gov/42079620/">PMID: 42079620</a>). Caveat: revertant mosaicism could theoretically normalize TRECs in rare cases (cf. ZAP70 deficiency missed with normal T-cell numbers, <a href="https://pubmed.ncbi.nlm.nih.gov/41459527/">PMID: 41459527</a>).</li>
+<li><strong>Immunophenotyping (flow cytometry):</strong> the diagnostic hallmark is <strong>T–B+NK+</strong> with <strong>low surface CD3/TCR</strong>; reduced CD3ε at the surface reflects failed complex assembly (<a href="https://pubmed.ncbi.nlm.nih.gov/17170122/">PMID: 17170122</a>). Impaired in-vitro T-cell proliferation to mitogens/anti-CD3.</li>
+<li><strong>Genetic testing:</strong> confirmatory. <strong>Whole-exome/whole-genome sequencing</strong> or <strong>SCID/IEI gene panels</strong> including <em>CD247</em>; <strong>single-gene sequencing</strong> of <em>CD247</em> when phenotype is characteristic. Assess for somatic mosaicism (variant present at reduced allele fraction / mixed T-cell populations).</li>
+<li><strong>Imaging:</strong> absent thymic shadow on chest radiograph (supportive).</li>
+<li><strong>Biopsy/pathology:</strong> not required for diagnosis; lymphoid hypoplasia expected.</li>
+<li><strong>Differential diagnosis:</strong> other T–B+NK+ SCIDs — CD3δ/CD3ε/CD3γ deficiencies, IL7R deficiency, and other TCR/CD3 assembly defects; distinguish by which chain/gene is affected and by CD3 surface expression pattern. Also distinguish from ZAP-70 deficiency (normal CD3, selective CD8 deficiency), MHC-II deficiency, and reticular dysgenesis (AK2, with neutropenia/deafness, <a href="https://pubmed.ncbi.nlm.nih.gov/42112325/">PMID: 42112325</a>).</li>
+</ul>
+<p><strong>Suggested LOINC/lab categories:</strong> lymphocyte subset enumeration (CD3/CD4/CD8/CD19/CD16-56), TREC quantification, lymphocyte proliferation assays, immunoglobulin levels.</p>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Untreated:</strong> SCID is usually <strong>fatal in the first year of life</strong> from overwhelming infection.</li>
+<li><strong>With HCT:</strong> allogeneic HCT is <strong>curative</strong>, with durable T-cell reconstitution documented across CD3-chain SCIDs (<a href="https://pubmed.ncbi.nlm.nih.gov/24515816/">PMID: 24515816</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/18482219/">PMID: 18482219</a>). Survival is markedly better with <strong>early diagnosis</strong>; in the PIDTC cohort, newborn screening reduced infection at transplant and eliminated survival disparities (<a href="https://pubmed.ncbi.nlm.nih.gov/42416786/">PMID: 42416786</a>). Contemporary programs report ~85% survival among screened, transplanted SCID/leaky-SCID (<a href="https://pubmed.ncbi.nlm.nih.gov/41459527/">PMID: 41459527</a>).</li>
+<li><strong>Prognostic factors:</strong> age at diagnosis/transplant, active infection at HCT, donor type/conditioning. Late complications may include <strong>split chimerism</strong> and secondary humoral deficiency requiring IgG replacement (<a href="https://pubmed.ncbi.nlm.nih.gov/24515816/">PMID: 24515816</a>).</li>
+<li><strong>Morbidity:</strong> infection-related organ damage if diagnosis is delayed; developmental impact of chronic illness.</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Definitive/curative:</strong> <strong>Allogeneic hematopoietic stem-cell transplantation</strong> (NCIT: Hematopoietic Cell Transplantation; C15431). Ideally performed early, before infection, guided by newborn screening (<a href="https://pubmed.ncbi.nlm.nih.gov/42416786/">PMID: 42416786</a>).</li>
+<li><strong>Supportive/bridging:</strong> immunoglobulin replacement therapy (NCIT: Immunoglobulin Therapy); antimicrobial <strong>prophylaxis</strong> (e.g., anti-Pneumocystis, antifungal, antiviral); protective isolation; <strong>avoidance of live vaccines</strong>; irradiated, CMV-safe, leukoreduced blood products.</li>
+<li><strong>Pharmacogenomics/targeted therapy:</strong> none specific to <em>CD247</em>.</li>
+<li><strong>Gene/cell therapy:</strong> no approved gene therapy for CD247-SCID; conceptually plausible (autologous HSC gene addition), and somatic reversion provides natural proof-of-concept that restoring CD3ζ can reconstitute TCR expression (<a href="https://pubmed.ncbi.nlm.nih.gov/16672702/">PMID: 16672702</a>). Currently investigational/not established for this ultra-rare subtype.</li>
+<li><strong>Treatment algorithm:</strong> screen-positive/low-TREC → confirmatory immunophenotyping + genetics → isolate, start prophylaxis, avoid live vaccines, IgG replacement → HLA typing → <strong>HCT</strong>.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> not preventable at the population level (Mendelian); <strong>genetic counseling</strong> and reproductive options (carrier testing, prenatal/preimplantation genetic testing) for at-risk/consanguineous families.</li>
+<li><strong>Secondary prevention:</strong> <strong>TREC newborn screening</strong> for presymptomatic detection (<a href="https://pubmed.ncbi.nlm.nih.gov/42079620/">PMID: 42079620</a>); cascade family testing.</li>
+<li><strong>Tertiary prevention:</strong> infection prophylaxis, IgG replacement, <strong>deferral of live vaccines</strong> to prevent BCGosis/VAPP (<a href="https://pubmed.ncbi.nlm.nih.gov/41441645/">PMID: 41441645</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41727494/">PMID: 41727494</a>), and timely HCT.</li>
+<li><strong>Immunization:</strong> live vaccines contraindicated; household/contact vaccination and passive prophylaxis strategies apply.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Orthologue:</strong> mouse <em>Cd247</em> (NCBI Gene 12503, chromosome 1). CD3ζ-deficient mice show a block in thymocyte development, consistent with the human phenotype, though human–mouse differences exist among CD3 chains (notably CD3δ/CD3γ roles differ between species; <a href="https://pubmed.ncbi.nlm.nih.gov/17291425/">PMID: 17291425</a>).</li>
+<li><strong>Natural disease in other species:</strong> no well-characterized naturally occurring CD247 SCID reported in companion animals in the reviewed literature (OMIA search not confirmatory here).</li>
+<li><strong>Comparative biology:</strong> TCR/CD3 architecture and CD3ζ ITAM signaling are evolutionarily conserved across mammals, supporting cross-species mechanistic translation.</li>
+<li><strong>Zoonotic potential:</strong> none (non-transmissible genetic disorder).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mouse (<em>Mus musculus</em>, NCBI Taxon 10090):</strong> <em>Cd247</em> knockout mice are the principal model, recapitulating the thymic developmental block and TCR-surface-expression defect; useful for studying pre-TCR/TCR signaling and ITAM function. Complementation systems (CD3ζ-deficient murine T-cell hybridomas) were used to demonstrate that human mutant CD3ζ fails to rescue TCR assembly (<a href="https://pubmed.ncbi.nlm.nih.gov/17170122/">PMID: 17170122</a>).</li>
+<li><strong>Cellular models:</strong> <strong>Jurkat T-cell</strong> <em>CD247</em>-knockout/variant reconstitution systems were used to quantify ITAM-dependent surface-CD3 rescue and dominant-negative effects (<a href="https://pubmed.ncbi.nlm.nih.gov/38992472/">PMID: 38992472</a>).</li>
+<li><strong>Model limitations:</strong> interspecies differences in CD3-chain requirements (<a href="https://pubmed.ncbi.nlm.nih.gov/17291425/">PMID: 17291425</a>) mean mouse phenotypes do not always mirror human disease precisely; cell-line models capture assembly/signaling but not systemic immunodeficiency or somatic reversion dynamics.</li>
+<li><strong>Resources:</strong> MGI (mouse <em>Cd247</em>), IMPC/KOMP for knockout alleles, Cellosaurus (Jurkat).</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>  GERMLINE                    MOLECULAR                 CELLULAR                 CLINICAL
+ ─────────────              ─────────────             ─────────────           ─────────────
+ Biallelic CD247 LOF  ──▶  Absent/unstable CD3ζ ──▶  TCR/CD3 fails to      ──▶ Thymic T-cell
+ (Q70X; fs exon7)          homodimer (no 3 ITAMs)    assemble &amp; reach          developmental block
+                                     the cell surface          → T-lymphopenia (T–)
+                                          │                          │
+                                          │                          ▼
+                                          │                    Loss of T-cell help
+                                          │                    → B cells present but
+                                          │                      antibody-deficient (B+)
+                                          │                    NK cells preserved (NK+)
+                                          ▼                          │
+                              No ITAM platform for                   ▼
+                              ZAP-70 → no TCR signaling      Recurrent/opportunistic
+                                                             infections, FTT, BCGosis
+                                                             → SCID, fatal untreated
+   ┌──────────────────────────────────────────────────────────────────────────────────────┐
+   │ BRANCH A (dominant-negative ITAM-truncating heterozygous alleles, e.g. Y152X, Q101X):  │
+   │   mutant ζ poisons WT complexes → partial surface CD3 (9–39%) → leaky CID + autoimmunity│
+   │ BRANCH B (somatic revertant mosaicism): true reversion or 2nd-site somatic mutation in  │
+   │   a T-cell precursor → partial TCR restoration → attenuated lymphopenia, diagnostic     │
+   │   mosaicism (natural proof-of-concept for gene correction)                              │
+   └──────────────────────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+             INTERVENTION: TREC newborn screening → early diagnosis
+             → infection prophylaxis + live-vaccine deferral
+             → allogeneic HCT (curative)
+</code></pre>
+<p>The upstream lesion (biallelic <em>CD247</em> LOF) is directly and experimentally connected to the downstream immunophenotype: the absence of a functional CD3ζ homodimer removes both the structural scaffold needed to assemble/export the TCR/CD3 complex and the three ITAMs needed to nucleate ZAP-70-dependent signaling. The two branches (dominant-negative alleles and somatic reversion) explain the disease's variable expressivity and its diagnostic subtleties.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Evidence type</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16672702/">16672702</a></td>
+<td>Inherited and somatic CD3ζ mutations (Rieux-Laucat, NEJM 2006)</td>
+<td>Human clinical</td>
+<td>Founding IMD25 case; germline Q70X + somatic reversion</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17170122/">17170122</a></td>
+<td>T–B+NK+ SCID from complete CD3ζ deficiency (Roberts 2007)</td>
+<td>Human clinical + in vitro</td>
+<td>Defines mechanism: no protein, failed TCR assembly</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38992472/">38992472</a></td>
+<td>Nonsense CD247 mutations show dominant-negative features (Briones 2024)</td>
+<td>In vitro (Jurkat)</td>
+<td>ITAM dosage; dominant-negative alleles; carrier CD3 halving</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28743717/">28743717</a></td>
+<td>Recovery of CD247 expression / spontaneous repair</td>
+<td>Human + molecular</td>
+<td>Reversion + compensating mutation mechanisms</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27555457/">27555457</a></td>
+<td>Primary T-cell immunodeficiency with revertant mosaicism in CD247</td>
+<td>Human clinical</td>
+<td>Documents functional somatic mosaicism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42416786/">42416786</a></td>
+<td>Newborn screening reduces survival disparities in SCID (PIDTC)</td>
+<td>Human cohort (n=796)</td>
+<td>Early diagnosis → reduced infection at HCT, better survival</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42079620/">42079620</a></td>
+<td>SCID newborn screening in Catalonia</td>
+<td>Population screening</td>
+<td>SCID incidence 1:46,753; excellent outcomes with early Rx</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41459527/">41459527</a></td>
+<td>NBS for SCID in Ukraine</td>
+<td>Population screening</td>
+<td>Incidence ~1:49,800–57,000; 85.7% HCT survival</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41727503/">41727503</a></td>
+<td>Russia TREC/KREC NBS (2.3M newborns)</td>
+<td>Population screening</td>
+<td>Severe T/B ID prevalence 1:12,298</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41441645/">41441645</a></td>
+<td>BCGitis/BCGosis mechanisms</td>
+<td>Review</td>
+<td>Live-vaccine hazard; screening prevents fatal BCGosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24515816/">24515816</a></td>
+<td>Haploidentical HCT in CD3ε-SCID</td>
+<td>Human clinical</td>
+<td>CD3-chain SCID curable by HCT; late humoral decline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18482219/">18482219</a></td>
+<td>HCT in CD3γ deficiency with IBD</td>
+<td>Human clinical</td>
+<td>CD3-chain SCID HCT; IBD resolution</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17291425/">17291425</a></td>
+<td>CD3-TCR complex expression anomalies &amp; immunodeficiencies</td>
+<td>Review</td>
+<td>Human–mouse differences among CD3 chains</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17606633/">17606633</a></td>
+<td>Syk/ZAP-70 in early thymocyte development</td>
+<td>Mouse</td>
+<td>Downstream ITAM/ZAP-70 signaling context</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41727494/">41727494</a></td>
+<td>VAPP in SCID (case report)</td>
+<td>Human clinical</td>
+<td>Live-vaccine hazard where NBS absent</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Extreme rarity.</strong> IMD25 is defined by fewer than ~10 reported families. Frequencies, natural history, QoL, and epidemiology are largely <strong>extrapolated</strong> from the broader T–B+NK+ SCID / CD3-chain deficiency literature rather than measured for <em>CD247</em> specifically.</li>
+<li><strong>No CD247-specific epidemiology or registry data.</strong> Incidence figures cited are for the SCID group as a whole; the CD3ζ subtype's precise contribution is unknown.</li>
+<li><strong>Variant spectrum is small.</strong> Only a handful of germline alleles are described; carrier frequency and population distribution of pathogenic <em>CD247</em> alleles are not established.</li>
+<li><strong>Dominant-negative phenotype boundaries are unclear.</strong> The clinical penetrance and full phenotype of ITAM-truncating heterozygous alleles (autoimmunity vs immunodeficiency) require larger cohorts.</li>
+<li><strong>Screening blind spots.</strong> Somatic reversion could raise TRECs and, in principle, cause missed cases; this has not been directly demonstrated for CD247 but is a plausible risk (analogous to ZAP70).</li>
+<li><strong>No disease-specific therapy trials.</strong> No gene-therapy or CD247-specific clinical trial data exist; HCT evidence is borrowed from other CD3-chain and general SCID cohorts.</li>
+<li><strong>Model organisms.</strong> Interspecies differences in CD3-chain requirements limit direct translation from mouse; cell-line models do not capture systemic disease or reversion dynamics.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Aggregate a CD247 patient registry</strong> (via GeneMatcher/IEI consortia) to define natural history, allele spectrum, penetrance of dominant-negative alleles, and HCT outcomes specifically for CD3ζ deficiency.</li>
+<li><strong>Systematically characterize somatic reversion</strong> across CD247 patients (deep sequencing of sorted T-cell subsets) to quantify how often reversion attenuates lymphopenia and whether it can cause false-negative TREC screens.</li>
+<li><strong>Functional ACMG re-classification</strong> of all reported and novel <em>CD247</em> variants using standardized Jurkat/primary-cell surface-CD3 and signaling assays (building on Briones 2024) to firm up dominant-negative vs recessive-null distinctions.</li>
+<li><strong>Preclinical gene-correction proof-of-concept:</strong> autologous HSC gene addition or base/prime editing of <em>CD247</em> in patient iPSCs/CD34+ cells, leveraging the natural reversion phenomenon as biological validation.</li>
+<li><strong>Screening-algorithm evaluation:</strong> confirm that TREC assays reliably capture CD3ζ-SCID, including modeling of revertant-mosaic scenarios, to close potential newborn-screening gaps.</li>
+<li><strong>Ontology/KB ingestion:</strong> finalize the KB entry using the verified identifiers (<a href="http://purl.obolibrary.org/obo/MONDO_0012426" target="_blank" rel="noopener noreferrer">MONDO:0012426</a>; OMIM #610163; <a href="https://bioregistry.io/HGNC:1677" target="_blank" rel="noopener noreferrer">HGNC:1677</a>; ENSG00000198821; UniProt P20963) with the HPO, GO, CL, and UBERON terms suggested above.</li>
+</ol>
+<hr />
+<p><em>Report compiled from an autonomous multi-iteration investigation (8 confirmed findings, 27 papers reviewed). Evidence types are distinguished as human clinical, in vitro, model organism, and population-screening data. All mechanistic and clinical claims are cited to primary literature by PMID.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Immunodeficiency_25-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Immunodeficiency_25-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Immunodeficiency_14B_Autosomal_Recessive-claude_code.html">← Immunodeficiency 14B, Autosomal Recessive (Claude Code)</a>
+                
+                
+                <a href="Immunodeficiency_61-falcon.html">Immunodeficiency 61 (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Immunodeficiency_25.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Immunodeficiency_25-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
