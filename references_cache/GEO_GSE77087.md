@@ -1,0 +1,12 @@
+---
+reference_id: GEO:GSE77087
+title: "Nasopharyngeal microbiota, host transcriptome and disease severity in children with respiratory syncytial virus infection"
+content_type: summary
+full_text_attempted: true
+---
+
+# Nasopharyngeal microbiota, host transcriptome and disease severity in children with respiratory syncytial virus infection
+
+## Content
+
+Rationale: Respiratory syncytial virus (RSV) is the leading cause of acute lower respiratory tract infections and hospitalizations in infants worldwide. Known risk factors, however, incompletely explain the variability of RSV disease severity among children. We postulate that severity of RSV infection is influenced in part by modulation of the host immune response by the local microbial ecosystem at the time of infection. Objectives: To define whether different nasopharyngeal microbiota profiles are associated with distinct host transcriptome profiles and severity in children with RSV infection. Methods: We analyzed the nasopharyngeal microbiota profiles of young children with mild and severe RSV disease and healthy matched controls by 16S-rRNA sequencing. In parallel, we analyzed whole blood gene expression profiles to study the relationship between microbial community composition, the RSV-induced host transcriptional response and clinical disease severity. Measurements and Main results: We identified five nasopharyngeal microbiota profiles characterized by enrichment of H. influenzae, Streptococcus, Corynebacterium, Moraxella or S. aureus. RSV infection and RSV hospitalization were positively associated with H. influenzae and Streptococcus, and negatively associated with S. aureus abundance, independent of age. The host response to RSV was defined by overexpression of interferon-related genes, and this was independent of the microbiota composition. On the other hand, transcriptome profiles of RSV infected children with H. influenzae and Streptococcus-dominated microbiota were characterized by greater overexpression of genes linked to toll-like receptor-signaling and neutrophil activation and were more frequently hospitalized Conclusions: Our data suggest an immunomodulatory role for the resident nasopharyngeal microbial community early in RSV infection, potentially affecting RSV disease severity.
