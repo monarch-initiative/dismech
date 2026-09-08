@@ -1,0 +1,108 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Chronic_Obstructive_Pulmonary_Disease
+  path: kb/disorders/Chronic_Obstructive_Pulmonary_Disease.yaml
+session:
+  id: 2026-09-08T235431Z-claude-code-68bbbb
+  timestamp: '2026-09-08T23:54:31Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/9430
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - pathophysiology
+  - environmental
+  - mechanistic_hypotheses
+  - discussions
+  - evidence
+  summary: 'Review round: split the cuproptosis node, model it as an EMERGING hypothesis,
+    commit its reference cache'
+  details: |
+    Addressed the review on PR #9430 (augment(COPD): add cuproptosis and
+    copper-dependent cell death mechanism). The review raised three CRITICAL and
+    three IMPORTANT findings; all six are addressed here.
+
+    1. GO root term. The added node bound "cell death" to GO:0008150, which is
+    "biological_process" -- the root of the entire GO biological process branch,
+    and the only use of it anywhere in kb/. It passed term validation only
+    because a root is trivially reachable from itself. Replaced with GO:0160119
+    "cuproptosis", read out of cache/go/terms.csv rather than written from
+    memory.
+
+    2. Missing reference cache. references_cache/PMID_42604614.md was never
+    committed, so validate-references had nothing to check the snippets against.
+    Regenerated with `just fetch-reference PMID:42604614` and committed. Every
+    snippet verifies verbatim against it.
+
+    3. A hypothesis curated as established mechanism. This was the substantive
+    finding. The cited review repeatedly marks its own content as speculative:
+    it "advances the hypothesis", its cell-vulnerability claim is "predicted",
+    it "explicitly distinguishes established evidence from speculative
+    hypotheses", and it states that every therapeutic approach it surveys
+    remains preclinical with no COPD trials conducted. The entry asserted all of
+    it flat.
+
+    Added a mechanistic_hypotheses group, cuproptosis_metabolic_immune_axis,
+    with status EMERGING, quoting the review's own hypothesis sentence and its
+    no-clinical-trials sentence. All four causal edges of the proposed loop opt
+    into it via hypothesis_groups, so a reader can tell them apart from the
+    entry's established pathophysiology. Added a KNOWLEDGE_GAP discussion naming
+    the specific missing evidence -- copper content and cuproptosis markers in
+    COPD lung tissue against smoking and non-smoking controls -- attached to the
+    three new nodes and to the hypothesis group.
+
+    Also corrected the node notes that said alveolar epithelial cells and M2
+    macrophages "are most vulnerable". The source says they are predicted to be,
+    and the entry's own quoted snippet preserves the word; the prose now says so.
+
+    4. Bundling. The single node carried roughly five atomic events. Split into
+    the chain the review proposed: Pulmonary Copper Dyshomeostasis -> Cuproptosis
+    of Alveolar Structural Cells -> Cuproptotic DAMP Release and Innate Immune
+    Sensing -> Chronic Inflammation. Each node carries its own evidence and
+    biological_scale, and each edge carries the sentence that supports it.
+
+    5. Dangling upstream, and the vicious cycle with no return edge.
+    environmental "Smoking" now links to Pulmonary Copper Dyshomeostasis with
+    environmental_effect TRIGGERS, so the chain has an upstream. The claimed
+    cycle now has a real return edge rather than only a prose claim.
+
+    One deliberate departure from the review's wording. The review suggested the
+    return edge run from Chronic Inflammation back to the copper node. It is
+    drawn instead from the DAMP/innate-sensing node, because main has since added
+    its own downstream block to Chronic Inflammation and editing that node here
+    would turn a mergeable PR into a conflicting one for no scientific gain. The
+    review's own source sentence attributes the return limb to "this inflammatory
+    milieu", which is what the DAMP node generates, so the loop stays faithful.
+    Recorded in that node's notes.
+
+    6. History record. This file.
+
+    Two further judgement calls worth recording. `directness: INDIRECT` would
+    have been the right grade for the predicted-vulnerability item and the
+    return-limb item, but that slot does not exist in this branch's schema (it
+    arrived on main later, with #7439), so schema validation rejected it. The
+    qualification is carried in the explanation prose instead, which stays
+    correct after the branch merges. And two directional modifiers were dropped
+    after being written: "copper ion homeostasis DECREASED" contradicted the
+    node's own note that handling is disturbed rather than directionally
+    measured, and "mitochondrion organization DECREASED" asserted a direction the
+    abstract does not report.
+
+    Validation run on the branch: `just validate` passed with 127/127 snippets
+    verified against cached references; `just validate-terms` passed;
+    `just check-duplicate-keys`, `just check-folded-hyphens` and
+    `just check-empty-snippets` passed. `check-snippet-length`,
+    `check-title-snippets` and `check-environmental-evidence` report findings,
+    all of them in other files and none in this one -- those gates grandfather
+    against origin/main and this branch is behind it, so the findings are
+    baseline drift rather than anything introduced here.
