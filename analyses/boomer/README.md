@@ -342,6 +342,25 @@ this analysis does not justify taking it on as a runtime dependency.
 
 ## Regenerating
 
+To fill missing external labels in the existing inputs without re-running the
+analysis, run `cd analyses && just boomer-labels`. This changes only `labels:`
+in each `kb.yaml`; facts, priors, saved solutions, reports and `index.tsv` stay
+unchanged. Existing labels are retained and new labels are appended in CURIE
+order. Repeating this command against the same snapshots makes no changes.
+The next solve/render uses the added labels in its human-readable output.
+
+Labels come from `rdfs:label` in the same local OAK semantic-sql builds used
+for external hierarchy checks. We deliberately do not use the validation
+adapters in `conf/oak_config.yaml`: that config covers a different set of
+prefixes and uses live OLS for MONDO/NCIT, which could mix newer labels with
+older hierarchy snapshots. `--oak-dir` selects the external snapshot directory
+(the labels recipe also accepts the `OAK_DIR` environment variable). Unresolved
+IDs are reported and left unlabeled, never assigned guessed labels.
+
+A full regeneration below also includes the labels, but additionally re-reads
+the current disease entries and ontology hierarchies and runs the solver; that
+can produce substantive changes beyond labels if those inputs have changed.
+
 ```bash
 uv run --with networkx python analyses/boomer/scripts/build_analyses.py \
     --out analyses/boomer/disorders --index analyses/boomer/index.tsv \

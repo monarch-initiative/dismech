@@ -178,6 +178,25 @@ class External:
             if path.exists():
                 self.con[vocab] = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         self._anc = {}
+        self._labels = {}
+
+    def label(self, vocab, curie):
+        """Read a label from the same OAK snapshot used for this term's edges."""
+        key = (vocab, curie)
+        if key not in self._labels:
+            con = self.con.get(vocab)
+            row = (
+                con.execute(
+                    "select value from statements where subject=? "
+                    "and predicate='rdfs:label' and value is not null "
+                    "order by value limit 1",
+                    (curie,),
+                ).fetchone()
+                if con is not None
+                else None
+            )
+            self._labels[key] = row[0] if row else None
+        return self._labels[key]
 
     def is_obsolete(self, vocab, curie):
         """True / False / None (term absent from the local build).
@@ -451,7 +470,7 @@ def build_kb_dict(mondo, external, rec):
     for s, o in mondo.disjoint_pairs(sorted(terms)):
         add({"fact_type": "DisjointWith", "sub": s, "sibling": o})
 
-    return {
+    kb_dict = {
         "name": f"dismech-{rec['slug']}",
         "description": (
             f"Grounding check for the dismech entry {rec['name']}: its "
@@ -461,6 +480,57 @@ def build_kb_dict(mondo, external, rec):
         "pfacts": pfacts,
         "labels": labels,
     }
+    for curie in add_external_labels(kb_dict, external):
+        print(f"No label in local OAK snapshot: {curie}", file=sys.stderr)
+    return kb_dict
+
+
+def add_external_labels(kb_dict, external):
+    """Add missing external labels without changing facts or existing labels.
+
+    Return unresolved identifiers rather than manufacturing a label from a CURIE.
+    Sorted additions keep repeated generation stable across hash seeds.
+    """
+    labels = kb_dict.setdefault("labels", {})
+    facts = list(kb_dict.get("facts", [])) + [
+        p["fact"] for p in kb_dict.get("pfacts", [])
+    ]
+    entities = {
+        fact[field]
+        for fact in facts
+        for field in ("sub", "sup", "equivalent", "sibling")
+        if field in fact and fact[field].split(":", 1)[0] in EXTERNAL_DBS
+    }
+    missing = []
+    for curie in sorted(entities - labels.keys()):
+        label = external.label(curie.split(":", 1)[0], curie)
+        if label:
+            labels[curie] = label
+        else:
+            missing.append(curie)
+    return missing
+
+
+def fill_labels(out_root, external, only=None):
+    """Enrich saved inputs only; never re-solve or regenerate the source KB."""
+    changed = added = 0
+    missing = set()
+    for path in sorted(Path(out_root).glob("*/kb.yaml")):
+        if only and path.parent.name != only:
+            continue
+        original = path.read_text()
+        kb_dict = yaml.safe_load(original)
+        before = len(kb_dict.get("labels", {}))
+        missing.update(add_external_labels(kb_dict, external))
+        count = len(kb_dict["labels"]) - before
+        if count:
+            path.write_text(yaml.safe_dump(kb_dict, sort_keys=False))
+            changed += 1
+            added += count
+    print(f"Added {added} labels in {changed} KB files; {len(missing)} unresolved IDs.")
+    for curie in sorted(missing):
+        print(f"No label in local OAK snapshot: {curie}", file=sys.stderr)
+    return missing
 
 
 # Posteriors accumulate in an order that depends on set/dict iteration, so repeated
@@ -653,13 +723,27 @@ def main(argv=None):
     )
     ap.add_argument("--only", help="restrict to one slug (for debugging)")
     ap.add_argument("--index", help="TSV index to write")
+    ap.add_argument(
+        "--oak-dir", default=str(OAK_DIR), help="Local OAK ontology snapshots"
+    )
+    ap.add_argument(
+        "--labels-only",
+        action="store_true",
+        help="Fill missing external labels in saved kb.yaml files; do not solve or change reports",
+    )
     args = ap.parse_args(argv)
+
+    external = External(oak_dir=args.oak_dir)
+    if args.labels_only:
+        if args.index:
+            ap.error("--labels-only does not regenerate --index")
+        fill_labels(args.out, external, args.only)
+        return
 
     KB, SearchConfig, solve, MarkdownRenderer, YAMLRenderer = load_boomer(
         args.boomer_src
     )
     mondo = Mondo(args.db)
-    external = External()
     cfg = SearchConfig(
         timeout_seconds=args.timeout,
         partition_initial_threshold=args.partition_threshold,
