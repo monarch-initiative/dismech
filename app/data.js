@@ -269925,6 +269925,109 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Thrombocytopenia-Absent Radius Syndrome",
+    "disease_id": "MONDO:0010121",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Thrombocytopenia-absent radius (TAR) syndrome is a congenital malformation syndrome that couples bilateral radial aplasia with a hypomegakaryocytic thrombocytopenia, and is defined clinically by the preservation of both thumbs. That last feature is the discriminator from the other syndromes pairing a radial ray defect with marrow failure, notably Fanconi anemia and radioulnar synostosis with amegakaryocytic thrombocytopenia, in which the thumbs are absent or hypoplastic. The cause is insufficiency of Y14, the RBM8A-encoded subunit of the exon junction complex. Nearly all patients are compound heterozygous for a rare null allele - usually a recurrent 200-kb microdeletion at 1q21.1, occasionally a truncating RBM8A variant - in trans with one of two common low-frequency non-coding SNPs in the RBM8A 5'UTR or first intron that reduce its transcription. Neither allele is sufficient alone: deletion carriers and individuals homozygous for the regulatory allele are healthy, so the disorder is a dosage threshold effect rather than simple haploinsufficiency. Thrombocytopenia is typically most severe in infancy and remits with age, while the skeletal defect is fixed at birth.",
+    "pathophysiology": [
+      "Reduced RBM8A Gene Dosage",
+      "Y14 Protein Insufficiency",
+      "Exon Junction Complex Insufficiency",
+      "Megakaryocyte Maturation Failure",
+      "Radial Ray Developmental Failure"
+    ],
+    "cell_types": [
+      "megakaryocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000556"
+    ],
+    "biological_processes": [
+      "nonsense-mediated mRNA decay",
+      "megakaryocyte differentiation",
+      "forelimb morphogenesis"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Bilateral radial aplasia",
+      "Megakaryocytopenia",
+      "Petechiae",
+      "Abnormal bleeding",
+      "Increased total leukocyte count",
+      "Increased total eosinophil count",
+      "Gastrointestinal hemorrhage",
+      "Abnormality of the upper limb",
+      "Aplasia of the uterus",
+      "Cow milk allergy",
+      "Abnormality of the lower limb",
+      "Abnormal renal morphology",
+      "Abnormal heart morphology"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Skeletal",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Renal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0004977",
+      "HP:0005548",
+      "HP:0000967",
+      "HP:0001892",
+      "HP:0001974",
+      "HP:0001880",
+      "HP:0002239",
+      "HP:0002817",
+      "HP:0000151",
+      "HP:0100327",
+      "HP:0002814",
+      "HP:0012210",
+      "HP:0001627"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "RBM8A"
+    ],
+    "treatments": [
+      "Platelet Transfusion",
+      "In Utero Platelet Transfusion",
+      "Cow's Milk Avoidance",
+      "Avoidance of Antiplatelet Drugs",
+      "Orthopedic Intervention"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Thrombocytopenia-Absent_Radius_Syndrome.yaml",
+    "page_url": "../pages/disorders/Thrombocytopenia-Absent_Radius_Syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Thrombophilia",
     "disease_id": "MONDO:0002305",
     "category": "Complex",
@@ -287784,17 +287887,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2788,
+  "total_disorder_pages": 2789,
   "total_subtypes": 3669,
-  "total_disorders_and_subtypes": 6457,
-  "total_unique_evidence_sources": 39322,
-  "total_unique_publications": 37042,
+  "total_disorders_and_subtypes": 6458,
+  "total_unique_evidence_sources": 39338,
+  "total_unique_publications": 37056,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 277,
-  "total_pathographs": 2783,
-  "total_unique_pathological_events": 16601,
+  "total_pathographs": 2784,
+  "total_unique_pathological_events": 16606,
   "total_modules": 172,
-  "total_research_reports": 2909,
+  "total_research_reports": 2910,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
