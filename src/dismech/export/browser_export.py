@@ -11,7 +11,7 @@ from typing import Any
 
 from oaklib import get_adapter
 
-from dismech import kb_cache
+from dismech import kb_cache, oak_db
 from dismech.export.utils import (
     count_classifications,
     count_comorbidities,
@@ -51,17 +51,68 @@ HPO_TOP_LEVEL_CATEGORIES: dict[str, str] = {
 }
 _HPO_TOP_LEVEL_IDS = set(HPO_TOP_LEVEL_CATEGORIES.keys())
 
+HP_ADAPTER = "sqlite:obo:hp"
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# The cache this exporter writes on every full run, and now reads back on the
+# next one. It is committed, and `render` reads it too, so one constant serves
+# both: a normal run resolves every HP term already in `kb/` without opening an
+# ontology at all.
+HPO_CATEGORY_CACHE_PATH = _REPO_ROOT / "app" / "hpo_category_cache.json"
+
+
+def _load_seed_categories() -> dict[str, list[str]]:
+    """The committed HP-to-category answers, or an empty map if unreadable."""
+    try:
+        data = json.loads(HPO_CATEGORY_CACHE_PATH.read_text())
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        key: [str(v) for v in value]
+        for key, value in data.items()
+        if isinstance(key, str) and isinstance(value, list)
+    }
+
 
 class HPOCategoryResolver:
-    """Resolve HP term IDs to their broad top-level phenotype categories."""
+    """Resolve HP term IDs to their broad top-level phenotype categories.
+
+    Cache-first, in the same sense as `cache/<prefix>/hierarchy.csv`: the
+    committed answers are consulted before any ontology is. The difference is
+    what a miss does. `get_adapter("sqlite:obo:hp")` does not fail on a machine
+    without the build — semsql fetches it, 440 MB uncompressed, silently — and
+    this class builds its adapter directly, so `conf/oak_config.yaml` (which
+    routes HP to `ols:hp` precisely to avoid that build) never saw it and
+    neither did the test fixture in `tests/conftest.py`, which only wraps
+    `render._get_oak_adapter`. That is how the fast test lane came to download
+    it (issue #11299).
+
+    So a miss consults the adapter only when the build is already on disk, and
+    otherwise resolves to no categories. Page generation, which must resolve
+    newly curated terms rather than degrade, fetches the build up front
+    (`just fetch-ontology-dbs hp`).
+    """
 
     def __init__(self):
         self._adapter = None
         self._cache: dict[str, list[str]] = {}
+        self._seed = _load_seed_categories()
+        self._unresolved: set[str] = set()
+
+    @property
+    def unresolved_count(self) -> int:
+        """How many distinct HP terms this run could not resolve at all."""
+        return len(self._unresolved)
 
     def _get_adapter(self):
+        """The HP adapter, or None when its build would have to be downloaded."""
         if self._adapter is None:
-            self._adapter = get_adapter("sqlite:obo:hp")
+            if not oak_db.local_build_present(HP_ADAPTER):
+                return None
+            self._adapter = get_adapter(HP_ADAPTER)
         return self._adapter
 
     def resolve(self, hp_id: str) -> list[str]:
@@ -75,7 +126,21 @@ class HPOCategoryResolver:
             self._cache[hp_id] = result
             return result
 
+        seeded = self._seed.get(hp_id)
+        if seeded is not None:
+            self._cache[hp_id] = seeded
+            return seeded
+
         adapter = self._get_adapter()
+        if adapter is None:
+            # Deliberately not memoised into `self._cache`: that dict is what
+            # `_write_hpo_category_cache` commits, and writing "this term has no
+            # categories" because an ontology was missing would bake the gap in
+            # permanently. An unresolved term is simply left out, and counted so
+            # the caller can say so.
+            self._unresolved.add(hp_id)
+            return []
+
         ancestors = set(adapter.ancestors(
             hp_id, predicates=["rdfs:subClassOf"]))
         hits = ancestors & _HPO_TOP_LEVEL_IDS
@@ -401,6 +466,16 @@ class BrowserExporter:
             json.dump(self._hpo_resolver._cache, f, indent=2, sort_keys=True)
         print(
             f"Wrote HPO category cache ({len(self._hpo_resolver._cache)} terms) to {cache_path}")
+        unresolved = self._hpo_resolver.unresolved_count
+        if unresolved:
+            # Say it rather than let the cache quietly shrink. A page build is
+            # meant to run with the build present; this is what it looks like
+            # when the fetch step is missing.
+            print(
+                f"WARNING: {unresolved} HP term(s) had no cached category and "
+                f"no local {HP_ADAPTER} build to resolve them against. Run "
+                "`just fetch-ontology-dbs hp` first if this is a page build."
+            )
 
     def export_to_json(self, disorder_files: list[Path], output_path: Path) -> None:
         """Export all disorder files to a single JSON file."""
