@@ -15,8 +15,13 @@ filling the label in from the ontology turns a caught error into a silent one.
 
 `scripts/check_gene_term_identity.py` compares the resolved label against the
 `name` and `preferred_term` sitting directly above the binding. These tests pin
-the tolerances as much as the findings -- a check that fires on the KB's 27
-model-organism symbols and 4 HLA serotypes would be turned off rather than fixed.
+the tolerances as much as the findings -- a check that fires on the KB's
+model-organism symbols and HLA serotypes would be turned off rather than fixed.
+
+Every test here fixes the label map it needs rather than reading
+`cache/hgnc/terms.csv`. That cache grows with unrelated curation, so a test that
+inherited it would make somebody else's correct curation red here; #10937 did
+exactly that to an earlier version of the `--strict` tests.
 """
 
 import subprocess
@@ -285,86 +290,88 @@ def test_the_report_is_advisory_and_exits_zero():
     assert "gene bindings examined:" in result.stdout
 
 
-def _run(args, path):
-    return subprocess.run(
-        [sys.executable, str(SCRIPT), *args, str(path)],
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
-        check=False,
+def _run(args, path, monkeypatch, capsys, labels=None):
+    """Run the CLI in-process against an injected label map.
+
+    The exit code is the thing under test, so this used to shell out -- which
+    made the outcome depend on which CURIEs `cache/hgnc/terms.csv` happened to
+    carry, and that is precisely the coupling these tests exist to not have (see
+    the note on the advisory case below). Injecting the map instead pins each
+    invariant to the cache state it is about.
+    """
+    monkeypatch.setattr(gti, "load_hgnc_labels", lambda: dict(labels or LABELS))
+    code = gti.main([*args, str(path)])
+    return code, capsys.readouterr().out
+
+
+def _entry(tmp_path, name, term_id, label, *, filename="demo.yaml"):
+    path = tmp_path / filename
+    path.write_text(
+        "name: Demo\n"
+        "genetic:\n"
+        f"- name: {name}\n"
+        "  gene_term:\n"
+        f"    preferred_term: {name}\n"
+        "    term:\n"
+        f"      id: {term_id}\n"
+        f"      label: {label}\n",
+        encoding="utf-8",
     )
+    return path
 
 
-def test_strict_gates_a_confident_finding(tmp_path):
+def test_strict_gates_a_confident_finding(tmp_path, monkeypatch, capsys):
     """`--strict` exists for whoever gates this later, so it must fire here.
 
-    The entry says GBA, the binding resolves to THAP1, and both symbols are
-    bound elsewhere in `kb/` — so this is the confident class offline.
+    The entry says THAP11, the binding resolves to THAP1, and the label map
+    carries both -- which is what makes this the confident class rather than the
+    advisory one.
     """
-    named = tmp_path / "named.yaml"
-    named.write_text(
-        "name: Demo\n"
-        "genetic:\n"
-        "- name: GBA\n"
-        "  gene_term:\n"
-        "    preferred_term: GBA\n"
-        "    term:\n"
-        "      id: hgnc:20856\n"
-        "      label: THAP1\n",
-        encoding="utf-8",
-    )
-    result = _run(["--strict"], named)
-    assert result.returncode == 1, result.stdout
-    assert "NAMES A DIFFERENT GENE             : 1" in result.stdout
+    entry = _entry(tmp_path, "THAP11", "hgnc:20856", "THAP1")
+    code, out = _run(["--strict"], entry, monkeypatch, capsys)
+    assert code == 1, out
+    assert "NAMES A DIFFERENT GENE             : 1" in out
 
 
-def test_strict_stays_quiet_on_an_advisory_row(tmp_path):
-    """An advisory row must not gate, however `--strict` is invoked.
+def test_the_same_binding_only_gates_because_the_other_gene_is_known(
+    tmp_path, monkeypatch, capsys
+):
+    """Drop THAP11 from the map and the identical entry stops gating.
 
-    The text is a lowercase product name, so it can never be promoted to the
-    confident class: the reverse lookup is case-sensitive and HGNC labels are
-    symbols. That matters because this test used to assert exit 0 for the
-    THAP11/THAP1 demonstration instead, which held only while no entry had
-    cached `THAP11` — and then #10937 curated the cblL-type disease, cached
-    `hgnc:23194`, and turned somebody else's correct curation into a red build
-    here. A test must not encode which CURIEs the KB happens to have cached.
+    This is the honest limit of the offline mode, stated as a test: the confident
+    class needs the *other* gene to be cached, which happens only because some
+    unrelated entry in `kb/` bound it. So which class a row lands in is a fact
+    about what the KB has curated, and it moves.
+
+    It is also why these tests inject the map. An earlier version asserted exit 0
+    for this very entry by shelling out, which held only while nothing had cached
+    `THAP11` -- then #10937 curated the cblL-type disease, cached `hgnc:23194`,
+    and turned somebody else's correct curation into a red build here.
     """
-    advisory = tmp_path / "advisory.yaml"
-    advisory.write_text(
-        "name: Demo\n"
-        "genetic:\n"
-        "- name: sucrase-isomaltase deficiency\n"
-        "  gene_term:\n"
-        "    preferred_term: sucrase-isomaltase\n"
-        "    term:\n"
-        "      id: hgnc:10856\n"
-        "      label: SI\n",
-        encoding="utf-8",
-    )
+    entry = _entry(tmp_path, "THAP11", "hgnc:20856", "THAP1")
+    labels = {k: v for k, v in LABELS.items() if k != "hgnc:23194"}
+    code, out = _run(["--strict"], entry, monkeypatch, capsys, labels=labels)
+    assert code == 0, out
+    assert "NAMES A DIFFERENT GENE             : 0" in out
+    assert "symbol not named (advisory)        : 1" in out
+
+
+def test_strict_stays_quiet_on_an_advisory_row(tmp_path, monkeypatch, capsys):
+    """An advisory row must not gate, however `--strict` is invoked."""
+    entry = _entry(tmp_path, "sucrase-isomaltase", "hgnc:10856", "SI")
     for args in (["--strict"], []):
-        result = _run(args, advisory)
-        assert result.returncode == 0, result.stdout
-        assert "NAMES A DIFFERENT GENE             : 0" in result.stdout
-        assert "symbol not named (advisory)        : 1" in result.stdout
+        code, out = _run(args, entry, monkeypatch, capsys)
+        assert code == 0, out
+        assert "NAMES A DIFFERENT GENE             : 0" in out
+        assert "symbol not named (advisory)        : 1" in out
 
 
-def test_an_uncached_curie_never_gates(tmp_path):
+def test_an_uncached_curie_never_gates(tmp_path, monkeypatch, capsys):
     """`uncached` is "no opinion", so it cannot fail a build even under --strict."""
-    unknown = tmp_path / "unknown.yaml"
-    unknown.write_text(
-        "name: Demo\n"
-        "genetic:\n"
-        "- name: NOTAGENE\n"
-        "  gene_term:\n"
-        "    preferred_term: NOTAGENE\n"
-        "    term:\n"
-        "      id: hgnc:99999999\n"
-        "      label: NOTAGENE\n",
-        encoding="utf-8",
-    )
-    result = _run(["--strict"], unknown)
-    assert result.returncode == 0, result.stdout
-    assert "HGNC CURIE not cached (no opinion) : 1" in result.stdout
+    entry = _entry(tmp_path, "NOTAGENE", "hgnc:99999999", "NOTAGENE")
+    code, out = _run(["--strict"], entry, monkeypatch, capsys)
+    assert code == 0, out
+    assert "HGNC CURIE not cached (no opinion) : 1" in out
 
 
 class _FakeAdapter:
