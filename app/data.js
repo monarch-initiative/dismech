@@ -125366,6 +125366,75 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hearing Loss Autosomal Recessive 108",
+    "disease_id": "MONDO:0033200",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hearing loss autosomal recessive 108 (DFNB108) is an autosomal recessive sensorineural hearing loss caused by biallelic loss-of-function variants in ROR1 (receptor tyrosine kinase-like orphan receptor 1). It was defined by a single consanguineous family in which a homozygous missense variant (c.2207G>C, p.R736T) cosegregated with deafness, so essentially everything known about the human disorder rests on that one family plus the mouse the same study characterised.\nThe mechanism sets DFNB108 apart from most nonsyndromic recessive deafness. ROR1 is a WNT5A co-receptor, and the R736T substitution prevents the protein from reaching the plasma membrane, so the mutant receptor cannot transduce WNT5A signalling. The functional consequence is not primarily a hair-cell transduction defect but a wiring defect: in the mouse, spiral ganglion neuron axons fasciculate abnormally, type I neurons form defective synapses with inner hair cells, and type II neurons project aberrantly through the sensory epithelium. Outer hair cell function is preserved, which is why the mice are deaf yet retain otoacoustic emissions and the family was described as having auditory neuropathy. The human ears also show a common cavity inner ear malformation, so the phenotype is a combination of a cochleovestibular malformation and an auditory neuropathy rather than pure cochlear hair-cell loss.\nDo not confuse ROR1 with its paralogue ROR2, whose biallelic loss causes autosomal recessive Robinow syndrome - a skeletal dysplasia, not isolated deafness.",
+    "pathophysiology": [
+      "Biallelic ROR1 Loss of Function",
+      "Disrupted WNT5A-ROR1 Signaling",
+      "Impaired Spiral Ganglion Innervation of Hair Cells",
+      "Cochlear Common Cavity Malformation",
+      "Failure of Auditory Afferent Neurotransmission"
+    ],
+    "cell_types": [
+      "spiral ganglion neuron",
+      "cochlear inner hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011113",
+      "CL:0000589"
+    ],
+    "biological_processes": [
+      "WNT5A-ROR1 non-canonical Wnt signaling",
+      "spiral ganglion neuron innervation of hair cells",
+      "spiral ganglion axon fasciculation"
+    ],
+    "phenotypes": [
+      "Sensorineural Hearing Impairment",
+      "Auditory Neuropathy",
+      "Cochlear Malformation"
+    ],
+    "phenotype_categories": [
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0006958",
+      "HP:0008554"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ROR1"
+    ],
+    "treatments": [
+      "Hearing Amplification",
+      "Cochlear Implantation",
+      "Genetic Counseling",
+      "Speech and Language Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hearing_Loss_Autosomal_Recessive_108.yaml",
+    "page_url": "../pages/disorders/Hearing_Loss_Autosomal_Recessive_108.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hearing Loss Autosomal Recessive 120",
     "disease_id": "MONDO:0859374",
     "category": "Mendelian",
@@ -287887,17 +287956,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2789,
+  "total_disorder_pages": 2790,
   "total_subtypes": 3669,
-  "total_disorders_and_subtypes": 6458,
-  "total_unique_evidence_sources": 39338,
-  "total_unique_publications": 37056,
+  "total_disorders_and_subtypes": 6459,
+  "total_unique_evidence_sources": 39341,
+  "total_unique_publications": 37059,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 277,
-  "total_pathographs": 2784,
-  "total_unique_pathological_events": 16606,
+  "total_pathographs": 2785,
+  "total_unique_pathological_events": 16611,
   "total_modules": 172,
-  "total_research_reports": 2910,
+  "total_research_reports": 2911,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
