@@ -372,8 +372,11 @@ and the AChR peptide seen by the T cell are the same protein.
 
 ## 7. What already exists to build on
 
-Almost nothing here requires a new ontology. The one exception is HLA, and even
-that is a configuration line rather than a modelling problem — see §7a.
+Most of this requires no new ontology, but two things do, and they are not the
+same size. HLA is cheap: MRO exists and is one `ols:` configuration line (§7a).
+Naming an antigen by protein accession is not — dismech has no UniProt binding
+at all, and OLS/OAK do not serve UniProt, so that one needs a real decision
+rather than a config change (§7a).
 
 | Need | Existing resource |
 |---|---|
@@ -386,7 +389,7 @@ that is a configuration line rather than a modelling problem — see §7a.
 | Attaching an antigen to a node | the `<kind>#<name>` entity-reference grammar |
 | Recording *how* an antigen acts | the `ModelMechanismLink` / `influences_mechanisms` link-object pattern |
 | HLA serotype, allele, haplotype, presenting complex | **MRO** (IEDB's MHC Restriction Ontology) — not yet in `conf/oak_config.yaml`; see §7a |
-| Antigen as a protein, by accession | **UniProt**, the form IEDB publishes antigens in — `GeneProductDescriptor` is the existing slot |
+| Antigen as a protein, by accession | **UniProt** is the form IEDB publishes antigens in, and dismech has *no* slot that accepts it — see §7a |
 
 The pattern the KB already uses for exactly this shape of problem is the
 **link object**: `treatments.target_mechanisms`, `environmental.influences_mechanisms`,
@@ -420,7 +423,7 @@ through the adapter pattern `conf/oak_config.yaml` already uses:
 | `HLA-B27` (serotype) | `MRO:0000217` HLA-B27 serotype |
 | `HLA-DRB1*03:01` (allele) | `MRO:0000703` HLA-DRB1\*03:01 chain |
 | the presenting molecule | `MRO:0001284` HLA-DRB1\*03:01 protein complex |
-| `HLA-DR3-DQ2` (haplotype) | `MRO:0000005` MHC haplotype, with the `MRO:0000000` *haplotype member of* relation |
+| `HLA-DR3-DQ2` (haplotype) | `MRO:0000005` MHC haplotype, with the `MRO:0000000` *haplotype member of* relation † |
 
 MRO (the MHC Restriction Ontology, PMID:26759709) is an IEDB product. It carries
 51,436 terms at version 2026-08-26, is loaded in OLS, and resolves today through
@@ -433,9 +436,15 @@ uv run runoak -i ols:mro info MRO:0000283 MRO:0001620 MRO:0000217
 # MRO:0000217 ! HLA-B27 serotype
 ```
 
+† `MRO:0000000` is an **object property**, not a class. Its label is as given,
+but `runoak -i ols:mro info MRO:0000000` returns 404 — that route serves classes
+— and a property cannot be bound through a `reachable_from` dynamic enum the way
+the five class terms above can. The config change below covers the classes;
+expressing "this allele is a member of that haplotype" needs its own answer.
+
 So adding `MRO: ols:mro` to `conf/oak_config.yaml` is a one-line change, after
-which HLA serotypes and alleles validate and cache exactly like every other bound
-term. This does **not** reopen the backfill §5 closed: the 41 unbound rows still
+which HLA serotypes and alleles — the classes, at least — validate and cache
+exactly like every other bound term. This does **not** reopen the backfill §5 closed: the 41 unbound rows still
 name no HGNC gene, and binding them to `gene_term` would still be wrong. It
 changes which slot they are waiting for, not whether they are waiting.
 
@@ -470,7 +479,8 @@ block.
 
 §6 asserts that in celiac disease B cells target tissue transglutaminase while T
 cells target deamidated gliadin peptides on HLA-DQ2/DQ8, and notes that the entry
-names the antigen on neither node. IEDB holds that claim as data:
+names the antigen on neither node. IEDB bears out the half of that claim which
+is a clean separation, and qualifies the other half:
 
 | Celiac disease, IEDB, queried 2026-09-07 | B cell | T cell |
 |---|---:|---:|
@@ -479,14 +489,19 @@ names the antigen on neither node. IEDB holds that claim as data:
 | carrying an MRO restriction | 0 | 1,876 |
 
 Zero of 2,748 celiac T-cell records are against TGM2 — a result two independent
-counting methods agree on exactly — while on the B side TGM2 is the single
-largest antigen, at between 256 and 472 of 824 depending on how the count is
-taken (§9 explains the spread). The T-cell antigens are the gliadins (`UNIPROT:D2T2K3`, `UNIPROT:A0A060N479`,
-`UNIPROT:Q402I5`), and the dominant restrictions are `MRO:0001229`
+counting methods agree on exactly, and the sharpest single finding here. The
+B-side claim needs more care than §6 gives it: TGM2 is heavily represented (256
+of 824 by server-side filter, 472 by counting the returned column — §9 explains
+the spread), but it is **not** the top B-cell antigen. Gliadin `UNIPROT:D2T2K3`
+is, at 318.
+
+So the textbook framing holds asymmetrically rather than as a clean swap:
+gliadin is seen by both lineages, and TG2 is the antigen seen by only one. The
+T-cell antigens are the gliadins (`UNIPROT:D2T2K3`, `UNIPROT:A0A060N479`,
+`UNIPROT:Q402I5`), restricted dominantly by `MRO:0001229`
 (HLA-DQA1\*05:01/DQB1\*02:01) and `MRO:0001620` (HLA protein complex with DQ2
-serotype). The divergence this report was commissioned to look for is not a
-curatorial hypothesis — it is a clean separation in a public dataset, addressable
-by identifier.
+serotype). The lineage-specific part of the divergence is not a curatorial
+hypothesis — it is a zero in a public dataset, addressable by identifier.
 
 ### Divergence is disease-specific, which is itself the argument for a slot
 
@@ -495,10 +510,10 @@ wrong:
 
 | Disease (IEDB, 2026-09-07) | B-cell records | T-cell records | Dominant antigen |
 |---|---:|---:|---|
-| celiac disease | 824 | 2,748 | **divergent** — TGM2 vs gliadins |
+| celiac disease | 824 | 2,748 | **partly divergent** — TGM2 is B-only (256 vs 0); gliadin leads both |
 | type 1 diabetes mellitus | 550 | 4,407 | **overlapping, different leaders** — GAD65 (`UNIPROT:Q05329`) leads the B side, insulin (`UNIPROT:P01308`) the T side |
 | myasthenia gravis | 77 | 726 | convergent — AChR α (`UNIPROT:P02708`) leads both |
-| pemphigus | — | — | DSG3 (`UNIPROT:P32926`): 145 B / 134 T |
+| pemphigus | 251 | 64 | convergent — DSG3 (`UNIPROT:P32926`) on both, 81 B / 60 T |
 
 There are at least three patterns here, not two. Celiac is a clean split. In
 myasthenia gravis both lineages lead on the same protein. Type 1 diabetes is
@@ -513,12 +528,21 @@ case for the link object in §7 than a uniform-divergence story would have been.
 
 - **Diseases are DOID, not MONDO.** Any join runs through a DOID→MONDO mapping
   and inherits its gaps. Matching on disease *name* is worse: `pemphigus vulgaris`
-  returns nothing because IEDB files those records under `pemphigus`, so a naive
-  name join silently under-reports rather than failing.
-- **Antigens are UniProt, not HGNC.** dismech's `GeneDescriptor` binds `hgnc:`.
-  A protein-level antigen is a different entity from the gene that encodes it,
-  which is the distinction §3a shows the `genetic` block currently collapsing;
-  `GeneProductDescriptor` is the slot that already exists for it.
+  returns nothing because IEDB files those records under `pemphigus`, which
+  returns 251 B-cell and 64 T-cell records — so a naive name join silently
+  under-reports rather than failing.
+- **Antigens are UniProt, and nothing in dismech accepts a UniProt accession.**
+  `GeneDescriptor` binds `hgnc:`, and `GeneProductDescriptor` — the obvious
+  candidate — cannot take one either: its required `GeneProductTerm` is
+  `reachable_from: NCIT:C26548`, and the string `UNIPROT` appears nowhere in
+  `src/dismech/schema/dismech.yaml` or `conf/oak_config.yaml`, so
+  `UNIPROT:P21980` fails term validation today. A protein-level antigen is also
+  a different entity from the gene that encodes it, which is the distinction §3a
+  shows the `genetic` block collapsing. Unlike the HLA gap this is **not** a
+  configuration line: OLS and OAK do not serve UniProt, so the options are a new
+  prefix plus fetcher, mapping antigens onto NCIT gene-product terms, or a
+  UniProt-typed slot. That decision is out of scope here and is flagged, not
+  taken.
 - **An assay count is not a mechanism.** These are counts of published
   experiments, weighted by what was studied and fundable. They say what has been
   measured, never what matters — and `qualitative_measure` includes `Negative`
@@ -577,10 +601,35 @@ whole-table totals (824, 2,748, 550, 4,407, 77, 726) are single-method counts
 with no such ambiguity. Ranking within a lineage is also unaffected, since one
 method is used throughout a given comparison — which is how the type 1 diabetes
 row was corrected: a 500-row sample had suggested GAD65 led the T-cell side, and
-full enumeration of all 4,407 rows shows insulin leads it, 1,057 to 692. Disease selection is by IEDB's own
-disease *name*, which is DOID-derived and does not match dismech's MONDO labels
-— `pemphigus vulgaris` matches nothing while `pemphigus` matches 145 B-cell and
-134 T-cell DSG3 records, so a name join under-reports silently.
+full enumeration of all 4,407 rows shows insulin leads it, 1,057 to 692.
+
+**Every count must carry its disease filter, and one in an earlier draft did
+not.** The pemphigus row originally reported DSG3 as 145 B / 134 T, which are
+corpus-wide counts with no `disease_names` filter; scoped to `pemphigus` the
+figures are 81 B / 60 T. The unfiltered number was larger than the whole
+denominator it sat next to — pemphigus has 64 T-cell records in total — which is
+the tell for this class of mistake, and the reason the query shapes are written
+out below rather than left implicit.
+
+Disease selection is by IEDB's own disease *name*, which is DOID-derived and does
+not match dismech's MONDO labels: `pemphigus vulgaris` matches nothing while
+`pemphigus` matches 251 B-cell and 64 T-cell records, so a name join
+under-reports silently.
+
+The queries behind §7a take these shapes:
+
+```bash
+BASE=https://query-api.iedb.org
+# whole-table count (the Range/Prefer pair returns an exact total, not rows)
+curl -s -o /dev/null -D - -H 'Prefer: count=exact' -H 'Range: 0-0' \
+  "$BASE/tcell_search?disease_names=cs.%7Bceliac%20disease%7D"
+# a disease-scoped, antigen-scoped count — BOTH filters, always
+curl -s ... "$BASE/bcell_search?disease_names=cs.%7Bceliac%20disease%7D\
+&parent_source_antigen_iri=eq.UNIPROT:P21980"
+# the B/T asymmetry
+curl -s ... "$BASE/tcell_search?host_organism_iri=eq.NCBITaxon:9606\
+&mhc_allele_iri=not.is.null"
+```
 
 - **Only three classes can answer the lineage question, and the headline is
   reported over those.** `cell_types` is a slot on `Pathophysiology`,
