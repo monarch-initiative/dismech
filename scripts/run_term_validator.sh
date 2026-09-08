@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 # Wrapper for linkml-term-validator that fails CI on warnings.
-# Uses upstream strict/warning-fail flags when available; otherwise treats WARN output as fatal.
-# Remove once linkml/linkml-term-validator#29 is available in the CLI.
+#
+# linkml-term-validator (pinned at 0.4.5 in uv.lock) exits 0 on a WARN, so
+# this wrapper captures the output and treats any WARN/WARNING line, or a
+# missing success line, as a failure.
+#
+# It used to probe `validate-data --help` on every call for a `--strict` or
+# `--fail-on-warnings` flag. Upstream linkml/linkml-term-validator#29 (the
+# request for such a flag) is still open, so the probe could only ever answer
+# "unsupported" and cost a full interpreter start plus the linkml import tree
+# on every validate-data call (dismech#11004). The probe is gone. When #29
+# ships and the minimum linkml-term-validator version in pyproject.toml is
+# bumped past it, replace the WARN grep below with the upstream flag; do not
+# reinstate a per-call probe.
 
 set -euo pipefail
 
@@ -17,21 +28,8 @@ if [[ "$subcommand" != "validate-data" ]]; then
     exec uv run linkml-term-validator "$subcommand" "$@"
 fi
 
-help_output="$(uv run linkml-term-validator validate-data --help 2>&1)"
-strict_args=()
-
-if grep -q -- "--strict" <<<"$help_output"; then
-    strict_args+=(--strict)
-elif grep -q -- "--fail-on-warnings" <<<"$help_output"; then
-    strict_args+=(--fail-on-warnings)
-fi
-
 set +e
-cmd=(uv run linkml-term-validator validate-data "$@")
-if [[ ${#strict_args[@]} -gt 0 ]]; then
-    cmd+=("${strict_args[@]}")
-fi
-output="$("${cmd[@]}" 2>&1)"
+output="$(uv run linkml-term-validator validate-data "$@" 2>&1)"
 exit_code=$?
 set -e
 
