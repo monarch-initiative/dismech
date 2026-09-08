@@ -237,6 +237,14 @@ appears in the Actions summary, without PR comment spam. API errors do not
 authorize retries. Discovery subdivides time ranges above the Actions API's
 1000-result limit rather than silently dropping older failures.
 
+The summary leads with the number of rerun requests accepted and the configured
+limit, then links to the restarted PRs and workflow runs. Accepted means GitHub
+accepted the restart request, not that the review completed or passed. PRs deferred
+at the limit have not been queued; the next sweep reconsiders them with fresh
+checks. Historical skips and PR-lookup diagnostics are in expandable sections.
+Diagnostic counts are messages, not unique PRs: a run can have both a lookup
+error and a deferral. Dry runs explicitly say that no requests were issued.
+
 ```bash
 just review-retry-preview
 ```
