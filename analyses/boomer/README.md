@@ -27,6 +27,7 @@ analyses/boomer/
     solution.md                 boomer output, rendered
   groupings/                    grouping membership vs MONDO (no solver needed)
   cross-source/                 direct ICD/NCIT mappings vs MONDO's own xrefs
+  icd10/                        ICD coverage, missing entries, and ORDO mapping paths
   scripts/                      generators; nothing here is hand-written
 ```
 
