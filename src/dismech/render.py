@@ -4158,8 +4158,10 @@ def _exact_mondo_descendant_terms(
             {},
             set(root_ids),
             set(),
-            "MONDO descendant lookup unavailable: no local mondo.db build. "
-            "Coverage counts the mapped exact-match terms only.",
+            (
+                "MONDO descendant lookup unavailable: no local mondo.db build. "
+                "Coverage counts the mapped exact-match terms only."
+            ),
         )
 
     descendant_terms: dict[str, dict] = {}
