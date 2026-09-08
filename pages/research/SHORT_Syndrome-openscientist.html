@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHORT Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>SHORT Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>SHORT Syndrome</h1>
+                
+                <p class="report-subtitle">SHORT Syndrome — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-01</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010026" target="_blank" rel="noopener noreferrer">MONDO:0010026</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">19 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>SHORT Syndrome — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> SHORT Syndrome
+<strong>Category:</strong> Mendelian (monogenic)
+<strong>Key identifiers:</strong> OMIM #269880 · Orphanet <a href="https://bioregistry.io/ORPHA:3163" target="_blank" rel="noopener noreferrer">ORPHA:3163</a> · <a href="http://purl.obolibrary.org/obo/MONDO_0009159" target="_blank" rel="noopener noreferrer">MONDO:0009159</a> · ICD-10 Q87.1 · MeSH — indexed under lipodystrophy/insulin-resistance syndromes (no dedicated descriptor)
+<strong>Causal gene:</strong> <em>PIK3R1</em> (<a href="https://bioregistry.io/HGNC:8979" target="_blank" rel="noopener noreferrer">HGNC:8979</a>; OMIM *171833), encoding the p85α regulatory subunit of class IA phosphatidylinositol 3-kinase (PI3K)</p>
+<hr />
+<h2>Summary</h2>
+<p>SHORT syndrome is a rare autosomal dominant multisystem disorder whose name is an acronym for its cardinal features: <strong>S</strong>hort stature, <strong>H</strong>yperextensibility of joints, <strong>O</strong>cular depression (deep-set eyes), <strong>R</strong>ieger anomaly (anterior-segment dysgenesis), and <strong>T</strong>eething (delayed dental eruption). It is caused by heterozygous <strong>loss-of-function / dominant-negative mutations in <em>PIK3R1</em></strong>, the gene encoding the p85α regulatory subunit of class IA PI3K. Three concurrent 2013 exome-sequencing studies established causality, and the recurrent C-terminal hotspot missense variant <strong>c.1945C&gt;T (p.Arg649Trp)</strong> accounts for the majority of cases (<a href="https://pubmed.ncbi.nlm.nih.gov/24886349/">PMID: 24886349</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23980586/">PMID: 23980586</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24033310/">PMID: 24033310</a>).</p>
+<p>The unifying mechanism is <strong>impaired proximal insulin/growth-factor PI3K–AKT signaling</strong>. Mutations cluster in the C-terminal SH2 (cSH2)/inter-SH2 (iSH2) substrate-recognition region of p85α; the mutant subunit fails to relieve p110 catalytic inhibition and fails to transmit receptor-generated phosphotyrosine signals. The downstream consequences—intrauterine growth restriction (IUGR) and postnatal short stature, partial (facial/limb) lipodystrophy, a distinctive severe insulin resistance, progeroid craniofacial dysmorphism, and Rieger anomaly—map onto tissues that depend on PI3K signaling. A <strong>Pik3r1 Arg649Trp knock-in mouse recapitulates the human disease</strong> and directly demonstrates reduced PI3K activation as the mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/26974159/">PMID: 26974159</a>).</p>
+<p>A distinctive metabolic signature separates SHORT syndrome from common obesity-related insulin resistance: the insulin resistance is <strong>uncoupled from dyslipidemia and hepatic steatosis</strong>, biochemically resembling primary insulin-receptor dysfunction and localizing the lesion to a proximal receptor→PI3K node (<a href="https://pubmed.ncbi.nlm.nih.gov/27766312/">PMID: 27766312</a>). Diabetes typically becomes overt around puberty (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>). Management is supportive—insulin-sensitizing and glucose-lowering drugs (metformin, SGLT2 inhibitors), with growth hormone used cautiously. Notably, <em>PIK3R1</em> is a <strong>dual-disorder gene</strong>: loss-of-function C-terminal variants cause SHORT syndrome, while splice variants that hyperactivate p110δ cause the gain-of-function immunodeficiency <strong>APDS2</strong>, with occasional phenotypic overlap (<a href="https://pubmed.ncbi.nlm.nih.gov/32778990/">PMID: 32778990</a>).</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> SHORT syndrome is a rare, congenital, autosomal dominant multisystem disorder characterized by pre- and post-natal growth failure, a recognizable progeroid facial gestalt, partial lipodystrophy, anterior-segment eye dysgenesis (Rieger anomaly), delayed dental eruption, joint hyperextensibility, and a highly characteristic insulin-resistant diabetes that emerges around puberty. The SHORT acronym only partially captures the phenotype; systematic review has shown that <strong>facial dysmorphism is actually the most consistent feature</strong>, ahead of the eponymous ocular and dental signs (<a href="https://pubmed.ncbi.nlm.nih.gov/34212753/">PMID: 34212753</a>).</p>
+<p><strong>Key identifiers.</strong>
+| Resource | Identifier |
+|---|---|
+| OMIM | #269880 (SHORT syndrome) |
+| Orphanet | <a href="https://bioregistry.io/ORPHA:3163" target="_blank" rel="noopener noreferrer">ORPHA:3163</a> |
+| MONDO | <a href="http://purl.obolibrary.org/obo/MONDO_0009159" target="_blank" rel="noopener noreferrer">MONDO:0009159</a> |
+| ICD-10 | Q87.1 |
+| Gene (HGNC) | <em>PIK3R1</em>, <a href="https://bioregistry.io/HGNC:8979" target="_blank" rel="noopener noreferrer">HGNC:8979</a> |
+| Gene (OMIM) | *171833 |</p>
+<p><strong>Synonyms / alternative names.</strong> SHORT syndrome; Short stature–hyperextensibility–ocular depression–Rieger anomaly–teething delay syndrome; Rieger anomaly–partial lipodystrophy syndrome; Aarskog-Ose-Pande syndrome; lipodystrophy–Rieger anomaly–diabetes syndrome.</p>
+<p><strong>Evidence source.</strong> Information is derived from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet), <strong>individual case reports and small case series</strong>, and one <strong>systematic review</strong> of 19 individuals from 11 families (<a href="https://pubmed.ncbi.nlm.nih.gov/34212753/">PMID: 34212753</a>). There is no large EHR-derived cohort; the total reported literature comprises on the order of tens of families.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> SHORT syndrome is a <strong>monogenic disorder</strong> caused by heterozygous pathogenic variants in <em>PIK3R1</em>. It is not infectious or primarily environmental. Inheritance is <strong>autosomal dominant</strong>; both inherited (parent-to-child) and <em>de novo</em> mutations are reported, with several case reports documenting confirmed <em>de novo</em> origin (parents and siblings unaffected and mutation-negative) — e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/33129256/">PMID: 33129256</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32602265/">PMID: 32602265</a>.</p>
+<p><strong>Genetic risk factors.</strong> The causal variants are the <em>PIK3R1</em> C-terminal cSH2/iSH2 mutations (see Section 4). The recurrent <strong>c.1945C&gt;T (p.Arg649Trp)</strong> is the single largest contributor. No independent susceptibility loci or common modifier alleles have been established; because the disorder is highly penetrant and monogenic, the "risk factor" is essentially carriage of the pathogenic allele.</p>
+<p><strong>Environmental risk factors.</strong> None established as causal. <strong>Age/puberty acts as a temporal modifier</strong> of the metabolic phenotype—insulin-resistant diabetes appears around/after puberty rather than in early childhood (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>). Sex does not appear to strongly modify prevalence, though several prominent case reports are female.</p>
+<p><strong>Protective factors.</strong> No genetic or environmental protective variants are described. In mouse models, the mutation itself confers apparent "protection" from obesity and hepatic steatosis (a consequence of reduced lipogenesis), but this is a manifestation of the disease mechanism rather than a protective factor for the patient (<a href="https://pubmed.ncbi.nlm.nih.gov/29724723/">PMID: 29724723</a>).</p>
+<p><strong>Gene–environment interactions.</strong> The principal documented interaction is <strong>genotype × pubertal/hormonal milieu</strong>: the diabetogenic insulin resistance is latent in childhood and unmasked around puberty. Growth hormone (an iatrogenic/therapeutic exposure) is diabetogenic and can aggravate the metabolic phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>).</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>SHORT syndrome is a multisystem disorder. Phenotype frequencies below draw on the systematic review of 19 individuals (<a href="https://pubmed.ncbi.nlm.nih.gov/34212753/">PMID: 34212753</a>) and multiple case reports.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intrauterine growth restriction</td>
+<td>Physical manifestation</td>
+<td>Prenatal/congenital</td>
+<td>Very common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a></td>
+</tr>
+<tr>
+<td>Short stature / postnatal growth failure</td>
+<td>Clinical sign</td>
+<td>Congenital–childhood</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+</tr>
+<tr>
+<td>Facial dysmorphism (triangular face, frontal bossing)</td>
+<td>Physical manifestation</td>
+<td>Congenital</td>
+<td><strong>Most consistent</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000271" target="_blank" rel="noopener noreferrer">HP:0000271</a> / <a href="http://purl.obolibrary.org/obo/HP_0000268" target="_blank" rel="noopener noreferrer">HP:0000268</a></td>
+</tr>
+<tr>
+<td>Deep-set eyes / ocular depression</td>
+<td>Physical manifestation</td>
+<td>Congenital</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000490" target="_blank" rel="noopener noreferrer">HP:0000490</a></td>
+</tr>
+<tr>
+<td>Large, low-set ears</td>
+<td>Physical manifestation</td>
+<td>Congenital</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a> / <a href="http://purl.obolibrary.org/obo/HP_0000368" target="_blank" rel="noopener noreferrer">HP:0000368</a></td>
+</tr>
+<tr>
+<td>Micrognathia / mandibular retrognathia</td>
+<td>Physical manifestation</td>
+<td>Congenital</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a></td>
+</tr>
+<tr>
+<td>Thin/hypoplastic alae nasi</td>
+<td>Physical manifestation</td>
+<td>Congenital</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000430" target="_blank" rel="noopener noreferrer">HP:0000430</a></td>
+</tr>
+<tr>
+<td>Progeroid / aged appearance</td>
+<td>Physical manifestation</td>
+<td>Childhood</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005104" target="_blank" rel="noopener noreferrer">HP:0005104</a></td>
+</tr>
+<tr>
+<td>Partial lipodystrophy (facial/limb lipoatrophy)</td>
+<td>Physical manifestation</td>
+<td>Childhood</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009125" target="_blank" rel="noopener noreferrer">HP:0009125</a></td>
+</tr>
+<tr>
+<td>Insulin resistance</td>
+<td>Laboratory abnormality</td>
+<td>Childhood–puberty</td>
+<td>Common (metabolic hallmark)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" rel="noopener noreferrer">HP:0000855</a></td>
+</tr>
+<tr>
+<td>Insulin-resistant diabetes mellitus</td>
+<td>Laboratory/clinical</td>
+<td>~Puberty onward</td>
+<td>~10/15 untreated ≥12 y</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000831" target="_blank" rel="noopener noreferrer">HP:0000831</a> / <a href="http://purl.obolibrary.org/obo/HP_0000857" target="_blank" rel="noopener noreferrer">HP:0000857</a></td>
+</tr>
+<tr>
+<td>Acanthosis nigricans</td>
+<td>Clinical sign</td>
+<td>Childhood</td>
+<td>Reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" rel="noopener noreferrer">HP:0000956</a></td>
+</tr>
+<tr>
+<td>Rieger anomaly / anterior-segment dysgenesis</td>
+<td>Clinical sign</td>
+<td>Congenital</td>
+<td>Common (eponymous)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" rel="noopener noreferrer">HP:0000554</a> / <a href="http://purl.obolibrary.org/obo/HP_0000539" target="_blank" rel="noopener noreferrer">HP:0000539</a></td>
+</tr>
+<tr>
+<td>Glaucoma</td>
+<td>Clinical sign</td>
+<td>Childhood–adult</td>
+<td>Reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" rel="noopener noreferrer">HP:0000501</a></td>
+</tr>
+<tr>
+<td>Delayed tooth eruption</td>
+<td>Clinical sign</td>
+<td>Childhood</td>
+<td>Common (eponymous)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000684" target="_blank" rel="noopener noreferrer">HP:0000684</a></td>
+</tr>
+<tr>
+<td>Joint hyperextensibility</td>
+<td>Clinical sign</td>
+<td>Congenital–childhood</td>
+<td>Common (eponymous)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" rel="noopener noreferrer">HP:0001382</a></td>
+</tr>
+<tr>
+<td>Inguinal hernia</td>
+<td>Clinical sign</td>
+<td>Childhood</td>
+<td>Reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" rel="noopener noreferrer">HP:0000023</a></td>
+</tr>
+<tr>
+<td>Sensorineural hearing loss</td>
+<td>Clinical sign</td>
+<td>Variable</td>
+<td>Reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics.</strong> Craniofacial features are congenital, stable, and the most penetrant. Metabolic features are <strong>progressive and age-dependent</strong>: insulin resistance is often subclinical in early childhood, then diabetes develops around puberty (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>). Severity is <strong>variable</strong> even within the recurrent hotspot genotype, indicating variable expressivity. Intelligence is typically normal.</p>
+<p><strong>Quality-of-life impact.</strong> No formal EQ-5D/SF-36 studies exist. Practically, QoL is affected by (i) chronic metabolic disease requiring lifelong glucose management, (ii) visual morbidity from glaucoma/anterior-segment disease (risk of vision loss), (iii) short stature and dysmorphism with psychosocial impact, and (iv) dental complications. Cognition and lifespan appear largely preserved.</p>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>PIK3R1</em> (<a href="https://bioregistry.io/HGNC:8979" target="_blank" rel="noopener noreferrer">HGNC:8979</a>; OMIM <em>171833), chromosome 5q13.1, encoding the </em><em>p85α regulatory subunit</em>* of class IA PI3K.</p>
+<p><strong>Pathogenic variants.</strong> Most mutations cluster in the region encoding the <strong>C-terminal SH2 (cSH2) / inter-SH2 (iSH2) substrate-recognition domain</strong>. Documented variants:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (cDNA)</th>
+<th>Protein</th>
+<th>Type</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.1945C&gt;T</td>
+<td>p.Arg649Trp</td>
+<td>Missense</td>
+<td><strong>Recurrent hotspot</strong> — majority of cases (8/14 families in one series)</td>
+</tr>
+<tr>
+<td>c.1929_1933delTGGCA</td>
+<td>p.Asp643Aspfs*8</td>
+<td>Frameshift</td>
+<td>Novel truncating variant</td>
+</tr>
+<tr>
+<td>c.1960C&gt;T</td>
+<td>p.Gln654*</td>
+<td>Nonsense</td>
+<td><em>De novo</em>; first Chinese case with thyroid disease</td>
+</tr>
+<tr>
+<td>c.2008delT</td>
+<td>—</td>
+<td>Frameshift</td>
+<td>Truncating</td>
+</tr>
+<tr>
+<td>c.1615_1617del</td>
+<td>in-frame del</td>
+<td>Small deletion</td>
+<td>Chinese case series</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Classification (ACMG/AMP).</strong> The recurrent c.1945C&gt;T (p.Arg649Trp) and the reported truncating variants are classified <strong>pathogenic/likely pathogenic</strong> in ClinVar. Truncating and dominant-negative missense variants converge on the same C-terminal region.</p>
+<p><strong>Allele frequency.</strong> These are private/ultra-rare disease variants essentially <strong>absent from gnomAD</strong> control populations, consistent with severe monogenic disease.</p>
+<p><strong>Origin.</strong> <strong>Germline</strong> (constitutional). Both inherited and <em>de novo</em> germline events occur. No somatic contribution to SHORT syndrome.</p>
+<p><strong>Functional consequence.</strong> <strong>Loss of function with a dominant-negative component.</strong> The mutant p85α fails to relieve inhibition of the p110 catalytic subunit and fails to couple to receptor phosphotyrosines, reducing PI3K activation. Because p85α is a shared regulatory subunit, the mutant subunit dominantly interferes with signaling (heterozygous, autosomal dominant) — <a href="https://pubmed.ncbi.nlm.nih.gov/26974159/">PMID: 26974159</a>.</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No specific modifier genes, epigenetic signatures, or large chromosomal rearrangements are established for SHORT syndrome. It is a single-nucleotide/small-indel monogenic disorder; chromosomal microarray is typically normal.</p>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<p>SHORT syndrome is a <strong>genetic disorder with no established environmental etiology</strong>. There are no causal toxins, radiation exposures, occupational factors, dietary triggers, or infectious agents. The only clinically relevant "environmental"/exogenous modifier is <strong>growth hormone therapy</strong>, which—being diabetogenic—can worsen the metabolic phenotype and is regarded with caution (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>). Pubertal hormonal changes act as an endogenous temporal modifier of diabetes onset.</p>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>A <strong>heterozygous <em>PIK3R1</em> mutation</strong> (most often c.1945C&gt;T, p.Arg649Trp) in the C-terminal cSH2/iSH2 region <strong>produces a defective p85α regulatory subunit</strong>.</li>
+<li>The mutant p85α <strong>fails to relieve inhibition of the p110 catalytic subunit and fails to engage activated receptor phosphotyrosines</strong> → <em>results in</em> reduced recruitment/activation of class IA PI3K at the insulin/IGF-1/growth-factor receptor complex.</li>
+<li>Because p85α is heterozygously mutated and dominant-negative, <strong>PI3K activation is reduced across insulin-responsive tissues</strong> (liver, muscle, adipose) → <em>leads to</em> diminished generation of PIP₃ and blunted downstream <strong>AKT (PKB) signaling</strong> (demonstrated in the knock-in mouse: reduced capacity of insulin and other growth factors to activate PI3K in liver, muscle, and fat — <a href="https://pubmed.ncbi.nlm.nih.gov/26974159/">PMID: 26974159</a>).</li>
+<li>Reduced PI3K–AKT signaling <strong>branches</strong> into the disease phenotypes:</li>
+<li><strong>Metabolic branch:</strong> impaired insulin action → <em>systemic insulin resistance</em> → compensatory hyperinsulinemia → (around puberty) <em>insulin-resistant diabetes mellitus</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>). Because the lesion is proximal (receptor→PI3K), the insulin resistance is <strong>uncoupled from hepatic lipogenesis</strong> → <em>no fatty liver, no dyslipidemia, preserved/high adiponectin</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27766312/">PMID: 27766312</a>).</li>
+<li><strong>Adipose branch:</strong> impaired PI3K-dependent adipocyte development/maintenance → <em>partial lipodystrophy</em> → reduced lipid buffering, further aggravating insulin resistance (inferred).</li>
+<li><strong>Growth branch:</strong> reduced PI3K/IGF-1 signaling (possible IGF-1 resistance) → <em>IUGR and postnatal short stature</em> (inferred from clinical + IGF resistance data; <a href="https://pubmed.ncbi.nlm.nih.gov/36401775/">PMID: 36401775</a>).</li>
+<li><strong>Ocular/developmental branch:</strong> reduced PI3K signaling during anterior-segment development → <em>iris hypoplasia and anterior-segment dysgenesis</em> → <strong>Rieger anomaly</strong> — a demonstrated developmental iris defect, independent of diabetes (<a href="https://pubmed.ncbi.nlm.nih.gov/28632845/">PMID: 28632845</a>).</li>
+<li><strong>Craniofacial/dental branch:</strong> reduced PI3K signaling in craniofacial/dental development → <em>progeroid dysmorphism and delayed tooth eruption</em> (inferred).</li>
+</ol>
+<h3>Molecular / cellular detail</h3>
+<ul>
+<li><strong>Molecular pathway:</strong> class IA <strong>PI3K–AKT–mTOR</strong> signaling downstream of insulin/IGF-1 and other growth-factor receptor tyrosine kinases (KEGG hsa04151 PI3K-Akt; KEGG hsa04910 insulin signaling). SHORT syndrome represents <strong>haploinsufficient/dominant-negative attenuation</strong> of this axis—the mirror image of gain-of-function PI3K activation.</li>
+<li><strong>Protein dysfunction:</strong> p85α cSH2/iSH2 substrate-recognition domain defect → failure of the regulatory subunit to bind phosphotyrosine motifs and to properly regulate p110 (loss-of-function with dominant-negative behavior).</li>
+<li><strong>Metabolic changes:</strong> decreased lipogenesis, increased energy expenditure, insulin resistance, and possible IGF-1 resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/36401775/">PMID: 36401775</a>).</li>
+<li><strong>Classification:</strong> formally a <strong>genetic (monogenic) insulin resistance syndrome</strong> within the PI3K signaling axis, grouped with INSR (type A/Donohue/Rabson–Mendenhall) and AKT2/TBC1D4/PRKCE disorders (<a href="https://pubmed.ncbi.nlm.nih.gov/35110500/">PMID: 35110500</a>).</li>
+</ul>
+<h3>Suggested ontology terms</h3>
+<ul>
+<li><strong>GO biological process:</strong> phosphatidylinositol 3-kinase signaling (<a href="http://purl.obolibrary.org/obo/GO_0014065" target="_blank" rel="noopener noreferrer">GO:0014065</a>); insulin receptor signaling pathway (<a href="http://purl.obolibrary.org/obo/GO_0008286" target="_blank" rel="noopener noreferrer">GO:0008286</a>); regulation of glucose import (<a href="http://purl.obolibrary.org/obo/GO_0046324" target="_blank" rel="noopener noreferrer">GO:0046324</a>); positive regulation of cell growth (<a href="http://purl.obolibrary.org/obo/GO_0030307" target="_blank" rel="noopener noreferrer">GO:0030307</a>).</li>
+<li><strong>GO cellular component / molecular function:</strong> phosphatidylinositol 3-kinase complex (<a href="http://purl.obolibrary.org/obo/GO_0005942" target="_blank" rel="noopener noreferrer">GO:0005942</a>); 1-phosphatidylinositol-3-kinase regulator activity (<a href="http://purl.obolibrary.org/obo/GO_0046935" target="_blank" rel="noopener noreferrer">GO:0046935</a>).</li>
+<li><strong>Cell types (CL):</strong> adipocyte (<a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" rel="noopener noreferrer">CL:0000136</a>); hepatocyte (<a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a>); skeletal muscle cell (<a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a>); iris pigment/stromal cells and neural-crest-derived anterior-segment cells.</li>
+</ul>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<p><strong>Organ / system level.</strong>
+- <strong>Endocrine/metabolic:</strong> pancreas (islet dysfunction/insulin secretion defect in mouse), adipose tissue, liver, skeletal muscle — insulin target tissues (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> liver; <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" rel="noopener noreferrer">UBERON:0001013</a> adipose tissue; <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> skeletal muscle; <a href="http://purl.obolibrary.org/obo/UBERON_0000006" target="_blank" rel="noopener noreferrer">UBERON:0000006</a> islet of Langerhans).
+- <strong>Eye:</strong> anterior segment — iris (<a href="http://purl.obolibrary.org/obo/UBERON_0001769" target="_blank" rel="noopener noreferrer">UBERON:0001769</a>), cornea/angle structures; Rieger anomaly with goniosynechiae, prominent ring of Schwalbe, glaucoma, early cataract.
+- <strong>Craniofacial skeleton and teeth:</strong> face, mandible, dental structures (delayed eruption).
+- <strong>Musculoskeletal:</strong> joints (hyperextensibility); overall stature/growth.
+- <strong>Skin:</strong> acanthosis nigricans (secondary to insulin resistance).</p>
+<p><strong>Tissue/cell level.</strong> Adipocytes (lipodystrophy), hepatocytes and myocytes (insulin resistance), pancreatic β-cells (insulin secretion), and neural-crest-derived anterior-segment cells (iris hypoplasia). The mouse model localizes the ocular defect specifically to a <strong>decrease in iris thickness and width with increased pupil area/irregularity</strong>, cornea/lens/retina otherwise normal (<a href="https://pubmed.ncbi.nlm.nih.gov/28632845/">PMID: 28632845</a>).</p>
+<p><strong>Subcellular level.</strong> Signaling defect at the <strong>plasma membrane / cytoplasmic receptor-signaling complex</strong> (PI3K complex; <a href="http://purl.obolibrary.org/obo/GO_0005942" target="_blank" rel="noopener noreferrer">GO:0005942</a>); PIP₃ generation at the inner leaflet of the plasma membrane.</p>
+<p><strong>Localization / lateralization.</strong> Systemic and generally <strong>bilateral/symmetric</strong>; ocular involvement is bilateral.</p>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Congenital.</strong> IUGR is prenatal; dysmorphism, ocular, and dental features are present from birth/early childhood.</li>
+<li><strong>Progression:</strong> Craniofacial features are stable. The <strong>metabolic phenotype is progressive and age-dependent</strong>: insulin resistance is often subclinical in early childhood, with insulin-resistant diabetes typically emerging <strong>around puberty</strong> — diabetes in 10/15 untreated patients aged ≥12 y versus none aged ≤10 y (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>).</li>
+<li><strong>Course:</strong> Chronic, lifelong. No spontaneous remission of the underlying disorder; metabolic parameters can be improved with treatment.</li>
+<li><strong>Critical period / intervention window:</strong> Peripubertal transition is the key window for metabolic surveillance and early intervention; anterior-segment/glaucoma monitoring is lifelong to preserve vision.</li>
+</ul>
+<hr />
+<h2>Section 9 — Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> Ultra-rare. Prevalence is not precisely established; Orphanet lists it as &lt;1/1,000,000, with only tens of families reported worldwide. No reliable incidence figure exists.</li>
+<li><strong>Inheritance:</strong> <strong>Autosomal dominant</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23980586/">PMID: 23980586</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24033310/">PMID: 24033310</a>).</li>
+<li><strong>Penetrance:</strong> High for the overall syndrome; <strong>age-dependent penetrance</strong> for the diabetes component (largely post-pubertal).</li>
+<li><strong>Expressivity:</strong> <strong>Variable</strong>, even among carriers of the recurrent p.Arg649Trp allele.</li>
+<li><strong>De novo vs inherited:</strong> Both occur; multiple confirmed <em>de novo</em> cases (parents/siblings unaffected and mutation-negative).</li>
+<li><strong>Anticipation / mosaicism / founder effects:</strong> No genetic anticipation (not a repeat-expansion disorder). No established founder effect; the recurrence of c.1945C&gt;T reflects a <strong>mutational hotspot</strong> rather than a founder haplotype. Germline mosaicism not specifically documented.</li>
+<li><strong>Consanguinity:</strong> Not relevant (dominant disorder).</li>
+<li><strong>Population demographics:</strong> Reported across multiple ethnicities (European, Chinese, Filipino, etc.); no strong ethnic predilection. Sex ratio not clearly skewed. Age distribution spans childhood to adulthood.</li>
+</ul>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Genetic testing (definitive).</strong> Diagnosis is confirmed by identifying a heterozygous pathogenic <em>PIK3R1</em> variant. Recommended approaches:
+- <strong>Single-gene testing / targeted variant analysis</strong> for <em>PIK3R1</em> (especially the c.1945C&gt;T hotspot) when the phenotype is classic.
+- <strong>Whole-exome sequencing (WES)</strong> is the most common route to diagnosis in the reported literature and is high-yield when the phenotype is atypical or overlaps with Silver–Russell syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/32546215/">PMID: 32546215</a>).
+- <strong>Gene panels</strong> for lipodystrophy/insulin-resistance/growth-failure that include <em>PIK3R1</em>.
+- <strong>Whole-genome sequencing (WGS)</strong> is useful for splice/structural variants (relevant given the allelic APDS2 splice variants). Chromosomal microarray/karyotype are typically normal and not diagnostic.</p>
+<p><strong>Clinical/laboratory tests.</strong>
+- <strong>Metabolic:</strong> fasting glucose, HbA1c, fasting insulin/C-peptide, OGTT with insulin — reveal severe insulin resistance and hyperinsulinemia; adiponectin is characteristically <strong>preserved/high</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27766312/">PMID: 27766312</a>). Lipid panel and liver imaging are characteristically <strong>normal</strong> (no dyslipidemia/steatosis), a distinguishing feature.
+- <strong>Ophthalmologic:</strong> slit-lamp/gonioscopy and OCT identify Rieger anomaly, iris thinning, goniosynechiae, prominent ring of Schwalbe, cataract, and glaucoma (<a href="https://pubmed.ncbi.nlm.nih.gov/28632845/">PMID: 28632845</a>).
+- <strong>Auxological/imaging:</strong> growth charts documenting IUGR/short stature; dental radiographs for eruption delay.</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> No formal consensus criteria; diagnosis is based on the recognizable gestalt plus molecular confirmation. Key differentials:
+- <strong>Silver–Russell syndrome</strong> (shared IUGR, triangular face, growth failure) — distinguished by 11p15 LOM/upd(7)mat and by SHORT’s lipodystrophy/insulin resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/32546215/">PMID: 32546215</a>).
+- <strong>Other congenital/partial lipodystrophies</strong> (e.g., FPLD) — distinguished by the SHORT gestalt, Rieger anomaly, and the dyslipidemia-uncoupled insulin resistance.
+- <strong>APDS2</strong> (allelic; immunodeficiency phenotype) — distinguished by recurrent sinopulmonary infection and hypogammaglobulinemia and by the splice-site GOF variant (<a href="https://pubmed.ncbi.nlm.nih.gov/32778990/">PMID: 32778990</a>).</p>
+<p><strong>Screening.</strong> Cascade genetic testing of at-risk relatives once a familial variant is known. No population newborn screening.</p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival / life expectancy:</strong> No evidence of substantially reduced lifespan; the disorder is compatible with adult life. There is no reported disease-specific mortality figure.</li>
+<li><strong>Morbidity:</strong> Driven by (i) chronic insulin-resistant diabetes and its long-term complications, (ii) ophthalmologic morbidity (glaucoma → potential vision loss), and (iii) growth/dysmorphism-related psychosocial impact. Notably, two patients with &gt;30 years of diabetes had <strong>no diabetic retinopathy</strong>, suggesting the ocular phenotype is developmental rather than microvascular (<a href="https://pubmed.ncbi.nlm.nih.gov/28632845/">PMID: 28632845</a>).</li>
+<li><strong>Disease course:</strong> Chronic, lifelong, non-remitting at the genetic level; metabolic control is achievable pharmacologically.</li>
+<li><strong>Prognostic factors:</strong> Age/puberty (diabetes onset), adequacy of glycemic management, and intraocular pressure control (vision). Preserved adiponectin and absent dyslipidemia may confer relative protection from atherogenic complications compared with obesity-related insulin resistance.</li>
+<li><strong>Data gaps:</strong> Long-term natural-history and outcome data are sparse (<a href="https://pubmed.ncbi.nlm.nih.gov/36401775/">PMID: 36401775</a>).</li>
+</ul>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>No formal treatment guidelines exist</strong>; management is supportive and organ-directed, drawn from case reports.</p>
+<p><strong>Pharmacotherapy for insulin resistance / diabetes (NCIT: metformin C61793; SGLT2 inhibitors; thiazolidinediones):</strong>
+- <strong>Metformin</strong> (± <strong>pioglitazone</strong>) improved insulin resistance and hyperinsulinemia (<a href="https://pubmed.ncbi.nlm.nih.gov/33742773/">PMID: 33742773</a>); metformin effective in early treatment of two Chinese girls (<a href="https://pubmed.ncbi.nlm.nih.gov/32602265/">PMID: 32602265</a>).
+- <strong>SGLT2 inhibitor (canagliflozin)</strong> ameliorated overt diurnal hyperglycemia and mild nocturnal hypoglycemia (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>).
+- <strong>Multi-agent oral therapy</strong> (metformin + voglibose/DPP-4/SGLT2 combinations) improved glucose and insulin resistance over months (<a href="https://pubmed.ncbi.nlm.nih.gov/39735640/">PMID: 39735640</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41459015/">PMID: 41459015</a>).
+- <strong>Lifestyle intervention</strong> (diet, exercise) is a consistent adjunct.</p>
+<p><strong>Growth hormone — relatively contraindicated.</strong> GH gives a poor statural response and, being diabetogenic, can worsen glucose metabolism; it has been regarded as contraindicated. However, Masunaga et al. concluded that pubertal development/age—not GH per se—drives diabetes onset, nuancing this caution (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>).</p>
+<p><strong>Ophthalmologic / surgical:</strong> glaucoma management (IOP-lowering therapy, surgery as needed), cataract surgery, and anterior-segment care. Dental management for eruption delay/anomalies.</p>
+<p><strong>Advanced/experimental therapeutics:</strong> No approved gene, cell, RNA-based, or targeted molecular therapy exists for SHORT syndrome. Because the defect is loss-of-PI3K-signaling, PI3K/AKT-pathway inhibitors (used in the opposite, gain-of-function conditions) are inappropriate; conceptually, pathway-restorative strategies would be required. No registered SHORT-syndrome-specific interventional trials identified.</p>
+<p><strong>Pharmacogenomics / personalized approach:</strong> Genotype-guided care is essentially "diagnosis-guided"—confirming <em>PIK3R1</em> etiology reframes the insulin resistance as a proximal signaling defect, supporting insulin-sensitizer-based strategies and cautious GH use.</p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<p>SHORT syndrome cannot be prevented (congenital monogenic disorder). Preventive strategy focuses on <strong>secondary and tertiary prevention</strong>:
+- <strong>Genetic counseling:</strong> autosomal dominant 50% transmission risk; discussion of <em>de novo</em> occurrence and variable expressivity. <strong>Prenatal / preimplantation genetic testing</strong> is feasible when the familial variant is known.
+- <strong>Cascade genetic screening</strong> of at-risk relatives.
+- <strong>Secondary prevention (early detection):</strong> peripubertal metabolic surveillance (glucose/insulin/HbA1c) to detect and treat diabetes early; regular ophthalmologic monitoring (IOP, gonioscopy) to detect glaucoma before vision loss.
+- <strong>Tertiary prevention:</strong> optimize glycemic control to limit diabetic complications; manage IOP to preserve vision; dental follow-up. <strong>Avoid/limit diabetogenic exposures</strong> (e.g., cautious GH use).
+- No immunization or public-health/environmental interventions are applicable.</p>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> No naturally occurring SHORT syndrome is described in companion animals or wildlife; OMIA has no established entry. SHORT syndrome is essentially a human-defined disorder studied via engineered animal models.</li>
+<li><strong>Orthologous gene:</strong> <em>Pik3r1</em> is highly conserved (mouse <em>Pik3r1</em>, NCBI Gene ID 18708; human <em>PIK3R1</em>, NCBI Gene ID 5295). The Arg649 residue and the C-terminal SH2/iSH2 region are conserved between human and mouse, enabling faithful knock-in modeling.</li>
+<li><strong>Comparative biology:</strong> The conserved PI3K–AKT insulin-signaling axis means the mouse model reproduces core human features, supporting strong evolutionary conservation of the disease mechanism.</li>
+<li><strong>Zoonotic potential:</strong> Not applicable (non-infectious genetic disorder).</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<p><strong>Mouse models (mammalian) are the principal system.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Genotype</th>
+<th>Key phenotype</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Pik3r1</em> Arg649Trp knock-in</td>
+<td>Heterozygous KI (homolog of human hotspot)</td>
+<td>Reduced body weight/length, partial lipodystrophy, systemic insulin resistance; reduced PI3K activation in liver/muscle/fat; defective insulin secretion; impaired GLP-1 action on islets</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26974159/">PMID: 26974159</a></td>
+</tr>
+<tr>
+<td>Dominant-negative human PI3K (R649W) mouse</td>
+<td>Knock-in</td>
+<td>Protected from obesity and hepatic steatosis but not diabetes</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29724723/">PMID: 29724723</a></td>
+</tr>
+<tr>
+<td>R649W knock-in (ocular)</td>
+<td>Knock-in</td>
+<td>Decreased iris thickness/width, increased pupil area/irregularity; cornea/lens/retina normal — recapitulates Rieger anomaly</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28632845/">PMID: 28632845</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype recapitulation.</strong> The knock-in mice reproduce the core human phenotype—growth restriction, partial lipodystrophy, insulin resistance, and (independently) the iris/anterior-segment defect—and provide direct mechanistic proof that <strong>reduced PI3K activation</strong> underlies the disease.</p>
+<p><strong>Model limitations.</strong> Some human features (full craniofacial gestalt, dental eruption delay, joint hyperextensibility) are not comprehensively modeled; the obesity-protection phenotype reflects species/dietary context. No invertebrate, zebrafish, or organoid/iPSC SHORT-syndrome models are prominent in the reviewed literature.</p>
+<p><strong>Resources:</strong> MGI (<em>Pik3r1</em>), IMPC/KOMP for engineered alleles.</p>
+<hr />
+<h2>Key Findings (with statistical evidence)</h2>
+<h3>F1. <em>PIK3R1</em> loss-of-function/dominant-negative mutations cause SHORT syndrome</h3>
+<p>Three concurrent 2013 exome studies (Thauvin-Robinet, Chudasama, Dyment; AJHG 93:141–166) established heterozygous <em>PIK3R1</em> mutations as causal, with the recurrent hotspot <strong>c.1945C&gt;T (p.Arg649Trp)</strong> in 8 of 14 families and additional frameshift/nonsense variants clustering in the C-terminal cSH2/iSH2 domain. <em>"We report the finding of a novel mutation in PIK3R1 (c.1929_1933delTGGCA; p.Asp643Aspfs*8), as well as a recurrent mutation c.1945C &gt; T (p.Arg649Trp) in this gene"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24886349/">PMID: 24886349</a>); <em>"Eight of these families had a recurrent missense mutation (c.1945C&gt;T; p.Arg649Trp)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23980586/">PMID: 23980586</a>); <a href="https://pubmed.ncbi.nlm.nih.gov/24033310/">PMID: 24033310</a>.</p>
+<h3>F2. A knock-in mouse confirms reduced PI3K activation as the mechanism</h3>
+<p><em>"mutant mice exhibited a reduction in body weight and length, partial lipodystrophy, and systemic insulin resistance... associated with a reduced capacity of insulin and other growth factors to activate PI3K in liver, muscle, and fat"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26974159/">PMID: 26974159</a>). A second model was <em>"Protected From Obesity and Hepatic Steatosis but Not Diabetes"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29724723/">PMID: 29724723</a>).</p>
+<h3>F3. Craniofacial dysmorphism is the most consistent feature; diabetes is puberty-onset</h3>
+<p>Systematic review of 19 individuals: <em>"Facial dysmorphism including ocular depression, triangular shaped face, frontal bossing, large low-set ears, and micrognathia were the most consistent features followed by lipodystrophy, insulin resistance, and intrauterine growth restriction"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34212753/">PMID: 34212753</a>). Diabetes is age-dependent: <em>"IRDM in 10 of 15 GH-untreated patients aged ≥12 years but in none of three GH-treated and six GH-untreated patients aged ≤10 years"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>).</p>
+<h3>F4. Management: insulin sensitizers/SGLT2 inhibitors; GH relatively contraindicated</h3>
+<p>Metformin ± pioglitazone reduced insulin resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/33742773/">PMID: 33742773</a>); canagliflozin <em>"ameliorated overt diurnal hyperglycemia and mild nocturnal hypoglycemia"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">PMID: 32879144</a>).</p>
+<h3>F5. Rieger anomaly is a PI3K-dependent developmental iris defect</h3>
+<p><em>"OCT images of the knock-in mouse eyes revealed a significant decrease in thickness and width of the iris... Both human subjects had Rieger anomaly with similar defects including thin irides and irregular pupils, as well as a prominent ring of Schwalbe, goniosynechiae, early cataract formation, and glaucoma"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28632845/">PMID: 28632845</a>).</p>
+<h3>F6. <em>PIK3R1</em> is a dual-disorder gene (SHORT LOF vs APDS2 GOF)</h3>
+<p><em>"APDS type 2 is caused by mutations in the PIK3R1 gene affecting the p85α regulatory subunit... The primary causes of SHORT syndrome are heterozygous loss-of-function mutations in the PIK3R1 gene."</em> A splice variant <em>"c.1425 + 1G &gt; C... previously associated with APDS2"</em> was found in a patient with SHORT features (<a href="https://pubmed.ncbi.nlm.nih.gov/32778990/">PMID: 32778990</a>); overlap also reported by <a href="https://pubmed.ncbi.nlm.nih.gov/35789397/">PMID: 35789397</a>.</p>
+<h3>F7. Insulin resistance uncoupled from dyslipidemia (distinctive signature)</h3>
+<p><em>"Insulin resistance due to insulin receptor (INSR) dysfunction is associated with none of these, but when due to dysfunction of the downstream kinase AKT2 phenocopies obesity-related insulin resistance. We report 5 patients with SHORT syndrome and C-terminal mutations"</em> — placing the p85α defect at a proximal receptor→PI3K node, resembling INSR dysfunction (no fatty liver, no dyslipidemia, high adiponectin) (<a href="https://pubmed.ncbi.nlm.nih.gov/27766312/">PMID: 27766312</a>).</p>
+<h3>F8. Formally classified as a genetic insulin resistance syndrome</h3>
+<p>The Japan Diabetes Society working group classifies <em>"SHORT syndrome caused by abnormalities of PIK3R1... conditions caused by abnormalities of AKT2, TBC1D4, or PRKCE"</em> within genetic insulin resistance syndromes (<a href="https://pubmed.ncbi.nlm.nih.gov/35110500/">PMID: 35110500</a>).</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   PIK3R1 mutation (C-terminal cSH2/iSH2; e.g. p.Arg649Trp)
+    │
+defective p85α regulatory subunit
+    │  (fails to relieve p110 inhibition;
+    │   fails to engage receptor phosphotyrosines)
+    ▼
+↓ class IA PI3K activation  →  ↓ PIP3  →  ↓ AKT signaling
+    │
+   ┌────────────┬───┴─────────┬──────────────┬───────────────┐
+   ▼            ▼             ▼              ▼               ▼
+ Metabolic    Adipose      Growth        Ocular          Craniofacial/
+ branch       branch       branch        (development)   dental branch
+   │            │             │              │               │
+ insulin      partial      IUGR /         iris          progeroid
+ resistance   lipodys-     short          hypoplasia →  dysmorphism;
+   │          trophy       stature        Rieger        delayed
+ (proximal →                (± IGF-1      anomaly       tooth eruption
+ no dyslipid-  ─────────►   resistance)   (NOT diabetic
+ emia/NAFLD;               ◄──────────    retinopathy)
+ high adipo-   aggravates IR
+ nectin)
+   │
+ peri-pubertal → insulin-resistant diabetes mellitus
+</code></pre>
+<p>The model’s central insight is that a <strong>single proximal signaling lesion</strong> (attenuated PI3K activation) produces a pleiotropic phenotype by acting in multiple PI3K-dependent developmental and metabolic programs. The <strong>proximal location</strong> of the defect (receptor→PI3K, upstream of the branch controlling hepatic lipogenesis) explains the syndrome’s most discriminating laboratory signature—<strong>severe insulin resistance without dyslipidemia or fatty liver</strong>—which mirrors INSR dysfunction rather than downstream AKT2 dysfunction. This positions SHORT syndrome as a "clean" human experiment of nature isolating proximal PI3K signaling, and it is the <strong>loss-of-function mirror image</strong> of APDS2/gain-of-function PI3K disease at the same gene.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24886349/">24886349</a></td>
+<td>Exome identifies novel <em>PIK3R1</em> mutation</td>
+<td>Hotspot + frameshift variants; causality</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23980586/">23980586</a></td>
+<td><em>PIK3R1</em> mutations in SHORT</td>
+<td>AD inheritance; Arg649Trp in 8/14 families</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24033310/">24033310</a></td>
+<td>Autosomal dominant <em>PIK3R1</em> cause</td>
+<td>Landmark 2013 discovery</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26974159/">26974159</a></td>
+<td>PI3K mutation → insulin/GF resistance in vivo</td>
+<td>Knock-in mouse; mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29724723/">29724723</a></td>
+<td>Dominant-negative PI3K mouse</td>
+<td>Protected from obesity/steatosis, not diabetes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34212753/">34212753</a></td>
+<td>Systematic medical/dental phenotype</td>
+<td>Frequency ranking; facial dysmorphism most consistent</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32879144/">32879144</a></td>
+<td>IRDM in SHORT syndrome</td>
+<td>Pubertal onset of diabetes; SGLT2i; GH caution</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28632845/">28632845</a></td>
+<td>Iris malformation/anterior-segment dysgenesis</td>
+<td>Rieger anomaly as developmental iris defect</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32778990/">32778990</a></td>
+<td>APDS2 + SHORT in a teenager</td>
+<td>Dual-disorder gene; phenotypic overlap</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27766312/">27766312</a></td>
+<td>IR uncoupled from dyslipidemia</td>
+<td>Distinctive proximal metabolic signature</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35110500/">35110500</a></td>
+<td>New IR-syndrome classification</td>
+<td>Formal classification of SHORT syndrome</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33742773/">33742773</a></td>
+<td>Novel variant, 6-mo follow-up</td>
+<td>Metformin/pioglitazone efficacy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32602265/">32602265</a></td>
+<td>Two Chinese girls</td>
+<td>Metformin early efficacy; de novo variants</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33129256/">33129256</a></td>
+<td>Chinese female + thyroid disease</td>
+<td>Novel p.Gln654* nonsense; expanding spectrum</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36401775/">36401775</a></td>
+<td>Pathogenesis/clinical-spectrum update</td>
+<td>Decreased lipogenesis, energy expenditure, IGF1 resistance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32546215/">32546215</a></td>
+<td>SRS multigene analysis</td>
+<td>SHORT syndrome as SRS differential</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39735640/">39735640</a></td>
+<td>Atypical diabetes in SHORT</td>
+<td>Multi-agent oral therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35789397/">35789397</a></td>
+<td>APDS2 with SHORT features</td>
+<td>Overlap; novel mutation</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Evidence-type mix: <strong>human clinical</strong> (case reports, series, systematic review), <strong>model organism</strong> (knock-in mice), and <strong>in vitro/mechanistic</strong> (PI3K activation assays). Most clinical evidence is Level IV (case reports/series); the mechanistic conclusions are strengthened by convergent mouse-model data.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Small evidence base:</strong> Only tens of families reported; no large cohorts, no natural-history registry, and no formal QoL (EQ-5D/SF-36) or long-term outcome/mortality data.</li>
+<li><strong>No treatment guidelines:</strong> Therapy is extrapolated from individual case reports; comparative efficacy of metformin vs SGLT2 inhibitors vs thiazolidinediones is untested in trials.</li>
+<li><strong>Genotype–phenotype correlation incomplete:</strong> Variable expressivity even within the p.Arg649Trp genotype is unexplained; modifier genes are unidentified.</li>
+<li><strong>Mechanistic gaps:</strong> Precise contributions of PI3K attenuation to craniofacial and dental phenotypes are inferred, not experimentally demonstrated; the degree of IGF-1 resistance is not fully quantified.</li>
+<li><strong>Model gaps:</strong> No non-mammalian, organoid, or iPSC models; some human features not recapitulated in mice.</li>
+<li><strong>APDS2 overlap:</strong> The mechanistic basis by which certain <em>PIK3R1</em> variants produce both loss- and gain-of-function features requires further study.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Establish an international patient registry</strong> for SHORT syndrome to define prevalence, natural history, long-term outcomes, and standardized QoL measures.</li>
+<li><strong>Prospective metabolic trial</strong> comparing insulin-sensitizing regimens (metformin, SGLT2 inhibitors, TZDs) with peripubertal surveillance protocols to build an evidence-based treatment algorithm.</li>
+<li><strong>Deep phenotype–genotype study</strong> across all reported <em>PIK3R1</em> variants (missense vs truncating vs splice) to map variant class to LOF/GOF behavior and clinical severity, and to search for modifier loci.</li>
+<li><strong>Mechanistic dissection</strong> of craniofacial/dental and IGF-1-resistance branches using conditional/tissue-specific <em>Pik3r1</em> knock-in mice and patient iPSC-derived tissues (adipocytes, β-cells, anterior-segment/neural-crest models).</li>
+<li><strong>Pathway-restorative therapeutic exploration:</strong> evaluate whether partial, tissue-selective potentiation of PI3K/AKT signaling can safely correct the metabolic phenotype without recapitulating APDS2-like overactivation.</li>
+<li><strong>Cross-screening protocol:</strong> systematically test SHORT-syndrome patients for immunologic features (and vice-versa for APDS2) given the shared gene, to detect overlap cases early.</li>
+</ol>
+<hr />
+<p><em>Report compiled from an autonomous, literature-grounded investigation (5 iterations, 8 confirmed findings, 22 papers reviewed). All mechanistic and clinical claims are cited to primary literature by PMID.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/SHORT_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/SHORT_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>19</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0009159</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>Ehlers-Danlos syndrome, cardiac valvular type</strong></li>
+<li><code>HP:0001511</code> (1 mention) - the report calls it "Very common"; HP calls it <strong>Intrauterine growth retardation</strong></li>
+<li><code>HP:0004322</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Short stature</strong></li>
+<li><code>HP:0000490</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Deeply set eye</strong></li>
+<li><code>HP:0000347</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Micrognathia</strong></li>
+<li><code>HP:0000430</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Underdeveloped nasal alae</strong></li>
+<li><code>HP:0005104</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Hypoplastic nasal septum</strong></li>
+<li><code>HP:0009125</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Lipodystrophy</strong></li>
+<li><code>HP:0000855</code> (1 mention) - the report calls it "Common (metabolic hallmark)"; HP calls it <strong>Insulin resistance</strong></li>
+<li><code>HP:0000684</code> (1 mention) - the report calls it "Common (eponymous)"; HP calls it <strong>Delayed eruption of teeth</strong></li>
+<li><code>HP:0001382</code> (1 mention) - the report calls it "Common (eponymous)"; HP calls it <strong>Joint hypermobility</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0000368</code> (obsolete Low-set, posteriorly rotated ears) (1 mention) - replaced by <code>HP:0000358</code></li>
+<li><code>GO:0014065</code> (obsolete phosphatidylinositol 3-kinase signaling) (1 mention) - replaced by <code>GO:0043491</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0014065</code> (1 mention) - the report calls it "GO biological process:<strong> phosphatidylinositol 3-kinase signaling"; GO calls it </strong>obsolete phosphatidylinositol 3-kinase signaling**</li>
+<li><code>UBERON:0001769</code> (1 mention) - the report calls it "Eye:<strong> anterior segment — iris"; UBERON calls it </strong>iris**, and lists "anterior uvea" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Short_Stature_Microcephaly_and_Endocrine_Dysfunction-falcon.html">← Short Stature, Microcephaly, and Endocrine Dysfunction (Falcon)</a>
+                
+                
+                <a href="Short-Rib_Polydactyly_Syndrome-cyberian-codex.html">Short-Rib Polydactyly Syndrome (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/SHORT_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/SHORT_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
