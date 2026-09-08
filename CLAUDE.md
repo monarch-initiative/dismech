@@ -2833,7 +2833,7 @@ Two things worth knowing before you touch it:
   running `pytest -m oak_db`, and do not put it in a loop.
 
 **The same rule governs the MONDO and HP lookups, which are not hierarchy
-lookups at all.** Two call sites hardcode a `sqlite:obo:` adapter and so bypass
+lookups at all.** Three call sites hardcode a `sqlite:obo:` adapter and so bypass
 `conf/oak_config.yaml`, which routes both prefixes to `ols:` precisely to keep
 the builds off the machine. Each therefore used to fetch its build silently — no
 error, no log line, just a slow run (#11299):
@@ -2842,10 +2842,20 @@ error, no log line, just a slow run (#11299):
 |---|---|---|---|
 | `render._mondo_adapter` (grouping coverage descendants + labels) | `sqlite:obo:mondo` | 588 MB | returns `None`, so the coverage table degrades to "MONDO descendant lookup unavailable" |
 | `export/browser_export.HPOCategoryResolver` (HP term → broad phenotype category) | `sqlite:obo:hp` | 440 MB | answers from the committed `app/hpo_category_cache.json`, then resolves to no categories |
+| `phenoagent.matching._HPOIsARelationshipResolver` (is-a ancestry for broader/narrower phenotype matches) | `sqlite:obo:hp` | 440 MB | reports no ancestry, so a match is exact or nothing |
 
-Both ask `dismech.oak_db.local_build_present` before opening the adapter, so
-neither degradation is a decision about whether MONDO or HP *matters* — it is the
-answer to "can this be served without a download". **Page generation needs the
+All three ask `dismech.oak_db.local_build_present` before opening the adapter, so
+none of these degradations is a decision about whether MONDO or HP *matters* — it
+is the answer to "can this be served without a download".
+
+**The `phenoagent` one is the case that shows why the two-guard rule exists.**
+Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
+genuinely need real HPO ancestry — `HP:0002123` is-a `HP:0001250` is not
+something a stub can answer. Those carry `@pytest.mark.oak_db` *and* their own
+`local_build_present` check, exactly as the marker's own description requires:
+the marker keeps them out of `just test-code`, and the file check makes a bare
+`pytest` skip them rather than download 440 MB to run them. Either guard alone
+leaves a lane that downloads. **Page generation needs the
 real thing and fetches it deliberately**: `generate-grouping-pages.yaml` runs
 `just fetch-ontology-dbs mondo` and `generate-pages.yaml` runs
 `just fetch-ontology-dbs hp` before the step that needs it — the same bytes
