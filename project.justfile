@@ -655,6 +655,14 @@ validate-groupings:
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}
 
+# Measure the CONFORMS_TO_MODULE `#Node` anchor gap (dismech#9403): how many
+# (member, criterion) pairs are satisfied on the module stem but not at the
+# node the criterion names, and how many of those would change a block verdict.
+# Report-only; `--format tsv` for machine-readable output.
+[group('QC')]
+grouping-anchor-audit *args="":
+    uv run python scripts/grouping_module_anchor_audit.py {{args}}
+
 # Report the declared grouping-of-grouping tree plus undeclared member-set
 # containments between groupings (advisory; a containment is a lead, not a ruling)
 [group('QC')]
@@ -743,6 +751,27 @@ check-cache-order:
 [group('QC')]
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
+
+# Rebuild the committed ICD10CM/NCIT ancestor-path cache the renderer reads for
+# mapping breadcrumbs (cache/<prefix>/hierarchy.csv). Walking these live costs
+# ~75 s per rendered page against the local OAK SQLite builds (#11186); the
+# cache turns that into a dict lookup. Needs the local sqlite:obo:* DB for each
+# prefix, so run `just fetch-ontology-dbs icd10cm ncit` first if they are absent.
+# Rebuild all, or only the named prefixes:
+#   just build-hierarchy-cache
+#   just build-hierarchy-cache NCIT
+[group('QC')]
+build-hierarchy-cache *prefixes="":
+    uv run python scripts/build_hierarchy_cache.py {{prefixes}}
+
+# Report mapped ICD10CM/NCIT CURIEs that are missing from the hierarchy cache.
+# Advisory: a miss costs render time, never a wrong page, so this is not in `qc`
+# and does not gate a curation PR. It exits 1 when anything is missing, and runs
+# as a non-blocking step in the nightly sweep, which is where the drift that
+# actually happens shows up -- a curator adds a mapping and nobody rebuilds.
+[group('QC')]
+check-hierarchy-cache:
+    uv run python scripts/build_hierarchy_cache.py --check
 
 # --- Curation stub queue (stubs/) ------------------------------------------
 # The outstanding curation queue: one YAML per disease we intend to curate but
@@ -847,7 +876,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -894,6 +923,14 @@ model-scale-audit *args="":
 [group('QC')]
 diet-audit *args="":
     uv run python scripts/diet_audit.py {{args}}
+
+# Census of how antigens on B and T cells are represented across immune entries.
+# Report-only, offline, never a gate. --format tsv gives a per-entry table;
+# --entry <stem> audits one file. See
+# docs/reports/immune-antigen-representation-gap-analysis-2026-09-03.md
+[group('QC')]
+immune-antigen-audit *args="":
+    uv run python scripts/immune_antigen_audit.py {{args}}
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -1167,6 +1204,34 @@ list-causal-targets *files:
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
 
+# Derive each neoplasm entry's cell of origin from its own pathograph, and
+# report where the derivation fails. There is no `cell_of_origin:` slot: a node
+# carrying `genetic_context.variant_origin: SOMATIC` is where the transforming
+# lesion happened, and that node's `cell_types` are the cell it happened in.
+# Advisory -- most of the corpus is unmarked, so this reports rather than gates.
+# The finding worth reading is MULTI_ORIGIN_CELL: more than one derived cell of
+# origin is the lump/split signal (grouping vs. cell-of-origin subtypes vs. an
+# unsettled origin). See docs/cancer-cell-of-origin.md.
+[group('QC')]
+check-cancer-origin *args="":
+    uv run python scripts/check_cancer_origin.py {{args}}
+
+# Full census: every neoplasm entry, the rule that identified its origin node,
+# and the cell of origin derived from it. --format tsv/json for machine use.
+[group('QC')]
+list-cancer-origin *args="":
+    uv run python scripts/check_cancer_origin.py --format list {{args}}
+
+# Propose (and with --apply, write) the somatic-origin marking on neoplasm
+# entries whose prose already states the lesion. Marks only nodes whose NAME
+# says mutation/fusion/translocation/amplification/inactivation, never a pathway
+# state, a germline variant, a microenvironment node, or an acquired-resistance
+# node. --bind-single-cell also copies the entry's cell type onto the lesion node
+# when the entry names exactly one. Re-validate the changed files afterwards.
+[group('QC')]
+backfill-cancer-origin *args="":
+    uv run python scripts/backfill_cancer_origin.py {{args}}
+
 # Check ontology labels on terms nested inside `qualifiers` (#10197).
 # `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;
 # `Qualifier.predicate`/`value` are plain Descriptors with no such binding, so
@@ -1186,6 +1251,28 @@ list-qualifier-terms *files:
 [group('QC')]
 check-qualifier-terms-online *files:
     uv run python scripts/check_qualifier_terms.py --resolve "$@"
+
+# Report gene bindings whose HGNC label is not the gene the entry names (#10948).
+# `validate-terms` checks a `term.id`/`term.label` pair against the ontology and
+# against nothing else, so a self-consistent binding to the WRONG gene passes --
+# `hgnc:20856` labelled `THAP1` under an entry whose `name` and `preferred_term`
+# both say `THAP11` validates clean. This compares the resolved label with that
+# free text. Offline, cache-first, and REPORT-ONLY: it exits 0 even with findings
+# and is deliberately not in `just qc` while its real rate is being established.
+# Pass `--strict` to exit 1 on the confident class only.
+[group('QC')]
+list-gene-term-mismatches *files:
+    uv run python scripts/check_gene_term_identity.py "$@"
+
+# Also ask HGNC about the rows the cache cannot settle. Note this covers MORE
+# than `check-qualifier-terms --resolve`, whose `--resolve` means the uncached
+# CURIEs only: here it does those AND the advisory rows, which offline cannot be
+# told apart -- a previous/alias symbol the OBO build lags on (#10102) is benign
+# and is reclassified, while a symbol resolving to a DIFFERENT gene is promoted
+# to the confident class. Needs network; run when auditing, not in CI.
+[group('QC')]
+list-gene-term-mismatches-online *files:
+    uv run python scripts/check_gene_term_identity.py --resolve "$@"
 
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the
@@ -3341,6 +3428,12 @@ auto-merge-preview days='3':
     uv run --no-project python scripts/auto_merge_ready_prs.py \
         --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
         --min-age-days {{days}} --dry-run
+
+# Preview failed review Action retries without changing any workflow runs.
+[group('Auto-merge')]
+review-retry-preview:
+    uv run --no-project python scripts/retry_failed_reviews.py \
+        --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" --dry-run
 
 # ============== Phenoagent: case-to-disease matching ==============
 

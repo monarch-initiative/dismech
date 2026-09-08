@@ -102,7 +102,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.yaml_io import safe_load
+from dismech.kb_cache import load_document
 
 # Scan all of kb/, not just kb/disorders/. `environmental:` only appears under
 # kb/disorders/ today, so this is a no-op on current content (verified: 0
@@ -258,8 +258,7 @@ def scan_thin_waivers(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
     findings = []
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
-            with path.open(encoding="utf-8") as handle:
-                data = safe_load(handle)
+            data = load_document(path)
         except Exception:
             continue
         if not isinstance(data, dict):
@@ -291,8 +290,7 @@ def _scan(finders, scan_dir: Path, rel_to: Path):
     buckets = [[] for _ in finders]
     for path in sorted(scan_dir.rglob("*.yaml")):
         try:
-            with path.open(encoding="utf-8") as handle:
-                data = safe_load(handle)
+            data = load_document(path)
         except Exception as exc:
             # Not this check's job to gate on malformed YAML (`validate-all`
             # does that), but skipping silently would make the file invisible
