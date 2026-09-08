@@ -119,8 +119,20 @@ class HPOCategoryResolver:
     def __init__(self):
         self._adapter = None
         self._cache: dict[str, list[str]] = {}
-        self._seed = _load_seed_categories()
+        self._seed: dict[str, list[str]] | None = None
         self._unresolved: set[str] = set()
+
+    @property
+    def seed(self) -> dict[str, list[str]]:
+        """The committed cache, parsed on first use.
+
+        Lazy because the fallback ordering made it dead weight on the fast path:
+        a page build has the ontology, so it never reads this, and parsing ~1,400
+        entries in every constructor bought nothing. Read once, then memoised.
+        """
+        if self._seed is None:
+            self._seed = _load_seed_categories()
+        return self._seed
 
     @property
     def unresolved_count(self) -> int:
@@ -148,7 +160,7 @@ class HPOCategoryResolver:
 
         adapter = self._get_adapter()
         if adapter is None:
-            seeded = self._seed.get(hp_id)
+            seeded = self.seed.get(hp_id)
             if seeded is not None:
                 self._cache[hp_id] = seeded
                 return seeded

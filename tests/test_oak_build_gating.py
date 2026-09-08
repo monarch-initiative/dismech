@@ -185,6 +185,28 @@ def test_an_unreadable_cache_says_so(monkeypatch, tmp_path, capsys) -> None:
     assert "could not read" in capsys.readouterr().out
 
 
+def test_the_cache_is_not_parsed_when_the_ontology_is_available(monkeypatch) -> None:
+    """With the build present the seed is never read, so it must not be loaded.
+
+    The fallback ordering made the eager parse dead weight: a page build always
+    has the ontology and never consults the cache.
+    """
+    monkeypatch.setattr(oak_db, "local_build_present", lambda spec: True)
+
+    def _explode() -> dict:  # pragma: no cover - only runs on regression
+        raise AssertionError("parsed the committed cache on the fast path")
+
+    monkeypatch.setattr(browser_export, "_load_seed_categories", _explode)
+
+    class _Adapter:
+        def ancestors(self, hp_id, predicates=None):
+            return ["HP:0025031"]
+
+    monkeypatch.setattr(browser_export, "get_adapter", lambda spec: _Adapter())
+    resolver = HPOCategoryResolver()
+    assert resolver.resolve("HP:0002014") == ["Digestive"]
+
+
 def test_a_missing_cache_is_silent(monkeypatch, tmp_path, capsys) -> None:
     """A checkout with no `app/`, or a test in a temp dir, is not a problem."""
     monkeypatch.setattr(

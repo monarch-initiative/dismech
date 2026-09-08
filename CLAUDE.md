@@ -2924,13 +2924,21 @@ Two consequences worth keeping straight:
 - **`app/hpo_category_cache.json` is now committed on every page build, and
   read back as a fallback.** It was not: the path was missing from
   `generate-pages.yaml`'s `BUILT_PATHS`, so the workflow regenerated and then
-  discarded it on every run, and the only copy in git was the one that arrived
-  with `app/` itself (#11405). That copy held 1,415 HP terms against 4,526 in
-  the `app/data.js` written by the same step — which is why `render` was
+  discarded it on every run. It was added by hand in `1805aa943` (2026-02-09),
+  last touched in `85e61f51e` (2026-04-09), and sat frozen for the five months
+  after that while the KB grew around it — 1,415 HP terms in the cache against
+  4,526 in the `app/data.js` written by the same step, which is why `render` was
   dropping most phenotypes into the "Other" group. Adding the path fixes it; the
   first page build after it carries the catch-up diff, and the two counts should
-  track each other from then on. Read the counts from the files rather than from
-  this sentence. A term the exporter could not
+  track each other from then on.
+
+  **Do not date this file from `git log` in a CI checkout.** Both the review of
+  #11462 and the reply correcting it named the wrong commit, independently and
+  for the same reason: these runners use a shallow clone, so
+  `git log --diff-filter=A` reports the *shallow boundary* commit as the one
+  that added a file. Two different truncation depths, two different wrong
+  answers, both confident. Ask the API (`list_commits` with a `path`), or
+  `git fetch --unshallow` first. A term the exporter could not
   resolve is **never** written back as an empty category list — that would bake
   the gap in permanently — it is left out and counted, and the exporter says so.
 - **A grouping's exact-match roots survive the outage.** They come from the
