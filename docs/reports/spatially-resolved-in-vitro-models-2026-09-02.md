@@ -118,7 +118,13 @@ Three of the four problems the first draft listed are answered by `divergences`:
 That last one is worth flagging: every model in this entry is
 `CAUSE_UNREPRESENTED` against a disease whose defining lesion is atherothrombotic,
 and the taxonomy makes that queryable across the KB rather than leaving it as a
-sentence eight times over.
+sentence eight times over. All eight links now carry the tag, each with its own
+description of how the ischemia is imposed in that model — a diffusion limit in
+the organoid, device gas control on the two gradient chips, a medium-switch
+protocol on the two ischemia-reperfusion constructs. An earlier revision made
+this claim in prose while tagging only two links, so querying the entry returned
+two. That is the same defect as a stale `notes:` sentence: prose asserting a
+queryability the data did not provide.
 
 ### What still has nowhere to go
 
@@ -147,18 +153,25 @@ The fourth item in the first draft — a non-monotonic beat-rate time course
 recorded as `ALTERED` — is a real loss of information but is adequately handled by
 `ALTERED` plus `interpretation`, and is withdrawn as a schema concern.
 
-### Two observations that still hold
+### Two observations, one of them corrected
 
-- **`assays` is defined, OBI-bound, and populated on 0 of 289 readouts.** The slot
-  for naming the measurement technique exists and is universally unused. `OBI` is
-  absent from `conf/oak_config.yaml` and has no `cache/enums/` membership cache, so
-  a curator who tried to use it could not validate it — the disuse is a tooling
-  consequence, not curator neglect.
-- **230 `modeled_mechanisms` links carry no `relationship` at all**, against 160
-  `RECAPITULATES` and 49 `PARTIALLY_RECAPITULATES`. The expressive slots that
-  exist are under-populated, which is worth weighing before adding more. The same
-  caution applies to the new slots: `just model-scale-audit` reports 1,876 of 1,886
-  links as scale-`UNDETERMINED`.
+- **`assays` is populated on 284 readouts and ontology-bound on none of them.**
+  An earlier revision of this report said the slot was "populated on 0 of 289
+  readouts" and "universally unused". That was wrong. 284 of the KB's 3,091
+  readouts carry `assays` — 514 entries across 82 files. What is at zero is the
+  *binding*: every one of those 514 entries is a bare `preferred_term` with no
+  `term:`. `OBI` is absent from `conf/oak_config.yaml` and has no
+  `cache/enums/` membership cache, so a curator who tried to bind one could not
+  validate it. The tooling-gap conclusion survives, and is in fact stronger than
+  the original framing: curators did reach for this slot and were stopped at the
+  binding, which is better evidence for closing the gap than disuse would have
+  been.
+- **The expressive slots that already exist are under-populated**, which is worth
+  weighing before adding more: `just model-scale-audit` reports 2,122 of 2,186
+  model-to-mechanism links as scale-`UNDETERMINED`, and many links carry no
+  `relationship` at all. These are snapshot figures in a dated report and will
+  drift — re-run the recipe rather than quoting them. The decision register
+  deliberately carries no numbers for the same reason.
 
 ### A follow-on this pass deliberately did not take
 
