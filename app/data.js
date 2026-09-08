@@ -166371,6 +166371,10 @@ window.searchData = [
     "subtypes": [],
     "description": "Lupus nephritis is an immune-complex glomerulonephritis that is one of the most severe organ manifestations of systemic lupus erythematosus (SLE). Anti-dsDNA and anti-chromatin (anti-nucleosome) autoantibodies form immune complexes that deposit in \u2014 or bind in situ to nucleosomes/DNA within \u2014 the glomerulus, driving complement activation, Fc-receptor and Toll-like-receptor engagement, and inflammatory tissue injury. The clinicopathologic spectrum is graded by the ISN/RPS classification from mild mesangial involvement (class I/II) through focal and diffuse proliferative disease (class III/IV) and membranous disease (class V) to advanced sclerosis (class VI), and manifests clinically with proteinuria, an active urinary sediment, hypertension, and progression to chronic kidney disease or end-stage kidney disease.",
     "pathophysiology": [
+      "Impaired Nuclear Self-Antigen Clearance",
+      "Excessive Toll-like Receptor Signaling",
+      "Type I Interferon Pathway Upregulation",
+      "B Cell Hyperactivation",
       "Autoantibody Production and Immune Complex Formation",
       "Glomerular Immune Complex Deposition",
       "Complement Activation and Glomerular Inflammation",
@@ -166382,6 +166386,8 @@ window.searchData = [
       "Glomerular and Tubulointerstitial Injury"
     ],
     "cell_types": [
+      "Macrophage",
+      "Plasmacytoid dendritic cell",
       "B cell",
       "plasma cell",
       "glomerular mesangial cell",
@@ -166393,17 +166399,22 @@ window.searchData = [
       "kidney tubule cell"
     ],
     "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000784",
       "CL:0000236",
       "CL:0000786",
       "CL:1000742",
       "CL:1001005",
       "CL:0000653",
-      "CL:0000235",
       "CL:0000084",
       "CL:0002518",
       "CL:1000507"
     ],
     "biological_processes": [
+      "Apoptotic cell clearance",
+      "Toll-like receptor signaling pathway",
+      "Type I interferon-mediated signaling pathway",
+      "B cell activation",
       "Immunoglobulin production",
       "Humoral immune response mediated by circulating immunoglobulin",
       "Complement activation, classical pathway",
@@ -166461,11 +166472,11 @@ window.searchData = [
     "source_file": "Lupus_Nephritis.yaml",
     "page_url": "../pages/disorders/Lupus_Nephritis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 13,
     "num_genes": 0,
     "num_treatments": 10,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Luscan-Lumish Syndrome",
@@ -199908,7 +199919,8 @@ window.searchData = [
       "Cardiac surveillance and management of hypertrophic cardiomyopathy",
       "Surgical septal myectomy",
       "Growth hormone therapy",
-      "MEK inhibition"
+      "MEK inhibition",
+      "Dual RAS-MAPK and PI3K-AKT inhibition with rigosertib"
     ],
     "environmental": [],
     "biochemical": [],
@@ -199917,8 +199929,8 @@ window.searchData = [
     "num_phenotypes": 25,
     "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "32",
+    "num_treatments": 5,
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "8"
   },
   {
@@ -227635,6 +227647,7 @@ window.searchData = [
     "treatments": [
       "Odevixibat",
       "Maralixibat",
+      "Liver-directed gene therapy (AAV-ABCB11)",
       "Surgical biliary diversion",
       "Ursodeoxycholic acid",
       "Antipruritic pharmacotherapy",
@@ -227655,8 +227668,8 @@ window.searchData = [
     "num_phenotypes": 21,
     "num_pathophysiology": 16,
     "num_genes": 9,
-    "num_treatments": 10,
-    "causal_graph_edges": "73",
+    "num_treatments": 11,
+    "causal_graph_edges": "77",
     "causal_graph_longest_path": "5"
   },
   {
@@ -253303,6 +253316,126 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Skeletal Fluorosis",
+    "disease_id": "MONDO:0400003",
+    "category": "Environmental Osteopathy",
+    "parents": [
+      "Metabolic Bone Disease",
+      "Environmental Disease"
+    ],
+    "creation_date": "2026-09-07T17:10:22Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Skeletal fluorosis is a crippling metabolic bone and joint disease caused by chronic ingestion or inhalation of excess fluoride. Fluoride is a cumulative toxin that fixes in calcified tissue, and the skeleton is where the dose accumulates: bone turnover accelerates, the matrix laid down is defective, and the result is a mixture of osteosclerosis, osteomalacia and osteoporosis with exostosis formation. Ligaments and interosseous membranes ossify. The joints of the axial skeleton and the large limb joints stiffen and finally immobilise, and where the spinal canal and intervertebral foramina narrow enough, the patient develops a compressive myelopathy or radiculopathy. Unlike its sibling dental fluorosis, which is fixed at the time the enamel forms, skeletal fluorosis accrues for as long as the exposure continues. The exposure is usually environmental - fluoride-rich groundwater above all, and in specific regions high-fluoride brick tea or food dried over indoor coal fires - but the same disease is produced by industrial inhalation and by deliberate inhalation of fluorocarbon propellants.",
+    "pathophysiology": [
+      "Chronic Excess Fluoride Intake",
+      "Skeletal Fluoride Accumulation",
+      "Fluorapatite Substitution in Bone Mineral",
+      "Osteoblast Proliferation and Activation",
+      "Gut Microbial Tryptophan Metabolism Disruption",
+      "Aryl Hydrocarbon Receptor Underactivation with Wnt Hyperactivation",
+      "Impaired Collagen Synthesis and Matrix Mineralization",
+      "Histone-Mediated Repression of TGF-beta Receptor Signalling",
+      "Secondary Hyperparathyroidism",
+      "Osteocyte-Driven Osteoclastogenesis",
+      "Accelerated and Disordered Bone Turnover",
+      "Mixed Osteosclerosis, Osteomalacia and Osteoporosis",
+      "Ligament and Interosseous Membrane Ossification",
+      "Spinal Canal and Foraminal Narrowing",
+      "Compressive Myelopathy and Radiculopathy",
+      "Joint Immobilization and Skeletal Deformity"
+    ],
+    "cell_types": [
+      "osteoblast",
+      "osteocyte",
+      "osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000137",
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "biomineral tissue development",
+      "BMP signaling pathway",
+      "canonical Wnt signaling pathway",
+      "collagen fibril organization",
+      "osteoclast differentiation",
+      "ossification",
+      "bone resorption"
+    ],
+    "phenotypes": [
+      "Joint Pain and Stiffness",
+      "Restricted Joint Mobility",
+      "Osteosclerosis",
+      "Neurogenic Muscle Atrophy",
+      "Urinary Incontinence",
+      "Bone Pain",
+      "Skeletal Deformity",
+      "Exostoses",
+      "Spastic Paresis"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Skeletal",
+      "Genitourinary",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002829",
+      "HP:0001376",
+      "HP:0005789",
+      "HP:0003202",
+      "HP:0000020",
+      "HP:0002653",
+      "HP:0002808",
+      "HP:0100777",
+      "HP:0001285"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ATP2B1 susceptibility variants",
+      "ALOX15 variants",
+      "ESR1 rs9340799",
+      "COL1A1 rs1800012",
+      "BMP2 variants tested and not associated"
+    ],
+    "treatments": [
+      "Water Improvement and Defluoridation",
+      "Symptomatic and Supportive Management",
+      "Surgical Decompression for Compressive Myelopathy",
+      "Calcium and Vitamin D Supplementation",
+      "Tryptophan Supplementation to Restore Gut-Derived AHR Signalling"
+    ],
+    "environmental": [
+      "Chronic ingestion of fluoride-rich groundwater",
+      "Habitual consumption of high-fluoride brick tea",
+      "Indoor combustion of fluoride-rich coal for cooking and food drying",
+      "Occupational and industrial inhalation of fluoride",
+      "Deliberate inhalation of fluorocarbon propellants"
+    ],
+    "biochemical": [
+      "Urinary fluoride",
+      "Serum fluoride",
+      "Serum soluble Klotho"
+    ],
+    "source_file": "Skeletal_Fluorosis.yaml",
+    "page_url": "../pages/disorders/Skeletal_Fluorosis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 16,
+    "num_genes": 5,
+    "num_treatments": 5,
+    "causal_graph_edges": "51",
+    "causal_graph_longest_path": "11"
+  },
+  {
     "name": "Skin Fragility-Woolly Hair Syndrome",
     "disease_id": "MONDO:0011882",
     "category": "Genetic",
@@ -273301,6 +273434,7 @@ window.searchData = [
       "Neutrophil Activation and NETosis",
       "Tissue Damage",
       "Drug Resistance Mechanisms",
+      "Rv0191 MFS-Mediated Pyrazinamide Efflux",
       "Immune Evasion"
     ],
     "cell_types": [
@@ -273324,6 +273458,7 @@ window.searchData = [
       "inflammatory response",
       "neutrophil degranulation",
       "neutrophil extracellular trap formation",
+      "xenobiotic transmembrane transport",
       "adaptive immune response"
     ],
     "phenotypes": [
@@ -273385,6 +273520,7 @@ window.searchData = [
       "Isoniazid",
       "Rifampicin",
       "Ethambutol",
+      "Pyrazinamide",
       "Drug-Resistant TB Regimen (BPaL/BPaLM)",
       "Directly Observed Therapy (DOT)",
       "Latent TB Treatment",
@@ -273407,10 +273543,10 @@ window.searchData = [
     "source_file": "Tuberculosis.yaml",
     "page_url": "../pages/disorders/Tuberculosis.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 8,
     "num_genes": 8,
-    "num_treatments": 16,
-    "causal_graph_edges": "10",
+    "num_treatments": 17,
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -287648,17 +287784,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2787,
+  "total_disorder_pages": 2788,
   "total_subtypes": 3669,
-  "total_disorders_and_subtypes": 6456,
-  "total_unique_evidence_sources": 39277,
-  "total_unique_publications": 37000,
-  "total_unique_disease_categories": 56,
+  "total_disorders_and_subtypes": 6457,
+  "total_unique_evidence_sources": 39322,
+  "total_unique_publications": 37042,
+  "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 277,
-  "total_pathographs": 2782,
-  "total_unique_pathological_events": 16581,
+  "total_pathographs": 2783,
+  "total_unique_pathological_events": 16601,
   "total_modules": 172,
-  "total_research_reports": 2906,
+  "total_research_reports": 2909,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
