@@ -1,0 +1,65 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Congenital_Vertebral-Cardiac-Renal_Anomalies_Syndrome
+  path: kb/disorders/Congenital_Vertebral-Cardiac-Renal_Anomalies_Syndrome.yaml
+session:
+  id: 2026-09-06T052343Z-claude-code-3f1283
+  timestamp: '2026-09-06T05:23:43Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/10680
+  urls: []
+events:
+- type: AUDIT
+  outcome: no_change
+  summary: Merge-conflict resolution in derived term caches; staging failure and recovery
+  details: |
+    Records the merge round of PR #10680. No KB content changed; this documents
+    how a recurring conflict was resolved, because the next curator to hit it will
+    hit it the same way.
+
+    The conflict. main advanced past this branch and two derived term caches
+    collided: cache/go/terms.csv and cache/enums/molecularfunctionterm_305077eac108.csv.
+    These conflict on most main movements for any branch that binds new GO terms,
+    because every curation PR appends rows to the same files. It is not a content
+    disagreement and must not be hand-merged.
+
+    The resolution. Merge origin/main, take main's side on both conflicted files,
+    then re-derive this entry's rows with `just validate` (which repopulates from
+    the ontology) followed by `just normalize-cache`. Taking main's side drops the
+    terms only this entry uses — here GO:0000334, GO:0030429, GO:0008795 and
+    GO:0034354 — and the regeneration puts them back. Verify the result with
+    `git diff origin/main -- cache/`: it should be additive only. It was, at 36
+    insertions and 0 deletions.
+
+    The staging failure, which is the part worth recording. The regeneration wrote
+    the rows to the working tree, but they were never re-staged, so the merge commit
+    (7d5e45ce3) captured main's version and shipped a tree whose YAML bound four GO
+    terms its cache did not contain. `just validate` passed against that working
+    tree, because the working tree was correct; the commit was not. Fixed in
+    1ba9f887e and verified by reading the terms back out of the pushed commit with
+    `git show HEAD:cache/go/terms.csv`, not by re-running validation.
+
+    This is the second instance of the same class of error in this PR. The first was
+    an edit script that exited before its write, also followed by a passing
+    validation run that was read as confirmation. The generalization: a green check
+    proves the state it ran against was sound, and says nothing about whether that
+    state is what got committed. Check the artifact, not the checker.
+
+    CI note, for provenance rather than content: the claude-review job failed on this
+    head with an account usage limit (num_turns=1, cost=$0), never having read the
+    diff. It could not be re-run from this session — rerun-failed-jobs and
+    workflow_dispatch both return 403, and the workflow's /review comment escape
+    hatch requires an exact body match that an automatically appended attribution
+    footer defeats. Recorded because the PR thread carries two corrections about it.
+
+    No validation claims are made here beyond those already recorded for the head
+    commit: 117/117 snippets, just validate-disorders passing, all offline gates
+    passing.
