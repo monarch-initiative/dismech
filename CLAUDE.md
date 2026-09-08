@@ -1678,9 +1678,11 @@ honestly claim:
 | `symbol_unexplained` | The text names no symbol the check can resolve. **Usually benign** — a previous symbol, or a protein/product name. Advisory. |
 
 Offline the confident class needs the *other* gene to be cached, which happens
-only because some other entry has bound it. So the demonstration above reports as
-`symbol_unexplained` offline and is promoted to `names_another_gene` by
-`--resolve`, which asks HGNC directly: a symbol that is a **synonym of the bound
+only because some other entry has bound it — so a row lands in the advisory class
+purely because nothing in `kb/` has ever bound the symbol the text names, and
+moves to the confident class the day some unrelated curation PR does. Do not
+record which side a given example falls on; run the recipe. `--resolve` removes
+the dependency by asking HGNC directly: a symbol that is a **synonym of the bound
 term** explains the row (`GBA1` → `hgnc:4177`/`GBA` is a *correct* binding the
 OBO build lags on, #10102), while a symbol resolving to a **different id**
 condemns it (`THAP11` → `hgnc:23194`). A symbol the build has never heard of

@@ -285,34 +285,22 @@ def test_the_report_is_advisory_and_exits_zero():
     assert "gene bindings examined:" in result.stdout
 
 
-def test_strict_gates_the_confident_class_only(tmp_path):
-    """`--strict` exists for whoever gates this later. It must fire on a wrong
-    gene and stay quiet on the advisory rows, which are mostly renames."""
-    wrong = tmp_path / "wrong.yaml"
-    wrong.write_text(
-        "name: Demo\n"
-        "genetic:\n"
-        "- name: THAP11\n"
-        "  gene_term:\n"
-        "    preferred_term: THAP11\n"
-        "    term:\n"
-        "      id: hgnc:20856\n"
-        "      label: THAP1\n",
-        encoding="utf-8",
+def _run(args, path):
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), *args, str(path)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
     )
-    for args, expected in ((["--strict"], 0), ([], 0)):
-        # THAP11 is not itself bound anywhere in the KB, so offline this is the
-        # advisory class and --strict stays quiet. Documented, not accidental.
-        result = subprocess.run(
-            [sys.executable, str(SCRIPT), *args, str(wrong)],
-            capture_output=True,
-            text=True,
-            cwd=ROOT,
-            check=False,
-        )
-        assert result.returncode == expected, result.stdout
-        assert "hgnc:20856" in result.stdout
 
+
+def test_strict_gates_a_confident_finding(tmp_path):
+    """`--strict` exists for whoever gates this later, so it must fire here.
+
+    The entry says GBA, the binding resolves to THAP1, and both symbols are
+    bound elsewhere in `kb/` — so this is the confident class offline.
+    """
     named = tmp_path / "named.yaml"
     named.write_text(
         "name: Demo\n"
@@ -325,15 +313,58 @@ def test_strict_gates_the_confident_class_only(tmp_path):
         "      label: THAP1\n",
         encoding="utf-8",
     )
-    result = subprocess.run(
-        [sys.executable, str(SCRIPT), "--strict", str(named)],
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
-        check=False,
-    )
+    result = _run(["--strict"], named)
     assert result.returncode == 1, result.stdout
     assert "NAMES A DIFFERENT GENE             : 1" in result.stdout
+
+
+def test_strict_stays_quiet_on_an_advisory_row(tmp_path):
+    """An advisory row must not gate, however `--strict` is invoked.
+
+    The text is a lowercase product name, so it can never be promoted to the
+    confident class: the reverse lookup is case-sensitive and HGNC labels are
+    symbols. That matters because this test used to assert exit 0 for the
+    THAP11/THAP1 demonstration instead, which held only while no entry had
+    cached `THAP11` — and then #10937 curated the cblL-type disease, cached
+    `hgnc:23194`, and turned somebody else's correct curation into a red build
+    here. A test must not encode which CURIEs the KB happens to have cached.
+    """
+    advisory = tmp_path / "advisory.yaml"
+    advisory.write_text(
+        "name: Demo\n"
+        "genetic:\n"
+        "- name: sucrase-isomaltase deficiency\n"
+        "  gene_term:\n"
+        "    preferred_term: sucrase-isomaltase\n"
+        "    term:\n"
+        "      id: hgnc:10856\n"
+        "      label: SI\n",
+        encoding="utf-8",
+    )
+    for args in (["--strict"], []):
+        result = _run(args, advisory)
+        assert result.returncode == 0, result.stdout
+        assert "NAMES A DIFFERENT GENE             : 0" in result.stdout
+        assert "symbol not named (advisory)        : 1" in result.stdout
+
+
+def test_an_uncached_curie_never_gates(tmp_path):
+    """`uncached` is "no opinion", so it cannot fail a build even under --strict."""
+    unknown = tmp_path / "unknown.yaml"
+    unknown.write_text(
+        "name: Demo\n"
+        "genetic:\n"
+        "- name: NOTAGENE\n"
+        "  gene_term:\n"
+        "    preferred_term: NOTAGENE\n"
+        "    term:\n"
+        "      id: hgnc:99999999\n"
+        "      label: NOTAGENE\n",
+        encoding="utf-8",
+    )
+    result = _run(["--strict"], unknown)
+    assert result.returncode == 0, result.stdout
+    assert "HGNC CURIE not cached (no opinion) : 1" in result.stdout
 
 
 class _FakeAdapter:
