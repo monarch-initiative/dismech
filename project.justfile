@@ -1786,6 +1786,22 @@ export-kgx:
 export-hpoa:
     uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
 
+# Downloads the release, hp.obo, mondo.obo and MONDO's SSSOM set into `dir` (cached;
+# delete a file to refresh it), then writes the generated report sections to stdout and
+# the per-disease worklist to `tsv`. The committed report carries hand-written sections
+# too, so merge rather than overwrite it.
+# Compare the HPOA export against the HPO project's phenotype.hpoa release.
+[group('Export')]
+compare-hpoa-release dir="output/hpoa-compare":
+    mkdir -p {{dir}}
+    test -s {{dir}}/phenotype.hpoa || curl -sSL -o {{dir}}/phenotype.hpoa https://github.com/obophenotype/human-phenotype-ontology/releases/latest/download/phenotype.hpoa
+    test -s {{dir}}/hp.obo || curl -sSL -o {{dir}}/hp.obo https://github.com/obophenotype/human-phenotype-ontology/releases/latest/download/hp.obo
+    test -s {{dir}}/mondo.sssom.tsv || curl -sSL -o {{dir}}/mondo.sssom.tsv http://purl.obolibrary.org/obo/mondo/mappings/mondo.sssom.tsv
+    test -s {{dir}}/mondo.obo || curl -sSL -o {{dir}}/mondo.obo http://purl.obolibrary.org/obo/mondo.obo
+    uv run python scripts/hpoa_release_compare.py \
+        --hpo {{dir}}/phenotype.hpoa --sssom {{dir}}/mondo.sssom.tsv \
+        --hp-obo {{dir}}/hp.obo --mondo-obo {{dir}}/mondo.obo --out-tsv {{dir}}/per-disease.tsv
+
 # Export a flat CSV census of every disease + subtype and its MONDO mapping (or lack thereof).
 [group('Export')]
 export-disease-inventory output="output/disease_inventory.csv":
