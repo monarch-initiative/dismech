@@ -47,7 +47,7 @@ mechanism.
    `MODEL_SYSTEM_EXTRAPOLATION`), a structured `validation_status` object
    (`status` + `rationale` + `evidence`), and reuses `attaches_to` to link the
    pathograph node(s) a hypothesis-based algorithm is predicated on. Gated by
-   `test_hypothesis_based_definition_attaches_to_foreign_keys`. See
+   `check_hypothesis_based_definition_attaches_to_foreign_keys`. See
    [the design write-up](../docs/hypothesis-based-phenotype-algorithms.md).
 2. **Worked examples** — each carries a `PHENOTYPE_ALGORITHM` case-finding
    definition **and** a NAM confirmation experiment (below).
