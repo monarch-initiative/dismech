@@ -790,6 +790,10 @@ not land on a mechanism node.</p>
 <td>AOP identity is provenance, not structure</td>
 <td>A dismech module is a mechanism boundary; an AOP is a publication unit. One relationship, KER 2124, is listed in 10 AOPs — the same causal step asserted ten times over. Mapping between modules and AOPs is therefore many-to-many, and a count of AOPs is not a count of mechanisms</td>
 </tr>
+<tr>
+<td>Method and test system unreachable from the evidence</td>
+<td>EMOD reifies the observation: <code>Evidence</code> on the KER links an upstream and a downstream <code>Observation</code>, each pointing at an <code>Assay</code> carrying <code>detection_technology</code>, with taxon, sex and life stage on <code>Evidence</code> itself and organ and cell on the <code>Event</code>. dismech's <code>EvidenceItem</code> is a reference, a quote and a polarity attached directly to the claim, with no path to any of that. The node-level counterpart does exist — <code>Pathophysiology.assays</code> mirrors <code>Event.assays</code> — but is unused: 0 of the 564 assay entries in <code>kb/</code> bind an OBI term, and 2 sit on a pathophysiology node. See <a href="#how-each-model-records-the-way-a-claim-was-measured">How each model records the way a claim was measured</a></td>
+</tr>
 </tbody>
 </table>
 <h3 id="where-the-toxicokinetic-boundary-falls-in-the-pilot-entry">Where the toxicokinetic boundary falls, in the pilot entry</h3>
@@ -843,6 +847,136 @@ prediction for most real-world scenarios</p>
 <p>The companion best-practices paper (<a href="https://pubmed.ncbi.nlm.nih.gov/25466379/">PMID:25466379</a>)
 instructs authors to build on existing KE and KER descriptions rather than write redundant
 ones, which is what produces the reuse in the first place.</p>
+<h3 id="how-each-model-records-the-way-a-claim-was-measured">How each model records the way a claim was measured</h3>
+<p>Issue <a href="https://github.com/monarch-initiative/dismech/issues/10772">#10772</a> asks where an
+evidence item says <em>how</em> a causal claim was measured — the test system the observation was
+made in, and the technique that produced the number. Neither is the study <em>category</em>, which
+is what <code>EvidenceItem.evidence_source</code> records with five values. The comparison is worth
+stating carefully, because the obvious framing — dismech lacks a field EMOD has — is wrong
+in both halves.</p>
+<p><strong>EMOD does not put the method on its evidence object either.</strong> In
+<a href="https://github.com/EHS-Data-Standards/linkml-aop/blob/main/src/linkml_aop/schema/aop_emod_linkml.yaml"><code>src/linkml_aop/schema/aop_emod_linkml.yaml</code></a>
+the work is divided across four classes:</p>
+<table>
+<thead>
+<tr>
+<th>EMOD class</th>
+<th>Attaches to</th>
+<th>Slots carrying "how it was measured"</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Assay</code></td>
+<td>referenced by <code>Observation</code> and by <code>Event</code></td>
+<td><code>title</code>, <code>description</code>, <code>detection_technology</code>, <code>biological_action_id</code>, <code>external_assay_id</code></td>
+</tr>
+<tr>
+<td><code>Observation</code></td>
+<td>the Event</td>
+<td><code>assay_id</code>, <code>biological_object_id</code>, <code>biological_process_id</code>, <code>biological_action_id</code>, <code>stressor_id</code>, <code>phenotype</code>, plus <code>events</code> and <code>citations</code></td>
+</tr>
+<tr>
+<td><code>Evidence</code></td>
+<td>the KER</td>
+<td><code>upstream_observation_id</code>, <code>downstream_observation_id</code>, <code>citation_id</code>, <code>taxon_term_id</code>, <code>sex_term_id</code>, <code>life_stage_term_id</code>, <code>experimental_design</code>, <code>notes</code></td>
+</tr>
+<tr>
+<td><code>Event</code></td>
+<td>—</td>
+<td><code>measured_or_detected</code>, <code>has_method_text</code>, <code>assays</code>, <code>organ_term_id</code>, <code>cell_term_id</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>Evidence</code> has no assay slot. It reaches the method indirectly, through the two Observations
+it links, each of which points at an Assay. The two things #10772 separates are not kept
+together on the EMOD side either: the technique lands on <code>Assay.detection_technology</code>,
+species, sex and life stage on <code>Evidence</code>, and organ and cell type on <code>Event</code>.</p>
+<p>So "add a ninth field to <code>EvidenceItem</code>" is not what EMOD did. The closer statement is that
+EMOD interposes a reified observation between the citation and the claim, and dismech has no
+such object — <code>EvidenceItem</code> collapses reference, polarity and quote into one thing attached
+directly to the claim. The Citation row of
+<a href="#what-enables-integration-now">What enables integration now</a> already makes this point for
+provenance; the method is the same shape of difference.</p>
+<p><strong><code>Pathophysiology.assays</code> is the structural counterpart of <code>Event.assays</code>, and it is
+effectively unused.</strong> Both frameworks put the method on the node, so this is a rare place
+where the two models agree structurally and diverge only on whether the slot carries content.
+In dismech <code>assays</code> is defined on four classes — <code>Pathophysiology</code>, <code>Biochemical</code>,
+<code>ExperimentalReadout</code> and <code>Experiment</code> — with range <code>AssayDescriptor</code>, whose <code>term</code> binds to
+the <code>AssayTerm</code> dynamic enum rooted at <code>OBI:0000070</code> (assay). Counted across <code>kb/</code> on
+2026-09-07:</p>
+<ul>
+<li>564 assay entries in 87 files (80 disorders, 7 modules)</li>
+<li><strong>none of them bind an OBI term.</strong> Every one is a free-text <code>preferred_term</code> —
+  <code>FITC-dextran intestinal permeability assay</code>, <code>Kupffer-cell activation assay</code></li>
+<li>514 sit on an <code>ExperimentalReadout</code> and 42 on an <code>Experiment</code>. Only 6 are on a
+  <code>Biochemical</code> marker and <strong>2 on a pathophysiology node</strong>, both on the <code>Hyperglycemia</code>
+  node of <code>Type_I_Diabetes</code></li>
+</ul>
+<p>The five OBI CURIEs that do exist in <code>kb/</code> are not assays: four are <code>OBI:0002503</code> (feces
+specimen) used as a dataset <code>sample_types</code> value in <code>Parkinsons_Disease</code>, and one is
+<code>OBI:0003552</code> as an <code>Experiment.experiment_type</code> in
+<code>CTCF-related_Neurodevelopmental_Disorder</code>.</p>
+<p>Nothing checks the slot either. <code>OBI</code> is in the schema's prefix map but has no adapter in
+<code>conf/oak_config.yaml</code> and no <code>cache/enums/</code> membership cache, so an assay term cannot be
+validated the way an HP, GO or CL term is — and <code>CLAUDE.md</code> accordingly tells curators to
+prefer <code>biological_processes</code> (GO) until that gap closes. The accurate reading of the gap is
+therefore not that dismech has nowhere to record the method, but that it has the slot in the
+right place, steers curators away from it, and has never wired up the ontology behind it.
+That is the open construct already flagged under <a href="#what-this-page-is">What this page is</a>.</p>
+<p><strong>On the AOP side this is content today, not only schema.</strong> <code>Event.measured_or_detected</code> is
+the deployed "How It Is Measured or Detected" field and is present in the v2.8 corpus this
+repo already queries: the <code>aop-wiki</code> skill surfaces it as <code>measurement_method</code> on all 1,598
+Events in the 08-06-2026 snapshot, alongside a <code>has_method</code> flag and a shipped <code>methods_nams</code>
+search config for NAM assay methods. That makes this divergence different in kind from the
+other rows above, which compare schema with schema. Here there is harvestable free text on
+one side and an empty slot on the other.</p>
+<p><strong>ECO is absent from dismech, and it is the vocabulary this would need.</strong> There is no <code>ECO</code>
+prefix in the schema's prefix map and no ECO CURIE anywhere in <code>src/</code>, <code>conf/</code> or <code>kb/</code>. The
+ECO/OBI distinction decides where a term would go: OBI types the <em>assay</em> — a patch clamp was
+performed, a property of the experiment, which is why dismech put <code>assays</code> on the node —
+while ECO types the <em>evidence</em> — this claim is asserted on patch-clamp evidence, a property
+of the evidence item. <code>Assay.detection_technology</code> is the OBI-shaped one. Both of #10772's
+own examples resolve in both ontologies:</p>
+<table>
+<thead>
+<tr>
+<th>Example</th>
+<th>ECO (types the evidence)</th>
+<th>OBI (types the assay)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>whole-cell voltage clamp</td>
+<td><code>ECO:0006014</code> whole-cell patch-clamp recording evidence</td>
+<td><code>OBI:0002178</code> whole-cell patch clamp assay</td>
+</tr>
+<tr>
+<td>FRET biosensor</td>
+<td><code>ECO:0001048</code> fluorescence resonance energy transfer evidence</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>Also on the ECO side: <code>ECO:0006012</code> patch-clamp recording evidence and <code>ECO:0005584</code>
+macropatch voltage clamp recording evidence.</p>
+<p><strong>Sibling gap.</strong> <a href="https://github.com/monarch-initiative/dismech/issues/9421">#9421</a> asks what
+<code>EvidenceItem</code> cannot say about how <em>strong</em> a claim is; #10772 asks what it cannot say about
+how it was <em>measured</em>. Item 5 of #9421 already proposes an ECO binding in almost these words,
+and one of its comments proposes letting an evidence item point at the model it came from —
+which would answer both without a new descriptor, and matches EMOD's indirection through a
+reified object rather than more slots on the evidence item. If a schema change ever happens
+it is likely to be one change, not two. <strong>No schema change is proposed here</strong>; #10772 is
+explicit that the decision belongs in its own issue.</p>
+<p>Until then the only home is the free-text <code>explanation</code>, which nothing gates —
+<code>check-snippet-length</code> and <code>check-title-snippets</code> act on <code>snippet</code>. For such a clause to be
+migratable later it has to be a literal fixed prefix a grep can find (<code>Measured by &lt;method&gt;
+in &lt;system&gt;.</code> as the first sentence, identically every time), and it must not restate
+<code>evidence_source</code>. Budget for the cleanup either way: <code>CLAUDE.md</code>'s "Retired Enum Values"
+section records that #10003 migrated 11,804 evidence items and left roughly 3,600
+<code>explanation</code> fields still arguing for a value the schema had dropped. Nothing flags prose
+that outlives the construct it describes.</p>
 <hr />
 <h2 id="what-dismech-could-contribute-to-aop-emod">What dismech could contribute to AOP EMOD</h2>
 <p>The reverse direction: dismech constructs that address a problem the AOP schema has
