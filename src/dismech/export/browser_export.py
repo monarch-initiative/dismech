@@ -11,6 +11,7 @@ from typing import Any
 
 from oaklib import get_adapter
 
+from dismech import kb_cache
 from dismech.export.utils import (
     count_classifications,
     count_comorbidities,
@@ -20,7 +21,6 @@ from dismech.export.utils import (
     slugify,
 )
 from dismech.graph import build_causal_graph
-from dismech.yaml_io import safe_load
 
 # Direct children of HP:0000118 (Phenotypic abnormality) — the broad phenotype categories.
 # Keys match PhenotypeCategoryEnum permissible_value keys in the schema.
@@ -191,9 +191,8 @@ class BrowserExporter:
         self._hpo_resolver = HPOCategoryResolver()
 
     def load_disorder(self, file_path: Path) -> dict[str, Any]:
-        """Load a single disorder YAML file."""
-        with open(file_path) as f:
-            return safe_load(f)
+        """Load a single disorder YAML file (shared parse; read-only)."""
+        return kb_cache.load_document(file_path)
 
     def extract_disorder(self, disorder: dict[str, Any], source_file: str) -> dict[str, Any]:
         """
