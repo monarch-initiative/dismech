@@ -128,6 +128,28 @@ HGNC gene CURIEs use lowercase `hgnc:` in this repository (for example,
 `hgnc:746`, not `HGNC:746`). This is the canonical form that passes term
 validation; do not flag lowercase `hgnc:` as an error in reviews.
 
+### Parsed-KB Cache (`src/dismech/kb_cache.py`)
+Many code paths walk `kb/disorders/` and parse every file to build a small
+index. One walk parses ~2,700 files (~17 s). `kb_cache.load_document(path)`
+keeps one parsed copy per file per process, keyed on the file's content hash,
+so later walks cost a read and a hash. The returned object is **shared and
+read-only**: code that decorates or edits a document must parse its own copy
+(`dismech.yaml_io.safe_load_path`), which is what `render.load_disorder` does
+for the page being rendered while the index walks use `load_disorder_shared`.
+Holding the parsed disorder corpus costs ~450 MB per process;
+`DISMECH_KB_CACHE=0` turns the cache off. Route a new corpus walk through it
+rather than adding another `glob` + `safe_load` loop (issue #11003).
+
+**A CLI that walks the corpus exactly once should call `kb_cache.default_off()`
+from its `main()`.** With no second walk there are no hits to collect, so the
+cache is pure cost -- `check_snippet_length` measures 17.1 s / 34 MB without it
+against 20.5 s / 522 MB with it, while the two-walk
+`check_environmental_evidence` goes the other way (28.0 s -> 18.3 s). Put the
+call in `main()`, never at import: pytest imports these scripts' `scan_repo`
+functions directly and runs several of them in one process, which is exactly
+the case the cache exists for. `default_off()` uses `setdefault`, so an
+explicit `DISMECH_KB_CACHE` still wins.
+
 ### HTML Rendering (`src/dismech/render.py`)
 - Jinja2 templates in `src/dismech/templates/`
 - Generates browsable HTML pages in `pages/disorders/`
@@ -766,6 +788,20 @@ Use this when there is no individual item to name, including a knowledge gap
 attached to an intentionally empty section. A bare section name such as
 `clinical_burden` is not valid entity-reference syntax.
 
+**There are two independent `#`-anchor resolvers, and they are not equally
+strict.** `entity_refs.py` resolves intra-entry `<kind>#<name>` refs and is
+enforced as a hard foreign key. `groupings.py` resolves the cross-entry
+`module_stem#Node Name` refs used by `conforms_to` and by grouping
+`CONFORMS_TO_MODULE` criteria — and there the anchor is **checked as a foreign
+key but not used as a membership verdict**: a criterion naming
+`ciliopathy_dysfunction#Motile Cilia Beat Dysfunction` is satisfied by a member
+that conforms to `ciliopathy_dysfunction` at *any* node. The mismatch is
+reported rather than enforced (`just grouping-anchor-audit`; a "not at named
+node" badge on the grouping page) because some of the live mismatches are
+criteria that are too narrow rather than entries that are under-annotated.
+Do not assume `entity_refs.py`'s guarantees extend to a module anchor. See
+issue #9403.
+
 ### Pathograph Targets Are Bare Names, Not Entity References
 
 **The causal graph does not use the `<kind>#<name>` grammar.** This is the one
@@ -849,6 +885,84 @@ creating any new cancer/neoplasm entry. The short version:
 - **Germline predisposition syndromes** (Li-Fraumeni, Lynch) follow the plain
   Mendelian lump/split rules; keep them separate from the somatic cancer
   entries they predispose to.
+
+### Cancer Cell of Origin (derived, not a slot)
+
+A neoplasm entry's **cell of origin is derived from its own pathograph** — there is
+no `cell_of_origin:` slot and one should not be added (design decisions §3d). Mark
+the node where the transforming lesion happened, and the cell of origin is that
+node's `cell_types`:
+
+```yaml
+pathophysiology:
+- name: KRAS Oncogene Activation
+  genetic_context:
+    variant_origin: SOMATIC          # <- this makes it the origin node
+    functional_impact_category: GAIN_OF_FUNCTION
+  cell_types:
+  - preferred_term: pancreatic acinar cell
+    term:
+      id: CL:0002064
+      label: pancreatic acinar cell
+```
+
+```bash
+just check-cancer-origin                 # summary + the multi-origin worklist
+just check-cancer-origin --format list   # every entry, one line each
+just list-cancer-origin
+```
+
+Two rules identify the origin node, and both read a structured claim rather than
+a naming convention: a somatic `genetic_context` (not restricted to root nodes —
+a second-hit or transformation lesion is still a somatic event), or an
+`environmental[].influences_mechanisms` link marking the node
+`environmental_effect: TRIGGERS` for non-mutational initiation (HPV, H. pylori,
+asbestos, UV). The exposure rule applies **only when no lesion is recorded**:
+once the entry names the transforming event, the exposure is upstream context.
+
+A **virally driven mechanism is not a lesion**: HPV E6/E7 or HTLV-1 Tax leaves
+no host variant for `variant_origin` to describe (the same rule CLAUDE.md
+already applies to `functional_impact_category`), so those entries record the
+initiating exposure instead — and marking them `SOMATIC` breaks the derivation,
+since a recorded lesion suppresses the exposure rule.
+
+There is deliberately **no fallback chain and no role-string reading**. An
+earlier version had both, to cover entries that had not recorded their origin,
+and they mis-fired — deriving macrophage and pancreatic stellate cell as the cell
+of origin of pancreatic cancer from a chronic-inflammation node. The records were
+marked instead (`just backfill-cancer-origin`), and an entry that does not say
+where it starts is now reported as not saying it.
+
+**Deriving more than one cell of origin is the lump/split signal**, reported and
+never gated. It means a grouping wearing a Disease entry's clothes
+(`Kidney_Sarcoma`, `Appendiceal_Neoplasm` — remedy a `Grouping`), a disease with
+cell-of-origin subtypes (DLBCL's GCB/ABC — remedy `has_subtypes`), or an
+unsettled origin (melanoma in congenital melanocytic nevus — remedy a note).
+
+The check is **advisory** and runs inside `just qc`, exiting 0 because 128 of 252
+assessed neoplasm entries are still unmarked; `--fail-on <CLASS>` or `--strict`
+gates when you want one. `ORIGIN_WITHOUT_CELL` is currently at zero — every entry
+that marks an origin binds a cell there — so that class is ready to become a real
+gate.
+
+**Backfilling.** `just backfill-cancer-origin [--bind-single-cell] [--apply]`
+marks entries whose prose already states the lesion. It only marks a node whose
+own **name** says mutation/fusion/translocation/amplification/inactivation —
+never a pathway state, a germline variant, a microenvironment node, or an
+acquired-resistance node ("ESR1 Mutation-Driven Endocrine Resistance" is a real
+somatic event that happens years after the disease starts). Re-validate the
+changed files with `just validate-disorders` afterwards.
+
+**NCIT is a cross-check, never a binding target.** `NCIT:R104`
+(Disease_Has_Normal_Cell_Origin), `NCIT:R112` and `NCIT:R105`
+(Disease_Has_Abnormal_Cell, into the Abnormal Cell branch `NCIT:C12913`) are
+ingested by `OntologyEdgeSource` into quotable `references_cache/NCIT_*.md` rows
+— DLBCL is *Mature B-Lymphocyte* → *Neoplastic Large B-Lymphocyte*. `cell_types`
+stays CL-only (`CellTypeTerm` is `reachable_from: CL:0000000`), and there is no
+NCIT-to-CL mapping in the repo, so agreement is a curator's judgement rather than
+a computed match. Worked examples: `Chronic_Myeloid_Leukemia`,
+`Pancreatic_Ductal_Adenocarcinoma`. See
+[`docs/cancer-cell-of-origin.md`](docs/cancer-cell-of-origin.md).
 
 ### Disease Groupings
 
