@@ -119,8 +119,8 @@ def test_unresolved_terms_are_counted_and_never_cached(monkeypatch) -> None:
     assert resolver.unresolved_count == 1
 
 
-def test_hpo_resolver_answers_from_the_committed_cache(monkeypatch) -> None:
-    """The committed cache covers the KB, so a normal run opens no ontology."""
+def test_hpo_resolver_falls_back_to_the_committed_cache(monkeypatch) -> None:
+    """With no build, the committed cache is what answers."""
     monkeypatch.setattr(oak_db, "local_build_present", lambda spec: False)
     resolver = HPOCategoryResolver()
     resolver._seed = {"HP:0002014": ["Digestive"]}
@@ -128,6 +128,27 @@ def test_hpo_resolver_answers_from_the_committed_cache(monkeypatch) -> None:
     # Seeded hits are real answers, so they belong in the written cache.
     assert resolver._cache == {"HP:0002014": ["Digestive"]}
     assert resolver.unresolved_count == 0
+
+
+def test_the_ontology_outranks_the_committed_cache(monkeypatch) -> None:
+    """The cache is a fallback, not a first choice — or it freezes.
+
+    This class writes back what it resolved, so consulting the cache first would
+    make it self-perpetuating: a term that got in would never be re-derived, and
+    an HPO reclassification could never reach it. A page build fetches the build
+    deliberately, so it must re-derive every term.
+    """
+    monkeypatch.setattr(oak_db, "local_build_present", lambda spec: True)
+
+    class _Adapter:
+        def ancestors(self, hp_id, predicates=None):
+            return ["HP:0025031"]  # Digestive
+
+    monkeypatch.setattr(browser_export, "get_adapter", lambda spec: _Adapter())
+    resolver = HPOCategoryResolver()
+    # A stale cache entry must not survive a run that can ask the ontology.
+    resolver._seed = {"HP:0002014": ["Nervous System"]}
+    assert resolver.resolve("HP:0002014") == ["Digestive"]
 
 
 def test_top_level_terms_never_need_an_ontology(monkeypatch) -> None:
@@ -148,8 +169,26 @@ def test_the_committed_hpo_cache_is_where_both_sides_look() -> None:
     assert render._HPO_CATEGORY_CACHE_PATH == browser_export.HPO_CATEGORY_CACHE_PATH
 
 
-def test_the_committed_hpo_cache_seeds_the_resolver() -> None:
-    """It is committed and non-trivial, which is what makes the miss path rare."""
+def test_the_committed_hpo_cache_is_readable_as_the_fallback() -> None:
+    """It is committed and non-trivial, which is what makes the fallback useful."""
     seed = browser_export._load_seed_categories()
     committed = json.loads(browser_export.HPO_CATEGORY_CACHE_PATH.read_text())
     assert seed and len(seed) == len(committed)
+
+
+def test_an_unreadable_cache_says_so(monkeypatch, tmp_path, capsys) -> None:
+    """Silent degradation to "everything is Other" is the failure mode to avoid."""
+    broken = tmp_path / "hpo_category_cache.json"
+    broken.write_text("{not json")
+    monkeypatch.setattr(browser_export, "HPO_CATEGORY_CACHE_PATH", broken)
+    assert browser_export._load_seed_categories() == {}
+    assert "could not read" in capsys.readouterr().out
+
+
+def test_a_missing_cache_is_silent(monkeypatch, tmp_path, capsys) -> None:
+    """A checkout with no `app/`, or a test in a temp dir, is not a problem."""
+    monkeypatch.setattr(
+        browser_export, "HPO_CATEGORY_CACHE_PATH", tmp_path / "absent.json"
+    )
+    assert browser_export._load_seed_categories() == {}
+    assert capsys.readouterr().out == ""

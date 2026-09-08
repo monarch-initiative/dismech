@@ -55,20 +55,36 @@ HP_ADAPTER = "sqlite:obo:hp"
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
-# The cache this exporter writes on every full run, and now reads back on the
-# next one. It is committed, and `render` reads it too, so one constant serves
-# both: a normal run resolves every HP term already in `kb/` without opening an
-# ontology at all.
+# The committed cache, read as a fallback when `sqlite:obo:hp` is not available.
+# `render` reads the same file (as `render._HPO_CATEGORY_CACHE_PATH`) to group
+# phenotypes by category, so the constant is shared rather than restated. Note
+# that a full export writes its result next to its own output, which is this
+# path only when exporting to `app/` -- as `just gen-browser-data` does.
 HPO_CATEGORY_CACHE_PATH = _REPO_ROOT / "app" / "hpo_category_cache.json"
 
 
 def _load_seed_categories() -> dict[str, list[str]]:
-    """The committed HP-to-category answers, or an empty map if unreadable."""
+    """The committed HP-to-category answers, or an empty map if unreadable.
+
+    A missing file is an ordinary state -- a checkout with no `app/`, a test in
+    a temp directory -- and is silent. A file that exists but cannot be read is
+    not: that degrades every phenotype into "Other", which is exactly the kind
+    of silent failure this module is being changed to stop having.
+    """
+    if not HPO_CATEGORY_CACHE_PATH.is_file():
+        return {}
     try:
         data = json.loads(HPO_CATEGORY_CACHE_PATH.read_text())
-    except Exception:
+    except Exception as exc:
+        print(
+            f"WARNING: could not read {HPO_CATEGORY_CACHE_PATH}: {exc}. "
+            "HP terms will fall back to the ontology, or to no category."
+        )
         return {}
     if not isinstance(data, dict):
+        print(
+            f"WARNING: {HPO_CATEGORY_CACHE_PATH} is not a JSON object; ignoring it."
+        )
         return {}
     return {
         key: [str(v) for v in value]
@@ -80,20 +96,24 @@ def _load_seed_categories() -> dict[str, list[str]]:
 class HPOCategoryResolver:
     """Resolve HP term IDs to their broad top-level phenotype categories.
 
-    Cache-first, in the same sense as `cache/<prefix>/hierarchy.csv`: the
-    committed answers are consulted before any ontology is. The difference is
-    what a miss does. `get_adapter("sqlite:obo:hp")` does not fail on a machine
-    without the build — semsql fetches it, 440 MB uncompressed, silently — and
-    this class builds its adapter directly, so `conf/oak_config.yaml` (which
-    routes HP to `ols:hp` precisely to avoid that build) never saw it and
-    neither did the test fixture in `tests/conftest.py`, which only wraps
-    `render._get_oak_adapter`. That is how the fast test lane came to download
-    it (issue #11299).
+    `get_adapter("sqlite:obo:hp")` does not fail on a machine without the build
+    — semsql fetches it, 440 MB uncompressed, silently — and this class builds
+    its adapter directly, so `conf/oak_config.yaml` (which routes HP to `ols:hp`
+    precisely to avoid that build) never saw it, and neither did the test
+    fixture in `tests/conftest.py`, which only wraps `render._get_oak_adapter`.
+    That is how a 440 MB download came to be one constructor call away
+    (issue #11299). So the adapter is opened only when the build is already on
+    disk, and the committed `app/hpo_category_cache.json` answers when it is not.
 
-    So a miss consults the adapter only when the build is already on disk, and
-    otherwise resolves to no categories. Page generation, which must resolve
-    newly curated terms rather than degrade, fetches the build up front
-    (`just fetch-ontology-dbs hp`).
+    **The committed cache is a fallback, not a first choice, and the ordering is
+    the whole point.** Consulting it first would be faster, and would also make
+    it self-perpetuating: this class writes back what it resolved, so a term
+    that entered the cache would never be re-derived, and an HPO reclassification
+    could never reach it. That is the same freezing this module's own history is
+    a case study in. Ordering the ontology first means a page build — which
+    fetches the build deliberately (`just fetch-ontology-dbs hp`) — re-derives
+    every term on every run, exactly as it did before any of this, and the cache
+    only decides what a machine without the build reports.
     """
 
     def __init__(self):
@@ -126,18 +146,20 @@ class HPOCategoryResolver:
             self._cache[hp_id] = result
             return result
 
-        seeded = self._seed.get(hp_id)
-        if seeded is not None:
-            self._cache[hp_id] = seeded
-            return seeded
-
         adapter = self._get_adapter()
         if adapter is None:
+            seeded = self._seed.get(hp_id)
+            if seeded is not None:
+                self._cache[hp_id] = seeded
+                return seeded
             # Deliberately not memoised into `self._cache`: that dict is what
             # `_write_hpo_category_cache` commits, and writing "this term has no
             # categories" because an ontology was missing would bake the gap in
-            # permanently. An unresolved term is simply left out, and counted so
-            # the caller can say so.
+            # permanently. Note that a genuine empty list is a real answer the
+            # cache does hold — a MONDO CURIE bound in a `phenotype_term` sits
+            # under no HPO category — so "resolved to nothing" and "could not
+            # resolve" have to stay distinguishable. An unresolved term is left
+            # out, and counted so the caller can say so.
             self._unresolved.add(hp_id)
             return []
 

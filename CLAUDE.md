@@ -2878,20 +2878,31 @@ Two things worth knowing before you touch it:
   running `pytest -m oak_db`, and do not put it in a loop.
 
 **The same rule governs the MONDO and HP lookups, which are not hierarchy
-lookups at all.** Three call sites hardcode a `sqlite:obo:` adapter and so bypass
-`conf/oak_config.yaml`, which routes both prefixes to `ols:` precisely to keep
-the builds off the machine. Each therefore used to fetch its build silently — no
-error, no log line, just a slow run (#11299):
+lookups at all.** Several call sites hardcode a `sqlite:obo:` adapter and so
+bypass `conf/oak_config.yaml`, which routes both prefixes to `ols:` precisely to
+keep the builds off the machine. Each of these therefore used to fetch its build
+silently — no error, no log line, just a slow run (#11299):
 
 | Call site | Adapter | Build | Guard now |
 |---|---|---|---|
 | `render._mondo_adapter` (grouping coverage descendants + labels) | `sqlite:obo:mondo` | 588 MB | returns `None`, so the coverage table degrades to "MONDO descendant lookup unavailable" |
-| `export/browser_export.HPOCategoryResolver` (HP term → broad phenotype category) | `sqlite:obo:hp` | 440 MB | answers from the committed `app/hpo_category_cache.json`, then resolves to no categories |
+| `export/browser_export.HPOCategoryResolver` (HP term → broad phenotype category) | `sqlite:obo:hp` | 440 MB | falls back to the committed `app/hpo_category_cache.json`, then to no categories |
 | `phenoagent.matching._HPOIsARelationshipResolver` (is-a ancestry for broader/narrower phenotype matches) | `sqlite:obo:hp` | 440 MB | reports no ancestry, so a match is exact or nothing |
+| `compare/d2p.HPOClosureResolver` (is-a closure for the OMIM/Orphanet audit) | `sqlite:obo:hp` | 440 MB | warns once, then reports no ancestors and no labels |
 
-All three ask `dismech.oak_db.local_build_present` before opening the adapter, so
+All four ask `dismech.oak_db.local_build_present` before opening the adapter, so
 none of these degradations is a decision about whether MONDO or HP *matters* — it
-is the answer to "can this be served without a download".
+is the answer to "can this be served without a download". They have in common
+that the ontology is incidental to what they are doing, and each already had a
+degradation path to take.
+
+**Not everything that opens a build is a bug, so check before adding a guard.**
+`compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
+download it on purpose — that is a CLI whose job is to export MONDO, and its own
+docstring says so. And `groupings.py` only *looks* like another bypass: it
+resolves its adapter through `conf/oak_config.yaml`, so HP there is `ols:hp` and
+no build is involved. The test is whether the caller can do its job without the
+ontology.
 
 **The `phenoagent` one is the case that shows why the two-guard rule exists.**
 Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
@@ -2910,15 +2921,16 @@ descendant rows and newly curated HP terms' categories.
 
 Two consequences worth keeping straight:
 
-- **`app/hpo_category_cache.json` is now read as well as written, and is now
-  committed on every page build.** It was not: the path was missing from
-  `generate-pages.yaml`'s `BUILT_PATHS`, so it entered git once — when `app/`
-  was first committed — and then never updated, while the workflow regenerated
-  and discarded it every run. At the time of the fix the committed copy held
-  1,415 HP terms against 4,526 in `app/data.js` — which is also why `render` was
-  dropping most phenotypes into the "Other" group. Adding the path fixes both;
-  the first page build after it carries the catch-up diff, and the two counts
-  should track each other from then on. A term the exporter could not
+- **`app/hpo_category_cache.json` is now committed on every page build, and
+  read back as a fallback.** It was not: the path was missing from
+  `generate-pages.yaml`'s `BUILT_PATHS`, so the workflow regenerated and then
+  discarded it on every run, and the only copy in git was the one that arrived
+  with `app/` itself (#11405). That copy held 1,415 HP terms against 4,526 in
+  the `app/data.js` written by the same step — which is why `render` was
+  dropping most phenotypes into the "Other" group. Adding the path fixes it; the
+  first page build after it carries the catch-up diff, and the two counts should
+  track each other from then on. Read the counts from the files rather than from
+  this sentence. A term the exporter could not
   resolve is **never** written back as an empty category list — that would bake
   the gap in permanently — it is left out and counted, and the exporter says so.
 - **A grouping's exact-match roots survive the outage.** They come from the
@@ -3304,8 +3316,8 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 these paths alongside a curation or code change. The derived artifacts do live in
 git, but only the `generate-pages` workflow writes them, in its own
 `auto/generate-pages` PR (`pages/`, `app/data.js`, `app/models/data.js`,
-`app/hpo_category_cache.json`, `pathographs/`, `dashboard/`, `elements/`). Such a bot PR is not a policy
-violation. See
+`app/hpo_category_cache.json`, `pathographs/`, `dashboard/`, `elements/`).
+Such a bot PR is not a policy violation. See
 [`docs/page-build.md`](docs/page-build.md).
 
 ### Never force-push someone else's branch
