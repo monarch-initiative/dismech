@@ -185,10 +185,24 @@ def test_structured_source_row_is_exempt(tmp_path):
 
 def test_dataset_accession_is_exempt(tmp_path):
     """A dataset record's cached body is often its title verbatim, so the
-    remedy this guard advises -- quote the abstract sentence -- cannot be done."""
+    remedy this guard advises -- quote the abstract sentence -- cannot be done.
+
+    Keyed on a prefix the validator still skips. `geo` used to stand here and
+    deliberately no longer does: once GEO records are fetched into
+    references_cache/ their titles *are* comparable, so a GEO snippet quoting
+    its own title is a real finding rather than an artefact of having nothing
+    to compare against.
+    """
+    index = _Index({"EGA:EGAS1": _cache(tmp_path, "EGA:EGAS1", TITLE)})
+    data = {"evidence": [{"reference": "EGA:EGAS1", "snippet": TITLE}]}
+    assert _violations(data, index) == []
+
+
+def test_geo_is_no_longer_exempt(tmp_path):
+    """The counterpart of the test above: GEO is fetched, so it is checked."""
     index = _Index({"GEO:GSE1": _cache(tmp_path, "GEO:GSE1", TITLE)})
     data = {"evidence": [{"reference": "GEO:GSE1", "snippet": TITLE}]}
-    assert _violations(data, index) == []
+    assert len(_violations(data, index)) == 1
 
 
 def test_doi_is_still_checked(tmp_path):
@@ -201,8 +215,12 @@ def test_doi_is_still_checked(tmp_path):
 
 def test_dataset_prefixes_come_from_the_validator_config():
     prefixes = cts.dataset_prefixes()
-    assert "geo" in prefixes and "morphic" in prefixes
+    assert "ega" in prefixes and "morphic" in prefixes
     assert "doi" not in prefixes, "a DOI names a paper; its title must stay checked"
+    assert "geo" not in prefixes, (
+        "geo left skip_prefixes when GEO records became fetchable, so its "
+        "cached title is comparable and its snippets are checked like any other"
+    )
 
 
 def test_doi_stays_checked_however_the_config_spells_it(tmp_path):

@@ -199,6 +199,56 @@ generating tool.
 
 ---
 
+## Recovering failed review Actions
+
+`pr-shepherd` runs `scripts/retry_failed_reviews.py` in an independent
+`retry-reviews` job on every scheduled or manual run. It uses no model, has its
+own retry budget, and still runs if the agent job is skipped or fails.
+Human authorship, human assignment, draft status and PR age do not exclude a
+review retry. Assignment remains a hold on automatic merging, not reviewing.
+
+The controller discovers failed/timed-out `claude-code-review.yml` runs within
+GitHub's 30-day rerun window and invokes `gh run rerun RUN_ID --failed`.
+It never creates a replacement dispatch, changes a branch, or alters a review.
+Cancelled and intentionally skipped runs, missing reviews with no existing run,
+and successful workflows that forgot to post a verdict are separate recovery
+cases. Generated PRs whose review was deliberately skipped are not retried.
+
+Before retrying, it checks the latest run attempt, that the PR is open, that a
+PR-event run still matches the current head, that no newer/active review exists,
+and that the reviewer has not already posted an approval or changes-requested
+verdict for that head. An old changes-requested verdict does not block recovery
+of a failed review of a new commit. Manual-triggered workflows retain their PR
+input and use their existing `gh pr checkout` step to review the current branch.
+
+Backoff is measured from the latest attempt's completion: 1 hour after the first
+failure, 6 after the second, then 24 hours. `review_retry_delay_hours` sets a
+minimum delay and `max_review_retries` caps retries per sweep (default 5; 0
+disables recovery). The common `dry_run` and optional `pr_number` inputs apply.
+Setting `review_retry_delay_hours` to 0 explicitly bypasses the backoff.
+The retry cap and backoff bound repeated usage-limit failures; this does not
+automatically repair credentials or detect an account-wide quota reset.
+
+Review run names include the PR number. Older manual runs without that metadata
+are resolved from the existing guard/environment log output. Unresolvable
+failed runs are reported and deferred; an unresolvable active run defers the
+sweep to avoid duplicating a review already underway. Every retry/defer/skip
+appears in the Actions summary, without PR comment spam. API errors do not
+authorize retries. Discovery subdivides time ranges above the Actions API's
+1000-result limit rather than silently dropping older failures.
+
+The summary leads with the number of rerun requests accepted and the configured
+limit, then links to the restarted PRs and workflow runs. Accepted means GitHub
+accepted the restart request, not that the review completed or passed. PRs deferred
+at the limit have not been queued; the next sweep reconsiders them with fresh
+checks. Historical skips and PR-lookup diagnostics are in expandable sections.
+Diagnostic counts are messages, not unique PRs: a run can have both a lookup
+error and a deferral. Dry runs explicitly say that no requests were issued.
+
+```bash
+just review-retry-preview
+```
+
 ## Review states and merge state
 
 The vocabulary GitHub uses here is genuinely confusing, and it is the vocabulary
