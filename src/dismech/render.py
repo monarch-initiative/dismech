@@ -18,6 +18,7 @@ import markdown as markdown_lib
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from dismech import hierarchy_cache, kb_cache
 from dismech.entity_refs import (
     DISEASE_KIND,
     SECTION_KEYS,
@@ -775,7 +776,7 @@ def _build_disorder_page_index(
         if disorder_path.name.endswith(".history.yaml"):
             continue
         try:
-            disorder = load_disorder(disorder_path) or {}
+            disorder = load_disorder_shared(disorder_path) or {}
         except Exception:
             continue
         disorder_name = disorder.get("name") or disorder_path.stem
@@ -1269,9 +1270,24 @@ def _annotate_regulatory_endpoint_refs(disorder: dict, yaml_path: Path) -> None:
 
 
 def load_disorder(yaml_path: Path) -> dict:
-    """Load a disorder YAML file."""
+    """Load a disorder YAML file as a fresh, private copy.
+
+    ``render_disorder`` decorates the document in place (page hrefs, anchor ids,
+    resolved regulatory endpoints), so it needs its own parse. The read-only
+    corpus walks that only build indexes use :func:`load_disorder_shared`.
+    """
     with open(yaml_path) as f:
         return _fast_yaml_load(f)
+
+
+def load_disorder_shared(yaml_path: Path) -> dict:
+    """Load a disorder through the process-wide parsed-document cache.
+
+    For index-building walks over kb/disorders/ that never modify what they
+    load. See :mod:`dismech.kb_cache` for the read-only contract; rendering a
+    single page used to re-parse the whole corpus for these (#11003).
+    """
+    return kb_cache.load_document(yaml_path)
 
 
 def load_comorbidity(yaml_path: Path) -> dict:
@@ -1482,7 +1498,7 @@ def _collect_module_usage(
             continue
 
         try:
-            disorder = load_disorder(yaml_path) or {}
+            disorder = load_disorder_shared(yaml_path) or {}
         except Exception:
             continue
 
@@ -2914,7 +2930,7 @@ def _scan_research_reports(
     for yaml_path in sorted(disorders_dir.glob("*.yaml")):
         if yaml_path.name.endswith(".history.yaml"):
             continue
-        disorder = load_disorder(yaml_path) or {}
+        disorder = load_disorder_shared(yaml_path) or {}
         disorder_name = disorder.get("name") or yaml_path.stem
         disorder_meta_by_filename[f"{slugify(str(disorder_name))}.html"] = {
             "name": str(disorder_name),
@@ -4004,7 +4020,7 @@ def _build_grouping_disorder_context(disorders_dir: str) -> dict:
         if disorder_path.name.endswith(".history.yaml"):
             continue
         try:
-            disorder = load_disorder(disorder_path) or {}
+            disorder = load_disorder_shared(disorder_path) or {}
         except Exception:
             continue
         name = disorder.get("name") or disorder_path.stem
@@ -5516,6 +5532,42 @@ def _build_hierarchy_path(adapter, term_id: str, root_id: str) -> list[str | Non
     return list(reversed(path))
 
 
+@cache
+def _resolve_hierarchy_path(prefix: str, term_id: str) -> tuple[tuple[str, str], ...]:
+    """Return the root-to-term path as ``((curie, label), ...)``.
+
+    Consults the committed `cache/<prefix>/hierarchy.csv` first and falls back to
+    a live OAK walk on a miss. The result is memoised for the life of the
+    process, which is what makes `render_all` cheap: one lookup per distinct
+    CURIE rather than one per page that mentions it.
+
+    An empty tuple means "no path available" and is cached too, so a term that
+    OAK cannot resolve is not re-queried on every subsequent page.
+    """
+    cached = hierarchy_cache.lookup(prefix, term_id)
+    if cached is not None:
+        return cached
+
+    hierarchy = STRICT_HIERARCHIES.get(prefix)
+    if not hierarchy:
+        return ()
+    adapter = _get_oak_adapter(hierarchy["adapter"])
+    if adapter is None:
+        return ()
+    path = _build_hierarchy_path(adapter, term_id, hierarchy["root"])
+    if not path:
+        return ()
+
+    resolved = []
+    for curie in path:
+        try:
+            label = adapter.label(curie) or curie
+        except Exception:
+            label = curie
+        resolved.append((curie, label))
+    return tuple(resolved)
+
+
 def _augment_mapping_hierarchies(disorder: dict) -> None:
     mappings = disorder.get("mappings") or {}
     for mapping_list in mappings.values():
@@ -5529,26 +5581,19 @@ def _augment_mapping_hierarchies(disorder: dict) -> None:
             if not term_id or ":" not in term_id:
                 continue
             prefix = term_id.split(":", 1)[0]
-            hierarchy = STRICT_HIERARCHIES.get(prefix)
-            if not hierarchy:
+            if prefix not in STRICT_HIERARCHIES:
                 continue
-            adapter = _get_oak_adapter(hierarchy["adapter"])
-            if adapter is None:
+            resolved = _resolve_hierarchy_path(prefix, term_id)
+            if not resolved:
                 continue
-            path = _build_hierarchy_path(adapter, term_id, hierarchy["root"])
-            if not path:
-                continue
-            compacted = _compact_hierarchy_path(path)
+            labels = dict(resolved)
+            compacted = _compact_hierarchy_path([curie for curie, _ in resolved])
             labeled_path = []
             for curie in compacted:
                 if curie is None:
                     labeled_path.append({"label": "...", "is_ellipsis": True})
                     continue
-                try:
-                    label = adapter.label(curie) or curie
-                except Exception:
-                    label = curie
-                labeled_path.append({"id": curie, "label": label})
+                labeled_path.append({"id": curie, "label": labels.get(curie, curie)})
             mapping["hierarchy_path"] = labeled_path
 
 
@@ -5762,7 +5807,7 @@ def render_classification_pages(
     for yaml_path in sorted(input_dir.glob("*.yaml")):
         if yaml_path.name.endswith(".history.yaml"):
             continue
-        disorder = load_disorder(yaml_path) or {}
+        disorder = load_disorder_shared(yaml_path) or {}
         name = disorder.get("name") or yaml_path.stem
         disorders.append(
             {
@@ -5916,7 +5961,7 @@ def render_all_disorders(
     # Each disorder should have a name,
     # but if not, we'll use the filename as a fallback
     for yaml_path in yaml_files:
-        disorder = load_disorder(yaml_path)
+        disorder = load_disorder_shared(yaml_path)
         disorder_name = disorder.get("name") or yaml_path.stem
         output_path = output_dir / f"{slugify(disorder_name)}.html"
 
