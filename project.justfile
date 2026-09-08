@@ -744,6 +744,27 @@ check-cache-order:
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
 
+# Rebuild the committed ICD10CM/NCIT ancestor-path cache the renderer reads for
+# mapping breadcrumbs (cache/<prefix>/hierarchy.csv). Walking these live costs
+# ~75 s per rendered page against the local OAK SQLite builds (#11186); the
+# cache turns that into a dict lookup. Needs the local sqlite:obo:* DB for each
+# prefix, so run `just fetch-ontology-dbs icd10cm ncit` first if they are absent.
+# Rebuild all, or only the named prefixes:
+#   just build-hierarchy-cache
+#   just build-hierarchy-cache NCIT
+[group('QC')]
+build-hierarchy-cache *prefixes="":
+    uv run python scripts/build_hierarchy_cache.py {{prefixes}}
+
+# Report mapped ICD10CM/NCIT CURIEs that are missing from the hierarchy cache.
+# Advisory: a miss costs render time, never a wrong page, so this is not in `qc`
+# and does not gate a curation PR. It exits 1 when anything is missing, and runs
+# as a non-blocking step in the nightly sweep, which is where the drift that
+# actually happens shows up -- a curator adds a mapping and nobody rebuilds.
+[group('QC')]
+check-hierarchy-cache:
+    uv run python scripts/build_hierarchy_cache.py --check
+
 # --- Curation stub queue (stubs/) ------------------------------------------
 # The outstanding curation queue: one YAML per disease we intend to curate but
 # have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
@@ -826,17 +847,28 @@ next-unclaimed count="5" claims="tmp/claims.json" *args="":
 seed-stubs source *args="":
     uv run dismech-stubs seed {{source}} {{args}}
 
-# Adds MONDO parents, subclass descendants (+ total), and causal genes to each
-# stub, so the lump/split call can be made from the file. Needs the MONDO
-# database (`just fetch-ontology-dbs mondo`). Idempotent; preserves hand edits.
+# Adds MONDO parents, subclass descendants (+ total), causal genes, and
+# retirement status to each stub, so the lump/split call can be made from the
+# file. Needs the MONDO database (`just fetch-ontology-dbs mondo`). Idempotent;
+# preserves hand edits.
 # Add MONDO context to the stub files
 [group('Curation')]
 enrich-stubs *args="":
     uv run python scripts/enrich_curation_stubs.py {{args}}
 
+# Asks MONDO directly which stub terms it has retired (`owl:deprecated`, with
+# `term_replaced_by`) or decided to retire (its `obsoletion_candidate` subset).
+# The exact version of the signal `check-stubs` reads out of the committed stub
+# files. Needs the MONDO database; without it this says so and exits 0 — a
+# census for a person, never a gate.
+# Report stub terms MONDO has retired or scheduled for retirement
+[group('Curation')]
+stub-obsolescence *args="":
+    uv run dismech-stubs obsolescence {{args}}
+
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-enum-values check-entity-refs check-causal-targets check-cancer-origin check-qualifier-terms check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -871,6 +903,26 @@ environmental-term-audit *args="":
 [group('QC')]
 model-scale-audit *args="":
     uv run python scripts/model_scale_audit.py {{args}}
+
+# Census of how diet is represented, on its two INDEPENDENT tracks: causal
+# (environmental[] food_source/exposure_term -> influences_mechanisms) and
+# intervention (treatments[] dietary_modifications -> target_mechanisms). The
+# headline is not binding coverage but the evidence-backed entries that are OFF
+# the pathograph, since a diet annotation earns a mechanism edge only when the
+# evidence supports one. FREE_TEXT is reported as a state to review, never an
+# error -- food components and dietary patterns have no home in FoodTerm.
+# Advisory by default; --strict exits non-zero on a linked-but-uncited entry.
+[group('QC')]
+diet-audit *args="":
+    uv run python scripts/diet_audit.py {{args}}
+
+# Census of how antigens on B and T cells are represented across immune entries.
+# Report-only, offline, never a gate. --format tsv gives a per-entry table;
+# --entry <stem> audits one file. See
+# docs/reports/immune-antigen-representation-gap-analysis-2026-09-03.md
+[group('QC')]
+immune-antigen-audit *args="":
+    uv run python scripts/immune_antigen_audit.py {{args}}
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -1112,7 +1164,7 @@ check-enum-values *files:
     uv run python scripts/check_enum_values.py "$@"
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
-# run in `test_entity_ref_foreign_keys`, but that test is selected by the
+# run in `check_entity_ref_foreign_keys`, but that test is selected by the
 # `python`/`schema` path filters, so a curation PR -- which touches only kb/ --
 # skips it entirely. This lane is ungated in CI for the same reason
 # check-duplicate-keys is: the PRs that break the invariant are exactly the ones
@@ -1143,6 +1195,34 @@ list-causal-targets *files:
 [group('QC')]
 update-causal-target-baseline:
     uv run python scripts/check_causal_targets.py --update-baseline
+
+# Derive each neoplasm entry's cell of origin from its own pathograph, and
+# report where the derivation fails. There is no `cell_of_origin:` slot: a node
+# carrying `genetic_context.variant_origin: SOMATIC` is where the transforming
+# lesion happened, and that node's `cell_types` are the cell it happened in.
+# Advisory -- most of the corpus is unmarked, so this reports rather than gates.
+# The finding worth reading is MULTI_ORIGIN_CELL: more than one derived cell of
+# origin is the lump/split signal (grouping vs. cell-of-origin subtypes vs. an
+# unsettled origin). See docs/cancer-cell-of-origin.md.
+[group('QC')]
+check-cancer-origin *args="":
+    uv run python scripts/check_cancer_origin.py {{args}}
+
+# Full census: every neoplasm entry, the rule that identified its origin node,
+# and the cell of origin derived from it. --format tsv/json for machine use.
+[group('QC')]
+list-cancer-origin *args="":
+    uv run python scripts/check_cancer_origin.py --format list {{args}}
+
+# Propose (and with --apply, write) the somatic-origin marking on neoplasm
+# entries whose prose already states the lesion. Marks only nodes whose NAME
+# says mutation/fusion/translocation/amplification/inactivation, never a pathway
+# state, a germline variant, a microenvironment node, or an acquired-resistance
+# node. --bind-single-cell also copies the entry's cell type onto the lesion node
+# when the entry names exactly one. Re-validate the changed files afterwards.
+[group('QC')]
+backfill-cancer-origin *args="":
+    uv run python scripts/backfill_cancer_origin.py {{args}}
 
 # Check ontology labels on terms nested inside `qualifiers` (#10197).
 # `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;
@@ -3318,6 +3398,12 @@ auto-merge-preview days='3':
     uv run --no-project python scripts/auto_merge_ready_prs.py \
         --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
         --min-age-days {{days}} --dry-run
+
+# Preview failed review Action retries without changing any workflow runs.
+[group('Auto-merge')]
+review-retry-preview:
+    uv run --no-project python scripts/retry_failed_reviews.py \
+        --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" --dry-run
 
 # ============== Phenoagent: case-to-disease matching ==============
 
