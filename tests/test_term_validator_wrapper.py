@@ -16,6 +16,7 @@ import pytest
 
 ROOT = Path(__file__).parent.parent
 WRAPPER = ROOT / "scripts" / "run_term_validator.sh"
+MAIN_WORKFLOW = ROOT / ".github" / "workflows" / "main.yaml"
 
 
 def test_wrapper_does_not_probe_help() -> None:
@@ -39,7 +40,7 @@ def _fake_uv(tmp_path: Path, stdout: str, exit_code: int = 0) -> Path:
     shim = bin_dir / "uv"
     shim.write_text(
         "#!/usr/bin/env bash\n"
-        f"printf '%s\\n' \"$*\" >> {log}\n"
+        f'printf \'%s\\n\' "$*" >> "{log}"\n'
         f"cat <<'CANNED'\n{stdout}\nCANNED\n"
         f"exit {exit_code}\n"
     )
@@ -83,3 +84,16 @@ def test_other_subcommands_pass_straight_through(tmp_path: Path) -> None:
     assert log.read_text().splitlines() == [
         "run linkml-term-validator some-other-command --flag"
     ]
+
+
+def test_no_arguments_prints_usage_and_exits_2(tmp_path: Path) -> None:
+    log = _fake_uv(tmp_path, "should not run")
+    result = _run(tmp_path)
+    assert result.returncode == 2
+    assert "Usage:" in result.stderr
+    assert not log.exists()
+
+
+def test_wrapper_edits_trigger_the_pytest_lane() -> None:
+    """A PR touching only the wrapper must still run this file (#11479 review)."""
+    assert "- 'scripts/run_term_validator.sh'" in MAIN_WORKFLOW.read_text()

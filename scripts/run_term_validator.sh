@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 # Wrapper for linkml-term-validator that fails CI on warnings.
 #
-# linkml-term-validator (pinned at 0.4.5 in uv.lock) exits 0 on a WARN, so
-# this wrapper captures the output and treats any WARN/WARNING line, or a
-# missing success line, as a failure.
+# Under linkml-term-validator 0.4.5 (the version in uv.lock; pyproject.toml
+# declares >=0.4.5, not a pin) `validate-data` exits 1 whenever a file has any
+# result at all, WARNING included: severity only picks the emoji. The WARN
+# grep and the success-line grep below are therefore defence in depth. They
+# exist so that a future version that downgrades warnings to a zero exit, or
+# stops printing the success line, still fails CI here instead of passing
+# quietly. Note the grep reads stdout and stderr together, so an unrelated
+# WARNING line (a DeprecationWarning, an OAK message) will also fail a run.
 #
-# It used to probe `validate-data --help` on every call for a `--strict` or
-# `--fail-on-warnings` flag. Upstream linkml/linkml-term-validator#29 (the
-# request for such a flag) is still open, so the probe could only ever answer
-# "unsupported" and cost a full interpreter start plus the linkml import tree
-# on every validate-data call (dismech#11004). The probe is gone. When #29
-# ships and the minimum linkml-term-validator version in pyproject.toml is
-# bumped past it, replace the WARN grep below with the upstream flag; do not
+# The wrapper used to probe `validate-data --help` on every call for a
+# `--strict` or `--fail-on-warnings` flag. Upstream
+# linkml/linkml-term-validator#29 (the request for such a flag) is still
+# open, so the probe could only ever answer "unsupported" and cost a full
+# interpreter start plus the linkml import tree on every validate-data call
+# (dismech#11004). The probe is gone. When #29 ships and uv.lock resolves a
+# version that has the flag, pass the flag and keep the greps; do not
 # reinstate a per-call probe.
 
 set -euo pipefail
