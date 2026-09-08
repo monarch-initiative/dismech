@@ -1252,6 +1252,28 @@ list-qualifier-terms *files:
 check-qualifier-terms-online *files:
     uv run python scripts/check_qualifier_terms.py --resolve "$@"
 
+# Report gene bindings whose HGNC label is not the gene the entry names (#10948).
+# `validate-terms` checks a `term.id`/`term.label` pair against the ontology and
+# against nothing else, so a self-consistent binding to the WRONG gene passes --
+# `hgnc:20856` labelled `THAP1` under an entry whose `name` and `preferred_term`
+# both say `THAP11` validates clean. This compares the resolved label with that
+# free text. Offline, cache-first, and REPORT-ONLY: it exits 0 even with findings
+# and is deliberately not in `just qc` while its real rate is being established.
+# Pass `--strict` to exit 1 on the confident class only.
+[group('QC')]
+list-gene-term-mismatches *files:
+    uv run python scripts/check_gene_term_identity.py "$@"
+
+# Also ask HGNC about the rows the cache cannot settle. Note this covers MORE
+# than `check-qualifier-terms --resolve`, whose `--resolve` means the uncached
+# CURIEs only: here it does those AND the advisory rows, which offline cannot be
+# told apart -- a previous/alias symbol the OBO build lags on (#10102) is benign
+# and is reclassified, while a symbol resolving to a DIFFERENT gene is promoted
+# to the confident class. Needs network; run when auditing, not in CI.
+[group('QC')]
+list-gene-term-mismatches-online *files:
+    uv run python scripts/check_gene_term_identity.py --resolve "$@"
+
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the
 # abstract does not mention X". Every other gate here checks a SNIPPET against
