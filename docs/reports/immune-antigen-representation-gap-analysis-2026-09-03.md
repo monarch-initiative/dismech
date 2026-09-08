@@ -475,11 +475,13 @@ names the antigen on neither node. IEDB holds that claim as data:
 | Celiac disease, IEDB, queried 2026-09-07 | B cell | T cell |
 |---|---:|---:|
 | assay records | 824 | 2,748 |
-| against TGM2 (`UNIPROT:P21980`) | **256** | **0** |
+| against TGM2 (`UNIPROT:P21980`) | **256–472** (see §9) | **0** |
 | carrying an MRO restriction | 0 | 1,876 |
 
-Zero of 2,748 celiac T-cell records are against TGM2, against 256 of 824 on the B
-side; the T-cell antigens are the gliadins (`UNIPROT:D2T2K3`, `UNIPROT:A0A060N479`,
+Zero of 2,748 celiac T-cell records are against TGM2 — a result two independent
+counting methods agree on exactly — while on the B side TGM2 is the single
+largest antigen, at between 256 and 472 of 824 depending on how the count is
+taken (§9 explains the spread). The T-cell antigens are the gliadins (`UNIPROT:D2T2K3`, `UNIPROT:A0A060N479`,
 `UNIPROT:Q402I5`), and the dominant restrictions are `MRO:0001229`
 (HLA-DQA1\*05:01/DQB1\*02:01) and `MRO:0001620` (HLA protein complex with DQ2
 serotype). The divergence this report was commissioned to look for is not a
@@ -494,15 +496,18 @@ wrong:
 | Disease (IEDB, 2026-09-07) | B-cell records | T-cell records | Dominant antigen |
 |---|---:|---:|---|
 | celiac disease | 824 | 2,748 | **divergent** — TGM2 vs gliadins |
-| type 1 diabetes mellitus | 550 | 4,407 | convergent — GAD65 (`UNIPROT:Q05329`) leads both |
+| type 1 diabetes mellitus | 550 | 4,407 | **overlapping, different leaders** — GAD65 (`UNIPROT:Q05329`) leads the B side, insulin (`UNIPROT:P01308`) the T side |
 | myasthenia gravis | 77 | 726 | convergent — AChR α (`UNIPROT:P02708`) leads both |
 | pemphigus | — | — | DSG3 (`UNIPROT:P32926`): 145 B / 134 T |
 
-B and T sometimes see the same protein and sometimes do not. A curator cannot
-infer which from the disease, and dismech currently has no field in which to
-record the answer either way — so the information is lost precisely where it is
-most informative. That is a stronger case for the link object in §7 than the
-uniform-divergence story would have been.
+There are at least three patterns here, not two. Celiac is a clean split. In
+myasthenia gravis both lineages lead on the same protein. Type 1 diabetes is
+neither: the repertoires overlap heavily, but the *leading* antigen differs by
+lineage — GAD65 on the B side, insulin on the T side, with GAD65 second there.
+A curator cannot infer which pattern holds from the disease, and dismech
+currently has no field in which to record the answer either way, so the
+information is lost precisely where it is most informative. That is a stronger
+case for the link object in §7 than a uniform-divergence story would have been.
 
 ### What IEDB does not solve
 
@@ -556,7 +561,23 @@ caveats. They were obtained by ad-hoc HTTP queries against
 only by re-issuing the queries. Counts are exact (`Prefer: count=exact`) rather
 than sampled, but they are counts of assay records, so a protein studied often
 outranks a protein that matters; `qualitative_measure` includes `Negative`
-records, which these totals do not exclude. Disease selection is by IEDB's own
+records, which these totals do not exclude.
+
+**Per-antigen counts are method-dependent, and the tables above disclose the
+spread rather than picking a number.** Filtering server-side on
+`parent_source_antigen_iri=eq.UNIPROT:P21980` returns 256 celiac B-cell records;
+paginating the whole 824-row result and counting that same column in the returned
+rows gives 472. The rows involved carry several curated accessions for one
+protein — `SRC454731`, `P21980.2` and `NP_004604.2` all appear — so the
+server-side equality filter and the projected column do not agree on what counts
+as that antigen, and this report does not claim to know which is canonical.
+Presence and absence are unaffected: the zero on the celiac T-cell side and the
+`0` versus `297,935` MHC split reproduce identically under both methods, and the
+whole-table totals (824, 2,748, 550, 4,407, 77, 726) are single-method counts
+with no such ambiguity. Ranking within a lineage is also unaffected, since one
+method is used throughout a given comparison — which is how the type 1 diabetes
+row was corrected: a 500-row sample had suggested GAD65 led the T-cell side, and
+full enumeration of all 4,407 rows shows insulin leads it, 1,057 to 692. Disease selection is by IEDB's own
 disease *name*, which is DOID-derived and does not match dismech's MONDO labels
 — `pemphigus vulgaris` matches nothing while `pemphigus` matches 145 B-cell and
 134 T-cell DSG3 records, so a name join under-reports silently.
