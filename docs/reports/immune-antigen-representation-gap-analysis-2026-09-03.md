@@ -510,19 +510,34 @@ wrong:
 
 | Disease (IEDB, 2026-09-07) | B-cell records | T-cell records | Dominant antigen |
 |---|---:|---:|---|
-| celiac disease | 824 | 2,748 | **partly divergent** — TGM2 is B-only (256 vs 0); gliadin leads both |
+| celiac disease | 824 | 2,748 | gliadin leads both; TGM2 B-only (256 by server-side filter vs 0) |
 | type 1 diabetes mellitus | 550 | 4,407 | **overlapping, different leaders** — GAD65 (`UNIPROT:Q05329`) leads the B side, insulin (`UNIPROT:P01308`) the T side |
 | myasthenia gravis | 77 | 726 | convergent — AChR α (`UNIPROT:P02708`) leads both |
 | pemphigus | 251 | 64 | convergent — DSG3 (`UNIPROT:P32926`) on both, 81 B / 60 T |
 
-There are at least three patterns here, not two. Celiac is a clean split. In
-myasthenia gravis both lineages lead on the same protein. Type 1 diabetes is
-neither: the repertoires overlap heavily, but the *leading* antigen differs by
-lineage — GAD65 on the B side, insulin on the T side, with GAD65 second there.
-A curator cannot infer which pattern holds from the disease, and dismech
-currently has no field in which to record the answer either way, so the
-information is lost precisely where it is most informative. That is a stronger
-case for the link object in §7 than a uniform-divergence story would have been.
+What this is not is a clean two-way split into "divergent" and "convergent"
+diseases. Lineage skew is a property of an individual antigen, not of a disease,
+and every disease here mixes shared and skewed antigens:
+
+| Disease | dominant antigen | most lineage-skewed antigen |
+|---|---|---|
+| celiac | gliadin `D2T2K3`, both sides | **TGM2 — 256 B, 0 T** |
+| myasthenia gravis | AChR α, both sides (26 B / 488 T) | AChR δ 0 B / 102 T; IFN-α2 22 B / 0 T |
+| type 1 diabetes | differs by lineage — GAD65 (B), insulin (T) | none exclusive; all top antigens on both sides |
+| pemphigus | DSG3, both sides (81 B / 60 T) | DSG1 88 B / 4 T |
+
+What makes celiac the striking case is not that it is the only disease with a
+one-sided antigen — myasthenia gravis has four, and pemphigus's DSG1 is nearly
+one-sided at 88 versus 4. It is that celiac's exclusion is on a *major* antigen
+against a *large* opposing corpus: TGM2 is the second most-studied B-cell antigen
+in the disease and draws zero hits across 2,748 T-cell records. In myasthenia
+gravis the exclusive antigens are minor ones while the dominant antigen is shared.
+
+So the answer a curator needs is per-antigen and per-lineage, and it cannot be
+inferred from the disease. dismech currently has no field in which to record it
+either way, so the information is lost precisely where it is most informative.
+That is a stronger case for the link object in §7 than a uniform-divergence
+story would have been.
 
 ### What IEDB does not solve
 
@@ -620,15 +635,18 @@ The queries behind §7a take these shapes:
 
 ```bash
 BASE=https://query-api.iedb.org
-# whole-table count (the Range/Prefer pair returns an exact total, not rows)
-curl -s -o /dev/null -D - -H 'Prefer: count=exact' -H 'Range: 0-0' \
-  "$BASE/tcell_search?disease_names=cs.%7Bceliac%20disease%7D"
-# a disease-scoped, antigen-scoped count — BOTH filters, always
-curl -s ... "$BASE/bcell_search?disease_names=cs.%7Bceliac%20disease%7D\
-&parent_source_antigen_iri=eq.UNIPROT:P21980"
-# the B/T asymmetry
-curl -s ... "$BASE/tcell_search?host_organism_iri=eq.NCBITaxon:9606\
-&mhc_allele_iri=not.is.null"
+# the Prefer/Range pair returns an exact total in Content-Range, not rows
+COUNT="curl -s -o /dev/null -D - -H 'Prefer: count=exact' -H 'Range: 0-0'"
+
+# whole-table count
+eval $COUNT '"$BASE/tcell_search?disease_names=cs.%7Bceliac%20disease%7D"'
+
+# a disease-scoped, antigen-scoped count — BOTH filters, always.
+# Omitting disease_names here is what produced the erroneous pemphigus figures.
+eval $COUNT '"$BASE/bcell_search?disease_names=cs.%7Bceliac%20disease%7D&parent_source_antigen_iri=eq.UNIPROT:P21980"'
+
+# the B/T MHC asymmetry
+eval $COUNT '"$BASE/tcell_search?host_organism_iri=eq.NCBITaxon:9606&mhc_allele_iri=not.is.null"'
 ```
 
 - **Only three classes can answer the lineage question, and the headline is
