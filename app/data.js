@@ -104274,6 +104274,102 @@ window.searchData = [
     "causal_graph_longest_path": "13"
   },
   {
+    "name": "Familial Hypocalciuric Hypercalcemia 1",
+    "disease_id": "MONDO:0007791",
+    "category": "Mendelian",
+    "parents": [
+      "Endocrine disorder"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "NSHPT"
+    ],
+    "description": "FHH1 is the loss-of-function half of the calcium-sensing receptor allelic series, and like its gain-of-function counterpart it is a disease of a moved set point rather than of a missing protein. The calcium-sensing receptor is a class C G-protein-coupled receptor that reads extracellular ionised calcium and, when that concentration rises, both suppresses parathyroid hormone secretion and reduces calcium reabsorption in the renal tubule. A heterozygous inactivating variant leaves that circuitry in place but shifts its dose-response curve to the right, so calcium concentrations a normal receptor would read as high are read as adequate.\nTwo consequences follow from the one lesion, because the same receptor is doing two jobs in two organs. In the parathyroid, PTH is not suppressed at a calcium level that should suppress it, so hypercalcaemia is defended rather than corrected. In the thick ascending limb of the loop of Henle, the receptor normally restrains paracellular calcium reabsorption when calcium is high; with the receptor blunted, that brake is not applied and calcium is reabsorbed instead of excreted. The result is the combination the disease is named for: hypercalcaemia together with a urinary calcium that is low rather than the high value hypercalcaemia would otherwise produce.\nThat second limb is also what makes the disease benign, and the contrast with primary hyperparathyroidism is the point. In PHPT the kidney is behaving normally and dutifully excretes the excess calcium, which is what generates stones and nephrocalcinosis; in FHH1 the kidney is part of the lesion and retains it, so the classic renal complications of hypercalcaemia largely do not occur, and bone density is not lost either. The hypercalcaemia is lifelong and non-progressive and most carriers never develop symptoms.\nThe clinical stakes are therefore diagnostic rather than therapeutic. FHH1 produces a biochemical picture - raised calcium with a PTH that is normal or frankly elevated - that is nearly indistinguishable from mild primary hyperparathyroidism, and PHPT is treated surgically. A patient with FHH1 who is mistaken for one with PHPT undergoes a parathyroidectomy that cannot work, because the parathyroid glands are responding correctly to a receptor that is misreporting the calcium level. Distinguishing the two is what the urinary calcium measurement and CASR sequencing are for, and it is the reason this entry exists as a disease rather than as a laboratory curiosity.",
+    "pathophysiology": [
+      "Heterozygous CASR Loss-of-Function Variant",
+      "Right-Shifted Calcium Set Point",
+      "Failure to Suppress Parathyroid Hormone Secretion",
+      "Increased Renal Tubular Calcium Reabsorption",
+      "Hypocalciuria",
+      "Reduced Renal Magnesium Excretion",
+      "Hypercalcemia with Non-Suppressed PTH",
+      "Hypermagnesemia",
+      "Preserved Bone Mineral Density Despite Chronic PTH Elevation"
+    ],
+    "cell_types": [
+      "parathyroid chief cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000446"
+    ],
+    "biological_processes": [
+      "G protein-coupled receptor signaling pathway",
+      "parathyroid hormone secretion",
+      "paracellular calcium reabsorption in the thick ascending limb"
+    ],
+    "phenotypes": [
+      "Hypercalcemia",
+      "Hypocalciuria",
+      "Elevated or Inappropriately Normal Parathyroid Hormone",
+      "Hypermagnesemia",
+      "Chondrocalcinosis",
+      "Pancreatitis",
+      "Absence of Nephrolithiasis and Nephrocalcinosis"
+    ],
+    "phenotype_categories": [
+      "Biochemical",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003072",
+      "HP:0003127",
+      "HP:0003165",
+      "HP:0002918",
+      "HP:0000934",
+      "HP:0001733"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "CASR"
+    ],
+    "treatments": [
+      "Observation Without Intervention",
+      "Avoidance of Parathyroidectomy",
+      "Cinacalcet"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum total and ionised calcium",
+      "Calcium/creatinine clearance ratio",
+      "Intact parathyroid hormone"
+    ],
+    "source_file": "Familial_Hypocalciuric_Hypercalcemia_1.yaml",
+    "page_url": "../pages/disorders/Familial_Hypocalciuric_Hypercalcemia_1.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Familial Isolated Vitamin E Deficiency",
     "disease_id": "MONDO:0010188",
     "category": "Mendelian",
@@ -136962,6 +137058,134 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Hypopigmentation, Organomegaly, and Delayed Myelination and Development",
+    "disease_id": "MONDO:0032805",
+    "category": "Mendelian",
+    "parents": [
+      "lysosomal storage disease",
+      "CLCN7-related disorder"
+    ],
+    "creation_date": "2026-09-03T16:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "HOD syndrome (OMIM 618541) is an ultra-rare multisystem lysosomal disorder caused by de novo heterozygous missense variants in CLCN7, which encodes ClC-7, the lysosomal 2Cl-/H+ antiporter. The reported variants increase ClC-7 transport activity, and the resulting over-acidified, grossly enlarged lysosome-related vacuoles accumulate across many tissues, producing hypopigmentation, hepatosplenomegaly with foam-cell infiltration, delayed myelination and global developmental delay.\nThe entry exists chiefly for a contrast the knowledge base can hold but a single-gene view cannot. CLCN7 loss of function causes osteopetrosis, curated here as Osteopetrosis, Autosomal_Dominant_Osteopetrosis_Type_II and Autosomal_Recessive_Osteopetrosis. HOD is allelic with all three and shares none of their bone disease: every reported patient has been explicitly free of osteopetrosis. Bone is not a mildly affected organ in HOD, it is an unaffected one.",
+    "pathophysiology": [
+      "De Novo Heterozygous CLCN7 Missense Variant",
+      "Loss of PI(3,5)P2 Inhibition of ClC-7",
+      "Increased ClC-7 Chloride/Proton Exchange Current",
+      "Lysosomal Hyperacidification",
+      "Enlarged Lysosome-Related Vacuole Formation",
+      "Impaired Lysosomal and Autophagic Degradation",
+      "Foam Cell Transformation and Tissue Storage",
+      "Reduced Melanin Synthesis in Melanosomes",
+      "Hypopigmentation of Skin and Hair",
+      "Organomegaly with Preserved Organ Function",
+      "Protein-Losing Enteropathy",
+      "Failure to Thrive",
+      "Delayed Myelination"
+    ],
+    "cell_types": [
+      "CD68+ tissue histiocyte",
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "lysosomal lumen acidification",
+      "autophagosome-lysosome fusion and cargo degradation",
+      "melanin biosynthetic process"
+    ],
+    "phenotypes": [
+      "Hypopigmentation",
+      "Ocular Albinism",
+      "Hepatosplenomegaly",
+      "Nephromegaly",
+      "Global Developmental Delay",
+      "Delayed Myelination",
+      "Frontotemporal Cerebral Atrophy",
+      "Hypotonia",
+      "Failure to Thrive",
+      "Protein-Losing Enteropathy",
+      "Vacuolated Lymphocytes",
+      "Hypogammaglobulinemia",
+      "Left Ventricular Hypertrophy",
+      "Delayed Skeletal Maturation",
+      "Strabismus"
+    ],
+    "phenotype_categories": [
+      "Integumentary",
+      "Ophthalmologic",
+      "Gastrointestinal",
+      "Renal",
+      "Neurologic",
+      "Musculoskeletal",
+      "Growth",
+      "Hematologic",
+      "Immunologic",
+      "Cardiovascular",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001010",
+      "HP:0001107",
+      "HP:0001433",
+      "HP:0000105",
+      "HP:0001263",
+      "HP:0002188",
+      "HP:0006892",
+      "HP:0001252",
+      "HP:0001508",
+      "HP:0002243",
+      "HP:0001922",
+      "HP:0004313",
+      "HP:0001712",
+      "HP:0002750",
+      "HP:0000486"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CLCN7"
+    ],
+    "treatments": [
+      "Chloroquine",
+      "Intravenous immunoglobulin replacement",
+      "Gastrostomy feeding and nutritional support"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma chitotriosidase"
+    ],
+    "source_file": "Hypopigmentation_Organomegaly_And_Delayed_Myelination_And_Development.yaml",
+    "page_url": "../pages/disorders/Hypopigmentation,_Organomegaly,_and_Delayed_Myelination_and_Development.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hypoplasminogenemia",
     "disease_id": "MONDO:0009009",
     "category": "Mendelian",
@@ -141839,37 +142063,59 @@ window.searchData = [
     "creation_date": "2026-09-03T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Immunodeficiency 60 is an autosomal dominant inborn error of immunity caused by haploinsufficiency for BACH2, a BTB/POZ- and basic-leucine-zipper-domain transcriptional repressor that acts as a lineage-specification factor in both the T-cell and the B-cell arm of adaptive immunity. The International Union of Immunological Societies places it in Table 4, diseases of immune dysregulation, rather than among the predominantly antibody deficiencies, and summarises the defect as haploinsufficiency for a critical lineage specification transcription factor.\nThe consequence is the unusual pairing that defines the entity: a humoral deficiency and a lymphocytic infiltrative disease in the same patient. Loss of one functional BACH2 allele impairs regulatory T-cell differentiation, which places the disorder among the monogenic \"Tregopathies\" alongside IPEX, CD25 deficiency and STAT3 gain-of-function; it also impairs memory B-cell development, which underlies the sinopulmonary infection phenotype. IUIS records progressive T-cell lymphopenia in the circulating T-cell compartment and impaired memory B-cell development in the B-cell compartment, with lymphocytic colitis and sinopulmonary infections as the associated clinical features. BACH2 defects are among the monogenic causes found when FOXP3-negative IPEX-like immune dysregulation is sequenced, and pulmonary surveillance is recommended for carriers.\nThis entry is deliberately conservative about how much is settled. ClinGen's Antibody Deficiencies Gene Curation Expert Panel classifies the BACH2 relationship to immunodeficiency 60 as Moderate rather than Definitive or Strong, and the syndrome rests on a small number of reported families - the family reporting the second case did so six years after the founding description. The founding report (Afzali et al., Nat Immunol 2017, which named the syndrome BRIDA) is available here as an abstract rather than full text, so this entry carries what that abstract states and leaves the quantitative detail behind it - isotype-level immunoglobulin values, patient class-switch assays, per-compartment lymphocyte counts - as recorded open questions rather than assertions.\nTwo features of the syndrome are worth flagging because they are easy to get backwards. The dosage defect is a loss, not an interference: the mutations destabilize BACH2 by blocking homodimerization or causing aggregation, so a carrier has half the protein rather than a poisoned pathway. And BACH2 loss reduces useful antibody despite BACH2 being a repressor of immunoglobulin production, because what requires BACH2 is the class-switch and hypermutation programme rather than plasma-cell differentiation itself - Bach2-null B cells still make IgM and express BLIMP1 and XBP-1 abundantly. Abundant rather than merely preserved is the mechanistically telling word: BACH2 represses BLIMP1, so a null de-represses it, and the cell proceeds to terminal differentiation without ever switching isotype.\nA separate claim must be kept distinct from this one. BACH2 is also a common-variant susceptibility locus in many polygenic autoimmune diseases - type 1 diabetes, Graves disease, vitiligo, multiple sclerosis, alopecia areata, autoimmune adrenal insufficiency - and appears in this knowledge base in that role in more than a dozen entries. That is an association claim about regulatory variation in a population, not the Mendelian coding haploinsufficiency described here. Whether the two act on one BACH2 dosage axis is recorded below as an emerging hypothesis, not as a causal edge.",
+    "description": "Immunodeficiency 60 is an autosomal dominant inborn error of immunity caused by haploinsufficiency for BACH2, a BTB/POZ- and basic-leucine-zipper-domain transcriptional repressor that acts as a lineage-specification factor in both the T-cell and the B-cell arm of adaptive immunity. The International Union of Immunological Societies places it in Table 4, diseases of immune dysregulation, rather than among the predominantly antibody deficiencies, and summarises the defect as haploinsufficiency for a critical lineage specification transcription factor.\nThe consequence is the unusual pairing that defines the entity: a humoral deficiency and a lymphocytic infiltrative disease in the same patient. Loss of one functional BACH2 allele impairs regulatory T-cell differentiation, which places the disorder among the monogenic \"Tregopathies\" alongside IPEX, CD25 deficiency and STAT3 gain-of-function; it also impairs memory B-cell development, which underlies the sinopulmonary infection phenotype. IUIS records progressive T-cell lymphopenia in the circulating T-cell compartment and impaired memory B-cell development in the B-cell compartment, with lymphocytic colitis and sinopulmonary infections as the associated clinical features. BACH2 defects are among the monogenic causes found when FOXP3-negative IPEX-like immune dysregulation is sequenced, and pulmonary surveillance is recommended for carriers.\nThis entry is deliberately conservative about how much is settled. ClinGen's Antibody Deficiencies Gene Curation Expert Panel classifies the BACH2 relationship to immunodeficiency 60 as Moderate rather than Definitive or Strong, and the syndrome rests on a small number of reported families - the family reporting the second case did so six years after the founding description. The founding report (Afzali et al., Nat Immunol 2017, which named the syndrome BRIDA) is now curated from its full text, which supplies the patient-level detail the abstract withheld: the isotype pattern in each of the three subjects, the class-switch and plasmablast assays in their B cells, the per-compartment mouse phenotype, and a human RNAi system that halves BACH2 in healthy donor cells. What is still missing is numeric - the immunoglobulin concentrations themselves live in a supplementary table that is not part of the retrievable article - so the humoral phenotype is curated as a direction per isotype and not as measured values.\nThe single most useful thing the full text settles is that the humoral picture is not uniform and is not fixed by the variant. Two of the three subjects were low in every isotype; the third, who carries the same E788K allele as her affected father, had low IgA against raised IgM and IgG. So the same allele in one family produces pan-hypogammaglobulinemia in the father and an IgA-selective picture in the daughter, and a normal or high IgG does not exclude the diagnosis.\nTwo features of the syndrome are worth flagging because they are easy to get backwards. The dosage defect is a loss, not an interference: the mutations destabilize BACH2 by blocking homodimerization or causing aggregation, so a carrier has half the protein rather than a poisoned pathway. And BACH2 loss reduces useful antibody despite BACH2 being a repressor of immunoglobulin production, because what requires BACH2 is the class-switch and hypermutation programme rather than plasma-cell differentiation itself - Bach2-null B cells still make IgM and express BLIMP1 and XBP-1 abundantly. Abundant rather than merely preserved is the mechanistically telling word: BACH2 represses BLIMP1, so a null de-represses it, and the cell proceeds to terminal differentiation without ever switching isotype.\nA separate claim must be kept distinct from this one. BACH2 is also a common-variant susceptibility locus in many polygenic autoimmune diseases - type 1 diabetes, Graves disease, vitiligo, multiple sclerosis, alopecia areata, autoimmune adrenal insufficiency - and appears in this knowledge base in that role in more than a dozen entries. That is an association claim about regulatory variation in a population, not the Mendelian coding haploinsufficiency described here. Whether the two act on one BACH2 dosage axis is recorded below as an emerging hypothesis, not as a causal edge.",
     "pathophysiology": [
       "BACH2 Protein Destabilization",
       "BACH2 Haploinsufficiency",
       "Impaired Regulatory T Cell Differentiation",
+      "TH1 Effector Skewing",
+      "Gut-Homing Receptor Upregulation on CD4+ T Cells",
       "Impaired Memory B Cell Development"
     ],
     "cell_types": [
       "FoxP3+ regulatory T cell",
-      "memory B cell"
+      "CD4-positive helper T cell",
+      "memory B cell",
+      "IgG class-switched memory B cell"
     ],
     "cell_type_ids": [
       "CL:0000815",
-      "CL:0000787"
+      "CL:0000492",
+      "CL:0000787",
+      "CL:0000979"
     ],
     "biological_processes": [
       "regulatory T cell differentiation",
-      "memory B cell differentiation"
+      "T-helper 1 cell differentiation",
+      "memory B cell differentiation",
+      "immunoglobulin class switch recombination"
     ],
     "phenotypes": [
       "Progressive T-cell lymphopenia",
       "Lymphocytic colitis",
       "Immunoglobulin deficiency",
-      "Recurrent sinopulmonary infections"
+      "Recurrent sinopulmonary infections",
+      "Decreased circulating IgA concentration",
+      "Decreased memory B cell proportion",
+      "Decreased class-switched memory B cell proportion",
+      "Decreased specific antibody response to vaccination",
+      "Decreased anti-CD3/28-induced T-cell proliferation",
+      "Lymphadenopathy",
+      "Splenomegaly",
+      "Pancytopenia",
+      "Non-infectious fever",
+      "Bronchiectasis"
     ],
     "phenotype_categories": [
       "Immunologic",
-      "Gastrointestinal"
+      "Gastrointestinal",
+      "Hematologic",
+      "Constitutional",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Cellular",
       "Digestive",
       "Immune",
@@ -141880,25 +142126,37 @@ window.searchData = [
       "HP:0005403",
       "HP:0002583",
       "HP:0004313",
-      "HP:0005425"
+      "HP:0005425",
+      "HP:0002720",
+      "HP:0030374",
+      "HP:0030388",
+      "HP:0032140",
+      "HP:0031382",
+      "HP:0002716",
+      "HP:0001744",
+      "HP:0001876",
+      "HP:0001945",
+      "HP:0002110"
     ],
     "frequencies": [],
     "genes": [
       "BACH2"
     ],
     "treatments": [
-      "Prednisone with Tofacitinib"
+      "Prednisone with Tofacitinib",
+      "Immunoglobulin Replacement Therapy",
+      "Corticosteroid Therapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Immunodeficiency_60.yaml",
     "page_url": "../pages/disorders/Immunodeficiency_60.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 3,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Immunodeficiency 61",
@@ -285355,17 +285613,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2768,
-  "total_subtypes": 3658,
-  "total_disorders_and_subtypes": 6426,
-  "total_unique_evidence_sources": 38977,
-  "total_unique_publications": 36716,
+  "total_disorder_pages": 2770,
+  "total_subtypes": 3659,
+  "total_disorders_and_subtypes": 6429,
+  "total_unique_evidence_sources": 38997,
+  "total_unique_publications": 36736,
   "total_unique_disease_categories": 56,
   "total_unique_phenotype_categories": 277,
-  "total_pathographs": 2763,
-  "total_unique_pathological_events": 16422,
+  "total_pathographs": 2765,
+  "total_unique_pathological_events": 16446,
   "total_modules": 172,
-  "total_research_reports": 2883,
+  "total_research_reports": 2884,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 101
