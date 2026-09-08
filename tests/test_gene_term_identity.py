@@ -295,9 +295,10 @@ def _run(args, path, monkeypatch, capsys, labels=None):
 
     The exit code is the thing under test, so this used to shell out -- which
     made the outcome depend on which CURIEs `cache/hgnc/terms.csv` happened to
-    carry, and that is precisely the coupling these tests exist to not have (see
-    the note on the advisory case below). Injecting the map instead pins each
-    invariant to the cache state it is about.
+    carry, and that is precisely the coupling these tests exist to not have
+    (`test_the_same_binding_only_gates_because_the_other_gene_is_known` records
+    what it cost). Injecting the map instead pins each invariant to the cache
+    state it is about.
     """
     monkeypatch.setattr(gti, "load_hgnc_labels", lambda: dict(labels or LABELS))
     code = gti.main([*args, str(path)])
