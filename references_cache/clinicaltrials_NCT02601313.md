@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02601313"
+reference_id: clinicaltrials:NCT02601313
 title: A Phase 2 Multicenter Study Evaluating the Efficacy of KTE-X19 in Subjects With Relapsed/Refractory Mantle Cell Lymphoma
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2 Multicenter Study Evaluating the Efficacy of KTE-X19 in Subjects With Relapsed/Refractory Mantle Cell Lymphoma

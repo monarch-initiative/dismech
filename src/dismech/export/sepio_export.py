@@ -23,6 +23,7 @@ the object carrying ``evidence`` ``Statement`` (subject / predicate / object)
 ``evidence[]``                   ``Statement.has_evidence_lines[]`` (one line per item)
 ``evidence[].evidence_source``   ``EvidenceLine.evidence_type``
 ``evidence[].supports``          ``EvidenceLine.direction_of_evidence_provided``
+``evidence[].directness``        ``EvidenceLine.dismech_directness`` (no SEPIO slot)
 ``evidence[].snippet``           ``DataItem.value`` (``data_type: TextSpan``)
 ``evidence[].reference``         ``Document.id`` (via ``DataItem.reported_in``)
 ``evidence[].reference_title``   ``Document.title``
@@ -91,18 +92,20 @@ DOCUMENT_TYPE_BY_PREFIX = {
     "https": "WEB_PAGE",
 }
 
-# The dismech EvidenceItemSupportEnum is mostly a direction-of-support enum, so
-# its values pass through unchanged. NO_EVIDENCE is the exception: it asserts
-# that the reference is silent on the claim, which is not a direction.
-# WRONG_STATEMENT also has no distinct SEPIO direction and collapses onto REFUTE;
-# the raw enum value is preserved on EvidenceLine.dismech_supports so the mapping
-# round-trips rather than losing the distinction the schema draws.
+# Since the issue #7439 narrowing, EvidenceItemSupportEnum is a pure direction
+# enum, so SUPPORT and REFUTE pass straight through to SEPIO's `supports` and
+# `disputes`.
+#
+# NO_EVIDENCE has no SEPIO counterpart and is deliberately absent from this map.
+# SEPIO's third direction, `neutral`, means the evidence bears on the claim
+# without favouring either side; NO_EVIDENCE means the cited reference does not
+# bear on the claim at all. Those are different assertions, so emitting NEUTRAL
+# (as this exporter used to) states something the curator did not. Such a line
+# gets no `direction_of_evidence_provided`, and the value survives on
+# `EvidenceLine.dismech_supports`, which is where dismech-only extensions live.
 SUPPORTS_TO_DIRECTION = {
     "SUPPORT": "SUPPORT",
-    "PARTIAL": "PARTIAL",
     "REFUTE": "REFUTE",
-    "WRONG_STATEMENT": "REFUTE",
-    "NO_EVIDENCE": "NEUTRAL",
 }
 
 
@@ -143,9 +146,12 @@ class EvidenceLine(SepioEntity):
     has_evidence_items: list[DataItem] = []
     description: str | None = None
     # dismech provenance, outside the SEPIO core model: the raw
-    # EvidenceItemSupportEnum value, carried through because the SEPIO direction
-    # is a lossy projection of it (WRONG_STATEMENT and REFUTE both map to REFUTE).
+    # EvidenceItemSupportEnum value. Retained because NO_EVIDENCE has no SEPIO
+    # direction, so it would otherwise be dropped silently on export.
     dismech_supports: str | None = None
+    # How directly the quote bears on the claim. dismech-native: SEPIO has no
+    # directness slot, and this is not a strength grade.
+    dismech_directness: str | None = None
 
 
 class Statement(SepioEntity):
@@ -228,10 +234,11 @@ def evidence_item_to_line(evidence_item: dict[str, Any], statement_id: str, inde
     return EvidenceLine(
         id=_uuid5("evidence-line", statement_id, str(index), reference, snippet or ""),
         evidence_type=evidence_item.get("evidence_source"),
-        direction_of_evidence_provided=SUPPORTS_TO_DIRECTION.get(supports, supports) if supports else None,
+        direction_of_evidence_provided=SUPPORTS_TO_DIRECTION.get(supports) if supports else None,
         has_evidence_items=[data_item],
         description=evidence_item.get("explanation"),
         dismech_supports=supports or None,
+        dismech_directness=evidence_item.get("directness") or None,
     )
 
 
