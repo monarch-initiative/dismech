@@ -2829,7 +2829,10 @@ renders — just slowly. That is why `check-hierarchy-cache` is advisory and is
 not in `just qc`: it reports staleness, and staleness costs seconds, not a wrong
 page. The reason it exists at all is that one `hierarchical_parents` call
 against the local NCIT build takes roughly 4.7 s, so a single ten-node
-breadcrumb costs about 47 s (#11186).
+breadcrumb costs about 47 s (#11186). Ten nodes is the NCIT tail; the mapped set
+averages closer to six, which is the ~30 s
+`scripts/build_hierarchy_cache.py --check` quotes for a miss. The two figures
+agree — one is the worst case, the other the mean.
 
 Two things worth knowing before you touch it:
 
@@ -2873,6 +2876,74 @@ Two things worth knowing before you touch it:
   test compares **every** committed row in both prefixes against a live walk,
   which takes about 15 minutes against the local builds — budget for that before
   running `pytest -m oak_db`, and do not put it in a loop.
+
+**The same rule governs the MONDO and HP lookups, which are not hierarchy
+lookups at all.** Several call sites hardcode a `sqlite:obo:` adapter and so
+bypass `conf/oak_config.yaml`, which routes both prefixes to `ols:` precisely to
+keep the builds off the machine. Each of these therefore used to fetch its build
+silently — no error, no log line, just a slow run (#11299):
+
+| Call site | Adapter | Build | Guard now |
+|---|---|---|---|
+| `render._mondo_adapter` (grouping coverage descendants + labels) | `sqlite:obo:mondo` | 588 MB | returns `None`, so the coverage table degrades to "MONDO descendant lookup unavailable" |
+| `export/browser_export.HPOCategoryResolver` (HP term → broad phenotype category) | `sqlite:obo:hp` | 440 MB | falls back to the committed `app/hpo_category_cache.json`, then to no categories |
+| `phenoagent.matching._HPOIsARelationshipResolver` (is-a ancestry for broader/narrower phenotype matches) | `sqlite:obo:hp` | 440 MB | reports no ancestry, so a match is exact or nothing |
+| `compare/d2p.HPOClosureResolver` (is-a closure for the OMIM/Orphanet audit) | `sqlite:obo:hp` | 440 MB | warns once, then reports no ancestors and no labels |
+
+All four ask `dismech.oak_db.local_build_present` before opening the adapter, so
+none of these degradations is a decision about whether MONDO or HP *matters* — it
+is the answer to "can this be served without a download". They have in common
+that the ontology is incidental to what they are doing, and each already had a
+degradation path to take.
+
+**Not everything that opens a build is a bug, so check before adding a guard.**
+`compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
+download it on purpose — that is a CLI whose job is to export MONDO, and its own
+docstring says so. And `groupings.py` only *looks* like another bypass: it
+resolves its adapter through `conf/oak_config.yaml`, so HP there is `ols:hp` and
+no build is involved. The test is whether the caller can do its job without the
+ontology.
+
+**The `phenoagent` one is the case that shows why the two-guard rule exists.**
+Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
+genuinely need real HPO ancestry — `HP:0002123` is-a `HP:0001250` is not
+something a stub can answer. Those carry `@pytest.mark.oak_db` *and* their own
+`local_build_present` check, exactly as the marker's own description requires:
+the marker keeps them out of `just test-code`, and the file check makes a bare
+`pytest` skip them rather than download 440 MB to run them. Either guard alone
+leaves a lane that downloads. **Page generation needs the
+real thing and fetches it deliberately**: `generate-grouping-pages.yaml` runs
+`just fetch-ontology-dbs mondo` and `generate-pages.yaml` runs
+`just fetch-ontology-dbs hp` before the step that needs it — the same bytes
+those jobs already pulled, now stated in the log and fetched with resume/retry.
+Do the same locally before regenerating those pages, or the output loses MONDO
+descendant rows and newly curated HP terms' categories.
+
+Two consequences worth keeping straight:
+
+- **`app/hpo_category_cache.json` is now committed on every page build, and
+  read back as a fallback.** It was not: the path was missing from
+  `generate-pages.yaml`'s `BUILT_PATHS`, so the workflow regenerated and then
+  discarded it on every run. It was added by hand in `1805aa943` (2026-02-09),
+  last touched in `85e61f51e` (2026-04-09), and sat frozen for the five months
+  after that while the KB grew around it — 1,415 HP terms in the cache against
+  4,526 in the `app/data.js` written by the same step, which is why `render` was
+  dropping most phenotypes into the "Other" group. Adding the path fixes it; the
+  first page build after it carries the catch-up diff, and the two counts should
+  track each other from then on.
+
+  **Do not date this file from `git log` in a CI checkout.** Both the review of
+  #11462 and the reply correcting it named the wrong commit, independently and
+  for the same reason: these runners use a shallow clone, so
+  `git log --diff-filter=A` reports the *shallow boundary* commit as the one
+  that added a file. Two different truncation depths, two different wrong
+  answers, both confident. Ask the API (`list_commits` with a `path`), or
+  `git fetch --unshallow` first. A term the exporter could not
+  resolve is **never** written back as an empty category list — that would bake
+  the gap in permanently — it is left out and counted, and the exporter says so.
+- **A grouping's exact-match roots survive the outage.** They come from the
+  grouping's own YAML, not from MONDO, so the unavailable branch keeps them in
+  scope and the coverage figure stays computable; only the descendant rows go.
 
 ## Duplicate YAML Keys (dismech#8623)
 
@@ -3246,14 +3317,15 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `docs/` HTML output | NO | Derived — regenerated by CI |
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
+| `app/hpo_category_cache.json` | NO | Derived — the HP-term-to-broad-category map, written by `just gen-browser-data` beside `app/data.js` and committed by the same workflow (#11299). Both `render` and `browser_export` read it |
 | `cache/dataset_accessions.json` | **NEVER** | Frozen. Superseded by `references_cache/GEO_*.md`; nothing reads or writes it. Never stage it, in any change |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
 git, but only the `generate-pages` workflow writes them, in its own
 `auto/generate-pages` PR (`pages/`, `app/data.js`, `app/models/data.js`,
-`pathographs/`, `dashboard/`, `elements/`). Such a bot PR is not a policy
-violation. See
+`app/hpo_category_cache.json`, `pathographs/`, `dashboard/`, `elements/`).
+Such a bot PR is not a policy violation. See
 [`docs/page-build.md`](docs/page-build.md).
 
 ### Never force-push someone else's branch
