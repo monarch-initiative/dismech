@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Meningioma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Meningioma</h1>
             <div class="header-meta">
 
@@ -3908,6 +4055,105 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICD-O Morphology</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Bound to NCIT:C3230 (Meningioma, ICD-O-3 9530/0). Meningiomas are meningothelial, not glial, so ``Glioma`` would have been wrong despite the shared intracranial site - the same trap recorded on the Medulloblastoma entry.">Meningioma</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -3948,7 +4194,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-who-grade-i">
 
                     <div class="item-name">
                         Benign meningioma (WHO grade I)
@@ -3984,7 +4230,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40940847" target="_blank">PMID:40940847</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4010,7 +4258,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-who-grade-ii">
 
                     <div class="item-name">
                         Atypical meningioma (WHO grade II)
@@ -4046,7 +4294,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802120" target="_blank">PMID:40802120</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4072,7 +4322,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-who-grade-iii">
 
                     <div class="item-name">
                         Anaplastic meningioma (WHO grade III)
@@ -4108,7 +4358,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802120" target="_blank">PMID:40802120</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4170,17 +4422,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:7773</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4242,7 +4498,9 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                         <a href="https://bioregistry.io/DOI:10.1158/1541-7786.MCR-12-0116" target="_blank">DOI:10.1158/1541-7786.MCR-12-0116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4264,7 +4522,9 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15112945" target="_blank">DOI:10.3390/cancers15112945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4304,17 +4564,21 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7773</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4339,17 +4603,21 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         YAP1
 
 
-    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16262</a>
+    <a href="https://bioregistry.io/hgnc:16262" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:16262</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4411,7 +4679,9 @@ This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene f
                         <a href="https://bioregistry.io/DOI:10.1158/1541-7786.MCR-12-0116" target="_blank">DOI:10.1158/1541-7786.MCR-12-0116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4433,7 +4703,9 @@ This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene f
                         <a href="https://bioregistry.io/DOI:10.1158/1541-7786.MCR-12-0116" target="_blank">DOI:10.1158/1541-7786.MCR-12-0116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4473,18 +4745,20 @@ This pathophysiological event involves YAP1 (hgnc:16262). hgnc:16262 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4505,18 +4779,20 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4559,7 +4835,9 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                         <a href="https://bioregistry.io/DOI:10.1158/1541-7786.MCR-12-0116" target="_blank">DOI:10.1158/1541-7786.MCR-12-0116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4581,7 +4859,9 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
                         <a href="https://bioregistry.io/DOI:10.1158/1541-7786.MCR-12-0116" target="_blank">DOI:10.1158/1541-7786.MCR-12-0116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4621,17 +4901,21 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TRAF7 (hgnc:20456). hgnc:20456 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TRAF7
 
 
-    <a href="https://bioregistry.io/hgnc:20456" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20456</a>
+    <a href="https://bioregistry.io/hgnc:20456" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:20456</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TRAF7 (hgnc:20456). hgnc:20456 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4656,17 +4940,21 @@ This pathophysiological event involves TRAF7 (hgnc:20456). hgnc:20456 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves KLF4 (hgnc:6348). hgnc:6348 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KLF4
 
 
-    <a href="https://bioregistry.io/hgnc:6348" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6348</a>
+    <a href="https://bioregistry.io/hgnc:6348" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:6348</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KLF4 (hgnc:6348). hgnc:6348 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4691,17 +4979,21 @@ This pathophysiological event involves KLF4 (hgnc:6348). hgnc:6348 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         AKT1
 
 
-    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:391</a>
+    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:391</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4726,17 +5018,21 @@ This pathophysiological event involves AKT1 (hgnc:391). hgnc:391 is a gene from 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SMO (hgnc:11119). hgnc:11119 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SMO
 
 
-    <a href="https://bioregistry.io/hgnc:11119" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11119</a>
+    <a href="https://bioregistry.io/hgnc:11119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:11119</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMO (hgnc:11119). hgnc:11119 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4761,17 +5057,21 @@ This pathophysiological event involves SMO (hgnc:11119). hgnc:11119 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:8975</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4796,17 +5096,21 @@ This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         POLR2A
 
 
-    <a href="https://bioregistry.io/hgnc:9187" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9187</a>
+    <a href="https://bioregistry.io/hgnc:9187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:9187</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4853,7 +5157,9 @@ This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23348505" target="_blank">PMID:23348505</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4875,7 +5181,9 @@ This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23348505" target="_blank">PMID:23348505</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4897,7 +5205,9 @@ This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23334667" target="_blank">PMID:23334667</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4939,17 +5249,21 @@ This pathophysiological event involves POLR2A (hgnc:9187). hgnc:9187 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:1787</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4974,17 +5288,21 @@ This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CDKN2B
 
 
-    <a href="https://bioregistry.io/hgnc:1788" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1788</a>
+    <a href="https://bioregistry.io/hgnc:1788" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:1788</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5031,7 +5349,9 @@ This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene f
                         <a href="https://bioregistry.io/DOI:10.1186/s40478-023-01690-y" target="_blank">DOI:10.1186/s40478-023-01690-y</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5053,7 +5373,9 @@ This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene f
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15112945" target="_blank">DOI:10.3390/cancers15112945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5093,17 +5415,21 @@ This pathophysiological event involves CDKN2B (hgnc:1788). hgnc:1788 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11730</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5150,7 +5476,9 @@ This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene f
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15112945" target="_blank">DOI:10.3390/cancers15112945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5190,17 +5518,21 @@ This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NOTCH3
 
 
-    <a href="https://bioregistry.io/hgnc:7883" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7883</a>
+    <a href="https://bioregistry.io/hgnc:7883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:7883</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5262,7 +5594,9 @@ This pathophysiological event involves NOTCH3 (hgnc:7883). hgnc:7883 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40924320" target="_blank">PMID:40924320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5284,7 +5618,9 @@ This pathophysiological event involves NOTCH3 (hgnc:7883). hgnc:7883 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40924320" target="_blank">PMID:40924320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5324,17 +5660,21 @@ This pathophysiological event involves NOTCH3 (hgnc:7883). hgnc:7883 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CD36 (hgnc:1663). hgnc:1663 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CD36
 
 
-    <a href="https://bioregistry.io/hgnc:1663" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1663</a>
+    <a href="https://bioregistry.io/hgnc:1663" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1663</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CD36 (hgnc:1663). hgnc:1663 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5363,18 +5703,20 @@ This pathophysiological event involves CD36 (hgnc:1663). hgnc:1663 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased fatty acid transport (GO:0015908). GO:0015908 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         fatty acid transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015908" target="_blank" class="curie-chip curie-chip-go">GO:0015908</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015908" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0015908</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fatty acid transport (GO:0015908). GO:0015908 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5395,18 +5737,20 @@ This pathophysiological event involves increased fatty acid transport (GO:001590
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased fatty acid beta-oxidation (GO:0006635). GO:0006635 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         fatty acid beta-oxidation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go">GO:0006635</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006635</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fatty acid beta-oxidation (GO:0006635). GO:0006635 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5464,7 +5808,9 @@ This pathophysiological event involves increased fatty acid beta-oxidation (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40924320" target="_blank">PMID:40924320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5486,7 +5832,9 @@ This pathophysiological event involves increased fatty acid beta-oxidation (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40924320" target="_blank">PMID:40924320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5526,18 +5874,20 @@ This pathophysiological event involves increased fatty acid beta-oxidation (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased ferroptosis (GO:0097707). GO:0097707 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ferroptosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097707" target="_blank" class="curie-chip curie-chip-go">GO:0097707</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097707" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0097707</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ferroptosis (GO:0097707). GO:0097707 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5580,7 +5930,9 @@ This pathophysiological event involves decreased ferroptosis (GO:0097707). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40924320" target="_blank">PMID:40924320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5620,17 +5972,21 @@ This pathophysiological event involves decreased ferroptosis (GO:0097707). GO:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CTAG1B
 
 
-    <a href="https://bioregistry.io/hgnc:2491" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2491</a>
+    <a href="https://bioregistry.io/hgnc:2491" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:2491</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5692,7 +6048,9 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802116" target="_blank">PMID:40802116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5750,7 +6108,9 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802116" target="_blank">PMID:40802116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5772,7 +6132,9 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802116" target="_blank">PMID:40802116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5807,7 +6169,7 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-histopathologically-confirmed-high-grade-meningioma">
                 <div class="item-name">
                     Histopathologically Confirmed High-Grade Meningioma
 
@@ -5829,7 +6191,9 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802120" target="_blank">PMID:40802120</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5852,7 +6216,7 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-predominance-of-atypical-histology-in-high-grade-cohort">
                 <div class="item-name">
                     Predominance of Atypical Histology in High-Grade Cohort
 
@@ -5874,7 +6238,9 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802120" target="_blank">PMID:40802120</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5961,16 +6327,20 @@ This pathophysiological event involves CTAG1B (hgnc:2491). hgnc:2491 is a gene f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5991,7 +6361,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40645150" target="_blank">PMID:40645150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6023,16 +6395,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.">
-                        Headache
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp">HP:0002315</a>
-
-
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6053,7 +6429,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40178655" target="_blank">PMID:40178655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6111,7 +6489,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802120" target="_blank">PMID:40802120</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6160,7 +6540,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802116" target="_blank">PMID:40802116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6238,15 +6620,17 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:7773</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6268,7 +6652,9 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
                         <a href="https://bioregistry.io/DOI:10.1158/1541-7786.MCR-12-0116" target="_blank">DOI:10.1158/1541-7786.MCR-12-0116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6305,15 +6691,17 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:1787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6335,7 +6723,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
                         <a href="https://bioregistry.io/DOI:10.1186/s40478-023-01690-y" target="_blank">DOI:10.1186/s40478-023-01690-y</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6372,15 +6762,17 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CDKN2B (hgnc:1788). hgnc:1788 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDKN2B
 
 
-    <a href="https://bioregistry.io/hgnc:1788" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1788</a>
+    <a href="https://bioregistry.io/hgnc:1788" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:1788</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2B (hgnc:1788). hgnc:1788 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6402,7 +6794,9 @@ This disease-associated gene is CDKN2B (hgnc:1788). hgnc:1788 is a gene from the
                         <a href="https://bioregistry.io/DOI:10.1186/s40478-023-01690-y" target="_blank">DOI:10.1186/s40478-023-01690-y</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6439,15 +6833,17 @@ This disease-associated gene is CDKN2B (hgnc:1788). hgnc:1788 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:11730</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6469,7 +6865,9 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15112945" target="_blank">DOI:10.3390/cancers15112945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6506,15 +6904,17 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TRAF7 (hgnc:20456). hgnc:20456 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TRAF7
 
 
-    <a href="https://bioregistry.io/hgnc:20456" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20456</a>
+    <a href="https://bioregistry.io/hgnc:20456" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:20456</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRAF7 (hgnc:20456). hgnc:20456 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6536,7 +6936,9 @@ This disease-associated gene is TRAF7 (hgnc:20456). hgnc:20456 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23348505" target="_blank">PMID:23348505</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6573,15 +6975,17 @@ This disease-associated gene is TRAF7 (hgnc:20456). hgnc:20456 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is KLF4 (hgnc:6348). hgnc:6348 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KLF4
 
 
-    <a href="https://bioregistry.io/hgnc:6348" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6348</a>
+    <a href="https://bioregistry.io/hgnc:6348" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:6348</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KLF4 (hgnc:6348). hgnc:6348 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6603,7 +7007,9 @@ This disease-associated gene is KLF4 (hgnc:6348). hgnc:6348 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23348505" target="_blank">PMID:23348505</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6640,15 +7046,17 @@ This disease-associated gene is KLF4 (hgnc:6348). hgnc:6348 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: AKT1
 
 
-    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:391</a>
+    <a href="https://bioregistry.io/hgnc:391" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:391</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6670,7 +7078,9 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23348505" target="_blank">PMID:23348505</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6707,15 +7117,17 @@ This disease-associated gene is AKT1 (hgnc:391). hgnc:391 is a gene from the HUG
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SMO (hgnc:11119). hgnc:11119 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMO
 
 
-    <a href="https://bioregistry.io/hgnc:11119" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11119</a>
+    <a href="https://bioregistry.io/hgnc:11119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:11119</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMO (hgnc:11119). hgnc:11119 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6737,7 +7149,9 @@ This disease-associated gene is SMO (hgnc:11119). hgnc:11119 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23348505" target="_blank">PMID:23348505</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6774,15 +7188,17 @@ This disease-associated gene is SMO (hgnc:11119). hgnc:11119 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:8975</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6804,7 +7220,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23348505" target="_blank">PMID:23348505</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6841,15 +7259,17 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is POLR2A (hgnc:9187). hgnc:9187 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: POLR2A
 
 
-    <a href="https://bioregistry.io/hgnc:9187" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9187</a>
+    <a href="https://bioregistry.io/hgnc:9187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:9187</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is POLR2A (hgnc:9187). hgnc:9187 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6871,7 +7291,9 @@ This disease-associated gene is POLR2A (hgnc:9187). hgnc:9187 is a gene from the
                         <a href="https://bioregistry.io/DOI:10.1038/ng.3651" target="_blank">DOI:10.1038/ng.3651</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6908,15 +7330,17 @@ This disease-associated gene is POLR2A (hgnc:9187). hgnc:9187 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH3
 
 
-    <a href="https://bioregistry.io/hgnc:7883" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7883</a>
+    <a href="https://bioregistry.io/hgnc:7883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:7883</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6938,7 +7362,9 @@ This disease-associated gene is NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40924320" target="_blank">PMID:40924320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6975,15 +7401,17 @@ This disease-associated gene is NOTCH3 (hgnc:7883). hgnc:7883 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CD36 (hgnc:1663). hgnc:1663 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CD36
 
 
-    <a href="https://bioregistry.io/hgnc:1663" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1663</a>
+    <a href="https://bioregistry.io/hgnc:1663" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:1663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CD36 (hgnc:1663). hgnc:1663 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7005,7 +7433,9 @@ This disease-associated gene is CD36 (hgnc:1663). hgnc:1663 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40924320" target="_blank">PMID:40924320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7042,15 +7472,17 @@ This disease-associated gene is CD36 (hgnc:1663). hgnc:1663 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CTAG1B (hgnc:2491). hgnc:2491 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTAG1B
 
 
-    <a href="https://bioregistry.io/hgnc:2491" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2491</a>
+    <a href="https://bioregistry.io/hgnc:2491" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:2491</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTAG1B (hgnc:2491). hgnc:2491 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7072,7 +7504,9 @@ This disease-associated gene is CTAG1B (hgnc:2491). hgnc:2491 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802116" target="_blank">PMID:40802116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7102,6 +7536,9 @@ This disease-associated gene is CTAG1B (hgnc:2491). hgnc:2491 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7118,18 +7555,18 @@ This disease-associated gene is CTAG1B (hgnc:2491). hgnc:2491 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7147,6 +7584,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7171,7 +7627,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34181733" target="_blank">PMID:34181733</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7201,18 +7659,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7230,6 +7688,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7254,7 +7720,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34181733" target="_blank">PMID:34181733</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7284,18 +7752,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">stereotactic radiosurgery<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is stereotactic radiosurgery (NCIT:C15358). NCIT:C15358 is a clinical intervention from the NCI Thesaurus.">stereotactic radiosurgery</span>
+This treatment is stereotactic radiosurgery (NCIT:C15358). NCIT:C15358 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Stereotactic Radiosurgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15358" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is stereotactic radiosurgery (NCIT:C15358). NCIT:C15358 is a clinical intervention from the NCI Thesaurus.">NCIT:C15358</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15358" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15358">NCIT:C15358</a>
 
 
 
@@ -7313,6 +7781,14 @@ This treatment is stereotactic radiosurgery (NCIT:C15358). NCIT:C15358 is a clin
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7337,7 +7813,9 @@ This treatment is stereotactic radiosurgery (NCIT:C15358). NCIT:C15358 is a clin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802120" target="_blank">PMID:40802120</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7367,18 +7845,18 @@ This treatment is stereotactic radiosurgery (NCIT:C15358). NCIT:C15358 is a clin
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">radiation therapy</span>
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -7396,6 +7874,25 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7420,7 +7917,9 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34181733" target="_blank">PMID:34181733</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7450,18 +7949,18 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">cellular therapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical intervention from the NCI Thesaurus.">cellular therapy</span>
+This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cellular Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C70601" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical intervention from the NCI Thesaurus.">NCIT:C70601</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C70601" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C70601">NCIT:C70601</a>
 
 
 
@@ -7479,6 +7978,14 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7512,7 +8019,9 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802116" target="_blank">PMID:40802116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7553,7 +8062,9 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802116" target="_blank">PMID:40802116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7615,7 +8126,9 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40802116" target="_blank">PMID:40802116</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7641,6 +8154,679 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-multiparameter-mri-based-differentiation-from-intracranial-sft">
+                <div class="item-name">
+                    Multiparameter MRI-based differentiation from intracranial SFT
+
+                </div>
+
+                <div class="item-desc">Preoperative imaging-based differentiation between meningioma and intracranial solitary fibrous tumor remains clinically important and can be improved with integrated multiparameter MRI models.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40625299" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40625299" target="_blank">PMID:40625299</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Their similar imaging features make preoperative differentiation difficult, resulting in high misdiagnosis rates."</div>
+
+
+                <div class="evidence-explanation">This captures the core diagnostic challenge in routine imaging assessment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40625299" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40625299" target="_blank">PMID:40625299</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The comprehensive system integrating automatic segmentation with diagnostic models can differentiate SFTs from meningiomas precisely."</div>
+
+
+                <div class="evidence-explanation">The study reports improved differential classification using integrated imaging models.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-who-2021-grade-informed-prognostic-stratification">
+                <div class="item-name">
+                    WHO 2021 grade-informed prognostic stratification
+
+                </div>
+
+                <div class="item-desc">WHO 2021 grading and selected proliferative/imaging features stratify progression and survival risk in long-term follow-up cohorts.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41094320" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41094320" target="_blank">PMID:41094320</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PFS was independently associated with WHO 2021 grade 2 (HR 3.72, 95% CI 1.49-9.32), MIB-1 &gt; 5% (HR 2.56, 95% CI 1.17-5.60), and PTBE ratio (HR 1.22 per 0.1 increment, 95% CI 1.04-1.43)."</div>
+
+
+                <div class="evidence-explanation">Supports grade-informed prognostic stratification in a long-term clinical cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-somatostatin-receptor-pet-for-extent-and-recurrence-assessment">
+                <div class="item-name">
+                    Somatostatin receptor PET for extent and recurrence assessment
+
+                </div>
+
+                <div class="item-desc">SSTR-ligand PET can improve meningioma tissue detection and aid differential diagnosis, extent delineation, and recurrence-vs-scar assessment beyond structural MRI/CT alone.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        positron emission tomography procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17007" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C17007</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38898354" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38898354" target="_blank">PMID:38898354</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Positron emission tomography (PET) using somatostatin receptor (SSTR) ligands can detect meningioma tissue with high sensitivity and specificity and may provide clinically relevant information beyond that obtained from structural magnetic resonance imaging (MRI) or computed tomography (CT) imaging alone."</div>
+
+
+                <div class="evidence-explanation">Multi-society guideline supports added diagnostic value of SSTR PET.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-clinical-behavior-spectrum">
+                <div class="item-name">Clinical behavior spectrum</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Clinical course ranges from indolent to aggressive and potentially fatal disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34618539" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34618539" target="_blank">PMID:34618539</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient outcome varies widely from benign to highly aggressive, ultimately fatal courses."</div>
+
+
+                <div class="evidence-explanation">Captures broad meningioma progression heterogeneity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-post-srs-progression-free-survival-by-grade">
+                <div class="item-name">Post-SRS progression-free survival by grade</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">PFS declines with increasing WHO grade, with poorer outcomes in grade III recurrence.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40940847" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40940847" target="_blank">PMID:40940847</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For WHO Grade I tumors, 3- to 5-year progression-free survival (PFS) ranged from 85% to 100%."</div>
+
+
+                <div class="evidence-explanation">Establishes favorable recurrent-disease PFS for grade I tumors after SRS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40940847" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40940847" target="_blank">PMID:40940847</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Grade II meningiomas demonstrated more variable outcomes, with 3-year PFS ranging from 23% to 100%."</div>
+
+
+                <div class="evidence-explanation">Shows intermediate and heterogeneous grade II recurrence trajectory.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40940847" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40940847" target="_blank">PMID:40940847</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Grade III tumors had consistently poorer outcomes, with reported 1-year and 2-year PFS rates as low as 0% and 46%, respectively."</div>
+
+
+                <div class="evidence-explanation">Supports markedly worse progression trajectory in recurrent grade III disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-long-term-prognostic-covariates">
+                <div class="item-name">Long-term prognostic covariates</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Grade and extent of resection significantly influence long-term outcomes.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41094320" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41094320" target="_blank">PMID:41094320</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OS was associated with subtotal resection (HR 2.69, 95% CI 1.28-5.65) and WHO 2021 grade 2 (HR 4.27, 95% CI 1.61-11.33)."</div>
+
+
+                <div class="evidence-explanation">Supports resection extent and grade as major long-term survival determinants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-individuals-with-incidental-brain-mri-findings-in-a-population-based-70-year-cohort">
+                <div class="item-name">Individuals with incidental brain MRI findings in a population-based 70-year cohort</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1800.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Observed prevalence in an age-homogeneous population cohort.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40178655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40178655" target="_blank">PMID:40178655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of meningioma was 1.8% (n = 14)."</div>
+
+
+                <div class="evidence-explanation">Provides a direct population-based prevalence estimate in older adults.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-proportion-among-central-nervous-system-neoplasms">
+                <div class="item-name">Proportion among central nervous system neoplasms</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">40</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Relative burden among CNS neoplasms in a large meta-analytic literature summary.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40645150" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40645150" target="_blank">PMID:40645150</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Meningiomas comprise 40% of all central nervous system neoplasms, with peak prevalence occurring in the fifth and sixth decades of life."</div>
+
+
+                <div class="evidence-explanation">Supports meningioma as a major share of CNS neoplasms and age-related prevalence peak.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-primary-intracranial-tumor-frequency">
+                <div class="item-name">Primary intracranial tumor frequency</div>
+
+                <div class="item-desc">Meningiomas are the most frequent primary intracranial tumors.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34618539" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34618539" target="_blank">PMID:34618539</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Meningiomas are the most frequent primary intracranial tumors."</div>
+
+
+                <div class="evidence-explanation">Supports meningioma as the leading primary intracranial tumor category.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7655,7 +8841,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-intracranial-solitary-fibrous-tumor">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Solitary_Fibrous_Tumor.html">Intracranial solitary fibrous tumor</a>
@@ -7700,7 +8886,9 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40625299" target="_blank">PMID:40625299</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7735,7 +8923,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse292327">
                 <div class="item-name">
                     Development, validation, and clinical utility of a novel methylation classifier for recurrence risk prediction in meningiomas
 
@@ -7765,18 +8953,20 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
-                    <span class="tag tag-cell" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this dataset samples this sample type
-This dataset samples meningioma tissue, annotated with meningeal dura mater (UBERON:0010506). UBERON:0010506 is a sample type from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-cell">
                         meningioma tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0010506" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0010506</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010506" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-43">UBERON:0010506</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples meningioma tissue, annotated with meningeal dura mater (UBERON:0010506). UBERON:0010506 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7817,7 +9007,9 @@ This dataset samples meningioma tissue, annotated with meningeal dura mater (UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41466325" target="_blank">PMID:41466325</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7840,7 +9032,7 @@ This dataset samples meningioma tissue, annotated with meningeal dura mater (UBE
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse313693">
                 <div class="item-name">
                     Single-nuclei RNA-seq of meningioma
 
@@ -7870,18 +9062,20 @@ This dataset samples meningioma tissue, annotated with meningeal dura mater (UBE
 
 
 
-                    <span class="tag tag-cell" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this dataset samples this sample type
-This dataset samples meningioma tissue nuclei, annotated with meningeal dura mater (UBERON:0010506). UBERON:0010506 is a sample type from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-cell">
                         meningioma tissue nuclei
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0010506" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0010506</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010506" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-44">UBERON:0010506</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples meningioma tissue nuclei, annotated with meningeal dura mater (UBERON:0010506). UBERON:0010506 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -7922,7 +9116,9 @@ This dataset samples meningioma tissue nuclei, annotated with meningeal dura mat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41663806" target="_blank">PMID:41663806</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7973,7 +9169,6 @@ This dataset samples meningioma tissue nuclei, annotated with meningeal dura mat
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Meningioma
 creation_date: &#39;2026-03-03T21:32:57Z&#39;
-updated_date: &#39;2026-05-09T19:42:12Z&#39;
 description: &gt;-
   Meningioma is a primarily meningeal central nervous system tumor with a broad
   clinical spectrum from lower-grade tumors to aggressive high-grade disease.
@@ -8094,7 +9289,7 @@ pathophysiology:
     snippet: Loss of the NF2 tumor suppressor gene is the most common genetic alteration in meningiomas, and the NF2 gene product, Merlin, acts upstream of the Hippo pathway.
     explanation: This establishes NF2/Merlin loss as a central meningioma driver and links it to Hippo pathway control.
   - reference: DOI:10.3390/cancers15112945
-    reference_title: &#34;Epigenetic, Genetic, and Transcriptomic Profiling of Meningiomas: Molecular Patterns Correlate with Clinical Prognosis&#34;
+    reference_title: &#34;Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Meningiomas in the second group have an intermediate prognosis and are characterized by NF2 alterations, mild chromosomal instability, and enrichment in immune cells.
@@ -8241,7 +9436,7 @@ pathophysiology:
     snippet: Both hetero- or homozygous CDKN2A/B deletions were significantly associated with shortened time to meningioma progression.
     explanation: Patient-level meta-analysis supports CDKN2A/B deletion as progression-associated meningioma biology.
   - reference: DOI:10.3390/cancers15112945
-    reference_title: &#34;Epigenetic, Genetic, and Transcriptomic Profiling of Meningiomas: Molecular Patterns Correlate with Clinical Prognosis&#34;
+    reference_title: &#34;Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The grading system established by the World Health Organization (WHO) has recently included pTERT mutations and CDKN2A/B homozygous deletions as criteria for grade 3, owing to their association with increased recurrence risk.
@@ -8258,7 +9453,7 @@ pathophysiology:
       label: TERT
   evidence:
   - reference: DOI:10.3390/cancers15112945
-    reference_title: &#34;Epigenetic, Genetic, and Transcriptomic Profiling of Meningiomas: Molecular Patterns Correlate with Clinical Prognosis&#34;
+    reference_title: &#34;Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The grading system established by the World Health Organization (WHO) has recently included pTERT mutations and CDKN2A/B homozygous deletions as criteria for grade 3, owing to their association with increased recurrence risk.
@@ -8451,7 +9646,7 @@ genetic:
       label: TERT
   evidence:
   - reference: DOI:10.3390/cancers15112945
-    reference_title: &#34;Epigenetic, Genetic, and Transcriptomic Profiling of Meningiomas: Molecular Patterns Correlate with Clinical Prognosis&#34;
+    reference_title: &#34;Meningioma Grading beyond Histopathology: Relevance of Epigenetic and Genetic Features to Predict Clinical Outcome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: The grading system established by the World Health Organization (WHO) has recently included pTERT mutations and CDKN2A/B homozygous deletions as criteria for grade 3, owing to their association with increased recurrence risk.
@@ -8975,6 +10170,14 @@ datasets:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here, by applying multiomic profiling and multiple lines of orthogonal computational evaluation in multiple independent datasets, we found that not only tumor cell characteristics but also incremental changes in the tumor microenvironment (TME) have impact on epigenetic meningioma classification and clinical outcome.&#34;
     explanation: Supports multiomic dataset use for microenvironment-linked meningioma classification refinement.
+classifications:
+  icdo_morphology:
+    classification_value: Meningioma
+    notes: &gt;-
+      Bound to NCIT:C3230 (Meningioma, ICD-O-3 9530/0). Meningiomas are
+      meningothelial, not glial, so ``Glioma`` would have been wrong despite
+      the shared intracranial site - the same trap recorded on the
+      Medulloblastoma entry.
 references:
 - reference: DOI:10.1158/1541-7786.MCR-12-0116
   title: Yes-Associated Protein 1 Is Activated and Functions as an Oncogene in Meningiomas
@@ -9570,7 +10773,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1002/cncr.35279" target="_blank">DOI:10.1002/cncr.35279</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9676,7 +10881,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1007/s00701-022-05301-y" target="_blank">DOI:10.1007/s00701-022-05301-y</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9745,7 +10952,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1007/s11060-023-04253-2" target="_blank">DOI:10.1007/s11060-023-04253-2</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9851,7 +11060,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1093/jncics/pkab035" target="_blank">DOI:10.1093/jncics/pkab035</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9920,7 +11131,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1093/neuonc/noab106" target="_blank">DOI:10.1093/neuonc/noab106</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9989,7 +11202,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1093/neuonc/noae082" target="_blank">DOI:10.1093/neuonc/noae082</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10058,7 +11273,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1093/neuonc/noae145" target="_blank">DOI:10.1093/neuonc/noae145</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10127,7 +11344,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1097/cm9.0000000000002391" target="_blank">DOI:10.1097/cm9.0000000000002391</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10196,7 +11415,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1186/s40478-023-01690-y" target="_blank">DOI:10.1186/s40478-023-01690-y</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10265,7 +11486,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.1186/s40478-024-01739-6" target="_blank">DOI:10.1186/s40478-024-01739-6</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10334,7 +11557,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers15112945" target="_blank">DOI:10.3390/cancers15112945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -10403,7 +11628,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/cancers16111978" target="_blank">DOI:10.3390/cancers16111978</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10472,7 +11699,9 @@ references:
                         <a href="https://bioregistry.io/DOI:10.3390/ijms25179631" target="_blank">DOI:10.3390/ijms25179631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11533,7 +12762,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Meningioma", "mondoId": "MONDO:0016642", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meningioma", "yamlRevision": "ee1d56e52c4d"};
+        const OS_CONFIG = {"diseaseName": "Meningioma", "mondoId": "MONDO:0016642", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Meningioma", "yamlRevision": "8c7ecfaa849c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11952,5 +13181,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

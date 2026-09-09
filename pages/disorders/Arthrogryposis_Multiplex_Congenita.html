@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Arthrogryposis Multiplex Congenita</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Arthrogryposis Multiplex Congenita</h1>
             <div class="header-meta">
 
@@ -3926,7 +4073,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-multi-region-congenital-contracture-definition">
                 <div class="item-name">Multi-region congenital contracture definition</div>
 
                 <div class="item-desc">AMC is identified clinically when congenital joint contractures involve two or more different body regions. This definition identifies a phenotype for etiologic investigation; it does not assign a gene, inheritance mode, or mechanism.</div>
@@ -3970,7 +4117,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38856159" target="_blank">PMID:38856159</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3994,7 +4143,7 @@
 
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-etiologically-heterogeneous-clinical-syndrome-definition">
                 <div class="item-name">Etiologically heterogeneous clinical-syndrome definition</div>
 
                 <div class="item-desc">AMC is an etiologically heterogeneous clinical syndrome. A complete diagnosis therefore includes both recognition of the contracture phenotype and an attempt to determine the underlying disorder or exposure.</div>
@@ -4038,7 +4187,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40947408" target="_blank">PMID:40947408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4060,7 +4211,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40195522" target="_blank">PMID:40195522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4121,7 +4274,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-amyoplasia-pattern">
 
                     <div class="item-name">
                         Amyoplasia
@@ -4157,7 +4310,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24459070" target="_blank">PMID:24459070</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4183,7 +4338,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-distal-arthrogryposis-pattern">
 
                     <div class="item-name">
                         Distal arthrogryposis
@@ -4219,7 +4374,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33104047" target="_blank">PMID:33104047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4245,7 +4402,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-central-nervous-system-neuromuscular-and-syndromic-patterns">
 
                     <div class="item-name">
                         Central nervous system, neuromuscular, and syndromic patterns
@@ -4279,7 +4436,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40947408" target="_blank">PMID:40947408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4342,21 +4501,21 @@
 
 
 
-    <span class="entity-ref-chip">definitions#Multi-region congenital contracture definition</span>
+    <a class="entity-ref-chip" href="#definition-multi-region-congenital-contracture-definition">definitions#Multi-region congenital contracture definition</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">definitions#Etiologically heterogeneous clinical-syndrome definition</span>
+    <a class="entity-ref-chip" href="#definition-etiologically-heterogeneous-clinical-syndrome-definition">definitions#Etiologically heterogeneous clinical-syndrome definition</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">diagnosis#Etiology-directed cytogenomic and sequencing tests</span>
+    <a class="entity-ref-chip" href="#diagnosis-etiology-directed-cytogenomic-and-sequencing-tests">diagnosis#Etiology-directed cytogenomic and sequencing tests</a>
 
 
 
@@ -4384,7 +4543,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40947408" target="_blank">PMID:40947408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4406,7 +4567,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38856159" target="_blank">PMID:38856159</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4485,7 +4648,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33771841" target="_blank">PMID:33771841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4507,7 +4672,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40947408" target="_blank">PMID:40947408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4551,7 +4718,7 @@
 
 
 
-    <span class="entity-ref-chip">diagnosis#Etiology-directed cytogenomic and sequencing tests</span>
+    <a class="entity-ref-chip" href="#diagnosis-etiology-directed-cytogenomic-and-sequencing-tests">diagnosis#Etiology-directed cytogenomic and sequencing tests</a>
 
 
 
@@ -4579,7 +4746,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40195522" target="_blank">PMID:40195522</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4601,7 +4770,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41936055" target="_blank">PMID:41936055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4694,7 +4865,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6685864" target="_blank">PMID:6685864</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4716,7 +4889,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33771841" target="_blank">PMID:33771841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4789,7 +4964,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33771841" target="_blank">PMID:33771841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4862,7 +5039,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24459070" target="_blank">PMID:24459070</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4959,7 +5138,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38856159" target="_blank">PMID:38856159</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5049,16 +5230,20 @@
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-1">HP:0001762</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.">
-                        Talipes equinovarus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp">HP:0001762</a>
-
-
+This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5079,7 +5264,9 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41936055" target="_blank">PMID:41936055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5120,16 +5307,20 @@ This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-2">HP:0001376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
-                        Limitation of joint mobility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
-
-
+This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5150,7 +5341,9 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33104047" target="_blank">PMID:33104047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5191,16 +5384,20 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0002804</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:0002804 is a phenotype from the Human Phenotype Ontology.">
-                        Arthrogryposis multiplex congenita
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp">HP:0002804</a>
-
-
+This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:0002804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5221,7 +5418,9 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38856159" target="_blank">PMID:38856159</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5253,16 +5452,20 @@ This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0003121</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limb joint contracture (HP:0003121). HP:0003121 is a phenotype from the Human Phenotype Ontology.">
-                        Limb joint contracture
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003121" target="_blank" class="curie-chip curie-chip-hp">HP:0003121</a>
-
-
+This clinical feature is Limb joint contracture (HP:0003121). HP:0003121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5283,7 +5486,9 @@ This clinical feature is Limb joint contracture (HP:0003121). HP:0003121 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24459070" target="_blank">PMID:24459070</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5315,16 +5520,20 @@ This clinical feature is Limb joint contracture (HP:0003121). HP:0003121 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001558" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0001558</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased fetal movement
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001558" target="_blank" class="curie-chip curie-chip-hp">HP:0001558</a>
-
-
+This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5339,13 +5548,15 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41936055" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41936055" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41936055" target="_blank">PMID:41936055</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5367,7 +5578,9 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6685864" target="_blank">PMID:6685864</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5429,6 +5642,9 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5447,18 +5663,18 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-6">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-6">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -5481,6 +5697,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Goal-directed rehabilitation is tailored to involved joints, muscle strength, mobility, transfers, self-care, communication, and the underlying diagnosis. The evidence supports rehabilitation as a management domain, not one universally effective intensity or protocol.</div>
 
 
@@ -5489,33 +5724,37 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Limb joint contracture (HP:0003121). HP:0003121 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb joint contracture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003121" target="_blank" class="curie-chip curie-chip-hp">HP:0003121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0003121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb joint contracture (HP:0003121). HP:0003121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limitation of joint mobility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001376</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5535,7 +5774,9 @@ This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40947408" target="_blank">PMID:40947408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5571,6 +5812,25 @@ This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is 
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Splints and orthoses can support positioning and function as part of an individualized plan. Device choice, duration, and goals depend on the joint, growth, skin tolerance, and etiologic pattern.</div>
 
 
@@ -5579,33 +5839,37 @@ This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Limb joint contracture (HP:0003121). HP:0003121 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb joint contracture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003121" target="_blank" class="curie-chip curie-chip-hp">HP:0003121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0003121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb joint contracture (HP:0003121). HP:0003121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limitation of joint mobility
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001376</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5625,7 +5889,9 @@ This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40947408" target="_blank">PMID:40947408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5661,6 +5927,25 @@ This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is 
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Ponseti-style manipulation and serial casting can be used as an initial clubfoot strategy. Small AMC cohorts show frequent initial correction but substantial relapse and later surgery, with poorer results in Amyoplasia than distal arthrogryposis. These data do not support a uniform outcome claim across all AMC.</div>
 
 
@@ -5669,18 +5954,20 @@ This treatment targets Limitation of joint mobility (HP:0001376). HP:0001376 is 
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Talipes equinovarus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp">HP:0001762</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001762</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5700,7 +5987,9 @@ This treatment targets Talipes equinovarus (HP:0001762). HP:0001762 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37215511" target="_blank">PMID:37215511</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5722,7 +6011,9 @@ This treatment targets Talipes equinovarus (HP:0001762). HP:0001762 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39342344" target="_blank">PMID:39342344</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5754,18 +6045,18 @@ This treatment targets Talipes equinovarus (HP:0001762). HP:0001762 is a phenoty
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5788,6 +6079,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Joint- and pattern-specific orthopedic surgery may be considered when contractures or deformities substantially limit function and conservative measures are insufficient. Procedure choice and timing cannot be generalized across the AMC umbrella.</div>
 
 
@@ -5796,33 +6106,37 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Limb joint contracture (HP:0003121). HP:0003121 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Limb joint contracture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003121" target="_blank" class="curie-chip curie-chip-hp">HP:0003121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Limb joint contracture (HP:0003121). HP:0003121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Talipes equinovarus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp">HP:0001762</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001762</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5842,7 +6156,9 @@ This treatment targets Talipes equinovarus (HP:0001762). HP:0001762 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40947408" target="_blank">PMID:40947408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5874,18 +6190,18 @@ This treatment targets Talipes equinovarus (HP:0001762). HP:0001762 is a phenoty
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -5903,6 +6219,14 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5927,7 +6251,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6685864" target="_blank">PMID:6685864</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5949,7 +6275,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41936055" target="_blank">PMID:41936055</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5981,6 +6309,612 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-recognition-and-distribution-mapping">
+                <div class="item-name">
+                    Clinical recognition and distribution mapping
+
+                </div>
+
+                <div class="item-desc">Confirm congenital contractures in at least two body regions, document every involved joint and position, and assess craniofacial, neurologic, neuromuscular, skeletal, and other systemic findings. The clinical AMC label should be followed by etiologic classification when possible.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-16">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Multi-region congenital contractures establish the AMC phenotype; associated findings guide the underlying-diagnosis work-up.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38856159" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38856159" target="_blank">PMID:38856159</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arthrogryposis is a clinical feature defined by congenital joint contractures in two or more different body areas"</div>
+
+
+                <div class="evidence-explanation">The source supports the clinical threshold used to recognize the phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-prenatal-joint-movement-and-multisystem-ultrasonography">
+                <div class="item-name">
+                    Prenatal joint, movement, and multisystem ultrasonography
+
+                </div>
+
+                <div class="item-desc">Prenatal ultrasound evaluates joint posture, limb movement, clubfoot, and associated craniofacial or multisystem anomalies. Serial scans may be needed because recognition can occur at different gestational stages.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        fetal ultrasonography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C222238" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-17">NCIT:C222238</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Multiple contractures or abnormal posture with reduced movement and associated anomalies supports prenatal AMC and guides testing and counseling.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41936055" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41936055" target="_blank">PMID:41936055</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A comprehensive joint and movement assessment is essential when clubfoot is detected."</div>
+
+
+                <div class="evidence-explanation">The 69-fetus cohort supports systematic prenatal joint and movement assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-etiology-directed-cytogenomic-and-sequencing-tests">
+                <div class="item-name">
+                    Etiology-directed cytogenomic and sequencing tests
+
+                </div>
+
+                <div class="item-desc">Select testing from karyotype, chromosomal microarray or other copy-number analysis, multigene sequencing, exome sequencing, or genome sequencing based on prenatal and postnatal findings. A negative result does not negate the clinical AMC phenotype, and cohort-specific yields must not be treated as a universal diagnostic rate.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-18">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A pathogenic chromosomal or sequence finding can identify the underlying diagnosis and its inheritance; unresolved testing leaves AMC as a descriptive phenotype.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41936055" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41936055" target="_blank">PMID:41936055</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Aneuploidy and pathogenic copy number variations (CNV) were identified in 10.45% (7/67) of the unrelated families."</div>
+
+
+                <div class="evidence-explanation">The fetal cohort demonstrates that chromosomal and copy-number testing can resolve a subset of cases.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40195522" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40195522" target="_blank">PMID:40195522</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole exome sequencing had the highest yield (41.7%)."</div>
+
+
+                <div class="evidence-explanation">The consecutive fetal cohort supports exome sequencing as a high-yield component in that referral setting while not establishing a universal rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-postnatal-etiologic-neurologic-and-systemic-evaluation">
+                <div class="item-name">
+                    Postnatal etiologic neurologic and systemic evaluation
+
+                </div>
+
+                <div class="item-desc">History, pedigree, detailed physical and neurologic examination, imaging, neuromuscular electrophysiology, and targeted laboratory tests are selected according to the phenotype. The purpose is to locate the upstream disorder, not merely to reconfirm contractures.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-19">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Central, peripheral nerve, neuromuscular-junction, muscle, connective-tissue, skeletal, multisystem, or environmental findings narrow the etiologic class.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40947408" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40947408" target="_blank">PMID:40947408</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"clinical evaluation, genetic examination, neuromuscular electrophysiological examination, imaging examination and special laboratory examination after birth"</div>
+
+
+                <div class="evidence-explanation">The multidisciplinary consensus supports a phenotype-directed postnatal etiologic work-up across modalities.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-prenatal-emergence-and-detection">
+                <div class="item-name">Prenatal emergence and detection</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Fetal period</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Contractures and reduced movement may become apparent at different gestational stages. A normal earlier scan does not exclude later recognition, and serial assessment may be appropriate when findings evolve.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41936055" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41936055" target="_blank">PMID:41936055</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"AMC can occur at any stage of pregnancy and exhibits phenotypic heterogeneity. Regular follow-up ultrasounds are essential."</div>
+
+
+                <div class="evidence-explanation">The retrospective fetal cohort supports variable prenatal timing and serial ultrasound follow-up.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-congenital-contracture-state-with-variable-later-function">
+                <div class="item-name">Congenital contracture state with variable later function</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Birth onward</span>
+
+
+
+                </div>
+
+                <div class="item-notes">The defining contractures are congenital and described as non-progressive. This does not mean that range of motion, secondary deformity, mobility, or care needs remain static; those outcomes vary with growth, distribution, treatment, and the underlying diagnosis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40947408" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40947408" target="_blank">PMID:40947408</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is a non-progressive syndrome characterized by joint deformity and stiffness, muscle atrophy, reduction of skin folds and subcutaneous tissue, and contracture of periarticular tissue"</div>
+
+
+                <div class="evidence-explanation">The consensus supports congenital non-progression of the defining syndrome while the entry separately preserves variable functional course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">Variable</div>
+
+
+                <div class="item-desc">Functional burden ranges from independent ambulation and self-care to major mobility limitation and repeated orthopedic care. Contracture count, distribution, knee involvement, central nervous system or syndromic involvement, and the underlying etiology materially change outcome, so no single low, moderate, or high burden level represents the umbrella.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41475428" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41475428" target="_blank">PMID:41475428</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Greater joint involvement, particularly at the knees, was a strong negative factor."</div>
+
+
+                <div class="evidence-explanation">The multicenter cohort links distribution and number of contractures with mobility, supporting substantial within-syndrome variability.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33104047" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33104047" target="_blank">PMID:33104047</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Contractures can lead to decreased range of motion and strength, and affect ambulation and autonomy."</div>
+
+
+                <div class="evidence-explanation">The pediatric cohort directly documents the functional domains affected by AMC contractures.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+        </div>
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -5995,7 +6929,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-amyoplasia">
                 <div class="item-name">
 
                     Amyoplasia
@@ -6036,7 +6970,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24459070" target="_blank">PMID:24459070</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6061,7 +6997,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-distal-arthrogryposis-group">
                 <div class="item-name">
 
                     Distal arthrogryposis group
@@ -6102,7 +7038,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33104047" target="_blank">PMID:33104047</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6127,7 +7065,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-fetal-akinesia-deformation-sequence">
                 <div class="item-name">
 
                     Fetal akinesia deformation sequence
@@ -6168,7 +7106,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6685864" target="_blank">PMID:6685864</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6203,7 +7143,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse208171">
                 <div class="item-name">
                     Loss of protein function of ZC4H2 gene causing severe phenotypes of female-restricted Wieacker Wolff Syndrome
 
@@ -6309,7 +7249,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6685864" target="_blank">PMID:6685864</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6380,7 +7322,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33771841" target="_blank">PMID:33771841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6746,7 +7690,7 @@ pathophysiology:
     evidence:
     - reference: PMID:24459070
       reference_title: Amyoplasia revisited.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Affected limbs had characteristic positions with fatty-fibrous replacement of muscle.&#34;
       explanation: &gt;-
@@ -6909,7 +7853,7 @@ phenotypes:
   evidence:
   - reference: PMID:41936055
     reference_title: &#34;Prenatal Diagnosis of Arthrogryposis Multiplex Congenita (AMC): Ultrasound and Genetic Findings in 69 Fetuses From 67 Unrelated Families.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A comprehensive joint and movement assessment is essential when clubfoot is detected.&#34;
     explanation: &gt;-
@@ -7888,7 +8832,7 @@ itemizes only the most informative thin- and thick-filament DA genes
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Arthrogryposis Multiplex Congenita", "mondoId": "MONDO:0015168", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arthrogryposis_Multiplex_Congenita", "yamlRevision": "1d577bb7926f"};
+        const OS_CONFIG = {"diseaseName": "Arthrogryposis Multiplex Congenita", "mondoId": "MONDO:0015168", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arthrogryposis_Multiplex_Congenita", "yamlRevision": "b23abc0824a3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8307,5 +9251,73 @@ itemizes only the most informative thin- and thick-filament DA genes
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

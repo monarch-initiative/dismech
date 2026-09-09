@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Ayme-Gripp syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Ayme-Gripp syndrome</h1>
             <div class="header-meta">
 
@@ -3980,7 +4127,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4025,7 +4172,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4047,7 +4196,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4111,17 +4262,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MAF (hgnc:6776). hgnc:6776 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MAF
 
 
-    <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6776</a>
+    <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:6776</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MAF (hgnc:6776). hgnc:6776 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4150,18 +4305,20 @@ This pathophysiological event involves MAF (hgnc:6776). hgnc:6776 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal protein phosphorylation (GO:0006468). GO:0006468 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go">GO:0006468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein phosphorylation (GO:0006468). GO:0006468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4219,7 +4376,9 @@ This pathophysiological event involves abnormal protein phosphorylation (GO:0006
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4259,17 +4418,21 @@ This pathophysiological event involves abnormal protein phosphorylation (GO:0006
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MAF (hgnc:6776). hgnc:6776 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MAF
 
 
-    <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6776</a>
+    <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6776</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MAF (hgnc:6776). hgnc:6776 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4331,7 +4494,9 @@ This pathophysiological event involves MAF (hgnc:6776). hgnc:6776 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4353,7 +4518,9 @@ This pathophysiological event involves MAF (hgnc:6776). hgnc:6776 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4506,7 +4673,9 @@ This pathophysiological event involves MAF (hgnc:6776). hgnc:6776 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37186330" target="_blank">PMID:37186330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4604,16 +4773,20 @@ This pathophysiological event involves MAF (hgnc:6776). hgnc:6776 is a gene from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4634,7 +4807,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4675,16 +4850,20 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000518</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
-                        Cataract
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
-
-
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4705,7 +4884,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4746,16 +4927,20 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000248</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype from the Human Phenotype Ontology.">
-                        Brachycephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" class="curie-chip curie-chip-hp">HP:0000248</a>
-
-
+This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4776,7 +4961,9 @@ This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4808,16 +4995,22 @@ This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Flat face</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0012368</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from the Human Phenotype Ontology.">
-                        Flat face
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp">HP:0012368</a>
-
-
+This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4838,7 +5031,9 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4870,16 +5065,22 @@ This clinical feature is Flat face (HP:0012368). HP:0012368 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the dentition</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000164</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dental anomalies, annotated with Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the dentition
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp">HP:0000164</a>
-
-
+This clinical feature is Dental anomalies, annotated with Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4900,7 +5101,9 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4922,7 +5125,9 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37186330" target="_blank">PMID:37186330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4963,16 +5168,22 @@ This clinical feature is Dental anomalies, annotated with Abnormality of the den
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Limitation of joint mobility</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.">
-                        Limitation of joint mobility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp">HP:0001376</a>
-
-
+This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4993,7 +5204,9 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5034,16 +5247,20 @@ This clinical feature is Limitation of joint mobility (HP:0001376). HP:0001376 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5064,7 +5281,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5096,16 +5315,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5126,7 +5349,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5167,16 +5392,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001510</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.">
-                        Growth delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp">HP:0001510</a>
-
-
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5197,7 +5426,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5238,16 +5469,20 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001698" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001698</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phenotype from the Human Phenotype Ontology.">
-                        Pericardial effusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001698" target="_blank" class="curie-chip curie-chip-hp">HP:0001698</a>
-
-
+This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5268,7 +5503,9 @@ This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5300,16 +5537,20 @@ This clinical feature is Pericardial effusion (HP:0001698). HP:0001698 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0012443</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal brain morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp">HP:0012443</a>
-
-
+This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5330,7 +5571,9 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5408,15 +5651,17 @@ This clinical feature is Abnormal brain morphology (HP:0012443). HP:0012443 is a
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MAF (hgnc:6776). hgnc:6776 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MAF
 
 
-    <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6776</a>
+    <a href="https://bioregistry.io/hgnc:6776" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:6776</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MAF (hgnc:6776). hgnc:6776 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5438,7 +5683,9 @@ This disease-associated gene is MAF (hgnc:6776). hgnc:6776 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5468,6 +5715,9 @@ This disease-associated gene is MAF (hgnc:6776). hgnc:6776 is a gene from the HU
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5484,18 +5734,18 @@ This disease-associated gene is MAF (hgnc:6776). hgnc:6776 is a gene from the HU
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5513,6 +5763,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5537,7 +5795,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5567,18 +5827,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">cataract extraction with intraocular lens insertion<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cataract extraction with intraocular lens insertion, annotated with Cataract Surgery (NCIT:C157809). NCIT:C157809 is a clinical intervention from the NCI Thesaurus.">cataract extraction with intraocular lens insertion</span>
+This treatment is cataract extraction with intraocular lens insertion, annotated with Cataract Surgery (NCIT:C157809). NCIT:C157809 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cataract Surgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157809" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cataract extraction with intraocular lens insertion, annotated with Cataract Surgery (NCIT:C157809). NCIT:C157809 is a clinical intervention from the NCI Thesaurus.">NCIT:C157809</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157809" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157809">NCIT:C157809</a>
 
 
 
@@ -5601,6 +5861,14 @@ This treatment is cataract extraction with intraocular lens insertion, annotated
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cataracts are treated with ophthalmologic surgery when indicated, with ongoing refraction and ophthalmology follow-up for refractive error and other visual complications.</div>
 
 
@@ -5609,18 +5877,20 @@ This treatment is cataract extraction with intraocular lens insertion, annotated
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cataract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000518</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5640,7 +5910,9 @@ This treatment targets Cataract (HP:0000518). HP:0000518 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5672,6 +5944,25 @@ This treatment targets Cataract (HP:0000518). HP:0000518 is a phenotype from the
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Hearing aids are used for sensorineural hearing loss, with cochlear implant evaluation when hearing loss is severe or inadequately managed by hearing aids.</div>
 
 
@@ -5680,18 +5971,20 @@ This treatment targets Cataract (HP:0000518). HP:0000518 is a phenotype from the
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5711,7 +6004,9 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5741,18 +6036,18 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">anticonvulsant agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">anticonvulsant agent therapy</span>
+This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">NCIT:C64172</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64172">NCIT:C64172</a>
 
 
 
@@ -5775,6 +6070,14 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seizures are managed with standard antiseizure therapy and neurologic follow-up, including EEG or imaging when clinically indicated.</div>
 
 
@@ -5783,18 +6086,20 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5814,7 +6119,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5844,18 +6151,18 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -5878,6 +6185,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Developmental delay and variable cognitive impairment are managed with early intervention, physical therapy, speech-language therapy, occupational therapy, and individualized educational supports.</div>
 
 
@@ -5886,18 +6212,20 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Global developmental delay
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001263</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5917,7 +6245,9 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5947,18 +6277,18 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5976,6 +6306,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6000,7 +6338,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6030,17 +6370,17 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -6058,6 +6398,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6082,7 +6430,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6104,7 +6454,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6136,6 +6488,351 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-recognition-and-maf-molecular-testing">
+                <div class="item-name">
+                    Clinical Recognition and MAF Molecular Testing
+
+                </div>
+
+                <div class="item-desc">Diagnosis is suspected from the combination of bilateral early cataracts, sensorineural hearing loss, characteristic Down syndrome-like facial features, neurodevelopmental abnormalities, and seizures or growth restriction. Molecular confirmation is by identifying a heterozygous pathogenic variant in the disease-associated region of MAF using a multigene panel, exome/genome sequencing, or targeted MAF testing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32027476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of Aymé-Gripp syndrome is established in a proband with cataracts, sensorineural hearing loss, and suggestive facial features and a heterozygous pathogenic variant in a specific region of MAF identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews defines the clinical-plus-molecular diagnostic criteria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ophthalmologic-and-audiologic-evaluation">
+                <div class="item-name">
+                    Ophthalmologic and Audiologic Evaluation
+
+                </div>
+
+                <div class="item-desc">Slit-lamp ophthalmologic evaluation documents congenital or early cataracts, refractive errors, and other ocular complications. Audiology assessment is needed because hearing loss is often congenital and guides hearing-aid or cochlear-implant planning.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32027476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Aymé-Gripp syndrome is classically defined as the triad of bilateral early cataracts, sensorineural hearing loss, and characteristic facial features in combination with neurodevelopmental abnormalities."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports ophthalmologic and audiologic evaluation as part of the diagnostic triad.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32027476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hearing loss is often congenital."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports early audiologic evaluation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-neurologic-developmental-and-systemic-assessment">
+                <div class="item-name">
+                    Neurologic, Developmental, and Systemic Assessment
+
+                </div>
+
+                <div class="item-desc">Diagnostic evaluation should assess developmental level, seizures and EEG findings, head imaging when neurologic features warrant it, skeletal or joint limitations, cardiac or pericardial involvement, dental anomalies, and endocrine or renal features. The facial resemblance to Down syndrome and overlap with other cataract-hearing-neurodevelopmental syndromes make molecular testing important for the differential diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32027476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All affected individuals have had developmental delay, but the degree of cognitive impairment is extremely variable."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports developmental assessment for all affected individuals.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32027476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32027476" target="_blank">PMID:32027476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other features may include postnatal short stature, seizure disorder, nonspecific brain abnormalities on head imaging, skeletal abnormalities, and joint limitations."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports neurologic imaging and musculoskeletal assessment when clinically indicated.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6150,7 +6847,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-down-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Down_syndrome.html">Down syndrome</a>
@@ -6190,7 +6887,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-charge-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="CHARGE_syndrome.html">CHARGE syndrome</a>
@@ -6230,7 +6927,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-stickler-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Stickler syndrome</span>
@@ -6271,7 +6968,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-marshall-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Marshall syndrome</span>
@@ -6322,7 +7019,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-pmid-25865493">
                 <div class="item-name">
                     Mutations Impairing GSK3-Mediated MAF Phosphorylation Cause Cataract, Deafness, Intellectual Disability, Seizures, and a Down Syndrome-like Facies.
 
@@ -6379,7 +7076,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25865493" target="_blank">PMID:25865493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6430,7 +7129,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Ayme-Gripp syndrome
 creation_date: &#39;2026-04-11T19:38:25Z&#39;
-updated_date: &#39;2026-06-20T00:00:00Z&#39;
 category: Mendelian
 description: &gt;-
   Ayme-Gripp syndrome is an autosomal dominant multisystem developmental
@@ -7736,7 +8434,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ayme-Gripp syndrome", "mondoId": "MONDO:0010992", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ayme-Gripp_syndrome", "yamlRevision": "daaccde9f095"};
+        const OS_CONFIG = {"diseaseName": "Ayme-Gripp syndrome", "mondoId": "MONDO:0010992", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ayme-Gripp_syndrome", "yamlRevision": "87a43c096e22"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8155,5 +8853,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

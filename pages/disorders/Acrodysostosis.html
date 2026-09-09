@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Acrodysostosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Acrodysostosis</h1>
             <div class="header-meta">
 
@@ -3915,6 +4062,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3924,9 +4141,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology of Genetic Skeletal Disorders. Assigned from the 2019 revision (Mortier et al., PMID:31633310), Table 1 group 15 &#34;Acromelic dysplasias&#34;; listed as &#34;Acrodysostosis&#34;. Re-verified against the 2023 revision (Unger et al., PMID:36779427), which retains it in the acromelic group - now group 17 - as &#34;Acrodysostosis, PRKAR1A-related&#34; and &#34;Acrodysostosis, PDE4D-related&#34;. It does NOT belong to the new group 28 (parathyroid hormone signaling cascade) despite being an inactivating PTH/PTHrP-signalling disorder (iPPSD4): group 28 holds the PTH1R/SIK3/PTHLH set. Placement follows the committee&#39;s listing, not the mechanism.">acromelic dysplasias</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3944,7 +4177,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal dominant
 
@@ -3989,7 +4222,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043190" target="_blank">PMID:23043190</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4011,7 +4246,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28515031" target="_blank">PMID:28515031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4064,7 +4301,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-1">
 
                     <div class="item-name">
                         Acrodysostosis type 1 (PRKAR1A; iPPSD4)
@@ -4079,18 +4316,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in PRKAR1A (hgnc:9388). hgnc:9388 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 PRKAR1A
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:9388" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9388</a>
+    <a href="https://bioregistry.io/hgnc:9388" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9388</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRKAR1A (hgnc:9388). hgnc:9388 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4117,7 +4356,9 @@ This subtype is caused by variation in PRKAR1A (hgnc:9388). hgnc:9388 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42104421" target="_blank">PMID:42104421</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4143,7 +4384,7 @@ This subtype is caused by variation in PRKAR1A (hgnc:9388). hgnc:9388 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-2">
 
                     <div class="item-name">
                         Acrodysostosis type 2 (PDE4D; iPPSD5)
@@ -4158,18 +4399,20 @@ This subtype is caused by variation in PRKAR1A (hgnc:9388). hgnc:9388 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 PDE4D
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8783</a>
+    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:8783</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4196,7 +4439,9 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29016851" target="_blank">PMID:29016851</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4322,7 +4567,9 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42104421" target="_blank">PMID:42104421</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4445,7 +4692,9 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29016851" target="_blank">PMID:29016851</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4570,7 +4819,9 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25064455" target="_blank">PMID:25064455</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4668,7 +4919,9 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38983619" target="_blank">PMID:38983619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4690,7 +4943,9 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29016851" target="_blank">PMID:29016851</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4712,7 +4967,9 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25064455" target="_blank">PMID:25064455</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4756,14 +5013,14 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
 
 
 
-    <span class="entity-ref-chip">phenotype#Short Stature</span>
+    <a class="entity-ref-chip" href="#phenotype-short-stature">phenotypes#Short Stature</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">treatment#Recombinant Human Growth Hormone Therapy</span>
+    <a class="entity-ref-chip" href="#treatment-recombinant-human-growth-hormone-therapy">treatments#Recombinant Human Growth Hormone Therapy</a>
 
 
 
@@ -4791,7 +5048,9 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36749450" target="_blank">PMID:36749450</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4854,17 +5113,21 @@ This subtype is caused by variation in PDE4D (hgnc:8783). hgnc:8783 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PRKAR1A (hgnc:9388). hgnc:9388 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PRKAR1A
 
 
-    <a href="https://bioregistry.io/hgnc:9388" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9388</a>
+    <a href="https://bioregistry.io/hgnc:9388" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:9388</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRKAR1A (hgnc:9388). hgnc:9388 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4893,18 +5156,20 @@ This pathophysiological event involves PRKAR1A (hgnc:9388). hgnc:9388 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cAMP/PKA signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4992,7 +5257,9 @@ This pathophysiological event involves decreased cAMP/PKA signal transduction (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27825928" target="_blank">PMID:27825928</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5014,7 +5281,9 @@ This pathophysiological event involves decreased cAMP/PKA signal transduction (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42104421" target="_blank">PMID:42104421</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5065,17 +5334,21 @@ This pathophysiological event involves decreased cAMP/PKA signal transduction (G
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PDE4D
 
 
-    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8783</a>
+    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:8783</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5104,18 +5377,20 @@ This pathophysiological event involves PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cAMP/PKA signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5141,18 +5416,20 @@ This pathophysiological event involves decreased cAMP/PKA signal transduction (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves increased 3&#39;,5&#39;-cyclic-AMP phosphodiesterase activity (GO:0004115). GO:0004115 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         3&#39;,5&#39;-cyclic-AMP phosphodiesterase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004115" target="_blank" class="curie-chip curie-chip-go">GO:0004115</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004115" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0004115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased 3&#39;,5&#39;-cyclic-AMP phosphodiesterase activity (GO:0004115). GO:0004115 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5220,7 +5497,9 @@ This pathophysiological event involves increased 3&#39;,5&#39;-cyclic-AMP phosph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29016851" target="_blank">PMID:29016851</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5271,17 +5550,21 @@ This pathophysiological event involves increased 3&#39;,5&#39;-cyclic-AMP phosph
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PDE4D
 
 
-    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8783</a>
+    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:8783</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5310,18 +5593,20 @@ This pathophysiological event involves PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cAMP/PKA signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5347,18 +5632,20 @@ This pathophysiological event involves dysregulated cAMP/PKA signal transduction
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased 3&#39;,5&#39;-cyclic-AMP phosphodiesterase activity (GO:0004115). GO:0004115 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         3&#39;,5&#39;-cyclic-AMP phosphodiesterase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004115" target="_blank" class="curie-chip curie-chip-go">GO:0004115</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004115" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0004115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased 3&#39;,5&#39;-cyclic-AMP phosphodiesterase activity (GO:0004115). GO:0004115 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5426,7 +5713,9 @@ This pathophysiological event involves decreased 3&#39;,5&#39;-cyclic-AMP phosph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25064455" target="_blank">PMID:25064455</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5484,17 +5773,21 @@ This pathophysiological event involves decreased 3&#39;,5&#39;-cyclic-AMP phosph
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PDE4D
 
 
-    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8783</a>
+    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:8783</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5523,18 +5816,20 @@ This pathophysiological event involves PDE4D (hgnc:8783). hgnc:8783 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cAMP/PKA signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5636,7 +5931,9 @@ This pathophysiological event involves dysregulated cAMP/PKA signal transduction
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38983619" target="_blank">PMID:38983619</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5669,18 +5966,20 @@ This pathophysiological event involves dysregulated cAMP/PKA signal transduction
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5708,18 +6007,20 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal chondrocyte differentiation (GO:0002062). GO:0002062 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chondrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go">GO:0002062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0002062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chondrocyte differentiation (GO:0002062). GO:0002062 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5740,18 +6041,20 @@ This pathophysiological event involves abnormal chondrocyte differentiation (GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal endochondral bone growth (GO:0003416). GO:0003416 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         endochondral bone growth
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003416" target="_blank" class="curie-chip curie-chip-go">GO:0003416</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003416" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0003416</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal endochondral bone growth (GO:0003416). GO:0003416 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5849,7 +6152,9 @@ This pathophysiological event involves abnormal endochondral bone growth (GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27589370" target="_blank">PMID:27589370</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5871,7 +6176,9 @@ This pathophysiological event involves abnormal endochondral bone growth (GO:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34599290" target="_blank">PMID:34599290</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5911,18 +6218,20 @@ This pathophysiological event involves abnormal endochondral bone growth (GO:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cAMP/PKA signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go">GO:0141156</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141156" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0141156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cAMP/PKA signal transduction (GO:0141156). GO:0141156 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5996,7 +6305,9 @@ This pathophysiological event involves decreased cAMP/PKA signal transduction (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043190" target="_blank">PMID:23043190</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6012,13 +6323,15 @@ This pathophysiological event involves decreased cAMP/PKA signal transduction (G
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28515031" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28515031" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28515031" target="_blank">PMID:28515031</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6058,18 +6371,20 @@ This pathophysiological event involves decreased cAMP/PKA signal transduction (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         nervous system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go">GO:0007399</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007399</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6135,7 +6450,9 @@ This pathophysiological event involves abnormal nervous system development (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30006632" target="_blank">PMID:30006632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6235,16 +6552,20 @@ This pathophysiological event involves abnormal nervous system development (GO:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000821</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.">
-                        Hypothyroidism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp">HP:0000821</a>
-
-
+This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6259,13 +6580,15 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42104421" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42104421" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42104421" target="_blank">PMID:42104421</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6306,16 +6629,22 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Midface retrusion</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0011800</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Midface hypoplasia, annotated with Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.">
-                        Midface retrusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp">HP:0011800</a>
-
-
+This clinical feature is Midface hypoplasia, annotated with Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6336,7 +6665,9 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30006632" target="_blank">PMID:30006632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6368,16 +6699,22 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Short nose</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003196</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nasal hypoplasia, annotated with Short nose (HP:0003196). HP:0003196 is a phenotype from the Human Phenotype Ontology.">
-                        Short nose
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp">HP:0003196</a>
-
-
+This clinical feature is Nasal hypoplasia, annotated with Short nose (HP:0003196). HP:0003196 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6398,7 +6735,9 @@ This clinical feature is Nasal hypoplasia, annotated with Short nose (HP:0003196
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6439,16 +6778,20 @@ This clinical feature is Nasal hypoplasia, annotated with Short nose (HP:0003196
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001156</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.">
-                        Brachydactyly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp">HP:0001156</a>
-
-
+This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6469,7 +6812,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6510,16 +6855,20 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002901</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.">
-                        Hypocalcemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp">HP:0002901</a>
-
-
+This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6534,13 +6883,15 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42104421" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42104421" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42104421" target="_blank">PMID:42104421</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6581,16 +6932,20 @@ This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0005616</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:0005616 is a phenotype from the Human Phenotype Ontology.">
-                        Accelerated skeletal maturation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp">HP:0005616</a>
-
-
+This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:0005616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6611,7 +6966,9 @@ This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:000561
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6652,16 +7009,20 @@ This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:000561
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6682,7 +7043,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30006632" target="_blank">PMID:30006632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6698,13 +7061,15 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42104421" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42104421" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42104421" target="_blank">PMID:42104421</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6736,16 +7101,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6766,7 +7135,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28515031" target="_blank">PMID:28515031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6807,16 +7178,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6837,7 +7212,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36749450" target="_blank">PMID:36749450</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6869,16 +7246,20 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001518</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.">
-                        Small for gestational age
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp">HP:0001518</a>
-
-
+This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6899,7 +7280,9 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6931,16 +7314,20 @@ This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001513</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.">
-                        Obesity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp">HP:0001513</a>
-
-
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6961,7 +7348,9 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7002,16 +7391,20 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0034281</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Phalangeal cone-shaped epiphyses (HP:0034281). HP:0034281 is a phenotype from the Human Phenotype Ontology.">
-                        Phalangeal cone-shaped epiphyses
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034281" target="_blank" class="curie-chip curie-chip-hp">HP:0034281</a>
-
-
+This clinical feature is Phalangeal cone-shaped epiphyses (HP:0034281). HP:0034281 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7032,7 +7425,9 @@ This clinical feature is Phalangeal cone-shaped epiphyses (HP:0034281). HP:00342
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7064,16 +7459,22 @@ This clinical feature is Phalangeal cone-shaped epiphyses (HP:0034281). HP:00342
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the endocrine system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000818</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the endocrine system (HP:0000818). HP:0000818 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the endocrine system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000818" target="_blank" class="curie-chip curie-chip-hp">HP:0000818</a>
-
-
+This clinical feature is Abnormality of the endocrine system (HP:0000818). HP:0000818 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7094,7 +7495,9 @@ This clinical feature is Abnormality of the endocrine system (HP:0000818). HP:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043190" target="_blank">PMID:23043190</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7110,13 +7513,15 @@ This clinical feature is Abnormality of the endocrine system (HP:0000818). HP:00
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28515031" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28515031" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28515031" target="_blank">PMID:28515031</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7194,15 +7599,17 @@ This clinical feature is Abnormality of the endocrine system (HP:0000818). HP:00
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PRKAR1A (hgnc:9388). hgnc:9388 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRKAR1A
 
 
-    <a href="https://bioregistry.io/hgnc:9388" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9388</a>
+    <a href="https://bioregistry.io/hgnc:9388" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:9388</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRKAR1A (hgnc:9388). hgnc:9388 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7228,7 +7635,9 @@ This disease-associated gene is PRKAR1A (hgnc:9388). hgnc:9388 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043190" target="_blank">PMID:23043190</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7250,7 +7659,9 @@ This disease-associated gene is PRKAR1A (hgnc:9388). hgnc:9388 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42104421" target="_blank">PMID:42104421</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7287,15 +7698,17 @@ This disease-associated gene is PRKAR1A (hgnc:9388). hgnc:9388 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PDE4D
 
 
-    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8783</a>
+    <a href="https://bioregistry.io/hgnc:8783" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:8783</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PDE4D (hgnc:8783). hgnc:8783 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7321,7 +7734,9 @@ This disease-associated gene is PDE4D (hgnc:8783). hgnc:8783 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043190" target="_blank">PMID:23043190</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7343,7 +7758,9 @@ This disease-associated gene is PDE4D (hgnc:8783). hgnc:8783 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28515031" target="_blank">PMID:28515031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7373,6 +7790,9 @@ This disease-associated gene is PDE4D (hgnc:8783). hgnc:8783 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7391,18 +7811,18 @@ This disease-associated gene is PDE4D (hgnc:8783). hgnc:8783 is a gene from the 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">human growth hormone replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">human growth hormone replacement therapy</span>
+This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hormone Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is human growth hormone replacement therapy, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.">NCIT:C15599</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15599" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15599">NCIT:C15599</a>
 
 
 
@@ -7425,6 +7845,14 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">rhGH is used selectively for severe growth impairment or documented growth hormone deficiency. Retrospective cohort data suggest possible improvement in final height, but the small, nonrandomized evidence base does not establish routine efficacy.</div>
 
 
@@ -7433,18 +7861,20 @@ This treatment is human growth hormone replacement therapy, annotated with Hormo
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Short Stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Short Stature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004322</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Short Stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7458,13 +7888,15 @@ This treatment targets Short Stature (HP:0004322). HP:0004322 is a phenotype fro
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36749450" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36749450" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36749450" target="_blank">PMID:36749450</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7480,13 +7912,15 @@ This treatment targets Short Stature (HP:0004322). HP:0004322 is a phenotype fro
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42449097" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42449097" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42449097" target="_blank">PMID:42449097</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7518,17 +7952,17 @@ This treatment targets Short Stature (HP:0004322). HP:0004322 is a phenotype fro
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7553,21 +7987,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses levothyroxine, annotated with L-thyroxine (CHEBI:18332). CHEBI:18332 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         levothyroxine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_18332" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:18332</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_18332" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:18332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levothyroxine, annotated with L-thyroxine (CHEBI:18332). CHEBI:18332 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7579,18 +8023,20 @@ This treatment uses levothyroxine, annotated with L-thyroxine (CHEBI:18332). CHE
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypothyroidism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000821</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7610,7 +8056,9 @@ This treatment targets Hypothyroidism (HP:0000821). HP:0000821 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7642,17 +8090,17 @@ This treatment targets Hypothyroidism (HP:0000821). HP:0000821 is a phenotype fr
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7677,51 +8125,65 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         calcitriol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17823</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17823" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:17823</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses calcitriol (CHEBI:17823). CHEBI:17823 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses alfacalcidol (CHEBI:31186). CHEBI:31186 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         alfacalcidol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31186" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31186</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31186" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:31186</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses alfacalcidol (CHEBI:31186). CHEBI:31186 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses calcium, annotated with calcium(2+) (CHEBI:29108). CHEBI:29108 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         calcium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:29108</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:29108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses calcium, annotated with calcium(2+) (CHEBI:29108). CHEBI:29108 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7733,18 +8195,20 @@ This treatment uses calcium, annotated with calcium(2+) (CHEBI:29108). CHEBI:291
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypocalcemia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp">HP:0002901</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002901</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7764,7 +8228,9 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7796,18 +8262,18 @@ This treatment targets Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7830,6 +8296,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Orthopedic referral, functional assessment, occupational therapy, and adaptive devices are individualized to deformity, impaired hand function, or neurologic symptoms. Additional imaging is symptom-driven rather than automatically scheduled for every patient.</div>
 
 
@@ -7838,18 +8312,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Brachydactyly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001156</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7869,7 +8345,9 @@ This treatment targets Brachydactyly (HP:0001156). HP:0001156 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7891,7 +8369,9 @@ This treatment targets Brachydactyly (HP:0001156). HP:0001156 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7923,18 +8403,18 @@ This treatment targets Brachydactyly (HP:0001156). HP:0001156 is a phenotype fro
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7957,6 +8437,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Neuropsychological assessment, early developmental services, school-based support, and individualized therapies are guided by the patient&#39;s cognitive, behavioral, speech, and motor profile, with particular attention to PDE4D-related type 2.</div>
 
 
@@ -7965,33 +8453,37 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Intellectual Disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Intellectual Disability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Intellectual Disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Global Developmental Delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Global Developmental Delay
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001263</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Global Developmental Delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8011,7 +8503,9 @@ This treatment targets Global Developmental Delay (HP:0001263). HP:0001263 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8043,17 +8537,17 @@ This treatment targets Global Developmental Delay (HP:0001263). HP:0001263 is a 
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -8071,6 +8565,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8095,7 +8597,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8181,7 +8685,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043190" target="_blank">PMID:23043190</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8221,7 +8727,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42104421" target="_blank">PMID:42104421</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8292,7 +8800,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043190" target="_blank">PMID:23043190</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8332,7 +8842,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42104421" target="_blank">PMID:42104421</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8358,6 +8870,827 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinicoradiologic-evaluation">
+                <div class="item-name">
+                    Clinicoradiologic Evaluation
+
+                </div>
+
+                <div class="item-desc">Severe generalized brachydactyly, facial dysostosis with nasal hypoplasia, short stature, cone-shaped epiphyses, and advanced bone age establish the characteristic clinicoradiologic pattern.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        radiograph imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38101" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C38101</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"severe brachydactyly, facial dysostosis and nasal hypoplasia."</div>
+
+
+                <div class="evidence-explanation">The consensus defines the characteristic clinical triad.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On radiographs, epiphyses display a cone shape, bone age is advanced"</div>
+
+
+                <div class="evidence-explanation">The consensus supplies the characteristic radiographic findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-endocrine-laboratory-assessment">
+                <div class="item-name">
+                    Endocrine Laboratory Assessment
+
+                </div>
+
+                <div class="item-desc">At diagnosis, assess calcium, phosphorus, PTH, thyroid-stimulating hormone, and free thyroxine; thyroid autoantibodies help distinguish coincident autoimmune disease. Follow-up frequency should reflect genotype and findings.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        endocrine testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C74971" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C74971</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we recommend the monitoring of serum levels of PTH, calcium, phosphorus and calcifediol."</div>
+
+
+                <div class="evidence-explanation">The consensus directly recommends the PTH and mineral panel.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"at diagnosis. Thereafter, TSH monitoring is recommended every 6 months"</div>
+
+
+                <div class="evidence-explanation">The consensus supports thyroid-function evaluation at diagnosis and continued monitoring.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-confirmation-and-subtyping">
+                <div class="item-name">
+                    Molecular Confirmation and Subtyping
+
+                </div>
+
+                <div class="item-desc">Molecular genetic testing of PRKAR1A and PDE4D confirms the diagnosis and assigns type 1 or type 2. Broader testing is appropriate when the phenotype overlaps another iPPSD or skeletal-dysplasia disorder.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"clinical and laboratory diagnosis should be confirmed by a molecular genetic analysis."</div>
+
+
+                <div class="evidence-explanation">The international consensus explicitly recommends molecular confirmation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23043190" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23043190" target="_blank">PMID:23043190</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Acrodysostosis is genetically heterogeneous because it results from heterozygous mutations in PRKAR1A or PDE4D"</div>
+
+
+                <div class="evidence-explanation">Molecular testing must cover both established gene-defined subtypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-cone-shaped-phalangeal-epiphyses-on-radiographs">
+                <div class="item-name">
+                    Cone-Shaped Phalangeal Epiphyses on Radiographs
+
+                </div>
+
+                <div class="item-desc">Hand and foot radiographs show cone-shaped epiphyses with generalized acral shortening.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Xray</span>
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Phalangeal cone-shaped epiphyses
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0034281</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Phalangeal cone-shaped epiphyses
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0034281</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On radiographs, epiphyses display a cone shape"</div>
+
+
+                <div class="evidence-explanation">The consensus directly supports this diagnostic radiographic finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-advanced-bone-age-on-radiographs">
+                <div class="item-name">
+                    Advanced Bone Age on Radiographs
+
+                </div>
+
+                <div class="item-desc">Bone age is often advanced, with early epiphyseal maturation or fusion.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Xray</span>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Accelerated skeletal maturation
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0005616</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Accelerated skeletal maturation
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0005616</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bone age is advanced"</div>
+
+
+                <div class="evidence-explanation">The consensus explicitly supports advanced bone age.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-congenital-or-early-skeletal-presentation">
+                <div class="item-name">Congenital or early skeletal presentation</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Birth to early childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Characteristic skeletal abnormalities may be present at birth or emerge soon afterward; advanced bone age can become evident on radiographs.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bone age is advanced and abnormalities might be present at birth or soon thereafter."</div>
+
+
+                <div class="evidence-explanation">The consensus describes congenital or early radiographic onset and advanced skeletal maturation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-postnatal-growth">
+                <div class="item-name">Postnatal growth</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood through attainment of final height</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Postnatal linear growth is impaired and often culminates in severe short stature. Longitudinal growth and adult-outcome data remain sparse.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36749450" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36749450" target="_blank">PMID:36749450</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Severe short stature is a feature of acrodysostosis, but data on growth are sparse."</div>
+
+
+                <div class="evidence-explanation">The largest growth cohort identifies severe short stature while emphasizing limited natural-history data.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">The disease is uncommon, but no population prevalence estimate is available. Published case counts should not be interpreted as prevalence.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29959430" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Acrodysostosis is uncommon; the prevalence of the disease is unknown"</div>
+
+
+                <div class="evidence-explanation">The international consensus explicitly states that acrodysostosis prevalence is unknown.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -8372,7 +9705,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pseudohypoparathyroidism-type-1a">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Pseudohypoparathyroidism Type 1A</span>
@@ -8422,7 +9755,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29280743" target="_blank">PMID:29280743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8447,7 +9782,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-2q37-microdeletion-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="2q37_Microdeletion_Syndrome.html">2q37 Microdeletion Syndrome</a>
@@ -8494,7 +9829,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29959430" target="_blank">PMID:29959430</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8519,7 +9856,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-metaphyseal-acroscyphodysplasia">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Metaphyseal Acroscyphodysplasia</span>
@@ -8569,7 +9906,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30006632" target="_blank">PMID:30006632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8607,7 +9946,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01793168">
                 <div class="item-name">
                     NCT01793168
 
@@ -8635,7 +9974,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://clinicaltrials.gov/study/NCT01793168" target="_blank">clinicaltrials:NCT01793168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8657,7 +9998,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://bioregistry.io/url:https://clinicaltrials.gov/api/v2/studies/NCT01793168" target="_blank">url:https://clinicaltrials.gov/api/v2/studies/NCT01793168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8679,7 +10022,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://bioregistry.io/url:https://clinicaltrials.gov/api/v2/studies/NCT01793168" target="_blank">url:https://clinicaltrials.gov/api/v2/studies/NCT01793168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8727,7 +10072,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acrodysostosis
 creation_date: &#34;2026-04-16T00:00:00Z&#34;
-updated_date: &#34;2026-04-20T00:00:00Z&#34;
 description: &gt;-
   Acrodysostosis is a skeletal dysplasia characterized by severe brachydactyly,
   cone-shaped epiphyses, midface and nasal hypoplasia, short stature, and
@@ -9255,7 +10599,7 @@ pathophysiology:
     explanation: The molecular cohort establishes strong PRKAR1A-associated PTH and TSH resistance.
   - reference: PMID:28515031
     reference_title: Phenotypic Variability in a Family with Acrodysostosis Type 2 Caused by a Novel PDE4D Mutation Affecting the Serine Target of Protein Kinase-A Phosphorylation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Laboratory investigations revealed mild thyrotropin resistance.&#34;
     explanation: A familial PDE4D case shows that mild hormone resistance can occur in type 2.
@@ -9276,7 +10620,7 @@ pathophysiology:
     evidence:
     - reference: PMID:42104421
       reference_title: &#34;Acrodysostosis type 1: mechanisms explaining PRKAR1A mutation mediated dysregulation of cAMP-PKA signalling.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;elevated circulating PTH concentrations together with normal or low serum calcium and phosphate levels&#34;
       explanation: The type 1 review supports hypocalcemia as a variable direct biochemical consequence of renal PTH resistance.
@@ -9286,7 +10630,7 @@ pathophysiology:
     evidence:
     - reference: PMID:42104421
       reference_title: &#34;Acrodysostosis type 1: mechanisms explaining PRKAR1A mutation mediated dysregulation of cAMP-PKA signalling.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;elevated TSH concentrations coexist with normal or mildly reduced thyroid hormone levels&#34;
       explanation: The type 1 review supports reduced thyroid-hormone output as a variable direct consequence of TSH resistance.
@@ -9490,7 +10834,7 @@ phenotypes:
     explanation: This cohort establishes the strong genotype-phenotype difference.
   - reference: PMID:28515031
     reference_title: Phenotypic Variability in a Family with Acrodysostosis Type 2 Caused by a Novel PDE4D Mutation Affecting the Serine Target of Protein Kinase-A Phosphorylation.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patient 1 had mild TSH resistance, whereas his mother had normal thyroid functions tests at presentation.&#34;
     explanation: Variable expression within one PDE4D family documents a rare type 2 exception.
@@ -9508,7 +10852,7 @@ phenotypes:
   evidence:
   - reference: PMID:42104421
     reference_title: &#34;Acrodysostosis type 1: mechanisms explaining PRKAR1A mutation mediated dysregulation of cAMP-PKA signalling.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;elevated circulating PTH concentrations together with normal or low serum calcium and phosphate levels&#34;
     explanation: The type 1 review documents low calcium as one variable biochemical manifestation of renal PTH resistance.
@@ -9526,7 +10870,7 @@ phenotypes:
   evidence:
   - reference: PMID:42104421
     reference_title: &#34;Acrodysostosis type 1: mechanisms explaining PRKAR1A mutation mediated dysregulation of cAMP-PKA signalling.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;elevated TSH concentrations coexist with normal or mildly reduced thyroid hormone levels&#34;
     explanation: The type 1 review supports hypothyroidism as a variable downstream manifestation of TSH resistance.
@@ -9552,7 +10896,7 @@ phenotypes:
     explanation: The genotype-stratified cohort supports prominent intellectual involvement in type 2.
   - reference: PMID:42104421
     reference_title: &#34;Acrodysostosis type 1: mechanisms explaining PRKAR1A mutation mediated dysregulation of cAMP-PKA signalling.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Neurodevelopmental and cognitive features have been reported in a subset of individuals with ACRDYS1, but penetrance is variable and manifestations are generally milder than those affecting skeletal or endocrine tissues [7,8,10].&#34;
     explanation: The type 1 review supports variable, generally milder neurodevelopmental involvement in a subset of PRKAR1A-related cases.
@@ -9906,13 +11250,13 @@ treatments:
   evidence:
   - reference: PMID:36749450
     reference_title: Growth patterns and outcomes of growth hormone therapy in patients with acrodysostosis.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Final height may be positively influenced by rhGH in patients with acrodysostosis/iPPSD.&#34;
     explanation: A small retrospective cohort suggests benefit but uses appropriately cautious language.
   - reference: PMID:42449097
     reference_title: &#34;PRKAR1A-related acrodysostosis with partial growth hormone deficiency: 18-month response to recombinant human growth hormone.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;After 18 months of rhGH therapy, height increased from 89 cm to 103.5 cm and height SDS improved from - 2.92 to - 1.52&#34;
     explanation: A single 2026 case supplies limited corroboration in a child with documented partial growth hormone deficiency.
@@ -10099,8 +11443,8 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - phenotype#Short Stature
-  - treatment#Recombinant Human Growth Hormone Therapy
+  - phenotypes#Short Stature
+  - treatments#Recombinant Human Growth Hormone Therapy
   rationale: &gt;-
     Existing growth evidence is retrospective, final-height samples are very
     small, and adult skeletal, endocrine, neurologic, and quality-of-life
@@ -10555,7 +11899,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acrodysostosis", "mondoId": "MONDO:0019797", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acrodysostosis", "yamlRevision": "7534d563d37b"};
+        const OS_CONFIG = {"diseaseName": "Acrodysostosis", "mondoId": "MONDO:0019797", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acrodysostosis", "yamlRevision": "c946b16156d1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10974,5 +12318,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

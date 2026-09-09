@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Syphilis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Syphilis</h1>
             <div class="header-meta">
 
@@ -3891,27 +4038,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">INFECTIOUS_DISEASES</span>
+
+
+
+
+                    <span class="tag tag-classification">INFECTIOUS DISEASES</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3990,6 +4214,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">A GWAS in a well-phenotyped cohort stratified by stage at diagnosis and by serological response after adequate therapy, with HIV status modelled explicitly as a covariate rather than a confounder.</div>
+
+
+
+
+
+
 
 
 
@@ -4089,6 +4319,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4125,18 +4361,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl">CL:0000071</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000071</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4213,7 +4451,9 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27721440" target="_blank">PMID:27721440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4294,7 +4534,9 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27721440" target="_blank">PMID:27721440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4334,18 +4576,20 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4403,7 +4647,9 @@ This pathophysiological event involves decreased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27721440" target="_blank">PMID:27721440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4425,7 +4671,9 @@ This pathophysiological event involves decreased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27721440" target="_blank">PMID:27721440</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4465,18 +4713,20 @@ This pathophysiological event involves decreased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased antigenic variation (GO:0020033). GO:0020033 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         antigenic variation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0020033" target="_blank" class="curie-chip curie-chip-go">GO:0020033</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0020033" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0020033</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased antigenic variation (GO:0020033). GO:0020033 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4534,7 +4784,9 @@ This pathophysiological event involves increased antigenic variation (GO:0020033
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15186410" target="_blank">PMID:15186410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4556,7 +4808,9 @@ This pathophysiological event involves increased antigenic variation (GO:0020033
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15186410" target="_blank">PMID:15186410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4589,18 +4843,20 @@ This pathophysiological event involves increased antigenic variation (GO:0020033
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         dendritic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl">CL:0000451</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000451</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4617,18 +4873,20 @@ This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 i
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4645,18 +4903,20 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4684,18 +4944,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased T-helper 1 type immune response (GO:0042088). GO:0042088 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         T-helper 1 type immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042088" target="_blank" class="curie-chip curie-chip-go">GO:0042088</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042088" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042088</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T-helper 1 type immune response (GO:0042088). GO:0042088 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4716,18 +4978,20 @@ This pathophysiological event involves increased T-helper 1 type immune response
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phagocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go">GO:0006909</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4785,7 +5049,9 @@ This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40708500" target="_blank">PMID:40708500</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4801,13 +5067,15 @@ This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27721440" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27721440" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27721440" target="_blank">PMID:27721440</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4840,18 +5108,20 @@ This pathophysiological event involves increased phagocytosis (GO:0006909). GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl">CL:0000071</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000071</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4868,18 +5138,20 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4956,7 +5228,9 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27982548" target="_blank">PMID:27982548</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5061,7 +5335,9 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40708500" target="_blank">PMID:40708500</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5077,13 +5353,15 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35819903" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35819903" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35819903" target="_blank">PMID:35819903</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5198,13 +5476,15 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5285,7 +5565,9 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5318,18 +5600,20 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5346,18 +5630,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5385,18 +5671,20 @@ This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased syncytium formation by cell-cell fusion (GO:0000768). GO:0000768 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         syncytium formation by cell-cell fusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000768" target="_blank" class="curie-chip curie-chip-go">GO:0000768</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000768" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0000768</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased syncytium formation by cell-cell fusion (GO:0000768). GO:0000768 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5511,7 +5799,9 @@ This pathophysiological event involves increased syncytium formation by cell-cel
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27982548" target="_blank">PMID:27982548</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5592,7 +5882,9 @@ This pathophysiological event involves increased syncytium formation by cell-cel
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5673,7 +5965,9 @@ This pathophysiological event involves increased syncytium formation by cell-cel
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5689,13 +5983,15 @@ This pathophysiological event involves increased syncytium formation by cell-cel
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25890619" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25890619" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25890619" target="_blank">PMID:25890619</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5808,7 +6104,9 @@ This pathophysiological event involves increased syncytium formation by cell-cel
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40977496" target="_blank">PMID:40977496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5830,7 +6128,9 @@ This pathophysiological event involves increased syncytium formation by cell-cel
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22670010" target="_blank">PMID:22670010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5870,18 +6170,20 @@ This pathophysiological event involves increased syncytium formation by cell-cel
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased peptidoglycan-based cell wall biogenesis (GO:0009273). GO:0009273 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         peptidoglycan-based cell wall biogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009273" target="_blank" class="curie-chip curie-chip-go">GO:0009273</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009273" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0009273</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased peptidoglycan-based cell wall biogenesis (GO:0009273). GO:0009273 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5924,7 +6226,9 @@ This pathophysiological event involves decreased peptidoglycan-based cell wall b
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5964,18 +6268,20 @@ This pathophysiological event involves decreased peptidoglycan-based cell wall b
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6033,7 +6339,9 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18192791" target="_blank">PMID:18192791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6091,7 +6399,9 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18192791" target="_blank">PMID:18192791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6126,7 +6436,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-obliterative-endarteritis-with-plasma-cell-infiltrate">
                 <div class="item-name">
                     Obliterative endarteritis with plasma cell infiltrate
 
@@ -6148,7 +6458,9 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27982548" target="_blank">PMID:27982548</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6170,7 +6482,9 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16224168" target="_blank">PMID:16224168</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6271,16 +6585,20 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.">
-                        Lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp">HP:0002716</a>
-
-
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6301,7 +6619,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6333,16 +6653,20 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002140</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.">
-                        Ischemic stroke
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" class="curie-chip curie-chip-hp">HP:0002140</a>
-
-
+This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6363,7 +6687,9 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6395,16 +6721,20 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001659</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.">
-                        Aortic regurgitation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp">HP:0001659</a>
-
-
+This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6425,7 +6755,9 @@ This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27982548" target="_blank">PMID:27982548</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6457,16 +6789,20 @@ This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001433</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatosplenomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp">HP:0001433</a>
-
-
+This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6487,7 +6823,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6528,16 +6866,20 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012115</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012115" target="_blank" class="curie-chip curie-chip-hp">HP:0012115</a>
-
-
+This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6571,16 +6913,20 @@ This clinical feature is Hepatitis (HP:0012115). HP:0012115 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6601,7 +6947,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35819903" target="_blank">PMID:35819903</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6623,7 +6971,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22670010" target="_blank">PMID:22670010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6666,16 +7016,20 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000554</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from the Human Phenotype Ontology.">
-                        Uveitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" class="curie-chip curie-chip-hp">HP:0000554</a>
-
-
+This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6696,7 +7050,9 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35819903" target="_blank">PMID:35819903</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6728,16 +7084,20 @@ This clinical feature is Uveitis (HP:0000554). HP:0000554 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000491</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Interstitial keratitis, annotated with Keratitis (HP:0000491). HP:0000491 is a phenotype from the Human Phenotype Ontology.">
-                        Keratitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000491" target="_blank" class="curie-chip curie-chip-hp">HP:0000491</a>
-
-
+This clinical feature is Interstitial keratitis, annotated with Keratitis (HP:0000491). HP:0000491 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6758,7 +7118,9 @@ This clinical feature is Interstitial keratitis, annotated with Keratitis (HP:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22670010" target="_blank">PMID:22670010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6799,16 +7161,20 @@ This clinical feature is Interstitial keratitis, annotated with Keratitis (HP:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chancre, annotated with Genital ulcers (HP:0003249), qualified as temporality transient. HP:0003249 is a phenotype from the Human Phenotype Ontology.">
-                        Genital ulcers
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003249" target="_blank" class="curie-chip curie-chip-hp">HP:0003249</a>
-
-
+This clinical feature is Chancre, annotated with Genital ulcers (HP:0003249), qualified as temporality transient. HP:0003249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6847,7 +7213,9 @@ This clinical feature is Chancre, annotated with Genital ulcers (HP:0003249), qu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6888,16 +7256,20 @@ This clinical feature is Chancre, annotated with Genital ulcers (HP:0003249), qu
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0006482</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hutchinson teeth, annotated with Abnormal dental morphology (HP:0006482). HP:0006482 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal dental morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006482" target="_blank" class="curie-chip curie-chip-hp">HP:0006482</a>
-
-
+This clinical feature is Hutchinson teeth, annotated with Abnormal dental morphology (HP:0006482). HP:0006482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6918,7 +7290,9 @@ This clinical feature is Hutchinson teeth, annotated with Abnormal dental morpho
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22670010" target="_blank">PMID:22670010</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6959,16 +7333,20 @@ This clinical feature is Hutchinson teeth, annotated with Abnormal dental morpho
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040186" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0040186</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Maculopapular exanthema (HP:0040186). HP:0040186 is a phenotype from the Human Phenotype Ontology.">
-                        Maculopapular exanthema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040186" target="_blank" class="curie-chip curie-chip-hp">HP:0040186</a>
-
-
+This clinical feature is Maculopapular exanthema (HP:0040186). HP:0040186 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6989,7 +7367,9 @@ This clinical feature is Maculopapular exanthema (HP:0040186). HP:0040186 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7023,16 +7403,20 @@ This clinical feature is Maculopapular exanthema (HP:0040186). HP:0040186 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001287</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from the Human Phenotype Ontology.">
-                        Meningitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" class="curie-chip curie-chip-hp">HP:0001287</a>
-
-
+This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7055,7 +7439,9 @@ This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35819903" target="_blank">PMID:35819903</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7077,7 +7463,9 @@ This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7118,16 +7506,20 @@ This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001596</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.">
-                        Alopecia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp">HP:0001596</a>
-
-
+This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7150,16 +7542,20 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0200042</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ulcerated gumma, annotated with Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.">
-                        Skin ulcer
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp">HP:0200042</a>
-
-
+This clinical feature is Ulcerated gumma, annotated with Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7191,16 +7587,20 @@ This clinical feature is Ulcerated gumma, annotated with Skin ulcer (HP:0200042)
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000726</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dementia (HP:0000726), qualified as course progressive. HP:0000726 is a phenotype from the Human Phenotype Ontology.">
-                        Dementia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp">HP:0000726</a>
-
-
+This clinical feature is Dementia (HP:0000726), qualified as course progressive. HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7239,7 +7639,9 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7280,16 +7682,20 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000099</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.">
-                        Glomerulonephritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000099" target="_blank" class="curie-chip curie-chip-hp">HP:0000099</a>
-
-
+This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7312,16 +7718,20 @@ This clinical feature is Glomerulonephritis (HP:0000099). HP:0000099 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0010871</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype from the Human Phenotype Ontology.">
-                        Sensory ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp">HP:0010871</a>
-
-
+This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7342,7 +7752,9 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7374,16 +7786,20 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012727" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012727</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a phenotype from the Human Phenotype Ontology.">
-                        Thoracic aortic aneurysm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012727" target="_blank" class="curie-chip curie-chip-hp">HP:0012727</a>
-
-
+This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7404,7 +7820,9 @@ This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27982548" target="_blank">PMID:27982548</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7436,16 +7854,20 @@ This clinical feature is Thoracic aortic aneurysm (HP:0012727). HP:0012727 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:6000070</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gumma, annotated with Cutaneous granuloma (HP:6000070). HP:6000070 is a phenotype from the Human Phenotype Ontology.">
-                        Cutaneous granuloma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000070" target="_blank" class="curie-chip curie-chip-hp">HP:6000070</a>
-
-
+This clinical feature is Gumma, annotated with Cutaneous granuloma (HP:6000070). HP:6000070 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7481,13 +7903,15 @@ This clinical feature is Gumma, annotated with Cutaneous granuloma (HP:6000070).
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7519,16 +7943,20 @@ This clinical feature is Gumma, annotated with Cutaneous granuloma (HP:6000070).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012384</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Syphilitic snuffles, annotated with Rhinitis (HP:0012384). HP:0012384 is a phenotype from the Human Phenotype Ontology.">
-                        Rhinitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012384" target="_blank" class="curie-chip curie-chip-hp">HP:0012384</a>
-
-
+This clinical feature is Syphilitic snuffles, annotated with Rhinitis (HP:0012384). HP:0012384 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7549,7 +7977,9 @@ This clinical feature is Syphilitic snuffles, annotated with Rhinitis (HP:001238
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7581,16 +8011,20 @@ This clinical feature is Syphilitic snuffles, annotated with Rhinitis (HP:001238
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040165" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0040165</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Periostitis (HP:0040165). HP:0040165 is a phenotype from the Human Phenotype Ontology.">
-                        Periostitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040165" target="_blank" class="curie-chip curie-chip-hp">HP:0040165</a>
-
-
+This clinical feature is Periostitis (HP:0040165). HP:0040165 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7605,13 +8039,15 @@ This clinical feature is Periostitis (HP:0040165). HP:0040165 is a phenotype fro
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7673,6 +8109,9 @@ This clinical feature is Periostitis (HP:0040165). HP:0040165 is a phenotype fro
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7689,17 +8128,17 @@ This clinical feature is Periostitis (HP:0040165). HP:0040165 is a phenotype fro
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7724,36 +8163,59 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses penicillin G benzathine (NCIT:C47657). NCIT:C47657 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         penicillin G benzathine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C47657" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C47657</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C47657" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C47657</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses penicillin G benzathine (NCIT:C47657). NCIT:C47657 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         benzylpenicillin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_18208" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:18208</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_18208" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:18208</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -7794,7 +8256,9 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7816,7 +8280,9 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7846,17 +8312,17 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7881,21 +8347,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -7936,7 +8423,9 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7958,7 +8447,9 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7988,18 +8479,18 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">penicillin desensitization<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is penicillin desensitization, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">penicillin desensitization</span>
+This treatment is penicillin desensitization, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is penicillin desensitization, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8024,21 +8515,42 @@ This treatment is penicillin desensitization, annotated with Pharmacotherapy (NC
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         benzylpenicillin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_18208" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:18208</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_18208" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:18208</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -8061,7 +8573,9 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8083,7 +8597,9 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8113,17 +8629,17 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8148,21 +8664,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         azithromycin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2955" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2955</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2955" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:2955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -8203,7 +8740,9 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18192791" target="_blank">PMID:18192791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8225,7 +8764,9 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18192791" target="_blank">PMID:18192791</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8257,18 +8798,18 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">pre-treatment counselling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is pre-treatment counselling, annotated with Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">pre-treatment counselling</span>
+This treatment is pre-treatment counselling, annotated with Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is pre-treatment counselling, annotated with Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.">NCIT:C181743</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C181743" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C181743">NCIT:C181743</a>
 
 
 
@@ -8286,6 +8827,25 @@ This treatment is pre-treatment counselling, annotated with Behavioral Counselin
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8310,7 +8870,9 @@ This treatment is pre-treatment counselling, annotated with Behavioral Counselin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8332,7 +8894,9 @@ This treatment is pre-treatment counselling, annotated with Behavioral Counselin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39946129" target="_blank">PMID:39946129</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8354,7 +8918,9 @@ This treatment is pre-treatment counselling, annotated with Behavioral Counselin
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39946129" target="_blank">PMID:39946129</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8386,18 +8952,18 @@ This treatment is pre-treatment counselling, annotated with Behavioral Counselin
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">post-exposure chemoprophylaxis<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is post-exposure chemoprophylaxis, annotated with Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinical intervention from the NCI Thesaurus.">post-exposure chemoprophylaxis</span>
+This treatment is post-exposure chemoprophylaxis, annotated with Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Preventive Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15843" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is post-exposure chemoprophylaxis, annotated with Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinical intervention from the NCI Thesaurus.">NCIT:C15843</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15843" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15843">NCIT:C15843</a>
 
 
 
@@ -8422,21 +8988,42 @@ This treatment is post-exposure chemoprophylaxis, annotated with Preventive Inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         doxycycline
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:50845</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:50845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -8477,7 +9064,9 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38833414" target="_blank">PMID:38833414</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8507,17 +9096,17 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">Surgical Procedure</span>
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -8535,6 +9124,25 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8559,7 +9167,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27982548" target="_blank">PMID:27982548</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8599,6 +9209,10 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
                 <div class="item-desc">HIV and syphilis are bidirectionally associated. Syphilis infection increases subsequent HIV acquisition roughly two- to three-fold in high-risk populations, and HIV coinfection is associated with accelerated, more severe neurosyphilis.</div>
 
 
@@ -8615,7 +9229,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33219164" target="_blank">PMID:33219164</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8631,13 +9247,15 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25890619" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25890619" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25890619" target="_blank">PMID:25890619</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8680,13 +9298,15 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25890619" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25890619" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25890619" target="_blank">PMID:25890619</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8718,6 +9338,10 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
                 <div class="item-desc">Lack of, or late presentation to, prenatal care is the dominant modifiable risk factor for congenital syphilis, because it removes the screening and treatment opportunity that would otherwise prevent transmission.</div>
 
 
@@ -8728,13 +9352,15 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40977496" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40977496" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40977496" target="_blank">PMID:40977496</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8777,13 +9403,15 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40977496" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40977496" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40977496" target="_blank">PMID:40977496</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8816,6 +9444,1100 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-nontreponemal-serology-rpr-vdrl">
+                <div class="item-name">
+                    Nontreponemal serology (RPR/VDRL)
+
+                </div>
+
+                <div class="item-desc">Nontreponemal tests detect non-specific anticardiolipin antibodies produced in response to host tissue damage. They are quantitative, so titers track treatment response, but can be falsely negative very early or through the prozone phenomenon at very high titers, and falsely positive in pregnancy, autoimmune disease, and other infections.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        nontreponemal serologic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C74716" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C74716</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A quantitative titer used both for diagnosis and for monitoring; a four-fold or greater decline indicates adequate treatment response.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The majority of patients who have reactive treponemal tests will have reactive tests for the remainder of their lives, regardless of adequate treatment or disease activity."</div>
+
+
+                <div class="evidence-explanation">Explains why the quantitative nontreponemal test, not the treponemal test, is the instrument for monitoring treatment response.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-treponemal-serology-and-the-reverse-sequence-algorithm">
+                <div class="item-name">
+                    Treponemal serology and the reverse sequence algorithm
+
+                </div>
+
+                <div class="item-desc">Treponemal tests (TP-PA, FTA-ABS, and automated EIA/CIA immunoassays) are specific for anti-T. pallidum antibody but usually remain reactive for life, so they cannot by themselves distinguish active from previously treated infection. Automated laboratories increasingly screen with a treponemal immunoassay first (the reverse sequence algorithm), reflexing to a quantitative RPR and, when the two are discordant, to a second treponemal test as tiebreaker.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        treponemal serologic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C132388" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C132388</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Lifelong reactivity in most patients; interpretation requires pairing with a quantitative nontreponemal titer.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treponemal Tests and Reverse Sequence Algorithm The majority of patients who have reactive treponemal tests will have reactive tests for the remainder of their lives, regardless of adequate treatment or disease activity."</div>
+
+
+                <div class="evidence-explanation">Directly supports both the reverse sequence algorithm and the lifelong reactivity that limits treponemal test interpretation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-direct-detection-by-pcr-of-lesion-material">
+                <div class="item-name">
+                    Direct detection by PCR of lesion material
+
+                </div>
+
+                <div class="item-desc">PCR on swabs of a chancre or other mucocutaneous lesion detects treponemal DNA during the early window when serology may still be non-reactive, and has largely supplanted darkfield microscopy where it is available. Reference laboratories can also genotype 23S rRNA for the A2058G/A2059G macrolide resistance mutations.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        polymerase chain reaction
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17003" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C17003</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Detection of T. pallidum DNA from lesion exudate; a negative result does not exclude syphilis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18192791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18192791" target="_blank">PMID:18192791</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Azithromycin treatment failures in syphilis were first noted in San Francisco in 2002 and result from an A--&gt;G mutation at position 2058 of the 23S rRNA gene"</div>
+
+
+                <div class="evidence-explanation">PARTIAL: supports the molecular resistance target that pathogen genotyping detects, rather than the diagnostic performance of lesion PCR.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cerebrospinal-fluid-examination-for-neurosyphilis">
+                <div class="item-name">
+                    Cerebrospinal fluid examination for neurosyphilis
+
+                </div>
+
+                <div class="item-desc">CSF examination (CSF-VDRL, cell count, protein) is the test that governs management of suspected neurosyphilis, since a diagnosis of neurosyphilis changes therapy from intramuscular benzathine penicillin to 10-14 days of intravenous aqueous crystalline penicillin. CSF-VDRL is highly specific but insensitive, so a negative result in a patient with neurologic signs does not exclude the diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        cerebrospinal fluid examination by lumbar puncture
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15327" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C15327</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A reactive CSF-VDRL in an uncontaminated specimen is diagnostic; a negative result does not exclude neurosyphilis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For a person with neurologic signs or symptoms, a reactive CSF-VDRL (in the absence of blood contamination) is considered diagnostic of neurosyphilis."</div>
+
+
+                <div class="evidence-explanation">Establishes the reactive CSF-VDRL as diagnostic of neurosyphilis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CSF-VDRL is highly specific but insensitive"</div>
+
+
+                <div class="evidence-explanation">Establishes the insensitivity that makes a negative CSF-VDRL non-exclusionary.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-incubation-period">
+                <div class="item-name">Incubation period</div>
+                <div class="item-meta">
+
+
+
+
+                    <span class="tag">Incubation: 10-90 days</span>
+
+                </div>
+
+                <div class="item-notes">The chancre appears 10-90 days after exposure, with a median of about three weeks. Not separately evidenced here; the window is stated in the deep-research report and is standard, but no cached source quotes it.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-neurological-involvement">
+                <div class="item-name">Early neurological involvement</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Meningovascular manifestations - cranial nerve dysfunction, meningitis, stroke - usually appear within the first months to few years of infection, not in late disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Early neurologic clinical manifestations or syphilitic meningitis (e.g., cranial nerve dysfunction, meningitis, meningovascular syphilis, stroke, and acute altered mental status) are usually present within the first few months or years of infection."</div>
+
+
+                <div class="evidence-explanation">Gives the timing of early neurological involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-late-neurological-involvement">
+                <div class="item-name">Late neurological involvement</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Parenchymal neurosyphilis - tabes dorsalis and general paresis - occurs 10 to more than 30 years after infection.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Late neurologic manifestations (e.g., tabes dorsalis and general paresis) occur 10 to &gt;30 years after infection."</div>
+
+
+                <div class="evidence-explanation">Gives the decades-long latency to parenchymal neurosyphilis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+        <div class="card" id="stages">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">🪜</div>
+                <h2 class="card-title">Stages</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box anchor-target" id="stage-primary-syphilis">
+                <div class="item-name">Primary syphilis</div>
+
+                <div class="item-desc">A chancre at the inoculation site 10-90 days after exposure, healing spontaneously in 3-6 weeks. Resolution marks progression to the next stage, not cure.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary syphilis classically presents as a single painless ulcer or chancre at the site of infection but can also present with multiple, atypical, or painful lesions"</div>
+
+
+                <div class="evidence-explanation">Defines the primary stage by its characteristic lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-secondary-syphilis">
+                <div class="item-name">Secondary syphilis</div>
+
+                <div class="item-desc">Disseminated disease weeks to months after the chancre, with generalized mucocutaneous eruption, condylomata lata, lymphadenopathy, and visceral involvement. May overlap a healing chancre.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Secondary syphilis manifestations can include skin rash, mucocutaneous lesions, and lymphadenopathy."</div>
+
+
+                <div class="evidence-explanation">Defines the secondary stage by its manifestation set.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-early-latent-syphilis">
+                <div class="item-name">Early latent syphilis</div>
+
+                <div class="item-desc">Asymptomatic infection acquired within the preceding year. Distinguished from late latent because it remains infectious, carries a risk of mucocutaneous relapse, and is treated with a single benzathine penicillin dose rather than three.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Latent syphilis acquired within the preceding year is referred to as early latent syphilis"</div>
+
+
+                <div class="evidence-explanation">Gives the defining time boundary of early latent syphilis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-late-latent-syphilis-or-latent-syphilis-of-unknown-duration">
+                <div class="item-name">Late latent syphilis or latent syphilis of unknown duration</div>
+
+                <div class="item-desc">Asymptomatic infection of at least one year&#39;s duration, or of unknown duration. Requires three weekly doses of benzathine penicillin.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"all other cases of latent syphilis are classified as late latent syphilis or latent syphilis of unknown duration"</div>
+
+
+                <div class="evidence-explanation">Gives the definition by exclusion from early latent disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-tertiary-syphilis">
+                <div class="item-name">Tertiary syphilis</div>
+
+                <div class="item-desc">Late destructive disease - gummatous, cardiovascular, or late neurological - occurring years to decades after infection in a minority of untreated people. Structural damage does not reverse with microbiological cure.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Late neurologic manifestations (e.g., tabes dorsalis and general paresis) occur 10 to &gt;30 years after infection."</div>
+
+
+                <div class="evidence-explanation">Places the late manifestations decades after infection, defining the tertiary stage temporally.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-congenital-syphilis">
+                <div class="item-name">Congenital syphilis</div>
+
+                <div class="item-desc">Vertically acquired infection, divided into early (presenting under two years, with hepatosplenomegaly, rhinitis, rash, and pseudoparalysis) and late (the Hutchinson stigmata, which are permanent developmental scarring rather than active infection).</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hepatosplenomegaly, rhinitis, skin rash, or pseudoparalysis of an extremity"</div>
+
+
+                <div class="evidence-explanation">Enumerates the early congenital manifestation set.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states-16-jurisdictions-with-complete-reporting-of-clinical-manifestations-2019">
+                <div class="item-name">United States, 16 jurisdictions with complete reporting of clinical manifestations, 2019</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">41,187 reported syphilis cases. Among them, neurologic manifestations were reported in 1.1%, ocular in 1.1%, otic in 0.4%, and any of the three in 2.0%. These are proportions of reported cases in passive surveillance, not population rates, and are likely underestimates.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35819903" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35819903" target="_blank">PMID:35819903</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"clinical manifestations were infrequently reported overall: neurologic (n = 445, 1.1%), ocular (n = 461, 1.1%), otic (n = 166, 0.4%), any (n = 807, 2.0%)"</div>
+
+
+                <div class="evidence-explanation">Gives the surveillance denominator and the per-manifestation proportions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-treponema-pallidum-subsp-pallidum">
+                <div class="item-name">Treponema pallidum subsp. pallidum</div>
+
+                <div class="item-desc">A thin, tightly coiled, motile spirochete that cannot be continuously cultured by conventional means; nearly all experimental work uses the rabbit model. It is the venereal treponeme, distinct from the subspecies causing yaws, bejel, and pinta.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Treponema pallidum subsp. pallidum
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_161" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-54">NCBITaxon:161</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27721440" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27721440" target="_blank">PMID:27721440</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"fragile outer membrane lacks lipopolysaccharide (LPS), the highly proinflammatory glycolipid found in Gram-negative bacteria"</div>
+
+
+                <div class="evidence-explanation">This review of T. pallidum biology characterizes the organism and its distinctive LPS-free outer membrane. Evidence source is OTHER because the citation is a review article rather than a primary study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-sexual-transmission-by-direct-lesion-contact">
+                <div class="item-name">Sexual transmission by direct lesion contact</div>
+
+                <div class="item-desc">Transmission occurs through direct contact with an infectious mucocutaneous lesion - chancre, mucous patch, or condyloma latum - during vaginal, anal, or oral sex. Early (primary, secondary, early-latent) syphilis is the period of greatest infectiousness.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34292926" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34292926" target="_blank">PMID:34292926</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Primary syphilis classically presents as a single painless ulcer or chancre at the site of infection"</div>
+
+
+                <div class="evidence-explanation">The chancre arising at the site of infection establishes direct lesional contact as the route of transmission.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-vertical-transplacental-transmission">
+                <div class="item-name">Vertical transplacental transmission</div>
+
+                <div class="item-desc">T. pallidum crosses the placenta during maternal spirochetemia, producing congenital syphilis. Transmission can occur at any point in pregnancy or at delivery, and risk tracks the maternal stage - highest in primary and secondary syphilis, when spirochete burden is greatest, and lower in the latent phases.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40977496" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40977496" target="_blank">PMID:40977496</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vertical transmission can occur at any point during pregnancy or delivery, with the highest risk observed during primary and secondary stages of infection compared to latent phases."</div>
+
+
+                <div class="evidence-explanation">Directly states both the timing and the maternal-stage dependence of vertical transmission.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -8830,7 +10552,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-genital-herpes">
                 <div class="item-name">
 
                     Genital herpes
@@ -8851,7 +10573,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-chancroid">
                 <div class="item-name">
 
                     Chancroid
@@ -8872,7 +10594,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pityriasis-rosea">
                 <div class="item-name">
 
                     Pityriasis rosea
@@ -8893,7 +10615,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-sarcoidosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Sarcoidosis.html">Sarcoidosis</a>
@@ -9349,7 +11071,7 @@ pathophysiology:
       source is OTHER because the citation is a translational review.
   - reference: PMID:27721440
     reference_title: &#34;Treponema pallidum, the syphilis spirochete: making a living as a stealth pathogen.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;The paucity of surface-exposed pathogen-associated molecular patterns (PAMPs) enables the bacterium to undergo repeated bouts of dissemination that are poorly detected by innate immunity&#34;
     explanation: &gt;-
@@ -9432,7 +11154,7 @@ pathophysiology:
       source is OTHER because the citation is a translational review.
   - reference: PMID:35819903
     reference_title: &#34;Reported Neurologic, Ocular, and Otic Manifestations Among Syphilis Cases-16 States, 2019.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Syphilis can cause neurologic, ocular, or otic manifestations, possibly resulting in permanent disability or death.&#34;
     explanation: &gt;-
@@ -9474,7 +11196,7 @@ pathophysiology:
   evidence:
   - reference: PMID:34292926
     reference_title: &#34;Sexually Transmitted Infections Treatment Guidelines, 2021.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Penicillin G, administered parenterally, is the preferred drug for treating patients in all stages of syphilis.&#34;
     explanation: &gt;-
@@ -9632,7 +11354,7 @@ pathophysiology:
       ones.
   - reference: PMID:25890619
     reference_title: &#34;Neurosyphilis and the impact of HIV infection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This review of the clinical presentation, diagnostic laboratory findings, treatment and management of neurosyphilis discusses the impact of HIV and the specific challenges it brings&#34;
     explanation: &gt;-
@@ -10131,7 +11853,7 @@ phenotypes:
   evidence:
   - reference: PMID:34292926
     reference_title: &#34;Sexually Transmitted Infections Treatment Guidelines, 2021.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Secondary syphilis manifestations can include skin rash, mucocutaneous lesions, and lymphadenopathy.&#34;
     explanation: &gt;-
@@ -10194,7 +11916,7 @@ phenotypes:
   evidence:
   - reference: PMID:34292926
     reference_title: &#34;Sexually Transmitted Infections Treatment Guidelines, 2021.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;hepatosplenomegaly, rhinitis, skin rash, or pseudoparalysis of an extremity&#34;
     explanation: &gt;-
@@ -10270,7 +11992,7 @@ diagnosis:
   evidence:
   - reference: PMID:18192791
     reference_title: &#34;Azithromycin resistance in Treponema pallidum.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Azithromycin treatment failures in syphilis were first noted in San Francisco in 2002 and result from an A--&gt;G mutation at position 2058 of the 23S rRNA gene&#34;
     explanation: &gt;-
@@ -10643,7 +12365,7 @@ environmental:
     evidence:
     - reference: PMID:25890619
       reference_title: &#34;Neurosyphilis and the impact of HIV infection.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;This review of the clinical presentation, diagnostic laboratory findings, treatment and management of neurosyphilis discusses the impact of HIV and the specific challenges it brings&#34;
       explanation: &gt;-
@@ -10660,7 +12382,7 @@ environmental:
       in a meta-analysis of 65,232 participants.
   - reference: PMID:25890619
     reference_title: &#34;Neurosyphilis and the impact of HIV infection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;discusses the impact of HIV and the specific challenges it brings&#34;
     explanation: &gt;-
@@ -10686,7 +12408,7 @@ environmental:
     evidence:
     - reference: PMID:40977496
       reference_title: &#34;Syphilis in pregnancy: A practical guide for prenatal care providers.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;As early diagnosis and treatment are highly effective in reducing transmission, syphilis screening should begin at the first prenatal visit.&#34;
       explanation: &gt;-
@@ -10696,7 +12418,7 @@ environmental:
   evidence:
   - reference: PMID:40977496
     reference_title: &#34;Syphilis in pregnancy: A practical guide for prenatal care providers.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;As early diagnosis and treatment are highly effective in reducing transmission, syphilis screening should begin at the first prenatal visit.&#34;
     explanation: &gt;-
@@ -11237,7 +12959,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Syphilis", "mondoId": "MONDO:0005976", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Syphilis", "yamlRevision": "4ce9bff4fd0d"};
+        const OS_CONFIG = {"diseaseName": "Syphilis", "mondoId": "MONDO:0005976", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Syphilis", "yamlRevision": "c29461ce11de"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11656,5 +13378,73 @@ datasets: []
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

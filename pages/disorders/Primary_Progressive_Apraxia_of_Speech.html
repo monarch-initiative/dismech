@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Primary Progressive Apraxia of Speech</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Primary Progressive Apraxia of Speech</h1>
             <div class="header-meta">
 
@@ -3914,7 +4061,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-phonetic">
 
                     <div class="item-name">
                         Phonetic PPAOS
@@ -3942,7 +4089,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-prosodic">
 
                     <div class="item-name">
                         Prosodic PPAOS
@@ -3970,7 +4117,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mixed">
 
                     <div class="item-name">
                         Mixed PPAOS
@@ -4004,7 +4151,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34219857" target="_blank">PMID:34219857</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4059,18 +4208,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cerebral cortex neuron (CL:0010012). CL:0010012 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cerebral cortex neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl">CL:0010012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0010012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebral cortex neuron (CL:0010012). CL:0010012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4131,7 +4282,9 @@ This pathophysiological event involves cerebral cortex neuron (CL:0010012). CL:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22382356" target="_blank">PMID:22382356</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4198,13 +4351,15 @@ This pathophysiological event involves cerebral cortex neuron (CL:0010012). CL:0
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38007664" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38007664" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38007664" target="_blank">PMID:38007664</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4226,7 +4381,9 @@ This pathophysiological event involves cerebral cortex neuron (CL:0010012). CL:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34219857" target="_blank">PMID:34219857</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4316,16 +4473,20 @@ This pathophysiological event involves cerebral cortex neuron (CL:0010012). CL:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-2">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4340,13 +4501,15 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25113789" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25113789" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25113789" target="_blank">PMID:25113789</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4387,16 +4550,20 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0011098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype from the Human Phenotype Ontology.">
-                        Speech apraxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011098" target="_blank" class="curie-chip curie-chip-hp">HP:0011098</a>
-
-
+This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4417,7 +4584,9 @@ This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22382356" target="_blank">PMID:22382356</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4439,7 +4608,9 @@ This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34219857" target="_blank">PMID:34219857</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4471,16 +4642,20 @@ This clinical feature is Speech apraxia (HP:0011098). HP:0011098 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
-                        Dysarthria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
-
-
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4495,13 +4670,15 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34219857" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34219857" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34219857" target="_blank">PMID:34219857</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4533,16 +4710,20 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0002381</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.">
-                        Aphasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp">HP:0002381</a>
-
-
+This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4557,13 +4738,15 @@ This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from th
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34219857" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34219857" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34219857" target="_blank">PMID:34219857</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4604,16 +4787,22 @@ This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of extrapyramidal motor function</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002071</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Extrapyramidal signs, annotated with Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of extrapyramidal motor function
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp">HP:0002071</a>
-
-
+This clinical feature is Extrapyramidal signs, annotated with Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4628,13 +4817,15 @@ This clinical feature is Extrapyramidal signs, annotated with Abnormality of ext
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25113789" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25113789" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25113789" target="_blank">PMID:25113789</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4696,6 +4887,9 @@ This clinical feature is Extrapyramidal signs, annotated with Abnormality of ext
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4712,18 +4906,18 @@ This clinical feature is Extrapyramidal signs, annotated with Abnormality of ext
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-7">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-7">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">speech therapy</span>
+This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.">NCIT:C159273</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C159273" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C159273">NCIT:C159273</a>
 
 
 
@@ -4746,6 +4940,25 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Behavioral speech-language intervention, compensatory strategies, and augmentative and alternative communication are used to maintain functional communication, although PPAOS-specific treatment evidence remains limited.</div>
 
 
@@ -4754,18 +4967,20 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Speech apraxia (HP:0011098). HP:0011098 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Speech apraxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011098" target="_blank" class="curie-chip curie-chip-hp">HP:0011098</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0011098</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Speech apraxia (HP:0011098). HP:0011098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -4779,13 +4994,15 @@ This treatment targets Speech apraxia (HP:0011098). HP:0011098 is a phenotype fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37792075" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37792075" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37792075" target="_blank">PMID:37792075</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4807,7 +5024,9 @@ This treatment targets Speech apraxia (HP:0011098). HP:0011098 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34219857" target="_blank">PMID:34219857</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4837,6 +5056,220 @@ This treatment targets Speech apraxia (HP:0011098). HP:0011098 is a phenotype fr
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-structural-mri-localization">
+                <div class="item-name">
+                    Structural MRI Localization
+
+                </div>
+
+                <div class="item-desc">Voxel-based morphometry and related MRI analyses can show focal atrophy in superior lateral premotor cortex and supplementary motor area, supporting a motor-speech network localization.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-9">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Focal superior lateral premotor cortex and supplementary motor area atrophy.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22382356" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22382356" target="_blank">PMID:22382356</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Voxel-based morphometry of grey matter revealed focal atrophy of superior lateral premotor cortex and supplementary motor area."</div>
+
+
+                <div class="evidence-explanation">Supports MRI-based localization of the PPAOS neurodegenerative substrate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-fdg-pet-hypometabolism-localization">
+                <div class="item-name">
+                    FDG-PET Hypometabolism Localization
+
+                </div>
+
+                <div class="item-desc">FDG-PET can show hypometabolism in the same superior lateral premotor and supplementary motor regions implicated by structural imaging.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        positron emission tomography procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17007" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-10">NCIT:C17007</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Focal hypometabolism of superior lateral premotor cortex and supplementary motor area.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22382356" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22382356" target="_blank">PMID:22382356</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"[(18)F]-fluorodeoxyglucose positron emission tomography scans revealed focal hypometabolism of superior lateral premotor cortex and supplementary motor area"</div>
+
+
+                <div class="evidence-explanation">Supports FDG-PET as a functional imaging correlate of the premotor/SMA disease network.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -4870,7 +5303,6 @@ This treatment targets Speech apraxia (HP:0011098). HP:0011098 is a phenotype fr
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Primary Progressive Apraxia of Speech
 creation_date: &#34;2026-05-06T03:10:33Z&#34;
-updated_date: &#34;2026-05-06T03:10:33Z&#34;
 category: Neurodegenerative Disease
 parents:
 - Neurodegenerative Disease
@@ -4936,7 +5368,7 @@ pathophysiology:
   evidence:
   - reference: PMID:38007664
     reference_title: &#34;Amyloid and Tau PET Positivity in Progressive Agrammatic Aphasia and Apraxia of Speech.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These patients typically have an underlying 4-repeat tauopathy, although they sometimes show evidence of amyloid-β and tau deposition on PET, suggesting Alzheimer&#39;s disease (AD).&#34;
     explanation: &gt;-
@@ -4993,7 +5425,7 @@ phenotypes:
   evidence:
   - reference: PMID:34219857
     reference_title: &#34;Primary Progressive Apraxia of Speech: From Recognition to Diagnosis and Care.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Dysarthria can be present but cannot be more severe than the AOS at presentation.&#34;
     explanation: &gt;-
@@ -5013,7 +5445,7 @@ phenotypes:
   evidence:
   - reference: PMID:34219857
     reference_title: &#34;Primary Progressive Apraxia of Speech: From Recognition to Diagnosis and Care.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;By definition, aphasia is not present in people with PPAOS at the time of initial diagnosis. It may not emerge for several years, may remain mild once it does, and with progression the AOS usually remains predominant.&#34;
     explanation: &gt;-
@@ -5032,7 +5464,7 @@ phenotypes:
   evidence:
   - reference: PMID:25113789
     reference_title: &#34;The evolution of primary progressive apraxia of speech.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All subjects developed extrapyramidal signs.&#34;
     explanation: &gt;-
@@ -5051,7 +5483,7 @@ phenotypes:
   evidence:
   - reference: PMID:25113789
     reference_title: &#34;The evolution of primary progressive apraxia of speech.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;they showed a combination of severe parkinsonism, near mutism, dysphagia with choking, vertical supranuclear gaze palsy or slowing, balance difficulties with falls and urinary incontinence&#34;
     explanation: &gt;-
@@ -5113,7 +5545,7 @@ treatments:
   evidence:
   - reference: PMID:37792075
     reference_title: &#34;Behavioral Treatment for Speech and Language in Primary Progressive Aphasia and Primary Progressive Apraxia of Speech: A Systematic Review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The available evidence supports speech-language intervention for persons with PPA; however, treatment for PPAOS awaits systematic investigation.&#34;
     explanation: &gt;-
@@ -6293,7 +6725,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Primary Progressive Apraxia of Speech", "mondoId": "MONDO:0017803", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Progressive_Apraxia_of_Speech", "yamlRevision": "d41f4abbbec2"};
+        const OS_CONFIG = {"diseaseName": "Primary Progressive Apraxia of Speech", "mondoId": "MONDO:0017803", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Primary_Progressive_Apraxia_of_Speech", "yamlRevision": "4c8fddc14041"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6712,5 +7144,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

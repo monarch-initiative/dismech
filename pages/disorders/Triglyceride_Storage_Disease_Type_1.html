@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Triglyceride Storage Disease Type 1</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Triglyceride Storage Disease Type 1</h1>
             <div class="header-meta">
 
@@ -3660,7 +3807,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Triglyceride%20Storage%20Disease%20Type%201"
@@ -3829,7 +3976,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3840,7 +3987,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3900,6 +4047,128 @@
         </div>
 
         <!-- Classifications -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="An inborn error of intracellular triacylglycerol lipolysis; Harrison&#39;s covers inborn errors of lipid metabolism under the endocrinology/metabolism Part.">ENDOCRINOLOGY METABOLISM</span>
+
+
+                    <span class="tag tag-classification" title="Mendelian autosomal recessive disorder caused by biallelic ABHD5 variants.">GENETICS ENVIRONMENT DISEASE</span>
+
+
+                    <span class="tag tag-classification" title="Congenital nonbullous ichthyosis is the defining, disease-naming feature that separates NLSD type I from NLSD type M, so the disorder also sits in the dermatology Part.">DERMATOLOGY</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Disorders of glycerolipid metabolism&#34; under category &#34;Disorders of lipid metabolism&#34;. ABHD5/CGI-58 is the lipid-droplet co-activator of adipose triglyceride lipase, so the primary lesion is in triacylglycerol (glycerolipid) catabolism.">glycerolipid metabolism</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
 
 
         <!-- Mappings -->
@@ -3970,7 +4239,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3981,6 +4250,8 @@
                     </span>
 
                 </div>
+
+                <div class="item-desc">Triglyceride storage disease type 1 is inherited in an autosomal recessive manner; affected individuals carry biallelic pathogenic ABHD5 variants.</div>
 
 
 
@@ -4000,6 +4271,64 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chanarin-Dorfman syndrome is a very rare autosomal recessive syndrome developing due to ABHD5/CGI58 gene mutation"</div>
+
+
+                <div class="evidence-explanation">States the mode of transmission directly: the ABHD5-related disease is autosomal recessive.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21122093" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21122093" target="_blank">PMID:21122093</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All the reported mutations are predicted to be pathogenic because they lead to an early stop codon or a frameshift producing a premature termination of translation."</div>
+
+
+                <div class="evidence-explanation">Carries the loss-of-function half of the claim only: the reported patient variant spectrum is truncating throughout. It does not speak to mode of transmission or biallelism, which the preceding item supplies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -4043,17 +4372,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ABHD5 (hgnc:21396). hgnc:21396 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ABHD5
 
 
-    <a href="https://bioregistry.io/hgnc:21396" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21396</a>
+    <a href="https://bioregistry.io/hgnc:21396" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:21396</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABHD5 (hgnc:21396). hgnc:21396 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4082,18 +4415,20 @@ This pathophysiological event involves ABHD5 (hgnc:21396). hgnc:21396 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased triglyceride catabolic process (GO:0019433). GO:0019433 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         triglyceride catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019433" target="_blank" class="curie-chip curie-chip-go">GO:0019433</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019433" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0019433</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased triglyceride catabolic process (GO:0019433). GO:0019433 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4159,7 +4494,9 @@ This pathophysiological event involves decreased triglyceride catabolic process 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28499397" target="_blank">PMID:28499397</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4192,18 +4529,20 @@ This pathophysiological event involves decreased triglyceride catabolic process 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4220,18 +4559,20 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4259,18 +4600,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lipid storage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go">GO:0019915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0019915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased lipid storage (GO:0019915). GO:0019915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4344,6 +4687,14 @@ This pathophysiological event involves increased lipid storage (GO:0019915). GO:
 	                        </div>
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Splenomegaly</span>
+
+	                            <span class="crosslink-desc">Systemic neutral lipid storage includes splenic involvement that can manifest as splenomegaly.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Sensorineural hearing loss</span>
 
 	                            <span class="crosslink-desc">Systemic neutral lipid storage includes ear involvement that can manifest as sensorineural hearing loss.</span>
@@ -4368,7 +4719,9 @@ This pathophysiological event involves increased lipid storage (GO:0019915). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20023287" target="_blank">PMID:20023287</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4402,18 +4755,20 @@ characterized by massive accumulation of TG in various tissues"</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4474,7 +4829,9 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20023287" target="_blank">PMID:20023287</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4523,7 +4880,7 @@ uncovers an essential ATGL-independent role of CGI-58 in skin lipid metabolism"<
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABHD5 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ABHD5\"], \"gene_terms\": [{\"label\": \"ABHD5\", \"id\": \"hgnc:21396\"}], \"association\": \"Causative\"}}, {\"id\": \"ABHD5/CGI-58 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ABHD5 (CGI-58) variants eliminate the lipid-droplet co-activator of adipose triglyceride lipase (ATGL); ABHD5 also has an ATGL-independent role in epidermal lipid metabolism underlying the ichthyosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"triglyceride catabolic process\"], \"genes\": [\"ABHD5\"], \"gene_terms\": [{\"label\": \"ABHD5\", \"id\": \"hgnc:21396\"}]}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cataract reflects the ocular involvement of NLSD type I.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Epidermal Lipid-Barrier Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ABHD5/CGI-58 has an ATGL-independent role in epidermal lipid metabolism (acylceramide synthesis via PNPLA1); its loss impairs the skin permeability barrier, underlying the ichthyosis that defines NLSD type I.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic involvement that can progress to hepatic failure in NLSD type I.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic steatosis from intracellular triacylglycerol accumulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly accompanies the hepatic steatosis (a frequent visceral feature of NLSD-I).\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002240\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital ichthyosis is the defining feature distinguishing NLSD type I from NLSD type M.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007479\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable skeletal muscle lipid-storage myopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003198\"}}, {\"id\": \"Sensorineural hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment reflects involvement of the ears.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Systemic Triacylglycerol Droplet Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undegraded triacylglycerol accumulates as cytoplasmic lipid droplets in skin, liver, muscle, and leukocytes, driving the ichthyosis and visceral disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"hepatocyte\"], \"biological_processes\": [\"lipid storage\"]}}], \"edges\": [{\"source\": \"ABHD5/CGI-58 Deficiency\", \"target\": \"Systemic Triacylglycerol Droplet Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ATGL co-activation prevents triacylglycerol hydrolysis, so TG droplets accumulate.\"}, {\"source\": \"ABHD5/CGI-58 Deficiency\", \"target\": \"Epidermal Lipid-Barrier Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In parallel (ATGL-independently), loss of the ABHD5 epidermal lipid role impairs the skin barrier.\"}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte triacylglycerol droplet accumulation produces hepatic steatosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic lipid storage enlarges the liver.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hepatocyte lipid droplet accumulation\", \"hepatic steatosis\"]}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive hepatic lipid storage can culminate in hepatic failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hepatocyte lipid droplet accumulation\", \"hepatic steatosis\"]}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid-droplet accumulation in skeletal muscle produces lipid-storage myopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"skeletal muscle lipid droplet accumulation\"]}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic neutral lipid storage includes ocular involvement that can manifest as cataract.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic neutral lipid storage includes ear involvement that can manifest as sensorineural hearing loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Epidermal Lipid-Barrier Defect\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ABHD5-dependent epidermal lipid-barrier defect produces the nonbullous congenital ichthyosis phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ABHD5 pathogenic variants\", \"target\": \"ABHD5/CGI-58 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABHD5 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ABHD5\"], \"gene_terms\": [{\"label\": \"ABHD5\", \"id\": \"hgnc:21396\"}], \"association\": \"Causative\"}}, {\"id\": \"ABHD5/CGI-58 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ABHD5 (CGI-58) variants eliminate the lipid-droplet co-activator of adipose triglyceride lipase (ATGL); ABHD5 also has an ATGL-independent role in epidermal lipid metabolism underlying the ichthyosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"triglyceride catabolic process\"], \"genes\": [\"ABHD5\"], \"gene_terms\": [{\"label\": \"ABHD5\", \"id\": \"hgnc:21396\"}]}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cataract reflects the ocular involvement of NLSD type I.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000518\"}}, {\"id\": \"Epidermal Lipid-Barrier Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ABHD5/CGI-58 has an ATGL-independent role in epidermal lipid metabolism (acylceramide synthesis via PNPLA1); its loss impairs the skin permeability barrier, underlying the ichthyosis that defines NLSD type I.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic involvement that can progress to hepatic failure in NLSD type I.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic steatosis from intracellular triacylglycerol accumulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly accompanies the hepatic steatosis (a frequent visceral feature of NLSD-I).\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital ichthyosis is the defining feature distinguishing NLSD type I from NLSD type M.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007479\"}}, {\"id\": \"Myopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable skeletal muscle lipid-storage myopathy.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003198\"}}, {\"id\": \"Sensorineural hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing impairment reflects involvement of the ears.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenic involvement accompanying the systemic neutral lipid storage.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Systemic Triacylglycerol Droplet Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undegraded triacylglycerol accumulates as cytoplasmic lipid droplets in skin, liver, muscle, and leukocytes, driving the ichthyosis and visceral disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"hepatocyte\"], \"biological_processes\": [\"lipid storage\"]}}], \"edges\": [{\"source\": \"ABHD5/CGI-58 Deficiency\", \"target\": \"Systemic Triacylglycerol Droplet Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ATGL co-activation prevents triacylglycerol hydrolysis, so TG droplets accumulate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ABHD5/CGI-58 Deficiency\", \"target\": \"Epidermal Lipid-Barrier Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In parallel (ATGL-independently), loss of the ABHD5 epidermal lipid role impairs the skin barrier.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatocyte triacylglycerol droplet accumulation produces hepatic steatosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic lipid storage enlarges the liver.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hepatocyte lipid droplet accumulation\", \"hepatic steatosis\"]}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive hepatic lipid storage can culminate in hepatic failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"hepatocyte lipid droplet accumulation\", \"hepatic steatosis\"]}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lipid-droplet accumulation in skeletal muscle produces lipid-storage myopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"skeletal muscle lipid droplet accumulation\"]}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic neutral lipid storage includes ocular involvement that can manifest as cataract.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic neutral lipid storage includes splenic involvement that can manifest as splenomegaly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Triacylglycerol Droplet Accumulation\", \"target\": \"Sensorineural hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic neutral lipid storage includes ear involvement that can manifest as sensorineural hearing loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Epidermal Lipid-Barrier Defect\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The ABHD5-dependent epidermal lipid-barrier defect produces the nonbullous congenital ichthyosis phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ABHD5 pathogenic variants\", \"target\": \"ABHD5/CGI-58 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4536,27 +4893,108 @@ uncovers an essential ATGL-independent role of CGI-58 in skin lipid metabolism"<
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">9</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-splenomegaly" data-dismech-node="Splenomegaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Splenomegaly
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001744</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)"</div>
+
+
+                <div class="evidence-explanation">Splenomegaly in 13% of patients places this phenotype in the OCCASIONAL band (5-29%).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
@@ -4569,16 +5007,20 @@ uncovers an essential ATGL-independent role of CGI-58 in skin lipid metabolism"<
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001399</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatic failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp">HP:0001399</a>
-
-
+This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4599,7 +5041,9 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28499397" target="_blank">PMID:28499397</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4631,16 +5075,20 @@ This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001397</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatic steatosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001397" target="_blank" class="curie-chip curie-chip-hp">HP:0001397</a>
-
-
+This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4661,7 +5109,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21122093" target="_blank">PMID:21122093</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4692,18 +5142,24 @@ including liver, eyes, ears, skeletal muscle and central nervous system (CNS)"</
                     <div class="item-name">
                         Hepatomegaly
 
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4714,9 +5170,33 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)"</div>
+
+
+                <div class="evidence-explanation">Hepatomegaly in 60% of patients places this phenotype in the FREQUENT band (30-79%).</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:21122093" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4724,7 +5204,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21122093" target="_blank">PMID:21122093</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4753,7 +5235,7 @@ including liver, eyes, ears, skeletal muscle and central nervous system (CNS)"</
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
@@ -4764,18 +5246,26 @@ including liver, eyes, ears, skeletal muscle and central nervous system (CNS)"</
                     <div class="item-name">
                         Sensorineural hearing loss
 
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sensorineural hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4786,9 +5276,33 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)"</div>
+
+
+                <div class="evidence-explanation">Neurosensory deafness in 17% of patients places this phenotype in the OCCASIONAL band (5-29%).</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:21122093" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4796,7 +5310,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21122093" target="_blank">PMID:21122093</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4825,7 +5341,7 @@ including liver, eyes, ears, skeletal muscle and central nervous system (CNS)"</
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
@@ -4836,18 +5352,24 @@ including liver, eyes, ears, skeletal muscle and central nervous system (CNS)"</
                     <div class="item-name">
                         Cataract
 
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000518</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
-                        Cataract
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
-
-
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4858,9 +5380,33 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)"</div>
+
+
+                <div class="evidence-explanation">Cataract in 22% of patients places this phenotype in the OCCASIONAL band (5-29%).</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:21122093" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4868,7 +5414,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21122093" target="_blank">PMID:21122093</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4897,7 +5445,7 @@ including liver, eyes, ears, skeletal muscle and central nervous system (CNS)"</
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -4908,18 +5456,24 @@ including liver, eyes, ears, skeletal muscle and central nervous system (CNS)"</
                     <div class="item-name">
                         Myopathy
 
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003198</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.">
-                        Myopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003198" target="_blank" class="curie-chip curie-chip-hp">HP:0003198</a>
-
-
+This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4930,9 +5484,33 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)"</div>
+
+
+                <div class="evidence-explanation">Myopathy in 59% of patients places this phenotype in the FREQUENT band (30-79%).</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:28499397" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4940,7 +5518,9 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28499397" target="_blank">PMID:28499397</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4968,11 +5548,11 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ichthyosis" data-dismech-node="Ichthyosis" data-dismech-type="phenotype">
@@ -4981,16 +5561,22 @@ This clinical feature is Myopathy (HP:0003198). HP:0003198 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Congenital nonbullous ichthyosiform erythroderma</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007479" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0007479</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nonbullous congenital ichthyosiform erythroderma, annotated with Congenital nonbullous ichthyosiform erythroderma (HP:0007479). HP:0007479 is a phenotype from the Human Phenotype Ontology.">
-                        Congenital nonbullous ichthyosiform erythroderma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007479" target="_blank" class="curie-chip curie-chip-hp">HP:0007479</a>
-
-
+This clinical feature is Nonbullous congenital ichthyosiform erythroderma, annotated with Congenital nonbullous ichthyosiform erythroderma (HP:0007479). HP:0007479 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5011,7 +5597,9 @@ This clinical feature is Nonbullous congenital ichthyosiform erythroderma, annot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5022,6 +5610,78 @@ This clinical feature is Nonbullous congenital ichthyosiform erythroderma, annot
 
 
                 <div class="evidence-explanation">Nonbullous ichthyosis is the defining cutaneous feature of NLSD type I / Chanarin-Dorfman syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ectropion" data-dismech-node="Ectropion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ectropion
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000656" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000656</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral ectropion, annotated with Ectropion (HP:0000656). HP:0000656 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">Deliberately not wired into the pathograph. The cited source groups ectropion with the ocular manifestations, while the usual dermatological explanation is cicatricial traction from the ichthyotic skin; neither route is asserted by a quotable sentence in the references this entry cites, so no causal edge is drawn.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)"</div>
+
+
+                <div class="evidence-explanation">Bilateral ectropion in 29% of patients places this phenotype in the OCCASIONAL band (5-29%).</div>
 
 
 
@@ -5089,15 +5749,17 @@ This clinical feature is Nonbullous congenital ichthyosiform erythroderma, annot
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ABHD5 (hgnc:21396). hgnc:21396 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABHD5
 
 
-    <a href="https://bioregistry.io/hgnc:21396" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21396</a>
+    <a href="https://bioregistry.io/hgnc:21396" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:21396</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABHD5 (hgnc:21396). hgnc:21396 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5119,7 +5781,9 @@ This disease-associated gene is ABHD5 (hgnc:21396). hgnc:21396 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21122093" target="_blank">PMID:21122093</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5149,6 +5813,9 @@ This disease-associated gene is ABHD5 (hgnc:21396). hgnc:21396 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5165,18 +5832,18 @@ This disease-associated gene is ABHD5 (hgnc:21396). hgnc:21396 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5199,12 +5866,54 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supportive management including skin care for ichthyosis and dietary fat modification.</div>
 
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"management is primarily symptomatic. Recommendations include a diet low in long-chain fatty acids and saturated fats. Emollients help with skin manifestations."</div>
+
+
+                <div class="evidence-explanation">States that management is symptomatic and names its two components — dietary long-chain-fat restriction and emollients for the ichthyosis — which is exactly what this treatment entry covers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5250,7 +5959,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21122093" target="_blank">PMID:21122093</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5276,6 +5987,184 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-peripheral-blood-smear-for-jordans-anomaly">
+                <div class="item-name">
+                    Peripheral blood smear for Jordans&#39; anomaly
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive in affected individuals)</span>
+
+                </div>
+
+                <div class="item-desc">Light microscopy of a peripheral blood smear for lipid vacuoles in otherwise normal leukocytes — the pathognomonic and usually first diagnostic finding, prompting ABHD5 sequencing.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common and characteristic laboratory finding of CDS is May-Grünwald-Giemsa-negative lipid droplets"</div>
+
+
+                <div class="evidence-explanation">Identifies the leukocyte lipid-droplet finding as the characteristic laboratory result.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Before any clinical suspicion of CDS, a blood smear should be performed to screen for lipid inclusions in neutrophils"</div>
+
+
+                <div class="evidence-explanation">Establishes the peripheral blood smear as the screening test for this finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Fewer than 120 cases reported since the disease was described, concentrated in Mediterranean and Middle Eastern populations. A cumulative literature case count, not a population rate, so no rate_per_100000 is given.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37746493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37746493" target="_blank">PMID:37746493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"fewer than 120 cases of CDS have been reported in the literature"</div>
+
+
+                <div class="evidence-explanation">Gives the cumulative reported case count behind the ULTRA_RARE band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -5290,7 +6179,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-dorfman-chanarin-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Dorfman-Chanarin_Disease.html">Dorfman-Chanarin disease</a>
@@ -5324,7 +6213,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28499397" target="_blank">PMID:28499397</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5349,7 +6240,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-triglyceride-storage-disease-type-2-nlsd-type-m">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Triglyceride_Storage_Disease_Type_2.html">Triglyceride storage disease type 2 (NLSD type M)</a>
@@ -5383,7 +6274,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28499397" target="_blank">PMID:28499397</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5464,6 +6357,27 @@ mappings:
     mapping_source: MONDO
 parents:
 - Neutral Lipid Storage Disease
+classifications:
+  harrisons_chapter:
+  - classification_value: ENDOCRINOLOGY_METABOLISM
+    notes: &gt;-
+      An inborn error of intracellular triacylglycerol lipolysis; Harrison&#39;s covers
+      inborn errors of lipid metabolism under the endocrinology/metabolism Part.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      Mendelian autosomal recessive disorder caused by biallelic ABHD5 variants.
+  - classification_value: DERMATOLOGY
+    notes: &gt;-
+      Congenital nonbullous ichthyosis is the defining, disease-naming feature that
+      separates NLSD type I from NLSD type M, so the disorder also sits in the
+      dermatology Part.
+  icimd_category:
+  - classification_value: glycerolipid_metabolism
+    notes: &gt;-
+      ICIMD (Ferreira et al. 2021, PMID:33340416): group &#34;Disorders of glycerolipid
+      metabolism&#34; under category &#34;Disorders of lipid metabolism&#34;. ABHD5/CGI-58 is the
+      lipid-droplet co-activator of adipose triglyceride lipase, so the primary lesion
+      is in triacylglycerol (glycerolipid) catabolism.
 inheritance:
 - name: Autosomal recessive
   inheritance_term:
@@ -5471,6 +6385,27 @@ inheritance:
     term:
       id: HP:0000007
       label: Autosomal recessive inheritance
+  description: &gt;-
+    Triglyceride storage disease type 1 is inherited in an autosomal recessive
+    manner; affected individuals carry biallelic pathogenic ABHD5 variants.
+  evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Chanarin-Dorfman syndrome is a very rare autosomal recessive syndrome developing due to ABHD5/CGI58 gene mutation&#34;
+    explanation: &gt;-
+      States the mode of transmission directly: the ABHD5-related disease is
+      autosomal recessive.
+  - reference: PMID:21122093
+    reference_title: &#34;Clinical and genetic characterization of Chanarin-Dorfman syndrome patients: first report of large deletions in the ABHD5 gene.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All the reported mutations are predicted to be pathogenic because they lead to an early stop codon or a frameshift producing a premature termination of translation.&#34;
+    explanation: &gt;-
+      Carries the loss-of-function half of the claim only: the reported patient
+      variant spectrum is truncating throughout. It does not speak to mode of
+      transmission or biallelism, which the preceding item supplies.
 pathophysiology:
 - name: ABHD5/CGI-58 Deficiency
   description: &gt;-
@@ -5498,8 +6433,29 @@ pathophysiology:
   downstream:
   - target: Systemic Triacylglycerol Droplet Accumulation
     description: Loss of ATGL co-activation prevents triacylglycerol hydrolysis, so TG droplets accumulate.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20023287
+      reference_title: &#34;Growth retardation, impaired triacylglycerol catabolism, hepatic steatosis, and lethal skin barrier defect in mice lacking comparative gene identification-58 (CGI-58).&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;systemic TG accumulation and severe hepatic steatosis in newborn Cgi-58(-/-) mice establish a limiting role for CGI-58 in ATGL-mediated TG hydrolysis&#34;
+      explanation: &gt;-
+        The CGI-58 knockout mouse shows that loss of the co-activator limits
+        ATGL-mediated hydrolysis and produces systemic TG accumulation. Model-organism
+        evidence; the human counterpart is the biochemical droplet finding below.
   - target: Epidermal Lipid-Barrier Defect
     description: In parallel (ATGL-independently), loss of the ABHD5 epidermal lipid role impairs the skin barrier.
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20023287
+      reference_title: &#34;Growth retardation, impaired triacylglycerol catabolism, hepatic steatosis, and lethal skin barrier defect in mice lacking comparative gene identification-58 (CGI-58).&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;a severe skin permeability barrier defect uncovers an essential ATGL-independent role of CGI-58 in skin lipid metabolism.&#34;
+      explanation: &gt;-
+        Establishes the second, ATGL-independent arm: CGI-58 loss impairs skin lipid
+        metabolism directly rather than through the systemic lipolysis defect.
 - name: Systemic Triacylglycerol Droplet Accumulation
   description: &gt;-
     Undegraded triacylglycerol accumulates as cytoplasmic lipid droplets in skin, liver,
@@ -5530,29 +6486,103 @@ pathophysiology:
   - target: Hepatic steatosis
     description: Hepatocyte triacylglycerol droplet accumulation produces hepatic steatosis.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20023287
+      reference_title: &#34;Growth retardation, impaired triacylglycerol catabolism, hepatic steatosis, and lethal skin barrier defect in mice lacking comparative gene identification-58 (CGI-58).&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;systemic TG accumulation and severe hepatic steatosis in newborn Cgi-58(-/-) mice&#34;
+      explanation: &gt;-
+        Systemic TG accumulation and hepatic steatosis appear together on loss of
+        CGI-58, supporting the droplet-to-steatosis edge.
   - target: Hepatomegaly
     description: Hepatic lipid storage enlarges the liver.
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     intermediate_mechanisms:
     - hepatocyte lipid droplet accumulation
     - hepatic steatosis
+    evidence:
+    - reference: PMID:37746493
+      reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+      explanation: &gt;-
+        Hepatomegaly is the most frequent extracutaneous manifestation (60% of
+        patients). The quote establishes that the outcome occurs in this disease at
+        high frequency rather than asserting the droplet-to-organomegaly step itself,
+        so it supports the edge by inference through the hepatic-steatosis
+        intermediates listed above.
   - target: Hepatic failure
     description: Progressive hepatic lipid storage can culminate in hepatic failure.
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     intermediate_mechanisms:
     - hepatocyte lipid droplet accumulation
     - hepatic steatosis
+    evidence:
+    - reference: PMID:28499397
+      reference_title: &#34;Neutral Lipid Storage Diseases: clinical/genetic features and natural history in a large cohort of Italian patients.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;two patients (9.5%, both with NLSD-I) died of hepatic failure&#34;
+      explanation: &gt;-
+        Hepatic failure as a cause of death in NLSD-I specifically supports the
+        steatosis-to-failure endpoint of this branch.
   - target: Myopathy
     description: Lipid-droplet accumulation in skeletal muscle produces lipid-storage myopathy.
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     intermediate_mechanisms:
     - skeletal muscle lipid droplet accumulation
+    evidence:
+    - reference: PMID:37746493
+      reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+      explanation: &gt;-
+        Myopathy occurs in 59% of patients, establishing the muscle arm of the
+        systemic storage phenotype. The quote gives the frequency of the outcome, not
+        the intramyocyte droplet step, so it supports this edge by inference.
   - target: Cataract
     description: Systemic neutral lipid storage includes ocular involvement that can manifest as cataract.
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:37746493
+      reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+      explanation: &gt;-
+        Cataract occurs in 22% of patients. The intermediates between systemic
+        droplet accumulation and lens opacity are not established, which is why the
+        edge remains INDIRECT_UNKNOWN_INTERMEDIATES; the quote establishes only that
+        the ocular outcome belongs to this disease.
+  - target: Splenomegaly
+    description: Systemic neutral lipid storage includes splenic involvement that can manifest as splenomegaly.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:37746493
+      reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+      explanation: &gt;-
+        Splenomegaly occurs in 13% of patients. As with the cataract and deafness
+        edges the intermediates are unknown, so the quote supports the edge only by
+        establishing that the splenic outcome belongs to this disease.
   - target: Sensorineural hearing loss
     description: Systemic neutral lipid storage includes ear involvement that can manifest as sensorineural hearing loss.
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:37746493
+      reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+      explanation: &gt;-
+        Neurosensory deafness occurs in 17% of patients. As with the cataract edge the
+        intermediates are unknown, so the quote supports the edge only by establishing
+        that the auditory outcome belongs to this disease.
 - name: Epidermal Lipid-Barrier Defect
   description: &gt;-
     ABHD5/CGI-58 has an ATGL-independent role in epidermal lipid metabolism (acylceramide
@@ -5565,6 +6595,7 @@ pathophysiology:
       label: keratinocyte
   evidence:
   - reference: PMID:20023287
+    reference_title: &#34;Growth retardation, impaired triacylglycerol catabolism, hepatic steatosis, and lethal skin barrier defect in mice lacking comparative gene identification-58 (CGI-58).&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;severe skin permeability barrier defect\nuncovers an essential ATGL-independent role of CGI-58 in skin lipid metabolism&#34;
@@ -5573,6 +6604,16 @@ pathophysiology:
   - target: Ichthyosis
     description: The ABHD5-dependent epidermal lipid-barrier defect produces the nonbullous congenital ichthyosis phenotype.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:20023287
+      reference_title: &#34;Growth retardation, impaired triacylglycerol catabolism, hepatic steatosis, and lethal skin barrier defect in mice lacking comparative gene identification-58 (CGI-58).&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;sequestration of fatty acids in TG prevents the synthesis of acylceramides, which are essential lipid precursors for the formation of a functional skin permeability barrier. This mechanism may also underlie the pathogenesis of ichthyosis in neutral lipid storage disease patients lacking functional CGI-58.&#34;
+      explanation: &gt;-
+        Gives the acylceramide-precursor mechanism connecting the barrier defect to
+        ichthyosis. Note the authors&#39; own hedge (&#34;may also underlie&#34;) — the mechanism
+        is demonstrated in mouse and proposed, not proven, for human patients.
 phenotypes:
 - name: Ichthyosis
   description: Congenital ichthyosis is the defining feature distinguishing NLSD type I from NLSD type M.
@@ -5583,6 +6624,7 @@ phenotypes:
       label: Congenital nonbullous ichthyosiform erythroderma
   evidence:
   - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;CDS patients present with a characteristic dermatological finding, ichthyosis, which is a non-bullous white scaling of the skin&#34;
@@ -5608,7 +6650,14 @@ phenotypes:
     term:
       id: HP:0003198
       label: Myopathy
+  frequency: FREQUENT
   evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+    explanation: Myopathy in 59% of patients places this phenotype in the FREQUENT band (30-79%).
   - reference: PMID:28499397
     reference_title: &#34;Neutral Lipid Storage Diseases: clinical/genetic features and natural history in a large cohort of Italian patients.&#34;
     supports: SUPPORT
@@ -5624,6 +6673,7 @@ phenotypes:
       label: Hepatic steatosis
   evidence:
   - reference: PMID:21122093
+    reference_title: &#34;Clinical and genetic characterization of Chanarin-Dorfman syndrome patients: first report of large deletions in the ABHD5 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The clinical phenotype involves multiple organs and systems,\nincluding liver, eyes, ears, skeletal muscle and central nervous system (CNS)&#34;
@@ -5635,8 +6685,16 @@ phenotypes:
     term:
       id: HP:0002240
       label: Hepatomegaly
+  frequency: FREQUENT
   evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+    explanation: Hepatomegaly in 60% of patients places this phenotype in the FREQUENT band (30-79%).
   - reference: PMID:21122093
+    reference_title: &#34;Clinical and genetic characterization of Chanarin-Dorfman syndrome patients: first report of large deletions in the ABHD5 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The clinical phenotype involves multiple organs and systems,\nincluding liver, eyes, ears, skeletal muscle and central nervous system (CNS)&#34;
@@ -5648,12 +6706,57 @@ phenotypes:
     term:
       id: HP:0000518
       label: Cataract
+  frequency: OCCASIONAL
   evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+    explanation: Cataract in 22% of patients places this phenotype in the OCCASIONAL band (5-29%).
   - reference: PMID:21122093
+    reference_title: &#34;Clinical and genetic characterization of Chanarin-Dorfman syndrome patients: first report of large deletions in the ABHD5 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The clinical phenotype involves multiple organs and systems,\nincluding liver, eyes, ears, skeletal muscle and central nervous system (CNS)&#34;
     explanation: The eyes are among the organs involved, with cataract a recognized NLSD-I feature.
+- name: Ectropion
+  description: &gt;-
+    Bilateral ectropion is the commonest ocular manifestation of the disease, more
+    frequent than cataract.
+  phenotype_term:
+    preferred_term: Bilateral ectropion
+    term:
+      id: HP:0000656
+      label: Ectropion
+  frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+    explanation: Bilateral ectropion in 29% of patients places this phenotype in the OCCASIONAL band (5-29%).
+  notes: &gt;-
+    Deliberately not wired into the pathograph. The cited source groups ectropion with
+    the ocular manifestations, while the usual dermatological explanation is cicatricial
+    traction from the ichthyotic skin; neither route is asserted by a quotable sentence
+    in the references this entry cites, so no causal edge is drawn.
+- name: Splenomegaly
+  description: Splenic involvement accompanying the systemic neutral lipid storage.
+  phenotype_term:
+    preferred_term: Splenomegaly
+    term:
+      id: HP:0001744
+      label: Splenomegaly
+  frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+    explanation: Splenomegaly in 13% of patients places this phenotype in the OCCASIONAL band (5-29%).
 - name: Sensorineural hearing loss
   description: Hearing impairment reflects involvement of the ears.
   phenotype_term:
@@ -5661,20 +6764,34 @@ phenotypes:
     term:
       id: HP:0000407
       label: Sensorineural hearing impairment
+  frequency: OCCASIONAL
   evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most common extracutaneous manifestation is hepatomegaly (60% of patients), followed by myopathy (59%), ocular manifestation (bilateral ectropion in 29% and cataract in 22%), neurosensory deafness (17%), and splenomegaly (13%)&#34;
+    explanation: Neurosensory deafness in 17% of patients places this phenotype in the OCCASIONAL band (5-29%).
   - reference: PMID:21122093
+    reference_title: &#34;Clinical and genetic characterization of Chanarin-Dorfman syndrome patients: first report of large deletions in the ABHD5 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The clinical phenotype involves multiple organs and systems,\nincluding liver, eyes, ears, skeletal muscle and central nervous system (CNS)&#34;
     explanation: The ears are among the organs involved, with sensorineural hearing loss reported in NLSD type I.
 biochemical:
 - name: Cytoplasmic triacylglycerol droplet accumulation
+  biomarker_term:
+    preferred_term: triacylglycerol
+    term:
+      id: CHEBI:17855
+      label: triglyceride
   presence: INCREASED
   context: &gt;-
     Intracellular accumulation of triacylglycerol droplets in most tissues (including
     leukocytes, where it is seen as Jordans&#39; anomaly) is the hallmark biochemical lesion.
   evidence:
   - reference: PMID:21122093
+    reference_title: &#34;Clinical and genetic characterization of Chanarin-Dorfman syndrome patients: first report of large deletions in the ABHD5 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;an intracellular accumulation of triacylglycerol (TG) droplets in most tissues&#34;
@@ -5690,6 +6807,7 @@ genetic:
   notes: Biallelic ABHD5/CGI-58 variants cause NLSD type I (triglyceride storage disease type 1).
   evidence:
   - reference: PMID:21122093
+    reference_title: &#34;Clinical and genetic characterization of Chanarin-Dorfman syndrome patients: first report of large deletions in the ABHD5 gene.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Mutations in ABHD5/CGI58 gene are associated with CDS&#34;
@@ -5735,6 +6853,51 @@ treatments:
     term:
       id: NCIT:C15747
       label: Supportive Care
+  evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;management is primarily symptomatic. Recommendations include a diet low in long-chain fatty acids and saturated fats. Emollients help with skin manifestations.&#34;
+    explanation: &gt;-
+      States that management is symptomatic and names its two components — dietary
+      long-chain-fat restriction and emollients for the ichthyosis — which is exactly
+      what this treatment entry covers.
+prevalence:
+- population: Worldwide
+  measure_type: CASES_IN_LITERATURE
+  prevalence_class: ULTRA_RARE
+  notes: &gt;-
+    Fewer than 120 cases reported since the disease was described, concentrated in
+    Mediterranean and Middle Eastern populations. A cumulative literature case count,
+    not a population rate, so no rate_per_100000 is given.
+  evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;fewer than 120 cases of CDS have been reported in the literature&#34;
+    explanation: Gives the cumulative reported case count behind the ULTRA_RARE band.
+diagnosis:
+- name: Peripheral blood smear for Jordans&#39; anomaly
+  description: &gt;-
+    Light microscopy of a peripheral blood smear for lipid vacuoles in otherwise normal
+    leukocytes — the pathognomonic and usually first diagnostic finding, prompting ABHD5
+    sequencing.
+  presence: Positive in affected individuals
+  evidence:
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The most common and characteristic laboratory finding of CDS is May-Grünwald-Giemsa-negative lipid droplets&#34;
+    explanation: Identifies the leukocyte lipid-droplet finding as the characteristic laboratory result.
+  - reference: PMID:37746493
+    reference_title: &#34;Chanarin-Dorfman Syndrome (CDS): A Rare Lipid Metabolism Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Before any clinical suspicion of CDS, a blood smear should be performed to screen for lipid inclusions in neutrophils&#34;
+    explanation: Establishes the peripheral blood smear as the screening test for this finding.
 references:
 - reference: PMID:28499397
   title: &#34;Neutral Lipid Storage Diseases: clinical/genetic features and natural history in a large cohort of Italian patients.&#34;
@@ -6364,7 +7527,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Triglyceride Storage Disease Type 1", "mondoId": "MONDO:0008601", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Triglyceride_Storage_Disease_Type_1", "yamlRevision": "176faf43ae05"};
+        const OS_CONFIG = {"diseaseName": "Triglyceride Storage Disease Type 1", "mondoId": "MONDO:0008601", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Triglyceride_Storage_Disease_Type_1", "yamlRevision": "9b02bea90ac6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6783,5 +7946,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

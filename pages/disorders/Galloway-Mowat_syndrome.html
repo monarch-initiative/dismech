@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Galloway-Mowat syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Galloway-Mowat syndrome</h1>
             <div class="header-meta">
 
@@ -3891,7 +4038,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3936,7 +4083,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3959,7 +4108,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-recessive">
                 <div class="item-name">
                     X-linked recessive
 
@@ -4004,7 +4153,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4093,7 +4244,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos1">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 1 (WDR73-related)
@@ -4108,18 +4259,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in WDR73 (hgnc:25928). hgnc:25928 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 WDR73
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:25928" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25928</a>
+    <a href="https://bioregistry.io/hgnc:25928" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:25928</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in WDR73 (hgnc:25928). hgnc:25928 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4146,7 +4299,9 @@ This subtype is caused by variation in WDR73 (hgnc:25928). hgnc:25928 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466283" target="_blank">PMID:25466283</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4172,7 +4327,7 @@ This subtype is caused by variation in WDR73 (hgnc:25928). hgnc:25928 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos2">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 2, X-linked (LAGE3-related)
@@ -4187,18 +4342,20 @@ This subtype is caused by variation in WDR73 (hgnc:25928). hgnc:25928 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in LAGE3 (hgnc:26058). hgnc:26058 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 LAGE3
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:26058" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:26058</a>
+    <a href="https://bioregistry.io/hgnc:26058" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:26058</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LAGE3 (hgnc:26058). hgnc:26058 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4225,7 +4382,9 @@ This subtype is caused by variation in LAGE3 (hgnc:26058). hgnc:26058 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4251,7 +4410,7 @@ This subtype is caused by variation in LAGE3 (hgnc:26058). hgnc:26058 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos3">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 3 (OSGEP-related)
@@ -4266,18 +4425,20 @@ This subtype is caused by variation in LAGE3 (hgnc:26058). hgnc:26058 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in OSGEP (hgnc:18028). hgnc:18028 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 OSGEP
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18028" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18028</a>
+    <a href="https://bioregistry.io/hgnc:18028" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:18028</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in OSGEP (hgnc:18028). hgnc:18028 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4304,7 +4465,9 @@ This subtype is caused by variation in OSGEP (hgnc:18028). hgnc:18028 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4330,7 +4493,7 @@ This subtype is caused by variation in OSGEP (hgnc:18028). hgnc:18028 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos4">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 4 (TP53RK-related)
@@ -4345,18 +4508,20 @@ This subtype is caused by variation in OSGEP (hgnc:18028). hgnc:18028 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in TP53RK (hgnc:16197). hgnc:16197 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 TP53RK
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:16197" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16197</a>
+    <a href="https://bioregistry.io/hgnc:16197" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:16197</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TP53RK (hgnc:16197). hgnc:16197 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4383,7 +4548,9 @@ This subtype is caused by variation in TP53RK (hgnc:16197). hgnc:16197 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4409,7 +4576,7 @@ This subtype is caused by variation in TP53RK (hgnc:16197). hgnc:16197 is a gene
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos5">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 5 (TPRKB-related)
@@ -4424,18 +4591,20 @@ This subtype is caused by variation in TP53RK (hgnc:16197). hgnc:16197 is a gene
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in TPRKB (hgnc:24259). hgnc:24259 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 TPRKB
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:24259" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:24259</a>
+    <a href="https://bioregistry.io/hgnc:24259" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:24259</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TPRKB (hgnc:24259). hgnc:24259 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4462,7 +4631,9 @@ This subtype is caused by variation in TPRKB (hgnc:24259). hgnc:24259 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4488,7 +4659,7 @@ This subtype is caused by variation in TPRKB (hgnc:24259). hgnc:24259 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos6">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 6 (WDR4-related)
@@ -4503,18 +4674,20 @@ This subtype is caused by variation in TPRKB (hgnc:24259). hgnc:24259 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in WDR4 (hgnc:12756). hgnc:12756 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 WDR4
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12756</a>
+    <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:12756</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in WDR4 (hgnc:12756). hgnc:12756 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4541,7 +4714,9 @@ This subtype is caused by variation in WDR4 (hgnc:12756). hgnc:12756 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4567,7 +4742,7 @@ This subtype is caused by variation in WDR4 (hgnc:12756). hgnc:12756 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos7">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 7 (NUP107-related)
@@ -4582,18 +4757,20 @@ This subtype is caused by variation in WDR4 (hgnc:12756). hgnc:12756 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in NUP107 (hgnc:29914). hgnc:29914 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 NUP107
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29914</a>
+    <a href="https://bioregistry.io/hgnc:29914" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:29914</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NUP107 (hgnc:29914). hgnc:29914 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4620,7 +4797,9 @@ This subtype is caused by variation in NUP107 (hgnc:29914). hgnc:29914 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28280135" target="_blank">PMID:28280135</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4646,7 +4825,7 @@ This subtype is caused by variation in NUP107 (hgnc:29914). hgnc:29914 is a gene
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos8">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 8 (NUP133-related)
@@ -4661,18 +4840,20 @@ This subtype is caused by variation in NUP107 (hgnc:29914). hgnc:29914 is a gene
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in NUP133 (hgnc:18016). hgnc:18016 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 NUP133
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:18016" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18016</a>
+    <a href="https://bioregistry.io/hgnc:18016" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:18016</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NUP133 (hgnc:18016). hgnc:18016 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4699,7 +4880,9 @@ This subtype is caused by variation in NUP133 (hgnc:18016). hgnc:18016 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4725,7 +4908,7 @@ This subtype is caused by variation in NUP133 (hgnc:18016). hgnc:18016 is a gene
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos9">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 9 (GON7-related)
@@ -4740,18 +4923,20 @@ This subtype is caused by variation in NUP133 (hgnc:18016). hgnc:18016 is a gene
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in GON7 (hgnc:20356). hgnc:20356 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 GON7
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:20356" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20356</a>
+    <a href="https://bioregistry.io/hgnc:20356" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:20356</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GON7 (hgnc:20356). hgnc:20356 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4778,7 +4963,9 @@ This subtype is caused by variation in GON7 (hgnc:20356). hgnc:20356 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4804,7 +4991,7 @@ This subtype is caused by variation in GON7 (hgnc:20356). hgnc:20356 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-gamos10">
 
                     <div class="item-name">
                         Galloway-Mowat syndrome 10 (YRDC-related)
@@ -4819,18 +5006,20 @@ This subtype is caused by variation in GON7 (hgnc:20356). hgnc:20356 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in YRDC (hgnc:28905). hgnc:28905 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 YRDC
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:28905" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28905</a>
+    <a href="https://bioregistry.io/hgnc:28905" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:28905</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in YRDC (hgnc:28905). hgnc:28905 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4857,7 +5046,9 @@ This subtype is caused by variation in YRDC (hgnc:28905). hgnc:28905 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4883,7 +5074,7 @@ This subtype is caused by variation in YRDC (hgnc:28905). hgnc:28905 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-prdm15-related">
 
                     <div class="item-name">
                         PRDM15-related GAMOS-type disease
@@ -4896,18 +5087,20 @@ This subtype is caused by variation in YRDC (hgnc:28905). hgnc:28905 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in PRDM15 (hgnc:13999). hgnc:13999 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 PRDM15
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:13999" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13999</a>
+    <a href="https://bioregistry.io/hgnc:13999" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:13999</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRDM15 (hgnc:13999). hgnc:13999 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4928,13 +5121,15 @@ This subtype is caused by variation in PRDM15 (hgnc:13999). hgnc:13999 is a gene
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33593823" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33593823" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33593823" target="_blank">PMID:33593823</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4989,18 +5184,20 @@ This subtype is caused by variation in PRDM15 (hgnc:13999). hgnc:13999 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5017,18 +5214,20 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5056,18 +5255,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased tRNA modification (GO:0006400). GO:0006400 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         tRNA modification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006400" target="_blank" class="curie-chip curie-chip-go">GO:0006400</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006400" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006400</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tRNA modification (GO:0006400). GO:0006400 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5135,7 +5336,9 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5157,7 +5360,9 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5190,18 +5395,20 @@ This pathophysiological event involves decreased tRNA modification (GO:0006400).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5218,18 +5425,20 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5257,18 +5466,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased focal adhesion assembly (GO:0048041). GO:0048041 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         focal adhesion assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go">GO:0048041</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0048041</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased focal adhesion assembly (GO:0048041). GO:0048041 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5289,18 +5500,20 @@ This pathophysiological event involves decreased focal adhesion assembly (GO:004
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated RNA processing (GO:0006396). GO:0006396 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         RNA processing
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="curie-chip curie-chip-go">GO:0006396</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006396" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006396</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated RNA processing (GO:0006396). GO:0006396 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5321,18 +5534,20 @@ This pathophysiological event involves dysregulated RNA processing (GO:0006396).
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell cycle G1/S phase transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go">GO:0044843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0044843</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5394,7 +5609,9 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25466283" target="_blank">PMID:25466283</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5416,7 +5633,9 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33686175" target="_blank">PMID:33686175</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5438,7 +5657,9 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36290302" target="_blank">PMID:36290302</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5471,18 +5692,20 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5499,18 +5722,20 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5538,18 +5763,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal spindle assembly (GO:0051225). GO:0051225 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         spindle assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051225" target="_blank" class="curie-chip curie-chip-go">GO:0051225</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051225" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0051225</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal spindle assembly (GO:0051225). GO:0051225 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5576,18 +5803,20 @@ This pathophysiological event involves abnormal spindle assembly (GO:0051225). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         nuclear pore
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005643" target="_blank" class="curie-chip curie-chip-go">GO:0005643</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005643" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0005643</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5630,7 +5859,9 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5652,7 +5883,9 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28280135" target="_blank">PMID:28280135</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5674,7 +5907,9 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5714,17 +5949,21 @@ This pathophysiological event involves nuclear pore (GO:0005643). GO:0005643 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves WDR4 (hgnc:12756). hgnc:12756 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         WDR4
 
 
-    <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12756</a>
+    <a href="https://bioregistry.io/hgnc:12756" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:12756</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves WDR4 (hgnc:12756). hgnc:12756 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5753,18 +5992,20 @@ This pathophysiological event involves WDR4 (hgnc:12756). hgnc:12756 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell cycle G1/S phase transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go">GO:0044843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0044843</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5820,7 +6061,9 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36681682" target="_blank">PMID:36681682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5842,7 +6085,9 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36681682" target="_blank">PMID:36681682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5875,18 +6120,20 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5914,18 +6161,20 @@ This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased focal adhesion assembly (GO:0048041). GO:0048041 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         focal adhesion assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go">GO:0048041</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0048041</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased focal adhesion assembly (GO:0048041). GO:0048041 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5953,18 +6202,20 @@ This pathophysiological event involves decreased focal adhesion assembly (GO:004
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         kidney
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6018,7 +6269,9 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11793093" target="_blank">PMID:11793093</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6040,7 +6293,9 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6073,18 +6328,20 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6112,18 +6369,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell cycle G1/S phase transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go">GO:0044843</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0044843</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated cell cycle G1/S phase transition (GO:0044843). GO:0044843 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6151,18 +6410,20 @@ This pathophysiological event involves dysregulated cell cycle G1/S phase transi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-31">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6264,7 +6525,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6286,7 +6549,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6308,7 +6573,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30427554" target="_blank">PMID:30427554</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6402,16 +6669,20 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000648</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.">
-                        Optic atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp">HP:0000648</a>
-
-
+This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6432,7 +6703,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6473,16 +6746,20 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.">
-                        Proteinuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp">HP:0000093</a>
-
-
+This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6503,7 +6780,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6544,16 +6823,20 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.">
-                        Microcephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp">HP:0000252</a>
-
-
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6574,7 +6857,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6606,16 +6891,20 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000280</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.">
-                        Coarse facial features
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp">HP:0000280</a>
-
-
+This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6636,7 +6925,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6677,16 +6968,20 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6707,7 +7002,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6739,16 +7036,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6769,7 +7070,9 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6801,16 +7104,20 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001272</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.">
-                        Cerebellar atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp">HP:0001272</a>
-
-
+This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6831,7 +7138,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6853,7 +7162,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36681682" target="_blank">PMID:36681682</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6894,16 +7205,20 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012588</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is steroid-resistant nephrotic syndrome (HP:0012588). HP:0012588 is a phenotype from the Human Phenotype Ontology.">
-                        Steroid-resistant nephrotic syndrome
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp">HP:0012588</a>
-
-
+This clinical feature is steroid-resistant nephrotic syndrome (HP:0012588). HP:0012588 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6924,7 +7239,9 @@ This clinical feature is steroid-resistant nephrotic syndrome (HP:0012588). HP:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6956,16 +7273,20 @@ This clinical feature is steroid-resistant nephrotic syndrome (HP:0012588). HP:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0008936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.">
-                        Axial hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp">HP:0008936</a>
-
-
+This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6986,7 +7307,9 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7018,16 +7341,20 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001302</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.">
-                        Pachygyria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001302" target="_blank" class="curie-chip curie-chip-hp">HP:0001302</a>
-
-
+This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7048,7 +7375,9 @@ This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7080,16 +7409,20 @@ This clinical feature is Pachygyria (HP:0001302). HP:0001302 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0012444</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Brain atrophy (HP:0012444). HP:0012444 is a phenotype from the Human Phenotype Ontology.">
-                        Brain atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" class="curie-chip curie-chip-hp">HP:0012444</a>
-
-
+This clinical feature is Brain atrophy (HP:0012444). HP:0012444 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7110,7 +7443,9 @@ This clinical feature is Brain atrophy (HP:0012444). HP:0012444 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30975089" target="_blank">PMID:30975089</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7142,16 +7477,20 @@ This clinical feature is Brain atrophy (HP:0012444). HP:0012444 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0033725</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.">
-                        Thin corpus callosum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp">HP:0033725</a>
-
-
+This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7172,7 +7511,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7204,16 +7545,20 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoplasia of the brainstem
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp">HP:0002365</a>
-
-
+This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7234,7 +7579,9 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7266,16 +7613,20 @@ This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0003429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.">
-                        CNS hypomyelination
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp">HP:0003429</a>
-
-
+This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7296,7 +7647,9 @@ This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7328,16 +7681,20 @@ This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002036" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002036</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hiatus hernia (HP:0002036). HP:0002036 is a phenotype from the Human Phenotype Ontology.">
-                        Hiatus hernia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002036" target="_blank" class="curie-chip curie-chip-hp">HP:0002036</a>
-
-
+This clinical feature is Hiatus hernia (HP:0002036). HP:0002036 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7352,13 +7709,15 @@ This clinical feature is Hiatus hernia (HP:0002036). HP:0002036 is a phenotype f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7390,16 +7749,20 @@ This clinical feature is Hiatus hernia (HP:0002036). HP:0002036 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:0000097 is a phenotype from the Human Phenotype Ontology.">
-                        Focal segmental glomerulosclerosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp">HP:0000097</a>
-
-
+This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:0000097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7420,7 +7783,9 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7452,16 +7817,20 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001967" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001967</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Diffuse mesangial sclerosis (HP:0001967). HP:0001967 is a phenotype from the Human Phenotype Ontology.">
-                        Diffuse mesangial sclerosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001967" target="_blank" class="curie-chip curie-chip-hp">HP:0001967</a>
-
-
+This clinical feature is Diffuse mesangial sclerosis (HP:0001967). HP:0001967 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7482,7 +7851,9 @@ This clinical feature is Diffuse mesangial sclerosis (HP:0001967). HP:0001967 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7544,6 +7915,9 @@ This clinical feature is Diffuse mesangial sclerosis (HP:0001967). HP:0001967 is
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7560,17 +7934,17 @@ This clinical feature is Diffuse mesangial sclerosis (HP:0001967). HP:0001967 is
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -7588,6 +7962,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7612,7 +7994,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7642,18 +8026,18 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">urine protein measurement<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is urine protein measurement (NCIT:C74760). NCIT:C74760 is a clinical intervention from the NCI Thesaurus.">urine protein measurement</span>
+This treatment is urine protein measurement (NCIT:C74760). NCIT:C74760 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Urine Protein Measurement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C74760" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is urine protein measurement (NCIT:C74760). NCIT:C74760 is a clinical intervention from the NCI Thesaurus.">NCIT:C74760</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C74760" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C74760">NCIT:C74760</a>
 
 
 
@@ -7676,6 +8060,14 @@ This treatment is urine protein measurement (NCIT:C74760). NCIT:C74760 is a clin
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Regular urine protein and kidney-function monitoring is important across the GAMOS spectrum because renal onset and severity vary by gene and subtype.</div>
 
 
@@ -7684,33 +8076,37 @@ This treatment is urine protein measurement (NCIT:C74760). NCIT:C74760 is a clin
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Proteinuria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp">HP:0000093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000093</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:0012588 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Steroid-resistant nephrotic syndrome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp">HP:0012588</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0012588</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:0012588 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7730,7 +8126,9 @@ This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7760,18 +8158,18 @@ This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:001
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">renal replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.">renal replacement therapy</span>
+This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Renal Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C126400" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.">NCIT:C126400</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C126400" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C126400">NCIT:C126400</a>
 
 
 
@@ -7794,6 +8192,14 @@ This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a cl
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Children who progress to end-stage renal disease require nephrology-led renal replacement planning, which may include dialysis as a bridge or alternative to transplant depending on neurologic severity and subtype.</div>
 
 
@@ -7802,33 +8208,37 @@ This treatment is renal replacement therapy (NCIT:C126400). NCIT:C126400 is a cl
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Chronic kidney disease
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp">HP:0012622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0012622</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Chronic kidney disease (HP:0012622). HP:0012622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:0012588 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Steroid-resistant nephrotic syndrome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp">HP:0012588</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0012588</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:0012588 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7842,13 +8252,15 @@ This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:001
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31481669" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31481669" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7878,17 +8290,17 @@ This treatment targets Steroid-resistant nephrotic syndrome (HP:0012588). HP:001
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Anticonvulsant Therapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">Anticonvulsant Therapy</span>
+This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.">NCIT:C64172</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64172" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64172">NCIT:C64172</a>
 
 
 
@@ -7911,6 +8323,14 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seizures should be managed symptomatically by neurology with antiseizure medication individualized to seizure type and comorbid renal status.</div>
 
 
@@ -7919,18 +8339,20 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizures
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7944,13 +8366,15 @@ This treatment targets Seizures, annotated with Seizure (HP:0001250). HP:0001250
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7980,18 +8404,18 @@ This treatment targets Seizures, annotated with Seizure (HP:0001250). HP:0001250
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">nutrition assessment<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.">nutrition assessment</span>
+This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Clinical Evaluation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C124351">NCIT:C124351</a>
 
 
 
@@ -8014,6 +8438,14 @@ This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Nutrition assessment and growth support are part of supportive care for infants and children with poor feeding, growth restriction, nephrotic syndrome, and severe neurodevelopmental disability.</div>
 
 
@@ -8027,13 +8459,15 @@ This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8049,13 +8483,15 @@ This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36755238" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36755238" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8085,18 +8521,18 @@ This treatment is nutrition assessment, annotated with Clinical Evaluation (NCIT
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">occupational therapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.">occupational therapy</span>
+This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Occupational Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C121351" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinical intervention from the NCI Thesaurus.">NCIT:C121351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C121351" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C121351">NCIT:C121351</a>
 
 
 
@@ -8119,6 +8555,25 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Early physical, occupational, and speech/communication supports should be matched to hypotonia, motor impairment, developmental delay, and severe intellectual disability.</div>
 
 
@@ -8127,33 +8582,37 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Global developmental delay
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001263</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Axial hypotonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp">HP:0008936</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0008936</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8167,13 +8626,15 @@ This treatment targets Axial hypotonia (HP:0008936). HP:0008936 is a phenotype f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8203,18 +8664,18 @@ This treatment targets Axial hypotonia (HP:0008936). HP:0008936 is a phenotype f
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is kidney transplantation, annotated with Organ Transplantation (NCIT:C15289), qualified as located in kidney. NCIT:C15289 is a clinical intervention from the NCI Thesaurus.">kidney transplantation</span>
+This treatment is kidney transplantation, annotated with Organ Transplantation (NCIT:C15289), qualified as located in kidney. NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15289" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is kidney transplantation, annotated with Organ Transplantation (NCIT:C15289), qualified as located in kidney. NCIT:C15289 is a clinical intervention from the NCI Thesaurus.">NCIT:C15289</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15289" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15289">NCIT:C15289</a>
 
 
 
@@ -8242,23 +8703,42 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
 
-                    <span class="tag tag-bio" title="Uberon multi-species anatomy ontology (UBERON)
+
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-63">kidney<span class="pill-tip" role="tooltip" id="pill-tip-63">Uberon multi-species anatomy ontology (UBERON)
 Relation: this treatment is delivered to this anatomical location
-This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">kidney</span>
+This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this treatment is delivered to this anatomical location
-This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
 
 
 
 
 
                 </div>
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
 
 
 
@@ -8276,13 +8756,15 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31481669" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31481669" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8312,6 +8794,839 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-neuro-renal-syndrome-recognition">
+                <div class="item-name">
+                    Clinical neuro-renal syndrome recognition
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Early-onset SRNS or proteinuria with microcephaly and brain malformation.)</span>
+
+                </div>
+
+                <div class="item-desc">GAMOS should be suspected when nephrotic-range proteinuria or steroid-resistant nephrotic syndrome co-occurs with microcephaly and structural brain abnormalities.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        neurodevelopmental assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C95403" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-64">NCIT:C95403</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40533795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The phenotype is heterogeneous, but it is now widely accepted that early-onset nephrotic syndrome (SRNS) and microcephaly with brain malformation are characteristic features of Galloway-Mowat syndrome."</div>
+
+
+                <div class="evidence-explanation">Recent review synthesis defines the clinical dyad used to recognize GAMOS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-gene-panel-or-exome-sequencing">
+                <div class="item-name">
+                    Gene panel or exome sequencing
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Biallelic or hemizygous pathogenic variants in a GAMOS-associated gene.)</span>
+
+                </div>
+
+                <div class="item-desc">Molecular workup should cover KEOPS/t6A genes, WDR73, WDR4, NUP107, NUP133, PRDM15, and LAGE3/X-linked analysis, with exome sequencing useful when targeted panels are unrevealing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        gene panel testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-65">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40533795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although the five subunits that encode the KEOPS complex, OSGEP/TP53RK/TPRKB/LAGE3/GON7, are known to cause Galloway-Mowat syndrome, the mutation of the WDR73, WDR4, NUP107, NUP133, and PRDM15 genes can lead to Galloway-Mowat syndrome, which makes the diagnosis more challenging."</div>
+
+
+                <div class="evidence-explanation">The gene heterogeneity supports broad panel or exome-based molecular testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Taking a “sequence first” approach, we screened this cohort with exome sequencing, and identified patients with homozygous deleterious WDR73 mutations."</div>
+
+
+                <div class="evidence-explanation">Demonstrates exome sequencing utility in identifying WDR73-related GAMOS within a neurodevelopmental cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri-for-subtype-patterning">
+                <div class="item-name">
+                    Brain MRI for subtype patterning
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Cerebellar atrophy, corpus-callosum/brainstem abnormalities, pachygyria, or hypomyelination.)</span>
+
+                </div>
+
+                <div class="item-desc">Brain MRI supports diagnosis and subtype patterning: WDR73 disease has cerebellar atrophy with corpus-callosum and brainstem abnormalities, whereas severe OSGEP disease is associated with pachygyria and hypomyelination.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        MRI of the brain
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-66">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other common pathologies observed in cranial MRI were thinning of corpus callosum in half of the patients and brain stem hypoplasia in 80%."</div>
+
+
+                <div class="evidence-explanation">WDR73 cases support corpus-callosum and brainstem MRI clues.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain imaging studies all showed pachygyria and hypomyelination."</div>
+
+
+                <div class="evidence-explanation">OSGEP cases support pachygyria and hypomyelination as severe-subtype MRI clues.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-proteinuria-and-kidney-function-testing">
+                <div class="item-name">
+                    Proteinuria and kidney function testing
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Proteinuria, nephrotic syndrome, or reduced kidney function.)</span>
+
+                </div>
+
+                <div class="item-desc">Proteinuria screening and kidney-function assessment are important because renal onset can be variable and may lag behind neurologic presentation in some subtypes.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        urine protein measurement
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C74760" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-67">NCIT:C74760</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36755238" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36755238" target="_blank">PMID:36755238</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Due to the heterogeneity of the renal phenotype, regular proteinuria screening is recommended for all patients diagnosed with GAMOS."</div>
+
+
+                <div class="evidence-explanation">Supports proteinuria screening across genetically heterogeneous GAMOS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-kidney-biopsy-for-renal-histopathology">
+                <div class="item-name">
+                    Kidney biopsy for renal histopathology
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(FSGS, diffuse mesangial sclerosis, minimal-change pattern, or related glomerular lesions.)</span>
+
+                </div>
+
+                <div class="item-desc">Kidney biopsy can document the glomerular lesion pattern when clinically indicated, but histopathology is descriptive and not a standalone molecular subtype assignment.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        biopsy of kidney
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51699" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-68">NCIT:C51699</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Renal biopsies have revealed various histopathology including diffuse mesangial sclerosis, focal segmental glomerulosclerosis, mesangial proliferation, increased mesangial matrix, and minimal change disease [Meyers et al., 1999; Steiss et al., 2005; Sartelet et al., 2008]."</div>
+
+
+                <div class="evidence-explanation">Supports renal biopsy as a way to characterize GAMOS glomerular histopathology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40533795" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40533795" target="_blank">PMID:40533795</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although glomerular injury is frequently documented in biopsies of patients with Galloway-Mowat syndrome, there is currently no reliable evidence that renal biopsy has diagnostic or prognostic value."</div>
+
+
+                <div class="evidence-explanation">Qualifies biopsy findings as supportive/descriptive rather than definitive for diagnosis or prognosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-prenatal-imaging-and-familial-variant-testing">
+                <div class="item-name">
+                    Prenatal imaging and familial variant testing
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Prenatal microcephaly, growth restriction, oligohydramnios, gyral/myelin abnormalities, or known familial variant.)</span>
+
+                </div>
+
+                <div class="item-desc">In families with prior affected children or known familial variants, prenatal ultrasound, fetal MRI, genetic counseling, and mutation analysis can support early prenatal diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        fetal MRI
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-69">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prenatal ultrasound findings, fetal MRI, genetic counseling, and mutation analysis may be useful for an early prenatal diagnosis."</div>
+
+
+                <div class="evidence-explanation">OSGEP cohort evidence supports prenatal imaging and variant testing in at-risk pregnancies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-severe-congenital-or-infantile-keops-osgep-disease">
+                <div class="item-name">Severe congenital or infantile KEOPS/OSGEP disease</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">GAMOS3</span>
+
+
+                    <span class="tag">Age: Prenatal to infancy</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Severe OSGEP-related disease can present prenatally or in early infancy with microcephaly, pachygyria/hypomyelination, steroid-resistant nephrotic syndrome, and death before two years.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30558655" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30558655" target="_blank">PMID:30558655</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall, 6 patients from 5 different Taiwanese families were included in our study; the patients had an identical OSGEP gene mutation (c.740G &gt; A transition) and all exhibited a uniform clinical phenotype with early-onset nephrotic syndrome, craniofacial and skeletal dysmorphism, primary..."</div>
+
+
+                <div class="evidence-explanation">Defines the early severe natural history of a recurrent OSGEP-linked GAMOS cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-severe-yrdc-versus-milder-gon7-t6a-biogenesis-spectrum">
+                <div class="item-name">Severe YRDC versus milder GON7 t6A-biogenesis spectrum</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">YRDC-related disease is reported as extremely severe, whereas GON7-related disease can be milder and compatible with preserved renal function or a functioning kidney graft at follow-up.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31481669" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we show that mutations in YRDC cause an extremely severe form of GAMOS whereas mutations in GON7, encoding the fifth KEOPS subunit, lead to a milder form of the disease."</div>
+
+
+                <div class="evidence-explanation">Directly supports subtype-specific severity differences within t6A-biogenesis GAMOS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31481669" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31481669" target="_blank">PMID:31481669</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"most of the individuals carrying GON7 mutations were alive at last follow-up, with either a functioning graft or with normal renal function despite a mild to heavy proteinuria"</div>
+
+
+                <div class="evidence-explanation">GON7 case follow-up supports the survivable end of the KEOPS-related spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-later-onset-wdr73-renal-disease">
+                <div class="item-name">Later-onset WDR73 renal disease</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">GAMOS1</span>
+
+
+                    <span class="tag">Age: Childhood, often after neurologic presentation</span>
+
+
+
+                </div>
+
+                <div class="item-notes">WDR73-related disease often has postnatal progressive microcephaly and cerebellar-predominant neurologic disease, with proteinuria/nephrotic syndrome that can appear later in childhood and progress variably.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27001912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27001912" target="_blank">PMID:27001912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Microcephaly with nephrotic syndrome has historically been the major GMS diagnostic criteria, yet in the WDR73-mutation positive group, eight out of twelve patients had proteinuria with onsets varying from 2 years to 8 years of age (median age 5), later on average compared with the total of &gt;60..."</div>
+
+
+                <div class="evidence-explanation">WDR73-positive cases support later and variable renal onset compared with severe infantile GAMOS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8345,7 +9660,6 @@ This treatment is delivered to kidney (UBERON:0002113). UBERON:0002113 is an ana
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Galloway-Mowat syndrome
 creation_date: &#39;2026-04-14T08:01:21Z&#39;
-updated_date: &#39;2026-05-31T10:45:00Z&#39;
 category: Mendelian
 synonyms:
 - GAMOS
@@ -8719,7 +10033,7 @@ has_subtypes:
   evidence:
   - reference: PMID:33593823
     reference_title: Mutations in PRDM15 Are a Novel Cause of Galloway-Mowat Syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Variants in PRDM15 can cause either isolated nephrotic syndrome or a
@@ -9394,7 +10708,7 @@ phenotypes:
   evidence:
   - reference: PMID:27001912
     reference_title: Extending the mutation spectrum for Galloway-Mowat syndrome to include homozygous missense mutations in the WDR73 gene.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Galloway–Mowat syndrome (GMS; OMIM 251300) was first described in 1968 in
@@ -9634,7 +10948,7 @@ diagnosis:
       histopathology.
   - reference: PMID:40533795
     reference_title: Genetics and phenotypic heterogeneity of Galloway-Mowat syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Although glomerular injury is frequently documented in biopsies of
@@ -9737,7 +11051,7 @@ treatments:
   evidence:
   - reference: PMID:31481669
     reference_title: Defects in t(6)A tRNA modification due to GON7 and YRDC mutations lead to Galloway-Mowat syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       SRNS is typically detected in the first months of life and most often
@@ -9763,7 +11077,7 @@ treatments:
   evidence:
   - reference: PMID:27001912
     reference_title: Extending the mutation spectrum for Galloway-Mowat syndrome to include homozygous missense mutations in the WDR73 gene.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: EEG at 4 years documented generalized epileptiform activity, treated with carbamazepine therapy.
     explanation: &gt;-
@@ -9782,7 +11096,7 @@ treatments:
   evidence:
   - reference: PMID:27001912
     reference_title: Extending the mutation spectrum for Galloway-Mowat syndrome to include homozygous missense mutations in the WDR73 gene.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: She was referred for evaluation at 6 months of age due to weakness and poor feeding.
     explanation: &gt;-
@@ -9790,7 +11104,7 @@ treatments:
       assessment, although not a treatment trial.
   - reference: PMID:36755238
     reference_title: Diagnosis delay a family of Galloway-Mowat Syndrome caused by a classical splicing mutation of Lage3.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We present the clinical and genetic features of a two-year-old boy with
@@ -9822,7 +11136,7 @@ treatments:
   evidence:
   - reference: PMID:30558655
     reference_title: &#34;Galloway-Mowat syndrome in Taiwan: OSGEP mutation and unique clinical phenotype.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Neurological findings consisted of microcephaly, hypotonia, developmental
@@ -9852,7 +11166,7 @@ treatments:
   evidence:
   - reference: PMID:31481669
     reference_title: Defects in t(6)A tRNA modification due to GON7 and YRDC mutations lead to Galloway-Mowat syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       most of the individuals carrying GON7 mutations were alive at last
@@ -10220,7 +11534,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Galloway-Mowat syndrome", "mondoId": "MONDO:0009627", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Galloway-Mowat_syndrome", "yamlRevision": "ad1c97451cfa"};
+        const OS_CONFIG = {"diseaseName": "Galloway-Mowat syndrome", "mondoId": "MONDO:0009627", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Galloway-Mowat_syndrome", "yamlRevision": "6542d0074ea0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10639,5 +11953,73 @@ treatments:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

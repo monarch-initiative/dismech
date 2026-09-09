@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Amyotrophic Lateral Sclerosis-Parkinsonism-Dementia Complex</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Amyotrophic Lateral Sclerosis-Parkinsonism-Dementia Complex</h1>
             <div class="header-meta">
 
@@ -3948,7 +4095,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-als-predominant">
 
                     <div class="item-name">
                         ALS-predominant
@@ -3982,7 +4129,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18843496" target="_blank">PMID:18843496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4008,7 +4157,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pdc-predominant">
 
                     <div class="item-name">
                         Parkinsonism-dementia-predominant
@@ -4042,7 +4191,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4068,7 +4219,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mixed-als-pdc">
 
                     <div class="item-name">
                         Mixed ALS-PDC
@@ -4102,7 +4253,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4372,7 +4525,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18843496" target="_blank">PMID:18843496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4394,7 +4549,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36952379" target="_blank">PMID:36952379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4433,7 +4590,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                     <span class="evidence-support support-REFUTE">1 refute</span>
 
@@ -4564,13 +4721,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26791617" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26791617" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26791617" target="_blank">PMID:26791617</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4592,7 +4751,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28598725" target="_blank">PMID:28598725</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4683,7 +4844,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36952379" target="_blank">PMID:36952379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4699,13 +4862,15 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12522022" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12522022" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12522022" target="_blank">PMID:12522022</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4778,13 +4943,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12095162" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12095162" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12095162" target="_blank">PMID:12095162</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4806,7 +4973,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28598725" target="_blank">PMID:28598725</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4850,7 +5019,7 @@
 
 
 
-    <span class="entity-ref-chip">diagnosis#Postmortem Neuropathologic Examination</span>
+    <a class="entity-ref-chip" href="#diagnosis-postmortem-neuropathologic-examination">diagnosis#Postmortem Neuropathologic Examination</a>
 
 
 
@@ -4878,7 +5047,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21527311" target="_blank">PMID:21527311</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4930,13 +5101,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4992,18 +5165,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5031,18 +5206,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inclusion body assembly (GO:0070841). GO:0070841 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inclusion body assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go">GO:0070841</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070841" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0070841</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inclusion body assembly (GO:0070841). GO:0070841 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5130,7 +5307,9 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36952379" target="_blank">PMID:36952379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5152,7 +5331,9 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21527311" target="_blank">PMID:21527311</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5174,7 +5355,9 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38100415" target="_blank">PMID:38100415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5220,18 +5403,20 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5303,7 +5488,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18843496" target="_blank">PMID:18843496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5325,7 +5512,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17713769" target="_blank">PMID:17713769</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5369,18 +5558,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5411,18 +5602,20 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         spinal cord
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-5">UBERON:0002240</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5509,7 +5702,9 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5563,18 +5758,20 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:0002435 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         striatum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002435</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002435</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:0002435 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5661,7 +5858,9 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2375693" target="_blank">PMID:2375693</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5705,18 +5904,20 @@ This pathophysiological event occurs in striatum (UBERON:0002435). UBERON:000243
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5788,7 +5989,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5896,13 +6099,15 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:14612559" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:14612559" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14612559" target="_blank">PMID:14612559</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5924,7 +6129,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28598725" target="_blank">PMID:28598725</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5968,18 +6175,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6007,18 +6216,20 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased calcium ion transmembrane transport (GO:0070588). GO:0070588 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         calcium ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" class="curie-chip curie-chip-go">GO:0070588</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0070588</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased calcium ion transmembrane transport (GO:0070588). GO:0070588 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6106,7 +6317,9 @@ This pathophysiological event involves increased calcium ion transmembrane trans
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16764863" target="_blank">PMID:16764863</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6150,18 +6363,20 @@ This pathophysiological event involves increased calcium ion transmembrane trans
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6189,18 +6404,20 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6269,7 +6486,9 @@ This pathophysiological event involves increased response to oxidative stress (G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16764863" target="_blank">PMID:16764863</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6313,18 +6532,20 @@ This pathophysiological event involves increased response to oxidative stress (G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6396,7 +6617,9 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16764863" target="_blank">PMID:16764863</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6431,7 +6654,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-widespread-mixed-3r-4r-tau-neurofibrillary-tangles">
                 <div class="item-name">
                     Widespread Mixed 3R/4R Tau Neurofibrillary Tangles
 
@@ -6453,7 +6676,9 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21527311" target="_blank">PMID:21527311</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6476,7 +6701,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-cte-fold-tau-filaments">
                 <div class="item-name">
                     CTE-Fold Tau Filaments
 
@@ -6498,7 +6723,9 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38100415" target="_blank">PMID:38100415</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6521,7 +6748,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-tdp-43-positive-neuronal-and-glial-inclusions">
                 <div class="item-name">
                     TDP-43-Positive Neuronal and Glial Inclusions
 
@@ -6543,7 +6770,9 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18843496" target="_blank">PMID:18843496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6565,7 +6794,9 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17713769" target="_blank">PMID:17713769</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6588,7 +6819,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-variable-amyloid-beta-plaques-and-alpha-synuclein-lewy-bodies">
                 <div class="item-name">
                     Variable Amyloid-Beta Plaques and Alpha-Synuclein Lewy Bodies
 
@@ -6610,7 +6841,9 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36952379" target="_blank">PMID:36952379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6626,13 +6859,15 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36952379" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36952379" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36952379" target="_blank">PMID:36952379</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6723,16 +6958,20 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6753,7 +6992,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6794,16 +7035,22 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of eye movement</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000496</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of eye movement
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" class="curie-chip curie-chip-hp">HP:0000496</a>
-
-
+This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6824,7 +7071,9 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3194062" target="_blank">PMID:3194062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6840,13 +7089,15 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6887,16 +7138,20 @@ This clinical feature is Abnormality of eye movement (HP:0000496). HP:0000496 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002063</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.">
-                        Rigidity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp">HP:0002063</a>
-
-
+This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6917,7 +7172,9 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6958,16 +7215,20 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001300</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.">
-                        Parkinsonism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp">HP:0001300</a>
-
-
+This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6988,7 +7249,9 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7020,16 +7283,20 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000726</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.">
-                        Dementia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp">HP:0000726</a>
-
-
+This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7050,7 +7317,9 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7082,16 +7351,20 @@ This clinical feature is Dementia (HP:0000726). HP:0000726 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002067</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype from the Human Phenotype Ontology.">
-                        Bradykinesia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp">HP:0002067</a>
-
-
+This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7112,7 +7385,9 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7144,16 +7419,20 @@ This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
-                        Dysarthria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
-
-
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7174,7 +7453,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7206,16 +7487,20 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001288</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.">
-                        Gait disturbance
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp">HP:0001288</a>
-
-
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7236,7 +7521,9 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7268,16 +7555,20 @@ This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperreflexia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp">HP:0001347</a>
-
-
+This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7298,7 +7589,9 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7339,16 +7632,22 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Amyotrophic lateral sclerosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0007354</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Amyotrophic lateral sclerosis (HP:0007354). HP:0007354 is a phenotype from the Human Phenotype Ontology.">
-                        Amyotrophic lateral sclerosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007354" target="_blank" class="curie-chip curie-chip-hp">HP:0007354</a>
-
-
+This clinical feature is Amyotrophic lateral sclerosis (HP:0007354). HP:0007354 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7369,7 +7668,9 @@ This clinical feature is Amyotrophic lateral sclerosis (HP:0007354). HP:0007354 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18843496" target="_blank">PMID:18843496</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7401,16 +7702,20 @@ This clinical feature is Amyotrophic lateral sclerosis (HP:0007354). HP:0007354 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000298</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotype from the Human Phenotype Ontology.">
-                        Mask-like facies
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000298" target="_blank" class="curie-chip curie-chip-hp">HP:0000298</a>
-
-
+This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7431,7 +7736,9 @@ This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7463,16 +7770,20 @@ This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003693</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.">
-                        Distal amyotrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003693" target="_blank" class="curie-chip curie-chip-hp">HP:0003693</a>
-
-
+This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7493,7 +7804,9 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7542,7 +7855,9 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26153661" target="_blank">PMID:26153661</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7620,15 +7935,17 @@ This clinical feature is Distal amyotrophy (HP:0003693). HP:0003693 is a phenoty
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TRPM7
 
 
-    <a href="https://bioregistry.io/hgnc:17994" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17994</a>
+    <a href="https://bioregistry.io/hgnc:17994" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:17994</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7648,13 +7965,15 @@ This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from th
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16051700" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16051700" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16051700" target="_blank">PMID:16051700</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7676,7 +7995,9 @@ This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16051700" target="_blank">PMID:16051700</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7725,13 +8046,15 @@ This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from th
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19567404" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19567404" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19567404" target="_blank">PMID:19567404</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7768,15 +8091,17 @@ This disease-associated gene is TRPM7 (hgnc:17994). hgnc:17994 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MAPT (hgnc:6893). hgnc:6893 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MAPT
 
 
-    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6893</a>
+    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:6893</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MAPT (hgnc:6893). hgnc:6893 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7796,13 +8121,15 @@ This disease-associated gene is MAPT (hgnc:6893). hgnc:6893 is a gene from the H
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19567404" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19567404" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19567404" target="_blank">PMID:19567404</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7839,15 +8166,17 @@ This disease-associated gene is MAPT (hgnc:6893). hgnc:6893 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is C9orf72 (hgnc:28337). hgnc:28337 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: C9orf72
 
 
-    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28337</a>
+    <a href="https://bioregistry.io/hgnc:28337" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:28337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is C9orf72 (hgnc:28337). hgnc:28337 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7873,7 +8202,9 @@ This disease-associated gene is C9orf72 (hgnc:28337). hgnc:28337 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23588498" target="_blank">PMID:23588498</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7910,15 +8241,17 @@ This disease-associated gene is C9orf72 (hgnc:28337). hgnc:28337 is a gene from 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is LRRK2 (hgnc:18618). hgnc:18618 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LRRK2
 
 
-    <a href="https://bioregistry.io/hgnc:18618" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18618</a>
+    <a href="https://bioregistry.io/hgnc:18618" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:18618</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LRRK2 (hgnc:18618). hgnc:18618 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7944,7 +8277,9 @@ This disease-associated gene is LRRK2 (hgnc:18618). hgnc:18618 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23588498" target="_blank">PMID:23588498</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7974,6 +8309,9 @@ This disease-associated gene is LRRK2 (hgnc:18618). hgnc:18618 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7990,17 +8328,17 @@ This disease-associated gene is LRRK2 (hgnc:18618). hgnc:18618 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8025,21 +8363,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         L-dopa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15765</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:15765</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -8051,18 +8410,20 @@ This treatment uses L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent fro
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Parkinsonism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001300</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8076,13 +8437,15 @@ This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8123,23 +8486,29 @@ This treatment targets Parkinsonism (HP:0001300). HP:0001300 is a phenotype from
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is L-BMAA dietary exposure, annotated with exposure to chemical (ECTO:0000231). ECTO:0000231 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         L-BMAA dietary exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto">ECTO:0000231</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000231" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-32">ECTO:0000231</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is L-BMAA dietary exposure, annotated with exposure to chemical (ECTO:0000231). ECTO:0000231 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8153,13 +8522,15 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:14612559" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:14612559" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14612559" target="_blank">PMID:14612559</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8181,7 +8552,9 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28598725" target="_blank">PMID:28598725</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8197,13 +8570,15 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36952379" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36952379" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36952379" target="_blank">PMID:36952379</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8233,6 +8608,1091 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-neurological-physical-examination">
+                <div class="item-name">
+                    Neurological Physical Examination
+
+                </div>
+
+                <div class="item-desc">Examination identifies the combined rigido-akinetic, pyramidal, lower-motor-neuron, gait, and cognitive syndrome and helps assign a clinical form. The findings are syndromic rather than etiologically confirmatory.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        physical examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20989" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C20989</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Rigido-akinetic parkinsonism, rigidity, gait disturbance, hyperreflexia, distal amyotrophy, or an ALS syndrome in the appropriate Guam context.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Important diagnostic indicators of the illness include rigido-akinetic type Parkinsonism and severe dementia."</div>
+
+
+                <div class="evidence-explanation">Establishes key examination indicators of the PDC-predominant form.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cognitive-assessment">
+                <div class="item-name">
+                    Cognitive Assessment
+
+                </div>
+
+                <div class="item-desc">Cognitive assessment characterizes the progressive global dementia component but does not distinguish Guam ALS-PDC from other neurodegenerative diseases.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        cognitive assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C165543" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C165543</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Progressive global intellectual decline with memory, orientation, personality, and behavioral change.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dementia in PDC is characterized by a progressive dulling of all intellectual faculties, recent memory deﬁcits, disorien- tation in time, place and then person, as well as personality and behavioral changes."</div>
+
+
+                <div class="evidence-explanation">Supports the cognitive domains requiring assessment without validating a specific test instrument.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-striatal-fluorodopa-pet">
+                <div class="item-name">
+                    Striatal Fluorodopa PET
+
+                </div>
+
+                <div class="item-desc">18F-6-fluorodopa PET can demonstrate presynaptic nigrostriatal dysfunction, but reduced uptake also occurred in Guam ALS and clinically normal Guam subjects and therefore is not confirmatory.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        positron emission tomography procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17007" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C17007</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Reduced striatal 18F-6-fluorodopa uptake, with the strongest reduction in clinically parkinsonian subjects.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2375693" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2375693" target="_blank">PMID:2375693</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The nigrostriatal lesions in the subjects with amyotrophic lateral sclerosis and the Guamanian normal subjects are examples of subclinical neuronal damage demonstrable in living subjects with positron emission tomography."</div>
+
+
+                <div class="evidence-explanation">Supports PET detection of living-subject neuronal damage while demonstrating limited diagnostic specificity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-postmortem-neuropathologic-examination">
+                <div class="item-name">
+                    Postmortem Neuropathologic Examination
+
+                </div>
+
+                <div class="item-desc">A 2011 review reported that Guam and Kii ALS/PDC could then be confirmed only by postmortem examination. This is retained as historical diagnostic context, not a timeless claim that no premortem biomarker can ever be available.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        autopsy procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25153" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C25153</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Widespread mixed 3R/4R tau neurofibrillary pathology with associated protein lesions in a compatible clinicogeographic syndrome.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21527311" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21527311" target="_blank">PMID:21527311</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At present, ALS/PDC of Guam and the Kii Peninsula can be confirmed only by postmortem examination."</div>
+
+
+                <div class="evidence-explanation">Records the review&#39;s 2011 confirmation standard with explicit temporal scope.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ocular-motor-examination">
+                <div class="item-name">
+                    Ocular Motor Examination
+
+                </div>
+
+                <div class="item-desc">Examination can identify supranuclear ocular and eyelid motor abnormalities, but the evidence is a single 37-patient series and does not validate a stand-alone diagnostic test.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        eye examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C38060</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Heterogeneous supranuclear ocular or lid motor abnormalities.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:3194062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3194062" target="_blank">PMID:3194062</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found abnormal supranuclear ocular or lid motility in all of 37 patients with Lytico-Bodig (amyotrophic lateral sclerosis/parkinsonism-dementia complex)."</div>
+
+
+                <div class="evidence-explanation">Supports examination yield in the reported series, not specificity or a validated diagnostic threshold.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-retinal-examination-for-linear-pigment-epitheliopathy">
+                <div class="item-name">
+                    Retinal Examination for Linear Pigment Epitheliopathy
+
+                </div>
+
+                <div class="item-desc">Retinal examination may identify the associated linear pigment epitheliopathy. Its prospective association makes it a candidate risk marker, not a confirmatory test for ALS-PDC.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        eye examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C38060</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Presence or absence of linear retinal pigment epitheliopathy.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26153661" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26153661" target="_blank">PMID:26153661</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The epitheliopathy was present in 59.7% (117 of 196) patients with amyotrophic lateral sclerosis/parkinsonism-dementia complex, but in only 24.7% (178 of 722) of subjects who were neurologically asymptomatic"</div>
+
+
+                <div class="evidence-explanation">Supports association and incomplete sensitivity/specificity, which is why the examination is not represented as confirmatory.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-reduced-striatal-18f-6-fluorodopa-uptake-on-pet">
+                <div class="item-name">
+                    Reduced Striatal 18F-6-Fluorodopa Uptake on PET
+
+                </div>
+
+                <div class="item-desc">PET demonstrates reduced striatal presynaptic fluorodopa uptake in Guam parkinsonism. Intermediate or reduced uptake also occurred in ALS and some clinically normal Guamanians, so the finding is not disease-specific.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Pet</span>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        reduced striatal 18F-6-fluorodopa uptake
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        striatum
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002435" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-40">UBERON:0002435</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">A functional correlate of nigrostriatal damage, not a confirmatory biomarker; subclinical abnormalities occurred outside clinically parkinsonian subjects.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2375693" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2375693" target="_blank">PMID:2375693</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The parkinsonian subjects all had significantly reduced striatal 18F-6-fluorodopa uptake. The group with amyotrophic lateral sclerosis had significantly reduced uptake that was intermediate between that of the control group and the parkinsonian group. Two Guamanian normal subjects had reduced..."</div>
+
+
+                <div class="evidence-explanation">Directly documents the finding and its limited specificity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-reported-age-at-onset-of-guam-als">
+                <div class="item-name">Reported age at onset of Guam ALS</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">ALS-predominant</span>
+
+
+                    <span class="tag">Age: Mean 49.9 ± 9.6 years in the reported 70-case Guam ALS series</span>
+
+
+
+                </div>
+
+                <div class="item-notes">This historical cohort estimate is specific to the ALS-predominant form and is not generalized to PDC-predominant or mixed presentations.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Table 1 Age of onset Guam ALS Guam PD Male Female Total Male Female Total No. 43 27 70 45 25 70 Mean (yr.) 51.2 47.8 49.9 56.9 62.4 58.9 S.D. (yr.) 8.6 10.7 9.6 7.4 8.9 8.3"</div>
+
+
+                <div class="evidence-explanation">The table reports a total-cohort mean of 49.9 years and standard deviation of 9.6 years for 70 Guam ALS cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-reported-age-at-onset-of-guam-pdc">
+                <div class="item-name">Reported age at onset of Guam PDC</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">PDC-predominant</span>
+
+
+                    <span class="tag">Age: Mean 58.9 ± 8.3 years in the reported 70-case PDC series</span>
+
+
+
+                </div>
+
+                <div class="item-notes">This historical cohort estimate is specific to PDC-predominant disease and is not generalized to ALS-predominant or mixed presentations.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In 1980, Murakami reported the average age at onset of PDC among 70 cases to be 58.9 ± 8.3 years"</div>
+
+
+                <div class="evidence-explanation">Directly reports the mean and standard deviation in the 70-case PDC series.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-pdc-course">
+                <div class="item-name">Progressive PDC course</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">PDC-predominant</span>
+
+
+
+                    <span class="tag">Duration: 1 to 15 years; mean 5.0 ± 2.6 years in the reported 70-case series</span>
+
+
+                </div>
+
+                <div class="item-notes">The estimate applies to the PDC cohort and is not generalized to every ALS-predominant presentation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The durations of the disease among 70 cases ranged from 1 to 15 years, with an average duration of 5.0 ± 2.6 years"</div>
+
+
+                <div class="evidence-explanation">The Guam PDC series provides a subtype-scoped duration estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-historical-guam-hyperendemicity">
+                <div class="item-name">Historical Guam hyperendemicity</div>
+
+                <div class="item-desc">Mid-twentieth-century Guam surveys reported ALS incidence, prevalence, and mortality roughly 50-100 times rates reported elsewhere.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10525998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical and epidemiologic studies from 1949 to 1954 demonstrated a phenomenal frequency of ALS (Lytico) on Guam; its incidence, prevalence, and mortality rates were estimated to be about 50-100 times as high as those reported elsewhere."</div>
+
+
+                <div class="evidence-explanation">Documents the historical relative excess without inventing an absolute rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-declining-guam-prevalence">
+                <div class="item-name">Declining Guam prevalence</div>
+
+                <div class="item-desc">Later Guam autopsy series were assembled against a background of declining disease prevalence; the decline motivates environmental hypotheses but does not establish a specific exposure as causal.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18843496" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18843496" target="_blank">PMID:18843496</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Since the prevalence is declining, we examined brain tissue from 35 clinically diagnosed Chamorro patients with ALS/PDC and two Chamorro controls autopsied between 1946 and 2006, to determine if distinct variations in the pathology could be identified up to this time."</div>
+
+
+                <div class="evidence-explanation">Directly documents declining prevalence in the Guam cohort context.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-divergent-late-century-incidence-trajectories">
+                <div class="item-name">Divergent late-century incidence trajectories</div>
+
+                <div class="item-desc">Case-registration data from 1940-1999 showed a sustained decline in Guam ALS incidence, whereas PDC incidence declined until the late 1980s and then rose slightly over 1980-1999. The authors considered the rapid change inconsistent with a purely genetic explanation, but the study did not identify a specific causal exposure.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12522022" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12522022" target="_blank">PMID:12522022</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The results of this study confirmed that the incidence of ALS declined steadily during the past 40 years. The incidence of PDC also declined until the late 1980s but, unlike ALS, showed a slight increase from 1980 to 1999."</div>
+
+
+                <div class="evidence-explanation">Directly supports the distinct ALS and PDC incidence trajectories without treating incidence as prevalence or inferring a particular exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-guam-and-rota-geographic-focus">
+                <div class="item-name">Guam and Rota geographic focus</div>
+
+                <div class="item-desc">The historical Mariana syndrome affected Chamorros on Guam and Rota; this record does not merge the distinct Kii and West Papua foci into the MONDO Guam disease identity.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28598725" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28598725" target="_blank">PMID:28598725</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A neurodegenerative disease with a spectrum of symptoms that affected Chamorros in Guam, Rota, and other Mariana Islands was initially described in a 1936 case history of a patient exhibiting symptoms of both Parkinsonism and dementia."</div>
+
+
+                <div class="evidence-explanation">Supports the bounded Guam/Rota Mariana scope used for this entry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -8247,7 +9707,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-parkinson-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Parkinson&#39;s_Disease.html">Parkinson disease</a>
@@ -8294,7 +9754,9 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8319,7 +9781,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-alzheimer-disease">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Alzheimer_Disease.html">Alzheimer disease</a>
@@ -8366,7 +9828,9 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36952379" target="_blank">PMID:36952379</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8391,7 +9855,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-progressive-supranuclear-palsy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Progressive_Supranuclear_Palsy.html">Progressive supranuclear palsy</a>
@@ -8438,7 +9902,9 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8463,7 +9929,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-corticobasal-degeneration">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Corticobasal degeneration</span>
@@ -8511,7 +9977,9 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8536,7 +10004,7 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-dementia-with-lewy-bodies">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Dementia_with_Lewy_Bodies.html">Dementia with Lewy bodies</a>
@@ -8583,7 +10051,9 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10525998" target="_blank">PMID:10525998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8652,17 +10122,19 @@ This environmental factor is L-BMAA dietary exposure, annotated with exposure to
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-41">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-41">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8717,7 +10189,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41332773" target="_blank">PMID:41332773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8813,7 +10287,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12095162" target="_blank">PMID:12095162</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8896,7 +10372,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18196479" target="_blank">PMID:18196479</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8971,13 +10449,15 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26791617" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26791617" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26791617" target="_blank">PMID:26791617</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9250,7 +10730,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:26791617
     reference_title: Dietary exposure to an environmental toxin triggers neurofibrillary tangles and amyloid deposits in the brain.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       In replicated experiments, we found that chronic dietary exposure to a
@@ -9345,7 +10825,7 @@ pathophysiology:
     evidence:
     - reference: PMID:36952379
       reference_title: Guam ALS-PDC is a distinct double-prion disorder featuring both tau and Aβ prions.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &gt;-
         We found that all of the neocortical brain samples from 20 donors with
@@ -9364,7 +10844,7 @@ pathophysiology:
     evidence:
     - reference: PMID:18843496
       reference_title: &#34;Enduring involvement of tau, beta-amyloid, alpha-synuclein, ubiquitin and TDP-43 pathology in the amyotrophic lateral sclerosis/parkinsonism-dementia complex of Guam (ALS/PDC).&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Guam ALS/PDC is a severe tangle forming disorder endemic to Guam with
@@ -9375,7 +10855,7 @@ pathophysiology:
       explanation: Connects the Guam tangle disorder to its parkinsonian clinical-pathologic context without proving causality.
     - reference: PMID:2375693
       reference_title: Positron emission tomographic scanning demonstrates a presynaptic dopaminergic lesion in Lytico-Bodig. The amyotrophic lateral sclerosis-parkinsonism-dementia complex of Guam.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: The parkinsonian subjects all had significantly reduced striatal 18F-6-fluorodopa uptake.
       explanation: Independently establishes the nigrostriatal dopaminergic lesion in living Guam PDC subjects.
@@ -9425,7 +10905,7 @@ pathophysiology:
     evidence:
     - reference: PMID:18843496
       reference_title: &#34;Enduring involvement of tau, beta-amyloid, alpha-synuclein, ubiquitin and TDP-43 pathology in the amyotrophic lateral sclerosis/parkinsonism-dementia complex of Guam (ALS/PDC).&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Tau and TDP-43 positive neuronal, oligodendroglial and astrocytic inclusions
@@ -9629,7 +11109,7 @@ pathophysiology:
   evidence:
   - reference: PMID:14612559
     reference_title: Biomagnification of cyanobacterial neurotoxins and neurodegenerative disease among the Chamorro people of Guam.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       The biomagnification of BMAA through the Guam ecosystem fits a classic
@@ -9667,7 +11147,7 @@ pathophysiology:
     evidence:
     - reference: PMID:26791617
       reference_title: Dietary exposure to an environmental toxin triggers neurofibrillary tangles and amyloid deposits in the brain.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         Vervets (Chlorocebus sabaeus) fed for 140 days with BMAA-dosed fruit
@@ -9770,7 +11250,7 @@ pathophysiology:
     evidence:
     - reference: PMID:16764863
       reference_title: BMAA selectively injures motor neurons via AMPA/kainate receptor activation.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &gt;-
         BMAA was found to induce selective motor neuron (MN) loss in dissociated
@@ -9811,7 +11291,7 @@ pathophysiology:
     evidence:
     - reference: PMID:16764863
       reference_title: BMAA selectively injures motor neurons via AMPA/kainate receptor activation.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: Present findings support the hypothesis that BMAA may contribute to the selective MN loss in ALS/PDC.
       explanation: The authors frame the clinical translation as a hypothesis rather than human causal evidence.
@@ -10043,7 +11523,7 @@ phenotypes:
       denominator and avoiding a universal disease-level frequency claim.
   - reference: PMID:10525998
     reference_title: Parkinsonism-dementia complex on Guam - overview of clinical aspects.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Ocular motility usually remains intact, although in rare cases vertical gaze,
@@ -10155,7 +11635,7 @@ histopathology:
     explanation: Directly establishes occasional Lewy bodies and sparse amyloid plaques.
   - reference: PMID:36952379
     reference_title: Guam ALS-PDC is a distinct double-prion disorder featuring both tau and Aβ prions.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       In ALS-PDC brain samples, we detected high titers of tau and Aβ prions, but
@@ -10208,7 +11688,7 @@ genetic:
   evidence:
   - reference: PMID:16051700
     reference_title: A TRPM7 variant shows altered sensitivity to magnesium that may contribute to the pathogenesis of two Guamanian neurodegenerative disorders.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We found a TRPM7 variant in a subset of ALS-G and PD-G patients that
@@ -10234,7 +11714,7 @@ genetic:
   evidence:
   - reference: PMID:19567404
     reference_title: &#34;Identification of novel susceptibility loci for Guam neurodegenerative disease: challenges of genome scans in genetic isolates.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       D12S1617 on 12p gave the strongest evidence of linkage (maximum LOD score,
@@ -10259,7 +11739,7 @@ genetic:
   evidence:
   - reference: PMID:19567404
     reference_title: &#34;Identification of novel susceptibility loci for Guam neurodegenerative disease: challenges of genome scans in genetic isolates.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We found significant evidence for two regions with novel ALS/PDC loci on
@@ -10331,7 +11811,7 @@ environmental:
   evidence:
   - reference: PMID:14612559
     reference_title: Biomagnification of cyanobacterial neurotoxins and neurodegenerative disease among the Chamorro people of Guam.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Flying foxes are a prized food item of the indigenous Chamorro people who
@@ -10347,7 +11827,7 @@ environmental:
     explanation: Directly records the critical review&#39;s conclusion against a demonstrated causal relationship.
   - reference: PMID:36952379
     reference_title: Guam ALS-PDC is a distinct double-prion disorder featuring both tau and Aβ prions.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Extensive studies of genetic or environmental factors have failed to
@@ -10387,7 +11867,7 @@ diagnosis:
   evidence:
   - reference: PMID:10525998
     reference_title: Parkinsonism-dementia complex on Guam - overview of clinical aspects.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Dementia in PDC is characterized by a progressive dulling of all
@@ -10408,7 +11888,7 @@ diagnosis:
   evidence:
   - reference: PMID:2375693
     reference_title: Positron emission tomographic scanning demonstrates a presynaptic dopaminergic lesion in Lytico-Bodig. The amyotrophic lateral sclerosis-parkinsonism-dementia complex of Guam.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The nigrostriatal lesions in the subjects with amyotrophic lateral sclerosis
@@ -10449,7 +11929,7 @@ diagnosis:
   evidence:
   - reference: PMID:3194062
     reference_title: Supranuclear disturbances of ocular motility in Lytico-Bodig.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We found abnormal supranuclear ocular or lid motility in all of 37 patients
@@ -10472,7 +11952,7 @@ diagnosis:
   evidence:
   - reference: PMID:26153661
     reference_title: A unique retinal epitheliopathy is associated with amyotrophic lateral sclerosis/Parkinsonism-Dementia complex of Guam.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The epitheliopathy was present in 59.7% (117 of 196) patients with
@@ -10623,7 +12103,7 @@ treatments:
   evidence:
   - reference: PMID:10525998
     reference_title: Parkinsonism-dementia complex on Guam - overview of clinical aspects.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       These cases occasionally present with the same clinical picture and response
@@ -10694,7 +12174,7 @@ animal_models:
   evidence:
   - reference: PMID:26791617
     reference_title: Dietary exposure to an environmental toxin triggers neurofibrillary tangles and amyloid deposits in the brain.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       In replicated experiments, we found that chronic dietary exposure to a
@@ -10767,7 +12247,7 @@ discussions:
     explanation: Directly states the unresolved etiologic gap.
   - reference: PMID:12522022
     reference_title: &#34;Amyotrophic lateral sclerosis and parkinsonism-dementia complex of Guam: changing incidence rates during the past 60 years.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The rapid decrease in incidence is not likely to be due to genetic factors.
@@ -10789,7 +12269,7 @@ discussions:
   evidence:
   - reference: PMID:12095162
     reference_title: Behavioral and neurological correlates of ALS-parkinsonism dementia complex in adult mice fed washed cycad flour.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: These data are consistent with a number of major features of ALS-PDC in humans.
     explanation: The authors claim consistency with selected features, not complete model fidelity.
@@ -10835,7 +12315,7 @@ discussions:
   evidence:
   - reference: PMID:10525998
     reference_title: Parkinsonism-dementia complex on Guam - overview of clinical aspects.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       These cases occasionally present with the same clinical picture and response
@@ -10903,7 +12383,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Amyotrophic Lateral Sclerosis-Parkinsonism-Dementia Complex", "mondoId": "MONDO:0007104", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amyotrophic_Lateral_Sclerosis-Parkinsonism-Dementia_Complex", "yamlRevision": "2ff17cee88bd"};
+        const OS_CONFIG = {"diseaseName": "Amyotrophic Lateral Sclerosis-Parkinsonism-Dementia Complex", "mondoId": "MONDO:0007104", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Amyotrophic_Lateral_Sclerosis-Parkinsonism-Dementia_Complex", "yamlRevision": "1dbecaf63011"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11322,5 +12802,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Aromatic L-amino acid decarboxylase deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Aromatic L-amino acid decarboxylase deficiency</h1>
             <div class="header-meta">
 
@@ -3941,7 +4088,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3986,7 +4133,9 @@
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4008,7 +4157,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4030,7 +4181,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37824694" target="_blank">PMID:37824694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4148,6 +4301,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4171,7 +4330,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28973165" target="_blank">PMID:28973165</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4215,14 +4376,14 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Eladocagene exuparvovec gene therapy</span>
+    <a class="entity-ref-chip" href="#treatment-eladocagene-exuparvovec-gene-therapy">treatments#Eladocagene exuparvovec gene therapy</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">clinical_trials#NCT04903288</span>
+    <a class="entity-ref-chip" href="#clinical-trial-nct04903288">clinical_trials#NCT04903288</a>
 
 
 
@@ -4250,7 +4411,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37402126" target="_blank">PMID:37402126</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4266,13 +4429,15 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42389831" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42389831" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42389831" target="_blank">PMID:42389831</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4316,14 +4481,14 @@
 
 
 
-    <span class="entity-ref-chip">progression#Persistent motor and developmental disability</span>
+    <a class="entity-ref-chip" href="#progression-persistent-motor-and-developmental-disability">progression#Persistent motor and developmental disability</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">progression#Survival and prognosis</span>
+    <a class="entity-ref-chip" href="#progression-survival-and-prognosis">progression#Survival and prognosis</a>
 
 
 
@@ -4351,7 +4516,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4403,17 +4570,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DDC (hgnc:2719). hgnc:2719 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DDC
 
 
-    <a href="https://bioregistry.io/hgnc:2719" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2719</a>
+    <a href="https://bioregistry.io/hgnc:2719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2719</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DDC (hgnc:2719). hgnc:2719 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4443,18 +4614,20 @@ This pathophysiological event involves DDC (hgnc:2719). hgnc:2719 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased aromatic-L-amino-acid decarboxylase activity (GO:0004058). GO:0004058 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         aromatic-L-amino-acid decarboxylase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004058" target="_blank" class="curie-chip curie-chip-go">GO:0004058</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004058" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0004058</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased aromatic-L-amino-acid decarboxylase activity (GO:0004058). GO:0004058 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4528,7 +4701,9 @@ This pathophysiological event involves decreased aromatic-L-amino-acid decarboxy
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4550,7 +4725,9 @@ This pathophysiological event involves decreased aromatic-L-amino-acid decarboxy
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357595" target="_blank">PMID:1357595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4590,18 +4767,20 @@ This pathophysiological event involves decreased aromatic-L-amino-acid decarboxy
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased dopamine biosynthetic process (GO:0042416). GO:0042416 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         dopamine biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042416" target="_blank" class="curie-chip curie-chip-go">GO:0042416</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042416" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042416</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased dopamine biosynthetic process (GO:0042416). GO:0042416 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4622,18 +4801,20 @@ This pathophysiological event involves decreased dopamine biosynthetic process (
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased serotonin biosynthetic process (GO:0042427). GO:0042427 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         serotonin biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042427" target="_blank" class="curie-chip curie-chip-go">GO:0042427</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042427" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0042427</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased serotonin biosynthetic process (GO:0042427). GO:0042427 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4654,18 +4835,20 @@ This pathophysiological event involves decreased serotonin biosynthetic process 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased norepinephrine biosynthetic process (GO:0042421). GO:0042421 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         norepinephrine biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042421" target="_blank" class="curie-chip curie-chip-go">GO:0042421</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042421" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042421</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased norepinephrine biosynthetic process (GO:0042421). GO:0042421 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4747,7 +4930,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4769,7 +4954,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4791,7 +4978,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4880,7 +5069,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4902,7 +5093,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357595" target="_blank">PMID:1357595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5071,7 +5264,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5093,7 +5288,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30689738" target="_blank">PMID:30689738</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5230,7 +5427,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5252,7 +5451,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32409695" target="_blank">PMID:32409695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5395,7 +5596,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5417,7 +5620,9 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30689738" target="_blank">PMID:30689738</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5523,16 +5728,20 @@ This pathophysiological event involves decreased norepinephrine biosynthetic pro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0002615</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" class="curie-chip curie-chip-hp">HP:0002615</a>
-
-
+This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5553,7 +5762,9 @@ This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5596,16 +5807,20 @@ This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002014</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.">
-                        Diarrhea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp">HP:0002014</a>
-
-
+This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5626,7 +5841,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5660,16 +5877,20 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5690,7 +5911,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5724,16 +5947,20 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002019</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.">
-                        Constipation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp">HP:0002019</a>
-
-
+This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5754,7 +5981,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5788,16 +6017,20 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002020</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.">
-                        Gastroesophageal reflux
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp">HP:0002020</a>
-
-
+This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5818,7 +6051,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5852,16 +6087,20 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0011968</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.">
-                        Feeding difficulties
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp">HP:0011968</a>
-
-
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5882,7 +6121,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5925,16 +6166,20 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.">
-                        Ptosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp">HP:0000508</a>
-
-
+This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5955,7 +6200,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5977,7 +6224,9 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6020,16 +6269,20 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001742</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotype from the Human Phenotype Ontology.">
-                        Nasal congestion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" class="curie-chip curie-chip-hp">HP:0001742</a>
-
-
+This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6050,7 +6303,9 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6072,7 +6327,9 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32409695" target="_blank">PMID:32409695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6106,16 +6363,20 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002307</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from the Human Phenotype Ontology.">
-                        Drooling
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp">HP:0002307</a>
-
-
+This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6136,7 +6397,9 @@ This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6179,16 +6442,20 @@ This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000975</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperhidrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000975" target="_blank" class="curie-chip curie-chip-hp">HP:0000975</a>
-
-
+This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6209,7 +6476,9 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6231,7 +6500,9 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6274,16 +6545,20 @@ This clinical feature is Hyperhidrosis (HP:0000975). HP:0000975 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001943</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.">
-                        Hypoglycemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" class="curie-chip curie-chip-hp">HP:0001943</a>
-
-
+This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6304,7 +6579,9 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6326,7 +6603,9 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6369,16 +6648,20 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
-
-
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6399,7 +6682,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6421,7 +6706,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6455,16 +6742,20 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0034392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.">
-                        Joint contracture
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp">HP:0034392</a>
-
-
+This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6485,7 +6776,9 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6528,16 +6821,20 @@ This clinical feature is Joint contracture (HP:0034392). HP:0034392 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
-                        Atypical behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
-
-
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6558,7 +6855,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6580,7 +6879,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6614,16 +6915,20 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000729</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.">
-                        Autistic behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp">HP:0000729</a>
-
-
+This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6644,7 +6949,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6678,16 +6985,20 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000737</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype from the Human Phenotype Ontology.">
-                        Irritability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp">HP:0000737</a>
-
-
+This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6708,7 +7019,9 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6742,16 +7055,20 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6772,7 +7089,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6806,16 +7125,20 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6836,7 +7159,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37824694" target="_blank">PMID:37824694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6858,7 +7183,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6890,16 +7217,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001336</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.">
-                        Myoclonus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp">HP:0001336</a>
-
-
+This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6920,7 +7251,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6954,16 +7287,20 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
-                        Dysarthria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
-
-
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6984,7 +7321,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7018,16 +7357,20 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7048,7 +7391,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7070,7 +7415,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7104,16 +7451,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.">
-                        Motor delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp">HP:0001270</a>
-
-
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7134,7 +7485,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7168,16 +7521,20 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.">
-                        Dystonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp">HP:0001332</a>
-
-
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7198,7 +7555,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7220,7 +7579,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7254,16 +7615,20 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001337</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.">
-                        Tremor
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp">HP:0001337</a>
-
-
+This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7284,7 +7649,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7318,16 +7685,20 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002353</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.">
-                        EEG abnormality
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp">HP:0002353</a>
-
-
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7348,7 +7719,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7382,16 +7755,22 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sleep disturbance</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sleep abnormality, annotated with Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.">
-                        Sleep disturbance
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp">HP:0002360</a>
-
-
+This clinical feature is Sleep abnormality, annotated with Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7412,7 +7791,9 @@ This clinical feature is Sleep abnormality, annotated with Sleep disturbance (HP
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7434,7 +7815,9 @@ This clinical feature is Sleep abnormality, annotated with Sleep disturbance (HP
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7468,16 +7851,20 @@ This clinical feature is Sleep abnormality, annotated with Sleep disturbance (HP
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0100660</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.">
-                        Dyskinesia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100660" target="_blank" class="curie-chip curie-chip-hp">HP:0100660</a>
-
-
+This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7498,7 +7885,9 @@ This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7541,16 +7930,20 @@ This clinical feature is Dyskinesia (HP:0100660). HP:0100660 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7571,7 +7964,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7605,16 +8000,20 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7635,7 +8034,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7678,16 +8079,20 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000616</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the Human Phenotype Ontology.">
-                        Miosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000616" target="_blank" class="curie-chip curie-chip-hp">HP:0000616</a>
-
-
+This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7708,7 +8113,9 @@ This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7742,16 +8149,20 @@ This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000870" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000870</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating prolactin concentration (HP:0000870). HP:0000870 is a phenotype from the Human Phenotype Ontology.">
-                        Increased circulating prolactin concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000870" target="_blank" class="curie-chip curie-chip-hp">HP:0000870</a>
-
-
+This clinical feature is Increased circulating prolactin concentration (HP:0000870). HP:0000870 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7772,7 +8183,9 @@ This clinical feature is Increased circulating prolactin concentration (HP:00008
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7804,16 +8217,20 @@ This clinical feature is Increased circulating prolactin concentration (HP:00008
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0005968</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Temperature instability (HP:0005968). HP:0005968 is a phenotype from the Human Phenotype Ontology.">
-                        Temperature instability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005968" target="_blank" class="curie-chip curie-chip-hp">HP:0005968</a>
-
-
+This clinical feature is Temperature instability (HP:0005968). HP:0005968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7834,7 +8251,9 @@ This clinical feature is Temperature instability (HP:0005968). HP:0005968 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37824694" target="_blank">PMID:37824694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7866,16 +8285,20 @@ This clinical feature is Temperature instability (HP:0005968). HP:0005968 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002305" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002305</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Athetosis (HP:0002305). HP:0002305 is a phenotype from the Human Phenotype Ontology.">
-                        Athetosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002305" target="_blank" class="curie-chip curie-chip-hp">HP:0002305</a>
-
-
+This clinical feature is Athetosis (HP:0002305). HP:0002305 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7896,7 +8319,9 @@ This clinical feature is Athetosis (HP:0002305). HP:0002305 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12891654" target="_blank">PMID:12891654</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7930,16 +8355,20 @@ This clinical feature is Athetosis (HP:0002305). HP:0002305 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001315</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Reduced tendon reflexes (HP:0001315). HP:0001315 is a phenotype from the Human Phenotype Ontology.">
-                        Reduced tendon reflexes
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001315" target="_blank" class="curie-chip curie-chip-hp">HP:0001315</a>
-
-
+This clinical feature is Reduced tendon reflexes (HP:0001315). HP:0001315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7960,7 +8389,9 @@ This clinical feature is Reduced tendon reflexes (HP:0001315). HP:0001315 is a p
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7994,16 +8425,20 @@ This clinical feature is Reduced tendon reflexes (HP:0001315). HP:0001315 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002375" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002375</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypokinesia (HP:0002375). HP:0002375 is a phenotype from the Human Phenotype Ontology.">
-                        Hypokinesia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002375" target="_blank" class="curie-chip curie-chip-hp">HP:0002375</a>
-
-
+This clinical feature is Hypokinesia (HP:0002375). HP:0002375 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8024,7 +8459,9 @@ This clinical feature is Hypokinesia (HP:0002375). HP:0002375 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8058,16 +8495,20 @@ This clinical feature is Hypokinesia (HP:0002375). HP:0002375 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002421</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Poor head control (HP:0002421). HP:0002421 is a phenotype from the Human Phenotype Ontology.">
-                        Poor head control
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002421" target="_blank" class="curie-chip curie-chip-hp">HP:0002421</a>
-
-
+This clinical feature is Poor head control (HP:0002421). HP:0002421 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8088,7 +8529,9 @@ This clinical feature is Poor head control (HP:0002421). HP:0002421 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8122,16 +8565,20 @@ This clinical feature is Poor head control (HP:0002421). HP:0002421 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002509" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002509</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limb hypertonia (HP:0002509). HP:0002509 is a phenotype from the Human Phenotype Ontology.">
-                        Limb hypertonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002509" target="_blank" class="curie-chip curie-chip-hp">HP:0002509</a>
-
-
+This clinical feature is Limb hypertonia (HP:0002509). HP:0002509 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8152,7 +8599,9 @@ This clinical feature is Limb hypertonia (HP:0002509). HP:0002509 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8186,16 +8635,20 @@ This clinical feature is Limb hypertonia (HP:0002509). HP:0002509 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0003487</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype from the Human Phenotype Ontology.">
-                        Babinski sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003487" target="_blank" class="curie-chip curie-chip-hp">HP:0003487</a>
-
-
+This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8216,7 +8669,9 @@ This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8250,16 +8705,20 @@ This clinical feature is Babinski sign (HP:0003487). HP:0003487 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003785</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased CSF homovanillic acid concentration (HP:0003785). HP:0003785 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased CSF homovanillic acid concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003785" target="_blank" class="curie-chip curie-chip-hp">HP:0003785</a>
-
-
+This clinical feature is Decreased CSF homovanillic acid concentration (HP:0003785). HP:0003785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8280,7 +8739,9 @@ This clinical feature is Decreased CSF homovanillic acid concentration (HP:00037
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8302,7 +8763,9 @@ This clinical feature is Decreased CSF homovanillic acid concentration (HP:00037
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8336,16 +8799,20 @@ This clinical feature is Decreased CSF homovanillic acid concentration (HP:00037
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010553" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0010553</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Oculogyric crisis (HP:0010553). HP:0010553 is a phenotype from the Human Phenotype Ontology.">
-                        Oculogyric crisis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010553" target="_blank" class="curie-chip curie-chip-hp">HP:0010553</a>
-
-
+This clinical feature is Oculogyric crisis (HP:0010553). HP:0010553 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8366,7 +8833,9 @@ This clinical feature is Oculogyric crisis (HP:0010553). HP:0010553 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8388,7 +8857,9 @@ This clinical feature is Oculogyric crisis (HP:0010553). HP:0010553 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8422,16 +8893,20 @@ This clinical feature is Oculogyric crisis (HP:0010553). HP:0010553 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025455" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0025455</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased CSF 5-hydroxyindolacetic acid concentration (HP:0025455). HP:0025455 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased CSF 5-hydroxyindolacetic acid concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025455" target="_blank" class="curie-chip curie-chip-hp">HP:0025455</a>
-
-
+This clinical feature is Decreased CSF 5-hydroxyindolacetic acid concentration (HP:0025455). HP:0025455 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8452,7 +8927,9 @@ This clinical feature is Decreased CSF 5-hydroxyindolacetic acid concentration (
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8474,7 +8951,9 @@ This clinical feature is Decreased CSF 5-hydroxyindolacetic acid concentration (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8552,15 +9031,17 @@ This clinical feature is Decreased CSF 5-hydroxyindolacetic acid concentration (
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DDC (hgnc:2719). hgnc:2719 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DDC
 
 
-    <a href="https://bioregistry.io/hgnc:2719" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2719</a>
+    <a href="https://bioregistry.io/hgnc:2719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:2719</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DDC (hgnc:2719). hgnc:2719 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8582,7 +9063,9 @@ This disease-associated gene is DDC (hgnc:2719). hgnc:2719 is a gene from the HU
                         <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8604,7 +9087,9 @@ This disease-associated gene is DDC (hgnc:2719). hgnc:2719 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8626,7 +9111,9 @@ This disease-associated gene is DDC (hgnc:2719). hgnc:2719 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32409695" target="_blank">PMID:32409695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8658,6 +9145,9 @@ This disease-associated gene is DDC (hgnc:2719). hgnc:2719 is a gene from the HU
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8674,18 +9164,18 @@ This disease-associated gene is DDC (hgnc:2719). hgnc:2719 is a gene from the HU
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">gene therapy</span>
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.">NCIT:C15238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -8710,21 +9200,42 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses eladocagene exuparvovec (NCIT:C171796). NCIT:C171796 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         eladocagene exuparvovec
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C171796" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C171796</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C171796" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C171796</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses eladocagene exuparvovec (NCIT:C171796). NCIT:C171796 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -8756,7 +9267,9 @@ This treatment uses eladocagene exuparvovec (NCIT:C171796). NCIT:C171796 is a th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30689738" target="_blank">PMID:30689738</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8801,7 +9314,9 @@ This treatment uses eladocagene exuparvovec (NCIT:C171796). NCIT:C171796 is a th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30689738" target="_blank">PMID:30689738</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8842,7 +9357,9 @@ This treatment uses eladocagene exuparvovec (NCIT:C171796). NCIT:C171796 is a th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30689738" target="_blank">PMID:30689738</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8864,7 +9381,9 @@ This treatment uses eladocagene exuparvovec (NCIT:C171796). NCIT:C171796 is a th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30689738" target="_blank">PMID:30689738</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8886,7 +9405,9 @@ This treatment uses eladocagene exuparvovec (NCIT:C171796). NCIT:C171796 is a th
                         <a href="https://bioregistry.io/DOI:10.1001/jama.2024.28666" target="_blank">DOI:10.1001/jama.2024.28666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8918,17 +9439,17 @@ This treatment uses eladocagene exuparvovec (NCIT:C171796). NCIT:C171796 is a th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8953,21 +9474,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         pyridoxine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16709" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:16709</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16709" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:16709</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -8999,7 +9541,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9040,7 +9584,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9062,7 +9608,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32409695" target="_blank">PMID:32409695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9078,13 +9626,15 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32369189" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32369189" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32369189" target="_blank">PMID:32369189</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9114,17 +9664,17 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9149,36 +9699,59 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses dopamine agonist (NCIT:C66884). NCIT:C66884 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         dopamine agonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66884" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C66884</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66884" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C66884</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses dopamine agonist (NCIT:C66884). NCIT:C66884 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses monoamine oxidase inhibitor (NCIT:C667). NCIT:C667 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         monoamine oxidase inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C667" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C667</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C667" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-54">NCIT:C667</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses monoamine oxidase inhibitor (NCIT:C667). NCIT:C667 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -9210,7 +9783,9 @@ This treatment uses monoamine oxidase inhibitor (NCIT:C667). NCIT:C667 is a ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9251,7 +9826,9 @@ This treatment uses monoamine oxidase inhibitor (NCIT:C667). NCIT:C667 is a ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357595" target="_blank">PMID:1357595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9273,7 +9850,9 @@ This treatment uses monoamine oxidase inhibitor (NCIT:C667). NCIT:C667 is a ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9295,7 +9874,9 @@ This treatment uses monoamine oxidase inhibitor (NCIT:C667). NCIT:C667 is a ther
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32409695" target="_blank">PMID:32409695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9327,17 +9908,17 @@ This treatment uses monoamine oxidase inhibitor (NCIT:C667). NCIT:C667 is a ther
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9362,21 +9943,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         levodopa
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15765</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15765" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:15765</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -9402,13 +10004,15 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28100251" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28100251" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9449,7 +10053,9 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9479,17 +10085,17 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9514,21 +10120,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses folinic acid, annotated with 5-formyltetrahydrofolic acid (CHEBI:15640). CHEBI:15640 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         folinic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15640" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:15640</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15640" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-58">CHEBI:15640</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses folinic acid, annotated with 5-formyltetrahydrofolic acid (CHEBI:15640). CHEBI:15640 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -9551,7 +10178,9 @@ This treatment uses folinic acid, annotated with 5-formyltetrahydrofolic acid (C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9581,18 +10210,18 @@ This treatment uses folinic acid, annotated with 5-formyltetrahydrofolic acid (C
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9610,6 +10239,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9634,7 +10271,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37824694" target="_blank">PMID:37824694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9656,7 +10295,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37824694" target="_blank">PMID:37824694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9686,18 +10327,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9720,6 +10361,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supportive care addresses feeding, sleep, mobility, seizures, and other neurologic or autonomic complications while disease-directed and symptomatic therapies are optimized.</div>
 
 
@@ -9728,63 +10377,71 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Feeding difficulties
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0011968</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Sleep abnormality, annotated with Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sleep abnormality
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002360</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sleep abnormality, annotated with Sleep disturbance (HP:0002360). HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hypotonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0001252</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9804,7 +10461,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9826,7 +10485,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37824694" target="_blank">PMID:37824694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9910,7 +10571,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9950,7 +10613,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10019,7 +10684,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10059,7 +10726,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10128,7 +10797,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10168,7 +10839,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10237,7 +10910,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10277,7 +10952,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10299,7 +10976,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357595" target="_blank">PMID:1357595</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10368,7 +11047,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38302374" target="_blank">PMID:38302374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10408,7 +11089,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38302374" target="_blank">PMID:38302374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10424,13 +11107,15 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38302374" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38302374" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38302374" target="_blank">PMID:38302374</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10499,7 +11184,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10539,7 +11226,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10565,6 +11254,885 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ddc-molecular-genetic-testing">
+                <div class="item-name">
+                    DDC molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular genetic testing confirms pathogenic DDC variants and supports definitive diagnosis in a compatible clinical and biochemical setting.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-65">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36268467" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"molecular and/or biochemical diagnosis of AADC deficiency"</div>
+
+
+                <div class="evidence-explanation">Systematic review includes molecular diagnosis as a defining diagnostic route.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32409695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32409695" target="_blank">PMID:32409695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Twenty-three patients with clinical features of AADCD and DDC gene variants were recruited."</div>
+
+
+                <div class="evidence-explanation">Cohort diagnosis used clinical features with DDC variants.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37824694" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37824694" target="_blank">PMID:37824694</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"biallelic pathogenic variants in DDC identified by molecular genetic testing"</div>
+
+
+                <div class="evidence-explanation">GeneReviews includes biallelic DDC variants as a core diagnostic route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-csf-neurotransmitter-metabolite-testing">
+                <div class="item-name">
+                    CSF neurotransmitter metabolite testing
+
+                </div>
+
+                <div class="item-desc">CSF neurotransmitter testing shows low homovanillic acid and 5-hydroxyindoleacetic acid with elevated 3-ortho-methyldopa.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        cerebrospinal fluid analysis
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C173272" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-66">NCIT:C173272</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19172410" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In CSF all patients revealed the pattern typical of AADC with decreased concentrations of homovanillic and 5-hydroxyindoleacetic acid and elevated concentration of 3-ortho-methyldopa."</div>
+
+
+                <div class="evidence-explanation">Cohort data support CSF neurotransmitter metabolite testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-plasma-aadc-enzyme-activity-assay">
+                <div class="item-name">
+                    Plasma AADC enzyme activity assay
+
+                </div>
+
+                <div class="item-desc">Plasma aromatic L-amino acid decarboxylase activity measurement can confirm the enzymatic deficiency.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19172410" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19172410" target="_blank">PMID:19172410</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis was confirmed by measurement of AADC activity in plasma in all patients."</div>
+
+
+                <div class="evidence-explanation">Clinical cohort supports plasma AADC activity measurement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1357595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1357595" target="_blank">PMID:1357595</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Activity of aromatic L-amino acid decarboxylase was virtually absent in a liver biopsy sample and greatly reduced in plasma."</div>
+
+
+                <div class="evidence-explanation">Original case report supports enzyme activity measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-newborn-screening-by-dried-blood-spot-3-o-methyldopa">
+                <div class="item-name">
+                    Newborn screening by dried-blood-spot 3-O-methyldopa
+
+                </div>
+
+                <div class="item-desc">Tandem-mass-spectrometry measurement of 3-O-methyldopa in dried blood spots can identify presymptomatic newborns for confirmatory DDC and enzyme testing; it is a screening strategy, not a standalone definitive test.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        newborn screening
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C81178" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-67">NCIT:C81178</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38302374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38302374" target="_blank">PMID:38302374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The proposed screening strategy with 3-OMD detection in DBS is feasible and effective to identify individuals with AADCD."</div>
+
+
+                <div class="evidence-explanation">The largest prospective pilot supports feasibility and case detection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37635029" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37635029" target="_blank">PMID:37635029</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eight newborns exhibited an elevated 3-OMD concentration (839-5170 ng/mL). Among them, six newborns were confirmed to carry two pathogenic DDC variants."</div>
+
+
+                <div class="evidence-explanation">Prospective Taiwan screening demonstrates confirmatory molecular follow-up after an elevated screen.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-onset-neurometabolic-disease">
+                <div class="item-name">Early-onset neurometabolic disease</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Most reported patients have symptom onset in the first six months of life, with early hypotonia, oculogyric crises, global developmental delay, and autonomic dysfunction.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:35708" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Infancy"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists infancy as an age of onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:35708" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Neonatal"</div>
+
+
+                <div class="evidence-explanation">Orphanet also lists neonatal onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36268467" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36268467" target="_blank">PMID:36268467</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we found symptom onset to occur in the first 6 months of life in 93% of cases."</div>
+
+
+                <div class="evidence-explanation">Systematic review supports very early symptom onset in most patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-persistent-motor-and-developmental-disability">
+                <div class="item-name">Persistent motor and developmental disability</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Severity is heterogeneous. In a 63-person international cohort, 70% had no head control and minimal voluntary movement, whereas 17% walked independently; early regression was reported in 24%, commonly around the onset of oculogyric crises.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32369189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32369189" target="_blank">PMID:32369189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The majority of subjects (70%) had profound motor impairment characterized by absent head control and minimal voluntary movement, while 17% had mild motor impairment and were able to walk independently."</div>
+
+
+                <div class="evidence-explanation">The international cohort quantifies the broad motor-outcome spectrum.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32369189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32369189" target="_blank">PMID:32369189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An early regression in motor or developmental skills was reported in 15/63 patients (24%), typically occurring during infancy at the onset of oculogyric crises and other disease symptoms."</div>
+
+
+                <div class="evidence-explanation">The cohort documents early regression in a minority of patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-survival-and-prognosis">
+                <div class="item-name">Survival and prognosis</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Survival extends into adulthood for some individuals, especially those with milder motor phenotypes, but severe disease carries childhood mortality risk. In the international cohort, five deaths occurred from age 2 to 21 years, attributed by caregivers to pneumonia, acute complications during an oculogyric crisis, or myocardial infarction.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32369189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32369189" target="_blank">PMID:32369189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The parents of five individuals who had died responded to the survey. Ages of death were 2 years (n = 2), 7 years, 13 years, and 21 years, respectively. Causes of death reported by parents were pneumonia (n = 2), acute complications during an OGC (n = 2), and “myocardial infarction” (n = 1)."</div>
+
+
+                <div class="evidence-explanation">The cohort provides directly reported ages and attributed causes of death.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32369189" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32369189" target="_blank">PMID:32369189</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the observation of a greater proportion of patients with a more severe disease phenotype in the younger compared to the older patients, both suggest a significant mortality risk during childhood for patients with severe disease."</div>
+
+
+                <div class="evidence-explanation">The age distribution suggests, but does not directly estimate, childhood mortality risk.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">&le;0.1 per 100,000
+                    </span>
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Less than 1 per 1,000,000. Orphanet classifies AADC deficiency as ultra-rare, with worldwide point prevalence below one per million.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:35708" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:35708" target="_blank">ORPHA:35708</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | PMID:30689738"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports worldwide point prevalence below one per million.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-germany">
+                <div class="item-name">Germany</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.1304&ndash;0.2609 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Approximately 1 per 766,660 to 1 per 383,330 live births. One confirmed infant and one infant who died before confirmation were found among 766,660 screened newborns; this population estimate should not be generalized across ancestry groups.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38302374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38302374" target="_blank">PMID:38302374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Estimated birth prevalence (95% confidence interval) was 1:766,660 (95% CI 1:775,194; 1:769,231) to 1:383,330 (95% CI 1:384,615; 1:383,142)."</div>
+
+
+                <div class="evidence-explanation">Prospective multicenter newborn screening supplies the German birth-prevalence range.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-taiwan">
+                <div class="item-name">Taiwan</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">3.8462&ndash;3.8462 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Approximately 1 per 26,000 live births. This substantially higher estimate reflects a founder-variant population and is not a worldwide prevalence estimate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37635029" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37635029" target="_blank">PMID:37635029</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among them, six newborns were confirmed to carry two pathogenic DDC variants, indicating an incidence of AADC deficiency of ~1:26,000 (95% confidence interval: 1 in 12,021 to 1 in 57,228)."</div>
+
+
+                <div class="evidence-explanation">Prospective newborn screening supplies the Taiwan-specific incidence estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -10579,7 +12147,7 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-tetrahydrobiopterin-synthesis-or-recycling-disorders">
                 <div class="item-name">
 
                     Tetrahydrobiopterin synthesis or recycling disorders
@@ -10618,7 +12186,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10643,7 +12213,7 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-pnpo-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="PNPO_Deficiency.html">PNPO deficiency</a>
@@ -10690,7 +12260,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10712,7 +12284,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28100251" target="_blank">PMID:28100251</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10747,7 +12321,7 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse153990">
                 <div class="item-name">
                     An iPSC-derived midbrain dopaminergic neuronal model of aromatic amino acid decarboxylase (AADC) deficiency gives insight into neurodevelopmental disease features
 
@@ -10802,7 +12376,7 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01395641">
                 <div class="item-name">
                     NCT01395641
 
@@ -10830,7 +12404,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="https://clinicaltrials.gov/study/NCT01395641" target="_blank">clinicaltrials:NCT01395641</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10853,7 +12429,7 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02926066">
                 <div class="item-name">
                     NCT02926066
 
@@ -10881,7 +12457,9 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                         <a href="https://clinicaltrials.gov/study/NCT02926066" target="_blank">clinicaltrials:NCT02926066</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10904,7 +12482,7 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04903288">
                 <div class="item-name">
                     NCT04903288
 
@@ -10922,33 +12500,37 @@ This treatment targets Hypotonia (HP:0001252). HP:0001252 is a phenotype from th
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Motor delay
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001270</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Decreased CSF homovanillic acid concentration (HP:0003785). HP:0003785 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Decreased CSF homovanillic acid concentration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003785" target="_blank" class="curie-chip curie-chip-hp">HP:0003785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0003785</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Decreased CSF homovanillic acid concentration (HP:0003785). HP:0003785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10967,7 +12549,9 @@ This clinical trial targets Decreased CSF homovanillic acid concentration (HP:00
                         <a href="https://clinicaltrials.gov/study/NCT04903288" target="_blank">clinicaltrials:NCT04903288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10989,7 +12573,9 @@ This clinical trial targets Decreased CSF homovanillic acid concentration (HP:00
                         <a href="https://clinicaltrials.gov/study/NCT04903288" target="_blank">clinicaltrials:NCT04903288</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11011,7 +12597,9 @@ This clinical trial targets Decreased CSF homovanillic acid concentration (HP:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41724580" target="_blank">PMID:41724580</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11076,17 +12664,19 @@ This clinical trial targets Decreased CSF homovanillic acid concentration (HP:00
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-70">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-70">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -11130,7 +12720,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40318155" target="_blank">PMID:40318155</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -11175,7 +12767,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40318155" target="_blank">PMID:40318155</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -11264,17 +12858,21 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
-    <span class="tag tag-gene" title="Mouse Genome Informatics (MGI)
-Relation: this experimental model concerns this gene
-This experimental model concerns Ddc (MGI:94872). MGI:94872 is a gene from Mouse Genome Informatics.">
+
+
+
+    <span class="tag tag-gene">
 
         Ddc
 
 
-    <a href="https://bioregistry.io/MGI:94872" target="_blank" class="curie-chip curie-chip-mgi">MGI:94872</a>
+    <a href="https://bioregistry.io/MGI:94872" target="_blank" class="curie-chip curie-chip-mgi" aria-describedby="pill-tip-71">MGI:94872</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-71">Mouse Genome Informatics (MGI)
+Relation: this experimental model concerns this gene
+This experimental model concerns Ddc (MGI:94872). MGI:94872 is a gene from Mouse Genome Informatics.</span>
     </span>
 
 
@@ -11319,7 +12917,9 @@ This experimental model concerns Ddc (MGI:94872). MGI:94872 is a gene from Mouse
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28973165" target="_blank">PMID:28973165</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -11361,7 +12961,6 @@ This experimental model concerns Ddc (MGI:94872). MGI:94872 is a gene from Mouse
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Aromatic L-amino acid decarboxylase deficiency
 creation_date: &#34;2026-05-06T21:19:10Z&#34;
-updated_date: &#34;2026-08-05T00:00:00Z&#34;
 category: Genetic
 parents:
 - Neurotransmitter Metabolic Disorder
@@ -11777,7 +13376,7 @@ progression:
     explanation: The cohort provides directly reported ages and attributed causes of death.
   - reference: PMID:32369189
     reference_title: &#34;AADC deficiency from infancy to adulthood: Symptoms and developmental outcome in an international cohort of 63 patients.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       the observation of a greater proportion of patients with a more severe
@@ -11864,7 +13463,7 @@ genetic:
     explanation: The international genotype dataset quantifies the founder variant.
   - reference: PMID:28100251
     reference_title: &#34;Consensus guideline for the diagnosis and treatment of aromatic l-amino acid decarboxylase (AADC) deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       L-Dopa is first line treatment only for patients with L-Dopa binding-site
@@ -13248,7 +14847,7 @@ biochemical:
     explanation: The prospective pilot directly evaluates the screening biomarker and specimen type.
   - reference: PMID:38302374
     reference_title: &#34;Newborn screening for aromatic l-amino acid decarboxylase deficiency - Strategies, results, and implication for prevalence calculations.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       False-positive results were caused by maternal L-Dopa use (n = 2) and
@@ -13528,7 +15127,7 @@ treatments:
     explanation: The 2026 phase 2 report quantifies milestone acquisition through 48 weeks.
   - reference: PMID:42389831
     reference_title: &#34;Gene Therapy for Amino Acid Decarboxylase Deficiency: Clinical and Imaging Outcomes in a French Cohort.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       All patients achieved genotype-independent motor improvements and OGC
@@ -13578,7 +15177,7 @@ treatments:
     explanation: Mainland China cohort supports partial improvement with pyridoxine-based regimens.
   - reference: PMID:32369189
     reference_title: &#34;AADC deficiency from infancy to adulthood: Symptoms and developmental outcome in an international cohort of 63 patients.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Pyridoxine was the most commonly tried medication (78%, 46/59), but only
@@ -13637,7 +15236,7 @@ treatments:
     explanation: Mainland China cohort supports partial improvement with combination regimens.
   - reference: PMID:32369189
     reference_title: &#34;AADC deficiency from infancy to adulthood: Symptoms and developmental outcome in an international cohort of 63 patients.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Dopamine agonists were the medications most likely to produce some
@@ -13669,7 +15268,7 @@ treatments:
     evidence:
     - reference: PMID:28100251
       reference_title: &#34;Consensus guideline for the diagnosis and treatment of aromatic l-amino acid decarboxylase (AADC) deficiency.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         L-Dopa is first line treatment only for patients with L-Dopa binding-site
@@ -13993,7 +15592,7 @@ discussions:
     explanation: The international expert statement directly defines the unresolved evidence needs.
   - reference: PMID:42389831
     reference_title: &#34;Gene Therapy for Amino Acid Decarboxylase Deficiency: Clinical and Imaging Outcomes in a French Cohort.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Six patients received bilateral intraputaminal rAAV2-hAADC infusion.
@@ -15083,7 +16682,7 @@ caches for clinical mechanisms, diagnostic evidence, and treatment support.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aromatic L-amino acid decarboxylase deficiency", "mondoId": "MONDO:0012084", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aromatic_L-amino_acid_decarboxylase_deficiency", "yamlRevision": "c7518dec1388"};
+        const OS_CONFIG = {"diseaseName": "Aromatic L-amino acid decarboxylase deficiency", "mondoId": "MONDO:0012084", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aromatic_L-amino_acid_decarboxylase_deficiency", "yamlRevision": "208234991bd1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15502,5 +17101,73 @@ caches for clinical mechanisms, diagnostic evidence, and treatment support.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

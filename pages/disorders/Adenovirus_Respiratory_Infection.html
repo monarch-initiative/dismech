@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Adenovirus Respiratory Infection</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Adenovirus Respiratory Infection</h1>
             <div class="header-meta">
 
@@ -3907,18 +4054,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         viral genome replication
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go">GO:0019079</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0019079</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3940,18 +4089,20 @@ This pathophysiological event involves viral genome replication (GO:0019079). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves nucleotidyltransferase activity (GO:0016779). GO:0016779 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         nucleotidyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016779" target="_blank" class="curie-chip curie-chip-go">GO:0016779</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016779" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0016779</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves nucleotidyltransferase activity (GO:0016779). GO:0016779 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4004,7 +4155,9 @@ This pathophysiological event involves nucleotidyltransferase activity (GO:00167
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8701600" target="_blank">PMID:8701600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4037,18 +4190,20 @@ This pathophysiological event involves nucleotidyltransferase activity (GO:00167
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves respiratory epithelial cell, annotated with epithelial cell of lower respiratory tract (CL:0002632). CL:0002632 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         respiratory epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002632" target="_blank" class="curie-chip curie-chip-cl">CL:0002632</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0002632</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves respiratory epithelial cell, annotated with epithelial cell of lower respiratory tract (CL:0002632). CL:0002632 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4065,18 +4220,20 @@ This pathophysiological event involves respiratory epithelial cell, annotated wi
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves ciliated airway epithelial cell, annotated with multiciliated columnar cell of tracheobronchial tree (CL:0002145). CL:0002145 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         ciliated airway epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002145" target="_blank" class="curie-chip curie-chip-cl">CL:0002145</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002145" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002145</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves ciliated airway epithelial cell, annotated with multiciliated columnar cell of tracheobronchial tree (CL:0002145). CL:0002145 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4104,18 +4261,20 @@ This pathophysiological event involves ciliated airway epithelial cell, annotate
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         viral genome replication
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go">GO:0019079</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0019079</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4139,18 +4298,20 @@ This pathophysiological event involves viral genome replication (GO:0019079). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in respiratory system (UBERON:0001004). UBERON:0001004 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         respiratory system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001004</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001004</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in respiratory system (UBERON:0001004). UBERON:0001004 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4204,7 +4365,9 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27486739" target="_blank">PMID:27486739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4226,7 +4389,9 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33072092" target="_blank">PMID:33072092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4266,18 +4431,20 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves antiviral innate immune response (GO:0140374). GO:0140374 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         antiviral innate immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140374" target="_blank" class="curie-chip curie-chip-go">GO:0140374</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140374" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0140374</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves antiviral innate immune response (GO:0140374). GO:0140374 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4294,18 +4461,20 @@ This pathophysiological event involves antiviral innate immune response (GO:0140
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves defense response to virus (GO:0051607). GO:0051607 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         defense response to virus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go">GO:0051607</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0051607</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves defense response to virus (GO:0051607). GO:0051607 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4344,7 +4513,9 @@ This pathophysiological event involves defense response to virus (GO:0051607). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24512150" target="_blank">PMID:24512150</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4377,18 +4548,20 @@ This pathophysiological event involves defense response to virus (GO:0051607). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves respiratory epithelial cell, annotated with epithelial cell of lower respiratory tract (CL:0002632). CL:0002632 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         respiratory epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002632" target="_blank" class="curie-chip curie-chip-cl">CL:0002632</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002632</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves respiratory epithelial cell, annotated with epithelial cell of lower respiratory tract (CL:0002632). CL:0002632 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4416,18 +4589,20 @@ This pathophysiological event involves respiratory epithelial cell, annotated wi
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4455,18 +4630,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in respiratory system (UBERON:0001004). UBERON:0001004 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         respiratory system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001004</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001004</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in respiratory system (UBERON:0001004). UBERON:0001004 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4520,7 +4697,9 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33072092" target="_blank">PMID:33072092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4563,18 +4742,20 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in respiratory system (UBERON:0001004). UBERON:0001004 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         respiratory system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001004</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001004</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in respiratory system (UBERON:0001004). UBERON:0001004 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4628,7 +4809,9 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4668,18 +4851,20 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4707,18 +4892,20 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4780,7 +4967,9 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30321228" target="_blank">PMID:30321228</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4876,16 +5065,20 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000509</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype from the Human Phenotype Ontology.">
-                        Conjunctivitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp">HP:0000509</a>
-
-
+This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4906,7 +5099,9 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27486739" target="_blank">PMID:27486739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4947,16 +5142,20 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001742</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotype from the Human Phenotype Ontology.">
-                        Nasal congestion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" class="curie-chip curie-chip-hp">HP:0001742</a>
-
-
+This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4977,7 +5176,9 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5018,16 +5219,20 @@ This clinical feature is Nasal congestion (HP:0001742). HP:0001742 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002090</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.">
-                        Pneumonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp">HP:0002090</a>
-
-
+This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5048,7 +5253,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5089,16 +5296,20 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5119,7 +5330,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5160,16 +5373,20 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025439" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0025439</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype from the Human Phenotype Ontology.">
-                        Pharyngitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025439" target="_blank" class="curie-chip curie-chip-hp">HP:0025439</a>
-
-
+This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5190,7 +5407,9 @@ This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5222,16 +5441,20 @@ This clinical feature is Pharyngitis (HP:0025439). HP:0025439 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012735</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.">
-                        Cough
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp">HP:0012735</a>
-
-
+This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5252,7 +5475,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34712627" target="_blank">PMID:34712627</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5284,16 +5509,20 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5314,7 +5543,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37476615" target="_blank">PMID:37476615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5346,16 +5577,20 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002878</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp">HP:0002878</a>
-
-
+This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5376,7 +5611,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5417,16 +5654,20 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011946" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011946</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as temporality chronic. HP:0011946 is a phenotype from the Human Phenotype Ontology.">
-                        Bronchiolitis obliterans
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011946" target="_blank" class="curie-chip curie-chip-hp">HP:0011946</a>
-
-
+This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as temporality chronic. HP:0011946 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5465,7 +5706,9 @@ This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as tem
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30321228" target="_blank">PMID:30321228</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5527,6 +5770,9 @@ This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as tem
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5543,17 +5789,17 @@ This clinical feature is Bronchiolitis obliterans (HP:0011946), qualified as tem
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5571,6 +5817,14 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5595,7 +5849,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37476615" target="_blank">PMID:37476615</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5617,7 +5873,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5647,17 +5905,17 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5682,21 +5940,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         cidofovir
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1600" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1600</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1600" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C1600</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -5728,7 +6007,9 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8701600" target="_blank">PMID:8701600</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5750,7 +6031,9 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15865216" target="_blank">PMID:15865216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5791,7 +6074,9 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30859626" target="_blank">PMID:30859626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5813,7 +6098,9 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5843,18 +6130,18 @@ This treatment uses cidofovir (NCIT:C1600). NCIT:C1600 is a therapeutic agent fr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">vaccination</span>
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.">NCIT:C15346</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15346">NCIT:C15346</a>
 
 
 
@@ -5872,6 +6159,25 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5896,7 +6202,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23623865" target="_blank">PMID:23623865</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5918,7 +6226,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23623865" target="_blank">PMID:23623865</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5958,6 +6268,10 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
+
                 <div class="item-desc">Close contact in crowded settings facilitates outbreaks of respiratory adenovirus, classically among military recruits.</div>
 
 
@@ -5974,7 +6288,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27486739" target="_blank">PMID:27486739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6004,6 +6320,335 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-respiratory-specimen-adenovirus-pcr">
+                <div class="item-name">
+                    Respiratory-specimen adenovirus PCR
+
+                </div>
+
+                <div class="item-desc">Adenovirus nucleic-acid testing on respiratory specimens detects viral DNA and supports an etiologic diagnosis when interpreted with a compatible syndrome; multiplex respiratory PCR simultaneously assesses clinically overlapping causes.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Detection of adenovirus DNA in a compatible respiratory syndrome supports, but does not by itself establish, active etiologic infection.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28114362" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient blood and sputum samples were subjected to conventional culture, serology, and polymerase chain reaction tests for respiratory viruses and atypical pathogens."</div>
+
+
+                <div class="evidence-explanation">This clinical outbreak study used respiratory-specimen PCR as part of etiologic diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-quantitative-pcr-and-tissue-confirmation-in-severe-or-immunocompromised-disease">
+                <div class="item-name">
+                    Quantitative PCR and tissue confirmation in severe or immunocompromised disease
+
+                </div>
+
+                <div class="item-desc">In severe or disseminated disease, serial quantitative PCR can help follow viral burden; culture, molecular testing, and tissue sampling are interpreted with the affected-organ syndrome.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Rising or persistent adenovirus DNA with compatible organ disease supports progressive infection.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30859626" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30859626" target="_blank">PMID:30859626</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Serial quantitative PCR might play a role in the decision to initiate or assess response to therapy in a symptomatic patient."</div>
+
+
+                <div class="evidence-explanation">Transplant infectious-disease guidance supports serial quantitative PCR in symptomatic patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34856601" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34856601" target="_blank">PMID:34856601</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis requires astute clinical awareness of the patient&#39;s clinical presentation that would be compatible with adenovirus combined with cultures, molecular testing, polymerase chain reaction, and tissue sampling."</div>
+
+
+                <div class="evidence-explanation">This review supports multimodal confirmation in the relevant clinical context.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-human-mastadenovirus">
+                <div class="item-name">Human mastadenovirus</div>
+
+                <div class="item-desc">The human-infecting mastadenoviruses include multiple types with different tissue tropisms. Respiratory disease is especially associated with types in species B, C, and E, although the circulating type distribution varies by place and time.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Human mastadenovirus
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_3567875" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-30">NCBITaxon:3567875</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27486739" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27486739" target="_blank">PMID:27486739</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"More than 50 serotypes of AdV have been identified. Different serotypes display different tissue tropisms that correlate with clinical manifestations of infection."</div>
+
+
+                <div class="evidence-explanation">This review supports a type-diverse human adenovirus agent with type-dependent clinical tropism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6018,7 +6663,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-influenza">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Influenza.html">Influenza</a>
@@ -6063,7 +6708,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6088,7 +6735,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-respiratory-syncytial-virus-infection">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Respiratory_Syncytial_Virus_Infection.html">Respiratory syncytial virus infection</a>
@@ -6133,7 +6780,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6158,7 +6807,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mycoplasma-pneumoniae-pneumonia">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Mycoplasma_Pneumoniae_Pneumonia.html">Mycoplasma pneumoniae pneumonia</a>
@@ -6203,7 +6852,9 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28114362" target="_blank">PMID:28114362</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6238,7 +6889,7 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse157240">
                 <div class="item-name">
                     RNAseq analysis of blood from respiratory viruses-infected patients and healthy controls
 
@@ -6490,7 +7141,7 @@ pathophysiology:
     evidence:
     - reference: PMID:27486739
       reference_title: &#34;Adenovirus: Epidemiology, Global Spread of Novel Serotypes, and Advances in Treatment and Prevention.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Adenoviruses (AdVs) are DNA viruses that typically cause mild infections
@@ -6576,7 +7227,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         High and prolonged fever, nasal congestion, sore throat, and pharyngeal
@@ -6594,7 +7245,7 @@ pathophysiology:
     evidence:
     - reference: PMID:34712627
       reference_title: Analysis of Clinical Characteristics and Risk Factors of Severe Adenovirus Pneumonia in Children.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         All patients had cough, and 116 (92.8%) patients with mild cases and 82
@@ -6612,7 +7263,7 @@ pathophysiology:
     evidence:
     - reference: PMID:37476615
       reference_title: &#34;Pediatric adenovirus pneumonia: clinical practice and current treatment.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         As for pathogenesis, adenoviruses can directly damage target cells and
@@ -6651,7 +7302,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         High and prolonged fever, nasal congestion, sore throat, and pharyngeal
@@ -6666,7 +7317,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         High and prolonged fever, nasal congestion, sore throat, and pharyngeal
@@ -6682,7 +7333,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         High and prolonged fever, nasal congestion, sore throat, and pharyngeal
@@ -6729,7 +7380,7 @@ pathophysiology:
     evidence:
     - reference: PMID:28114362
       reference_title: Clinical Features and Courses of Adenovirus Pneumonia in Healthy Young Adults during an Outbreak among Korean Military Personnel.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: HAdV pneumonia infected recruit trainees most frequently.
       explanation: &gt;-
@@ -6742,7 +7393,7 @@ pathophysiology:
     evidence:
     - reference: PMID:37476615
       reference_title: &#34;Pediatric adenovirus pneumonia: clinical practice and current treatment.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Early clinical recognition depends on patients&#39; symptoms and laboratory
@@ -6772,7 +7423,7 @@ pathophysiology:
     evidence:
     - reference: PMID:30321228
       reference_title: Epidemiology, clinical presentation and respiratory sequelae of adenovirus pneumonia in children in Kuala Lumpur, Malaysia.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Twenty-two percent developed respiratory complications, the commonest being
@@ -7287,7 +7938,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Adenovirus Respiratory Infection", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenovirus_Respiratory_Infection", "yamlRevision": "8d63d3ef134d"};
+        const OS_CONFIG = {"diseaseName": "Adenovirus Respiratory Infection", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenovirus_Respiratory_Infection", "yamlRevision": "0d84af200617"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7706,5 +8357,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

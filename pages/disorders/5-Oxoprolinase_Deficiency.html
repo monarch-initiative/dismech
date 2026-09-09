@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>5-Oxoprolinase Deficiency</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>5-Oxoprolinase Deficiency</h1>
             <div class="header-meta">
 
@@ -3924,7 +4071,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance-of-the-biochemical-phenotype">
                 <div class="item-name">
                     Autosomal recessive inheritance of the biochemical phenotype
 
@@ -3974,7 +4121,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3997,7 +4146,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4020,7 +4171,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25129617" target="_blank">PMID:25129617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4094,14 +4247,14 @@
 
 
 
-    <span class="entity-ref-chip">phenotype#Delayed speech and language development</span>
+    <a class="entity-ref-chip" href="#phenotype-delayed-speech-and-language-development">phenotypes#Delayed speech and language development</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotype#Seizure</span>
+    <a class="entity-ref-chip" href="#phenotype-seizure">phenotypes#Seizure</a>
 
 
 
@@ -4131,6 +4284,12 @@
 
         <div class="item-desc" style="margin-top: 8px;">Ascertain biallelic OPLAH carriers without selecting for neurologic disease, quantify urinary and plasma 5-oxoproline longitudinally, and use standardized developmental, neurologic, renal, hematologic, and gastrointestinal assessments against matched controls.
 </div>
+
+
+
+
+
+
 
 
 
@@ -4184,6 +4343,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4201,6 +4366,12 @@
 
         <div class="item-desc" style="margin-top: 8px;">Compare OPLAH-deficient and isogenic rescued human neuronal cells or organoids for 5-oxoproline accumulation, electrophysiology, myelination-related readouts, cell stress, and dose-response to exogenous 5-oxoproline.
 </div>
+
+
+
+
+
+
 
 
 
@@ -4245,7 +4416,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21651516" target="_blank">PMID:21651516</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4267,7 +4440,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4289,7 +4464,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9453376" target="_blank">PMID:9453376</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4345,17 +4522,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves OPLAH (hgnc:8149). hgnc:8149 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         OPLAH
 
 
-    <a href="https://bioregistry.io/hgnc:8149" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8149</a>
+    <a href="https://bioregistry.io/hgnc:8149" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8149</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OPLAH (hgnc:8149). hgnc:8149 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4385,18 +4566,20 @@ This pathophysiological event involves OPLAH (hgnc:8149). hgnc:8149 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased 5-oxoprolinase (ATP-hydrolyzing) activity (GO:0017168). GO:0017168 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         5-oxoprolinase (ATP-hydrolyzing) activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0017168" target="_blank" class="curie-chip curie-chip-go">GO:0017168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0017168" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0017168</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased 5-oxoprolinase (ATP-hydrolyzing) activity (GO:0017168). GO:0017168 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4454,7 +4637,9 @@ This pathophysiological event involves decreased 5-oxoprolinase (ATP-hydrolyzing
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21651516" target="_blank">PMID:21651516</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4476,7 +4661,9 @@ This pathophysiological event involves decreased 5-oxoprolinase (ATP-hydrolyzing
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6113726" target="_blank">PMID:6113726</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4499,7 +4686,9 @@ This pathophysiological event involves decreased 5-oxoprolinase (ATP-hydrolyzing
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25129617" target="_blank">PMID:25129617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4575,7 +4764,9 @@ This pathophysiological event involves decreased 5-oxoprolinase (ATP-hydrolyzing
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4597,7 +4788,9 @@ This pathophysiological event involves decreased 5-oxoprolinase (ATP-hydrolyzing
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6113726" target="_blank">PMID:6113726</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4691,16 +4884,20 @@ This pathophysiological event involves decreased 5-oxoprolinase (ATP-hydrolyzing
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0004387</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Enterocolitis (HP:0004387). HP:0004387 is a phenotype from the Human Phenotype Ontology.">
-                        Enterocolitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004387" target="_blank" class="curie-chip curie-chip-hp">HP:0004387</a>
-
-
+This clinical feature is Enterocolitis (HP:0004387). HP:0004387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4715,13 +4912,15 @@ This clinical feature is Enterocolitis (HP:0004387). HP:0004387 is a phenotype f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:6113726" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:6113726" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6113726" target="_blank">PMID:6113726</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4763,16 +4962,20 @@ This clinical feature is Enterocolitis (HP:0004387). HP:0004387 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0000787</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.">
-                        Nephrolithiasis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000787" target="_blank" class="curie-chip curie-chip-hp">HP:0000787</a>
-
-
+This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4787,13 +4990,15 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:6113726" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:6113726" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6113726" target="_blank">PMID:6113726</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4835,16 +5040,20 @@ This clinical feature is Nephrolithiasis (HP:0000787). HP:0000787 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.">
-                        Delayed speech and language development
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp">HP:0000750</a>
-
-
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4859,13 +5068,15 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4888,7 +5099,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4911,7 +5124,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9453376" target="_blank">PMID:9453376</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4944,16 +5159,20 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4968,13 +5187,15 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4990,13 +5211,15 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41675684" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41675684" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41675684" target="_blank">PMID:41675684</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5019,7 +5242,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41675684" target="_blank">PMID:41675684</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5063,16 +5288,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001510</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.">
-                        Growth delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp">HP:0001510</a>
-
-
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5087,13 +5316,15 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41675684" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41675684" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41675684" target="_blank">PMID:41675684</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5116,7 +5347,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9453376" target="_blank">PMID:9453376</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5160,16 +5393,22 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased level of L-pyroglutamic acid in urine</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410132" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0410132</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased level of L-pyroglutamic acid in urine (HP:0410132). HP:0410132 is a phenotype from the Human Phenotype Ontology.">
-                        Increased level of L-pyroglutamic acid in urine
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0410132" target="_blank" class="curie-chip curie-chip-hp">HP:0410132</a>
-
-
+This clinical feature is Increased level of L-pyroglutamic acid in urine (HP:0410132). HP:0410132 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5190,7 +5429,9 @@ This clinical feature is Increased level of L-pyroglutamic acid in urine (HP:041
                         <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5212,7 +5453,9 @@ This clinical feature is Increased level of L-pyroglutamic acid in urine (HP:041
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5289,15 +5532,17 @@ This clinical feature is Increased level of L-pyroglutamic acid in urine (HP:041
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: OPLAH
 
 
-    <a href="https://bioregistry.io/hgnc:8149" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8149</a>
+    <a href="https://bioregistry.io/hgnc:8149" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:8149</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5321,7 +5566,9 @@ This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5343,7 +5590,9 @@ This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5386,6 +5635,8 @@ This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the 
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5398,7 +5649,9 @@ This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21651516" target="_blank">PMID:21651516</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5420,7 +5673,9 @@ This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5442,7 +5697,9 @@ This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25129617" target="_blank">PMID:25129617</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5477,6 +5734,9 @@ This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5495,18 +5755,18 @@ This disease-associated gene is OPLAH (hgnc:8149). hgnc:8149 is a gene from the 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5524,6 +5784,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5549,7 +5817,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5565,13 +5835,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5604,17 +5876,17 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -5632,6 +5904,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5657,7 +5937,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5679,7 +5961,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5801,7 +6085,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5823,7 +6109,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6113726" target="_blank">PMID:6113726</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5904,7 +6192,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5926,7 +6216,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6113726" target="_blank">PMID:6113726</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5952,6 +6244,1148 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-persistent-urinary-5-oxoproline-by-organic-acid-analysis">
+                <div class="item-name">
+                    Persistent urinary 5-oxoproline by organic acid analysis
+
+                </div>
+
+                <div class="item-desc">Detect and quantify 5-oxoproline in urine, typically by GC-MS. Persistence supports an inherited biochemical defect but is not specific for OPLAH deficiency, so etiologic confirmation and exclusion of secondary causes are required.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        urine chemistry measurement
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61044" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-12">NCIT:C61044</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Markedly elevated or repeatedly elevated urinary 5-oxoproline (L-pyroglutamic acid).
+</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17397529" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The level of 5-oxoproline in urine can be determined by gas chromatography-mass spectrometry"</div>
+
+
+                <div class="evidence-explanation">The review identifies urinary GC-MS as the biochemical test.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"quantitation of 5-oxoproline by stable isotope dilution gave a value of 177.9 mmol/mol creatinine"</div>
+
+
+                <div class="evidence-explanation">A recent case demonstrates quantitative confirmation of the urinary marker.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-biallelic-oplah-molecular-confirmation">
+                <div class="item-name">
+                    Biallelic OPLAH molecular confirmation
+
+                </div>
+
+                <div class="item-desc">Confirm biallelic OPLAH variants in trans that are consistent with the biochemical phenotype. Persistent 5-oxoprolinuria with only one OPLAH variant is insufficient to establish recessive OPLAH deficiency; variant interpretation should incorporate segregation, enzyme activity, and allele-specific functional evidence.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-13">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Homozygous or compound-heterozygous OPLAH variants in trans, with evidence linking them to deficient enzyme activity or persistent 5-oxoprolinuria.
+</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27477828" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In all patients with 5-oxoprolinuria studied, bi-allelic mutations in OPLAH were indicated."</div>
+
+
+                <div class="evidence-explanation">The largest series supports biallelic molecular confirmation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25129617" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25129617" target="_blank">PMID:25129617</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A yeast in vivo growth assay revealed that only p.S323R, p.G860R and p.D1241V affected the activity of the enzyme."</div>
+
+
+                <div class="evidence-explanation">Functional discrimination among reported missense variants supports cautious variant interpretation rather than accepting any rare change.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-5-oxoprolinase-activity-assay">
+                <div class="item-name">
+                    5-oxoprolinase activity assay
+
+                </div>
+
+                <div class="item-desc">When available, measure 5-oxoprolinase activity in leukocytes or cultured skin fibroblasts. Do not use erythrocytes, which normally lack the enzyme.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical laboratory procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-14">NCIT:C25294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Markedly reduced 5-oxoprolinase activity in an appropriate nucleated-cell specimen.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17397529" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"leukocytes or cultured skin fibroblasts (5-oxoprolinase is not present in erythrocytes)."</div>
+
+
+                <div class="evidence-explanation">The review defines the appropriate and inappropriate assay tissues.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6113726" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6113726" target="_blank">PMID:6113726</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the activity of which was 2-4% of that of control subjects."</div>
+
+
+                <div class="evidence-explanation">The original patients had a severe measurable enzyme deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-attribution-and-alternative-diagnosis-assessment">
+                <div class="item-name">
+                    Clinical attribution and alternative-diagnosis assessment
+
+                </div>
+
+                <div class="item-desc">In a symptomatic person, do not treat an OPLAH result or 5-oxoprolinuria as a sufficient explanation for neurologic or systemic findings. Review acid-base status, complete blood count and hemolysis markers, medication and nutrition history, renal function, intercurrent illness, and consider broad genomic testing for an independent diagnosis.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21651516" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21651516" target="_blank">PMID:21651516</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"establishing a molecular diagnosis in the few cases with abnormal neurological outcome to exclude potentially overlapping biochemical defects"</div>
+
+
+                <div class="evidence-explanation">The first molecular report explicitly recommends excluding overlapping biochemical diagnoses in neurologically abnormal cases.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27477828" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although a pathogenic role of 5-oxoprolinase deficiency remains possible, this is not supported by our findings."</div>
+
+
+                <div class="evidence-explanation">The largest family series cautions against default clinical attribution to OPLAH deficiency.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-cerebral-atrophy-on-brain-mri">
+                <div class="item-name">
+                    Cerebral atrophy on brain MRI
+
+                </div>
+
+                <div class="item-desc">Progressive cerebral atrophy was one component of a case-specific MRI constellation that is not established as an OPLAH-associated pattern.
+</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+
+                    <span class="tag">Single reported symptomatic child; causal attribution to OPLAH deficiency is uncertain.</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Cerebral atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002059</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Cerebral atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002059</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia were striking features in brain MRI."</div>
+
+
+                <div class="evidence-explanation">A single case documents the imaging finding but cannot establish disease attribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-cerebral-hypomyelination-on-brain-mri">
+                <div class="item-name">
+                    Cerebral hypomyelination on brain MRI
+
+                </div>
+
+                <div class="item-desc">Hypomyelination was reported in one child and is not established as a recurring OPLAH-associated MRI finding.
+</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+
+                    <span class="tag">Single reported symptomatic child; causal attribution to OPLAH deficiency is uncertain.</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Cerebral hypomyelination
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0006808</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Cerebral hypomyelination
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0006808</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia were striking features in brain MRI."</div>
+
+
+                <div class="evidence-explanation">A single case documents the imaging finding but cannot establish disease attribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-ventriculomegaly-on-brain-mri">
+                <div class="item-name">
+                    Ventriculomegaly on brain MRI
+
+                </div>
+
+                <div class="item-desc">Ventriculomegaly was reported in one child and is not established as a recurring OPLAH-associated MRI finding.
+</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+
+                    <span class="tag">Single reported symptomatic child; causal attribution to OPLAH deficiency is uncertain.</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Ventriculomegaly
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002119</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Ventriculomegaly
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002119</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia were striking features in brain MRI."</div>
+
+
+                <div class="evidence-explanation">A single case documents the imaging finding but cannot establish disease attribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-corpus-callosum-hypoplasia-on-brain-mri">
+                <div class="item-name">
+                    Corpus callosum hypoplasia on brain MRI
+
+                </div>
+
+                <div class="item-desc">Corpus callosum hypoplasia was reported in one child and is not established as a recurring OPLAH-associated MRI finding.
+</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+
+                    <span class="tag">Single reported symptomatic child; causal attribution to OPLAH deficiency is uncertain.</span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Hypoplasia of the corpus callosum
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002079</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Hypoplasia of the corpus callosum
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002079</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39129838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39129838" target="_blank">PMID:39129838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia were striking features in brain MRI."</div>
+
+
+                <div class="evidence-explanation">A single case documents the imaging finding but cannot establish disease attribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-persistent-biochemical-phenotype">
+                <div class="item-name">Persistent biochemical phenotype</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Urinary 5-oxoproline can be detected from infancy onward and may remain persistently elevated despite a largely benign clinical course. There is no established sequence of clinical progression attributable to OPLAH deficiency.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21651516" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21651516" target="_blank">PMID:21651516</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"largely benign clinical course of the patients described herein despite persistent 5-oxoprolinuria"</div>
+
+
+                <div class="evidence-explanation">The first molecular report documents persistence of the biochemical phenotype without a corresponding progressive clinical course.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">&le;0.1 per 100,000
+                    </span>
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">This is an Orphanet rarity category rather than a population-derived prevalence estimate. Published evidence consists of case reports and small family series.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:33572" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:33572" target="_blank">ORPHA:33572</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | ORPHANET"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies worldwide point prevalence below one per million.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -5966,7 +7400,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-glutathione-synthetase-deficiency">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Glutathione_Synthetase_Deficiency.html">Glutathione synthetase deficiency</a>
@@ -6018,7 +7452,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6040,7 +7476,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6066,7 +7504,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-acquired-drug-related-pyroglutamic-acidosis">
                 <div class="item-name">
 
                     Acquired drug-related pyroglutamic acidosis
@@ -6114,7 +7552,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39407841" target="_blank">PMID:39407841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6136,7 +7576,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39407841" target="_blank">PMID:39407841</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6161,7 +7603,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-secondary-or-transient-5-oxoprolinuria">
                 <div class="item-name">
 
                     Other secondary or transient 5-oxoprolinuria
@@ -6207,7 +7649,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17397529" target="_blank">PMID:17397529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6232,7 +7676,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-independent-neurologic-developmental-renal-or-gastrointestinal-disorder">
                 <div class="item-name">
 
                     Independent neurologic, developmental, renal, or gastrointestinal disorder
@@ -6278,7 +7722,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27477828" target="_blank">PMID:27477828</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6334,7 +7780,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <pre class="yaml-preview">name: 5-Oxoprolinase Deficiency
 category: Mendelian
 creation_date: &#39;2026-05-03T00:00:00Z&#39;
-updated_date: &#39;2026-07-16T00:00:00Z&#39;
 synonyms:
 - Oxoprolinuria due to oxoprolinase deficiency
 - OPLAH deficiency
@@ -6417,6 +7862,7 @@ prevalence:
     family series.
   evidence:
   - reference: ORPHA:33572
+    reference_title: &#34;5-oxoprolinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;&lt;1 / 1 000 000 | Worldwide | Point prevalence | ORPHANET&#34;
@@ -6558,6 +8004,7 @@ phenotypes:
       label: Increased level of L-pyroglutamic acid in urine
   evidence:
   - reference: ORPHA:33572
+    reference_title: &#34;5-oxoprolinase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0410132 | Increased level of L-pyroglutamic acid in urine | Very frequent (99-80%)&#34;
@@ -6583,7 +8030,7 @@ phenotypes:
   evidence:
   - reference: PMID:39129838
     reference_title: Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       He did not speak fluently. He was using 5-10 words with decreased
@@ -6624,13 +8071,13 @@ phenotypes:
   evidence:
   - reference: PMID:39129838
     reference_title: Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;presented with epilepsy at the age of 2 years.&#34;
     explanation: A single case establishes co-occurrence of epilepsy and an OPLAH variant.
   - reference: PMID:41675684
     reference_title: &#34;5-Oxoprolinase Deficiency and Epilepsy: A Report of Four Cases with New Clinical Findings and Clinical Diversity Even in the Same Family.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients had unreported clinical symptoms such as growth retardation and drug-resistant epilepsy.&#34;
     explanation: &gt;
@@ -6666,7 +8113,7 @@ phenotypes:
   evidence:
   - reference: PMID:41675684
     reference_title: &#34;5-Oxoprolinase Deficiency and Epilepsy: A Report of Four Cases with New Clinical Findings and Clinical Diversity Even in the Same Family.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients had unreported clinical symptoms such as growth retardation and drug-resistant epilepsy.&#34;
     explanation: &gt;
@@ -6695,7 +8142,7 @@ phenotypes:
   evidence:
   - reference: PMID:6113726
     reference_title: 5-oxoprolinuria due to hereditary 5-oxoprolinase deficiency in two brothers--a new inborn error of the gamma-glutamyl cycle.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Their father and several paternal relatives have had kidney stones. Both boys developed urolithiasis&#34;
     explanation: &gt;
@@ -6714,7 +8161,7 @@ phenotypes:
   evidence:
   - reference: PMID:6113726
     reference_title: 5-oxoprolinuria due to hereditary 5-oxoprolinase deficiency in two brothers--a new inborn error of the gamma-glutamyl cycle.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In spite of extensive investigations no cause of their enterocolitis could be established.&#34;
     explanation: &gt;
@@ -6741,7 +8188,7 @@ imaging_findings:
   evidence:
   - reference: PMID:39129838
     reference_title: Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia were striking features in brain MRI.&#34;
     explanation: A single case documents the imaging finding but cannot establish disease attribution.
@@ -6765,7 +8212,7 @@ imaging_findings:
   evidence:
   - reference: PMID:39129838
     reference_title: Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia were striking features in brain MRI.&#34;
     explanation: A single case documents the imaging finding but cannot establish disease attribution.
@@ -6789,7 +8236,7 @@ imaging_findings:
   evidence:
   - reference: PMID:39129838
     reference_title: Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia were striking features in brain MRI.&#34;
     explanation: A single case documents the imaging finding but cannot establish disease attribution.
@@ -6813,7 +8260,7 @@ imaging_findings:
   evidence:
   - reference: PMID:39129838
     reference_title: Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Progressive cerebral atrophy, hypomyelination, ventriculomegaly, and corpus callosum hypoplasia were striking features in brain MRI.&#34;
     explanation: A single case documents the imaging finding but cannot establish disease attribution.
@@ -7120,7 +8567,7 @@ treatments:
     explanation: The disease review reports no specific OPLAH-deficiency treatment.
   - reference: PMID:39129838
     reference_title: Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;well-controlled epilepsy with levetiracetam.&#34;
     explanation: &gt;
@@ -7213,8 +8660,8 @@ discussions:
   status: OPEN
   attaches_to:
   - pathophysiology#5-oxo-L-proline accumulation and urinary excretion
-  - phenotype#Delayed speech and language development
-  - phenotype#Seizure
+  - phenotypes#Delayed speech and language development
+  - phenotypes#Seizure
   rationale: &gt;
     The enzyme defect, recessive segregation, and persistent 5-oxoprolinuria
     are established. Earlier molecular reports describe benign courses, and the
@@ -8530,7 +9977,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "5-Oxoprolinase Deficiency", "mondoId": "MONDO:0009825", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "5-Oxoprolinase_Deficiency", "yamlRevision": "67e41cf9eb95"};
+        const OS_CONFIG = {"diseaseName": "5-Oxoprolinase Deficiency", "mondoId": "MONDO:0009825", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "5-Oxoprolinase_Deficiency", "yamlRevision": "360303590d9e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8949,5 +10396,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

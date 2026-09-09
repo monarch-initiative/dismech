@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>L-2-Hydroxyglutaric Aciduria</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>L-2-Hydroxyglutaric Aciduria</h1>
             <div class="header-meta">
 
@@ -3884,6 +4031,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3893,9 +4110,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICIMD (Inherited Metabolic Disorders)</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ICIMD package WP-031 places L2HGDH-related L-2-hydroxyglutarate dehydrogenase deficiency under Intermediary Metabolism: Others -&gt; Disorders of metabolite repair/proofreading, consistent with the entry&#39;s existing metabolite-repair framing for L-2-HG clearance.">metabolite proofreading</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3939,18 +4172,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3978,17 +4213,21 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         L2HGDH
 
 
-    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20499</a>
+    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:20499</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4017,22 +4256,67 @@ This pathophysiological event involves L2HGDH (hgnc:20499). hgnc:20499 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves organic acid metabolic process (GO:0006082). GO:0006082 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         organic acid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006082" target="_blank" class="curie-chip curie-chip-go">GO:0006082</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006082</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased organic acid metabolic process (GO:0006082). GO:0006082 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        L-2-hydroxyglutarate dehydrogenase metabolite-repair activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0047545" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0047545</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased L-2-hydroxyglutarate dehydrogenase metabolite-repair activity, annotated with (S)-2-hydroxyglutarate dehydrogenase activity (GO:0047545). GO:0047545 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
 
 
 
@@ -4048,22 +4332,23 @@ This pathophysiological event involves organic acid metabolic process (GO:000608
 
 
 
-
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4101,7 +4386,9 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4123,7 +4410,9 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4157,18 +4446,20 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4196,22 +4487,28 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves organic acid metabolic process (GO:0006082). GO:0006082 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         organic acid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006082" target="_blank" class="curie-chip curie-chip-go">GO:0006082</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006082</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased organic acid metabolic process (GO:0006082). GO:0006082 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
 
 
 
@@ -4231,18 +4528,20 @@ This pathophysiological event involves organic acid metabolic process (GO:000608
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4344,7 +4643,9 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4366,7 +4667,9 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4400,18 +4703,20 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4428,18 +4733,20 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         oligodendrocyte precursor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl">CL:0002453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4456,18 +4763,20 @@ This pathophysiological event involves oligodendrocyte precursor cell (CL:000245
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4495,23 +4804,28 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         myelination
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
 
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
 
 
 
@@ -4523,22 +4837,29 @@ This pathophysiological event involves myelination (GO:0042552). GO:0042552 is a
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves reactive gliosis (GO:0150103). GO:0150103 is a biological process from the Gene Ontology.">
+
+
+                    <span class="tag tag-bio">
                         reactive gliosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0150103" target="_blank" class="curie-chip curie-chip-go">GO:0150103</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0150103" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0150103</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased reactive gliosis (GO:0150103). GO:0150103 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
 
 
 
@@ -4558,48 +4879,54 @@ This pathophysiological event involves reactive gliosis (GO:0150103). GO:0150103
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:0002316 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         white matter
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002316</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:0002316 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         basal ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002420</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002420</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON:0002132 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         dentate nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002132" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002132</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002132" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002132</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON:0002132 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4693,7 +5020,9 @@ This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28137912" target="_blank">PMID:28137912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4715,7 +5044,9 @@ This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4759,93 +5090,105 @@ This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         basal ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002420</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002420</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in globus pallidus (UBERON:0001875). UBERON:0001875 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         globus pallidus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001875" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001875</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001875" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0001875</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in globus pallidus (UBERON:0001875). UBERON:0001875 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in putamen (UBERON:0001874). UBERON:0001874 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         putamen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001874" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001874</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001874" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0001874</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in putamen (UBERON:0001874). UBERON:0001874 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in caudate nucleus (UBERON:0001873). UBERON:0001873 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         caudate nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001873" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001873</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001873" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0001873</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in caudate nucleus (UBERON:0001873). UBERON:0001873 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON:0002132 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         dentate nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002132" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002132</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002132" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002132</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in dentate nucleus (UBERON:0002132). UBERON:0002132 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cerebellum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4923,7 +5266,9 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4945,7 +5290,9 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4986,23 +5333,28 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         oxidative phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0006119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
 
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
 
 
 
@@ -5014,23 +5366,29 @@ This pathophysiological event involves oxidative phosphorylation (GO:0006119). G
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.">
+
+
+                    <span class="tag tag-bio">
                         glycolytic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go">GO:0006096</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006096" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0006096</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased glycolytic process (GO:0006096). GO:0006096 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
 
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
 
 
 
@@ -5042,22 +5400,29 @@ This pathophysiological event involves glycolytic process (GO:0006096). GO:00060
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
 
 
 
@@ -5077,18 +5442,20 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5111,7 +5478,9 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38862727" target="_blank">PMID:38862727</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5133,7 +5502,9 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5174,22 +5545,28 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves DNA demethylation, annotated with chromosomal 5-methylcytosine DNA demethylation pathway (GO:0141166). GO:0141166 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         DNA demethylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0141166" target="_blank" class="curie-chip curie-chip-go">GO:0141166</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0141166" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0141166</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased DNA demethylation, annotated with chromosomal 5-methylcytosine DNA demethylation pathway (GO:0141166). GO:0141166 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
 
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
 
 
 
@@ -5207,22 +5584,28 @@ This pathophysiological event involves DNA demethylation, annotated with chromos
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves histone demethylase activity (GO:0032452). GO:0032452 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         histone demethylase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032452" target="_blank" class="curie-chip curie-chip-go">GO:0032452</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032452" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0032452</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased histone demethylase activity (GO:0032452). GO:0032452 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
 
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
 
 
 
@@ -5241,18 +5624,20 @@ This pathophysiological event involves histone demethylase activity (GO:0032452)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in nucleus (GO:0005634). GO:0005634 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" class="curie-chip curie-chip-go">GO:0005634</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0005634</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in nucleus (GO:0005634). GO:0005634 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5275,7 +5660,9 @@ This pathophysiological event occurs in nucleus (GO:0005634). GO:0005634 is an a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38716347" target="_blank">PMID:38716347</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5297,7 +5684,9 @@ This pathophysiological event occurs in nucleus (GO:0005634). GO:0005634 is an a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28137912" target="_blank">PMID:28137912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5345,7 +5734,7 @@ This pathophysiological event occurs in nucleus (GO:0005634). GO:0005634 is an a
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Basal ganglia and cerebellar circuit involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L2HGA affects basal ganglia, globus pallidus/putamen/caudate, dentate nucleus, and cerebellar circuits on neuroimaging and neurological examination. These lesions provide a mechanistic bridge from the metabolic brain disease to extrapyramidal movement disorders and cerebellar signs.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglion\", \"globus pallidus\", \"putamen\", \"caudate nucleus\", \"dentate nucleus\", \"cerebellum\"]}}, {\"id\": \"Behavioral abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems are commonly reported in L2HGA patients and may be more prevalent than in other cerebral organic acidurias.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"CNS neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"L2HGA patients have a significantly increased lifetime risk of central nervous system tumors, including malignant glioma. Despite the theoretical epigenetic effects of L-2-HG on TET enzymes, L2HGA-associated tumors do not typically show IDH-mutant-like methylation profiles, suggesting a distinct oncogenetic mechanism.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0100836\"}}, {\"id\": \"Cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia is a hallmark feature of L2HGA, correlating with dentate nucleus and cerebellar white matter involvement on MRI. It manifests as gait instability, dysmetria, and intention tremor.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Chorea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Choreic movements may occur in L2HGA, particularly affecting the upper extremities, as part of the extrapyramidal movement disorder spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002072\"}}, {\"id\": \"Deep brain stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bilateral globus pallidus internus deep brain stimulation (GPi-DBS) has been used for L2HGA-related refractory dystonia with reported significant improvements in mobility and dystonia severity. This represents an emerging intervention for severe, pharmacoresistant movement disorders in L2HGA.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dietary intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary management may be employed as part of the treatment approach, though the evidence base is less established than for other organic acidemias. Unlike glutaric aciduria type I, there is no specific amino acid restriction protocol for L2HGA.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech difficulties including slurred speech are common in L2HGA, related to cerebellar and basal ganglia dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized dystonia occurs in L2HGA, relating to basal ganglia involvement. In severe cases, dystonia may be refractory to pharmacotherapy and require deep brain stimulation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG is a structural analog of alpha-ketoglutarate and can inhibit alpha-KG-dependent dioxygenases, including TET DNA hydroxylases and JmjC histone demethylases. In L2HGDH-deficient mouse brain, this manifests as increased histone methylation, linking metabolite accumulation to epigenetic perturbation.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA demethylation\"], \"molecular_functions\": [\"histone demethylase activity\"], \"locations\": [\"nucleus\"]}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide-based and unsteady gait is a common manifestation of cerebellar dysfunction in L2HGA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Genetic counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Genetic counseling for affected families addressing autosomal recessive inheritance, 25% recurrence risk, carrier testing for at-risk relatives, and prenatal/preimplantation testing options. Consanguinity is a significant factor in many reported families.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia is reported as a prominent early-stage motor phenotype in L2HGA, preceding later spasticity in some patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is present in the majority of L2HGA patients. Severity ranges from mild to severe and is progressive.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intention tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intention tremor is a cerebellar sign commonly observed in L2HGA, reflecting cerebellar and dentate nucleus dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002080\"}}, {\"id\": \"L-2-hydroxyglutarate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of L-2-hydroxyglutarate dehydrogenase activity impairs the metabolite-repair pathway that clears L-2-hydroxyglutarate (L-2-HG), an aberrant off-pathway metabolite produced from alpha-ketoglutarate by L-malate dehydrogenase. L-2-HG accumulates in body fluids, with urinary L-2-HG 10-300 times above normal and plasma and CSF also elevated.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L-2-hydroxyglutaric acid (CSF)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"L-2-hydroxyglutarate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CSF L-2-HG reports CNS-enriched L-2-HG accumulation.\"}]}}, {\"id\": \"L-2-hydroxyglutaric acid (plasma)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"L-2-hydroxyglutarate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Plasma L-2-HG elevation supports systemic L-2-HG accumulation, with CSF/plasma comparison indicating CNS enrichment.\"}]}}, {\"id\": \"L-2-hydroxyglutaric acid (urine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"L-2-hydroxyglutarate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Markedly increased urinary L-2-HG is the primary diagnostic readout of impaired L2HGDH-mediated metabolite repair.\"}]}}, {\"id\": \"L2HGDH enzymatic deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in L2HGDH reduce mitochondrial L-2-hydroxyglutarate dehydrogenase metabolite-repair activity, impairing conversion of L-2-hydroxyglutarate back to 2-ketoglutarate.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L2HGDH variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"Levocarnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levocarnitine is used alongside riboflavin as part of standard metabolic therapy for L2HGA. It supports organic acid detoxification and excretion pathways.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levocarnitine\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrocephaly has been reported in approximately 50-75% of L2HGA patients in various cohorts and is a useful diagnostic clue.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated L-2-HG perturbs mitochondrial bioenergetics, inhibits energy-buffering enzymes in experimental tissue systems, induces oxidative stress, and shifts neuronal cell metabolism toward anaerobic glycolysis.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\", \"glycolytic process\", \"response to oxidative stress\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Neuroimaging surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular brain MRI monitoring to track disease progression and to screen for CNS tumor development, given the elevated tumor risk in L2HGA patients. MR spectroscopy can provide additional metabolic information.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychomotor retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor and cognitive milestones are typically the earliest presenting features of L2HGA in childhood.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Riboflavin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Riboflavin (vitamin B2), the precursor of FAD cofactor required by L2HGDH, is the cornerstone therapy for L2HGA. FAD supplementation aims to enhance any residual enzyme activity and accelerate conversion of L-2-HG to alpha-ketoglutarate. In cohort studies, riboflavin combined with levocarnitine produced significant decreases in urinary 2-HG levels and limited neurologic improvement.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"riboflavin\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy occurs in a significant proportion of L2HGA patients, with seizures reported in 30-75% of cases across different cohorts. Seizure types are variable.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper motor neuron signs including exaggerated tendon reflexes, clonus, and Babinski signs are common in L2HGA, reflecting corticospinal tract involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Subcortical leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI shows a characteristic pattern of subcortical white matter T2/FLAIR hyperintensity in a centripetal distribution, particularly involving the U-fibers, along with basal ganglia and dentate nuclei signal abnormalities. This pattern is highly specific for L2HGA.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002352\"}}, {\"id\": \"Supportive care and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Comprehensive supportive care including physical therapy, occupational therapy, speech therapy, and educational support is essential for managing the chronic neurological disabilities of L2HGA.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Urinary 2-OH-glutaric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"L-2-hydroxyglutarate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Non-chiral urinary 2-OH-glutaric acid is a screening readout that requires chiral differentiation to assign the L-enantiomer.\"}]}}, {\"id\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG accumulation leads to selective vulnerability of subcortical cerebral white matter with basal ganglia and dentate nucleus involvement. In mouse models, L2HGDH deficiency causes progressive leukoencephalopathy with white matter abnormalities, extensive gliosis, microglia-mediated neuroinflammation, and expansion of oligodendrocyte progenitor cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\", \"oligodendrocyte precursor cell\", \"microglial cell\"], \"biological_processes\": [\"myelination\", \"reactive gliosis\"], \"locations\": [\"white matter\", \"basal ganglion\", \"dentate nucleus\"]}}, {\"id\": \"c.164G\u003eA (p.Gly55Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant affecting a conserved glycine residue, identified in a patient with severe dystonia requiring DBS intervention.\\n\", \"meta\": {\"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}]}}, {\"id\": \"c.407delA and c.699_700insA compound heterozygous\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous frameshift mutations leading to premature termination codons and truncated FAD/NAD(P)-binding domain. Identified in a Chinese patient with psychomotor retardation and progressive ataxia.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}]}}, {\"id\": \"c.829C\u003eT (p.Arg227*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense variant creating a premature stop codon, identified in a consanguineous Pakistani family. Both affected sisters were homozygous.\\n\", \"meta\": {\"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}]}}], \"edges\": [{\"source\": \"L2HGDH enzymatic deficiency\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of L2HGDH metabolite-repair activity causes progressive L-2-HG buildup in body fluids and brain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (urine)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic L-2-HG buildup is reflected by markedly increased urinary L-2-HG.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (CSF)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L-2-HG also accumulates in CSF, consistent with CNS enrichment of the metabolite.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (plasma)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L-2-HG accumulation is measurable in plasma as well as urine and CSF.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Urinary 2-OH-glutaric acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Standard urine organic acid testing detects elevated 2-hydroxyglutaric acid, with chiral testing assigning the L-enantiomer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic L-2-HG elevation drives selective white-matter injury and neuroinflammatory remodeling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Gliosis, microglia-mediated neuroinflammation, and oligodendrocyte progenitor expansion in L2hgdh-deficient brain.\", \"Progressive white-matter and deep gray signal abnormalities visible on MRI.\"]}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L-2-HG perturbs mitochondrial bioenergetics and shifts cellular metabolism toward anaerobic pathways.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Creatine kinase inhibition, oxidative stress, and altered glucose metabolism under high L-2-HG exposure.\", \"Reduced mitochondrial respiratory reserve with increased anaerobic glycolytic flux in neuronal cells.\"]}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L-2-HG can interfere with alpha-KG-dependent chromatin enzymes, altering epigenetic regulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"L-2-HG acts as a 2-ketoglutarate analog that can impair histone and DNA demethylase activity.\", \"L2hgdh-deficient tissues show increased histone methylation in vivo.\"]}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"CNS neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L2HGA is associated with increased CNS tumor risk, but human tumor methylation data indicate that the oncogenic intermediates are unresolved and not simply IDH-mutant-like hypermethylation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Basal ganglia and cerebellar circuit involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L2HGA neuroimaging repeatedly involves basal ganglia and dentate/cerebellar structures that map to extrapyramidal and cerebellar motor phenotypes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Deep gray nuclei and dentate nucleus MRI abnormalities.\", \"Cerebellar signs and extrapyramidal movement disorder.\"]}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Subcortical leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White-matter vulnerability produces the characteristic centripetal subcortical leukoencephalopathy pattern on MRI.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic L2HGA white-matter and neurodegenerative involvement contributes to delayed cognitive development and intellectual disability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Psychomotor retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The slowly progressive neurodegenerative and white-matter phenotype presents as psychomotor delay from childhood.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy is a frequent neurological consequence of the chronic L2HGA brain disease, though the immediate seizure mechanism is not fully resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early-stage motor pathway involvement may present with generalized hypotonia before later pyramidal signs become more prominent.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive white-matter and motor-pathway involvement can manifest as upper motor neuron signs and spasticity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macrocephaly is frequently associated with the L2HGA cerebral white-matter disease pattern, but the exact growth intermediate remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Behavioral abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral problems occur with L2HGA neurodevelopmental involvement, though the specific circuit-level intermediate is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dentate/cerebellar involvement manifests clinically as ataxia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dentate nucleus and cerebellar white-matter involvement.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal ganglia involvement maps to extrapyramidal dystonia, including severe GPi-DBS-treated disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bilateral basal ganglia and globus pallidus circuit involvement.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar and basal ganglia circuit involvement produces slurred speech and dysarthria.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cerebellar signs and extrapyramidal motor impairment affecting speech.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Intention tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dentate/cerebellar circuit involvement manifests as intention tremor.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dentate nucleus and cerebellar motor-circuit dysfunction.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Chorea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal ganglia circuit involvement can present with choreic movements.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Extrapyramidal basal ganglia dysfunction.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar and basal ganglia dysfunction manifests as a wide-based gait.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cerebellar dysmetria and basal ganglia motor involvement.\"]}, {\"source\": \"Riboflavin supplementation\", \"target\": \"L2HGDH enzymatic deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Riboflavin supplementation\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levocarnitine supplementation\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Deep brain stimulation\", \"target\": \"Basal ganglia and cerebellar circuit involvement\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Deep brain stimulation\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care and rehabilitation\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care and rehabilitation\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care and rehabilitation\", \"target\": \"Psychomotor retardation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care and rehabilitation\", \"target\": \"Intellectual disability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Genetic counseling\", \"target\": \"L2HGDH enzymatic deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary intervention\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Neuroimaging surveillance\", \"target\": \"CNS neoplasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neuroimaging surveillance\", \"target\": \"Subcortical leukoencephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (urine)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Markedly increased urinary L-2-HG is the primary diagnostic readout of impaired L2HGDH-mediated metabolite repair.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (CSF)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CSF L-2-HG reports CNS-enriched L-2-HG accumulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (plasma)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Plasma L-2-HG elevation supports systemic L-2-HG accumulation, with CSF/plasma comparison indicating CNS enrichment.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Urinary 2-OH-glutaric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Non-chiral urinary 2-OH-glutaric acid is a screening readout that requires chiral differentiation to assign the L-enantiomer.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"L2HGDH variants\", \"target\": \"L2HGDH enzymatic deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.829C\u003eT (p.Arg227*)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.164G\u003eA (p.Gly55Asp)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.407delA and c.699_700insA compound heterozygous\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Basal ganglia and cerebellar circuit involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L2HGA affects basal ganglia, globus pallidus/putamen/caudate, dentate nucleus, and cerebellar circuits on neuroimaging and neurological examination. These lesions provide a mechanistic bridge from the metabolic brain disease to extrapyramidal movement disorders and cerebellar signs.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"basal ganglion\", \"globus pallidus\", \"putamen\", \"caudate nucleus\", \"dentate nucleus\", \"cerebellum\"]}}, {\"id\": \"Behavioral abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Behavioral problems are commonly reported in L2HGA patients and may be more prevalent than in other cerebral organic acidurias.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000708\"}}, {\"id\": \"CNS neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"L2HGA patients have a significantly increased lifetime risk of central nervous system tumors, including malignant glioma. Despite the theoretical epigenetic effects of L-2-HG on TET enzymes, L2HGA-associated tumors do not typically show IDH-mutant-like methylation profiles, suggesting a distinct oncogenetic mechanism.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0100836\"}}, {\"id\": \"Cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar ataxia is a hallmark feature of L2HGA, correlating with dentate nucleus and cerebellar white matter involvement on MRI. It manifests as gait instability, dysmetria, and intention tremor.\\n\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Chorea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Choreic movements may occur in L2HGA, particularly affecting the upper extremities, as part of the extrapyramidal movement disorder spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002072\"}}, {\"id\": \"Deep brain stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bilateral globus pallidus internus deep brain stimulation (GPi-DBS) has been used for L2HGA-related refractory dystonia with reported significant improvements in mobility and dystonia severity. This represents an emerging intervention for severe, pharmacoresistant movement disorders in L2HGA.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dietary intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary management may be employed as part of the treatment approach, though the evidence base is less established than for other organic acidemias. Unlike glutaric aciduria type I, there is no specific amino acid restriction protocol for L2HGA.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech difficulties including slurred speech are common in L2HGA, related to cerebellar and basal ganglia dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized dystonia occurs in L2HGA, relating to basal ganglia involvement. In severe cases, dystonia may be refractory to pharmacotherapy and require deep brain stimulation.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG is a structural analog of alpha-ketoglutarate and can inhibit alpha-KG-dependent dioxygenases, including TET DNA hydroxylases and JmjC histone demethylases. In L2HGDH-deficient mouse brain, this manifests as increased histone methylation, linking metabolite accumulation to epigenetic perturbation.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA demethylation\"], \"molecular_functions\": [\"histone demethylase activity\"], \"locations\": [\"nucleus\"]}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide-based and unsteady gait is a common manifestation of cerebellar dysfunction in L2HGA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Genetic counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Genetic counseling for affected families addressing autosomal recessive inheritance, 25% recurrence risk, carrier testing for at-risk relatives, and prenatal/preimplantation testing options. Consanguinity is a significant factor in many reported families.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia is reported as a prominent early-stage motor phenotype in L2HGA, preceding later spasticity in some patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001290\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is present in the majority of L2HGA patients. Severity ranges from mild to severe and is progressive.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intention tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intention tremor is a cerebellar sign commonly observed in L2HGA, reflecting cerebellar and dentate nucleus dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002080\"}}, {\"id\": \"L-2-hydroxyglutarate accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of L-2-hydroxyglutarate dehydrogenase activity impairs the metabolite-repair pathway that clears L-2-hydroxyglutarate (L-2-HG), an aberrant off-pathway metabolite produced from alpha-ketoglutarate by L-malate dehydrogenase. L-2-HG accumulates in body fluids, with urinary L-2-HG 10-300 times above normal and plasma and CSF also elevated.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L-2-hydroxyglutaric acid (CSF)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"L-2-hydroxyglutarate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated CSF L-2-HG reports CNS-enriched L-2-HG accumulation.\"}]}}, {\"id\": \"L-2-hydroxyglutaric acid (plasma)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"L-2-hydroxyglutarate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Plasma L-2-HG elevation supports systemic L-2-HG accumulation, with CSF/plasma comparison indicating CNS enrichment.\"}]}}, {\"id\": \"L-2-hydroxyglutaric acid (urine)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"L-2-hydroxyglutarate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Markedly increased urinary L-2-HG is the primary diagnostic readout of impaired L2HGDH-mediated metabolite repair.\"}]}}, {\"id\": \"L2HGDH enzymatic deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in L2HGDH reduce mitochondrial L-2-hydroxyglutarate dehydrogenase metabolite-repair activity, impairing conversion of L-2-hydroxyglutarate back to 2-ketoglutarate.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"organic acid metabolic process\"], \"molecular_functions\": [\"L-2-hydroxyglutarate dehydrogenase metabolite-repair activity\"], \"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"L2HGDH variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"Levocarnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levocarnitine is used alongside riboflavin as part of standard metabolic therapy for L2HGA. It supports organic acid detoxification and excretion pathways.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"levocarnitine\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrocephaly has been reported in approximately 50-75% of L2HGA patients in various cohorts and is a useful diagnostic clue.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated L-2-HG perturbs mitochondrial bioenergetics, inhibits energy-buffering enzymes in experimental tissue systems, induces oxidative stress, and shifts neuronal cell metabolism toward anaerobic glycolysis.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\", \"glycolytic process\", \"response to oxidative stress\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Neuroimaging surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regular brain MRI monitoring to track disease progression and to screen for CNS tumor development, given the elevated tumor risk in L2HGA patients. MR spectroscopy can provide additional metabolic information.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Psychomotor retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor and cognitive milestones are typically the earliest presenting features of L2HGA in childhood.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Riboflavin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Riboflavin (vitamin B2), the precursor of FAD cofactor required by L2HGDH, is the cornerstone therapy for L2HGA. FAD supplementation aims to enhance any residual enzyme activity and accelerate conversion of L-2-HG to alpha-ketoglutarate. In cohort studies, riboflavin combined with levocarnitine produced significant decreases in urinary 2-HG levels and limited neurologic improvement.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"riboflavin\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy occurs in a significant proportion of L2HGA patients, with seizures reported in 30-75% of cases across different cohorts. Seizure types are variable.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper motor neuron signs including exaggerated tendon reflexes, clonus, and Babinski signs are common in L2HGA, reflecting corticospinal tract involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}, {\"id\": \"Subcortical leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Brain MRI shows a characteristic pattern of subcortical white matter T2/FLAIR hyperintensity in a centripetal distribution, particularly involving the U-fibers, along with basal ganglia and dentate nuclei signal abnormalities. This pattern is highly specific for L2HGA.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002352\"}}, {\"id\": \"Supportive care and rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Comprehensive supportive care including physical therapy, occupational therapy, speech therapy, and educational support is essential for managing the chronic neurological disabilities of L2HGA.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Urinary 2-OH-glutaric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"L-2-hydroxyglutarate accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Non-chiral urinary 2-OH-glutaric acid is a screening readout that requires chiral differentiation to assign the L-enantiomer.\"}]}}, {\"id\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"L-2-HG accumulation leads to selective vulnerability of subcortical cerebral white matter with basal ganglia and dentate nucleus involvement. In mouse models, L2HGDH deficiency causes progressive leukoencephalopathy with white matter abnormalities, extensive gliosis, microglia-mediated neuroinflammation, and expansion of oligodendrocyte progenitor cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"oligodendrocyte\", \"oligodendrocyte precursor cell\", \"microglial cell\"], \"biological_processes\": [\"myelination\", \"reactive gliosis\"], \"locations\": [\"white matter\", \"basal ganglion\", \"dentate nucleus\"]}}, {\"id\": \"c.164G\u003eA (p.Gly55Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense variant affecting a conserved glycine residue, identified in a patient with severe dystonia requiring DBS intervention.\\n\", \"meta\": {\"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}]}}, {\"id\": \"c.407delA and c.699_700insA compound heterozygous\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous frameshift mutations leading to premature termination codons and truncated FAD/NAD(P)-binding domain. Identified in a Chinese patient with psychomotor retardation and progressive ataxia.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}]}}, {\"id\": \"c.829C\u003eT (p.Arg227*)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense variant creating a premature stop codon, identified in a consanguineous Pakistani family. Both affected sisters were homozygous.\\n\", \"meta\": {\"genes\": [\"L2HGDH\"], \"gene_terms\": [{\"label\": \"L2HGDH\", \"id\": \"hgnc:20499\"}]}}], \"edges\": [{\"source\": \"L2HGDH enzymatic deficiency\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of L2HGDH metabolite-repair activity causes progressive L-2-HG buildup in body fluids and brain.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (urine)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic L-2-HG buildup is reflected by markedly increased urinary L-2-HG.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (CSF)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L-2-HG also accumulates in CSF, consistent with CNS enrichment of the metabolite.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (plasma)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L-2-HG accumulation is measurable in plasma as well as urine and CSF.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Urinary 2-OH-glutaric acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Standard urine organic acid testing detects elevated 2-hydroxyglutaric acid, with chiral testing assigning the L-enantiomer.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic L-2-HG elevation drives selective white-matter injury and neuroinflammatory remodeling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Gliosis, microglia-mediated neuroinflammation, and oligodendrocyte progenitor expansion in L2hgdh-deficient brain.\", \"Progressive white-matter and deep gray signal abnormalities visible on MRI.\"]}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Mitochondrial dysfunction and metabolic reprogramming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L-2-HG perturbs mitochondrial bioenergetics and shifts cellular metabolism toward anaerobic pathways.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Creatine kinase inhibition, oxidative stress, and altered glucose metabolism under high L-2-HG exposure.\", \"Reduced mitochondrial respiratory reserve with increased anaerobic glycolytic flux in neuronal cells.\"]}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Epigenetic dysregulation via inhibition of alpha-KG-dependent dioxygenases\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L-2-HG can interfere with alpha-KG-dependent chromatin enzymes, altering epigenetic regulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"L-2-HG acts as a 2-ketoglutarate analog that can impair histone and DNA demethylase activity.\", \"L2hgdh-deficient tissues show increased histone methylation in vivo.\"]}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"CNS neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L2HGA is associated with increased CNS tumor risk, but human tumor methylation data indicate that the oncogenic intermediates are unresolved and not simply IDH-mutant-like hypermethylation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Basal ganglia and cerebellar circuit involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"L2HGA neuroimaging repeatedly involves basal ganglia and dentate/cerebellar structures that map to extrapyramidal and cerebellar motor phenotypes.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Deep gray nuclei and dentate nucleus MRI abnormalities.\", \"Cerebellar signs and extrapyramidal movement disorder.\"]}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Subcortical leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White-matter vulnerability produces the characteristic centripetal subcortical leukoencephalopathy pattern on MRI.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic L2HGA white-matter and neurodegenerative involvement contributes to delayed cognitive development and intellectual disability.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Psychomotor retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The slowly progressive neurodegenerative and white-matter phenotype presents as psychomotor delay from childhood.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epilepsy is a frequent neurological consequence of the chronic L2HGA brain disease, though the immediate seizure mechanism is not fully resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early-stage motor pathway involvement may present with generalized hypotonia before later pyramidal signs become more prominent.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive white-matter and motor-pathway involvement can manifest as upper motor neuron signs and spasticity.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Macrocephaly is frequently associated with the L2HGA cerebral white-matter disease pattern, but the exact growth intermediate remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"White-matter vulnerability and progressive leukoencephalopathy\", \"target\": \"Behavioral abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Behavioral problems occur with L2HGA neurodevelopmental involvement, though the specific circuit-level intermediate is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dentate/cerebellar involvement manifests clinically as ataxia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dentate nucleus and cerebellar white-matter involvement.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal ganglia involvement maps to extrapyramidal dystonia, including severe GPi-DBS-treated disease.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Bilateral basal ganglia and globus pallidus circuit involvement.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar and basal ganglia circuit involvement produces slurred speech and dysarthria.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cerebellar signs and extrapyramidal motor impairment affecting speech.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Intention tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dentate/cerebellar circuit involvement manifests as intention tremor.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Dentate nucleus and cerebellar motor-circuit dysfunction.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Chorea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal ganglia circuit involvement can present with choreic movements.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Extrapyramidal basal ganglia dysfunction.\"]}, {\"source\": \"Basal ganglia and cerebellar circuit involvement\", \"target\": \"Gait ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar and basal ganglia dysfunction manifests as a wide-based gait.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cerebellar dysmetria and basal ganglia motor involvement.\"]}, {\"source\": \"Riboflavin supplementation\", \"target\": \"L2HGDH enzymatic deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Riboflavin supplementation\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levocarnitine supplementation\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Deep brain stimulation\", \"target\": \"Basal ganglia and cerebellar circuit involvement\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Deep brain stimulation\", \"target\": \"Dystonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care and rehabilitation\", \"target\": \"Cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care and rehabilitation\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care and rehabilitation\", \"target\": \"Psychomotor retardation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Supportive care and rehabilitation\", \"target\": \"Intellectual disability\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Genetic counseling\", \"target\": \"L2HGDH enzymatic deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary intervention\", \"target\": \"L-2-hydroxyglutarate accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Neuroimaging surveillance\", \"target\": \"CNS neoplasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Neuroimaging surveillance\", \"target\": \"Subcortical leukoencephalopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (urine)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Markedly increased urinary L-2-HG is the primary diagnostic readout of impaired L2HGDH-mediated metabolite repair.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (CSF)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated CSF L-2-HG reports CNS-enriched L-2-HG accumulation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"L-2-hydroxyglutaric acid (plasma)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Plasma L-2-HG elevation supports systemic L-2-HG accumulation, with CSF/plasma comparison indicating CNS enrichment.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"L-2-hydroxyglutarate accumulation\", \"target\": \"Urinary 2-OH-glutaric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Non-chiral urinary 2-OH-glutaric acid is a screening readout that requires chiral differentiation to assign the L-enantiomer.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"L2HGDH variants\", \"target\": \"L2HGDH enzymatic deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.829C\u003eT (p.Arg227*)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.164G\u003eA (p.Gly55Asp)\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.407delA and c.699_700insA compound heterozygous\", \"target\": \"L2HGDH variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5391,16 +5780,20 @@ This pathophysiological event occurs in nucleus (GO:0005634). GO:0005634 is an a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000256</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.">
-                        Macrocephaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp">HP:0000256</a>
-
-
+This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5421,7 +5814,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24321868" target="_blank">PMID:24321868</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5462,16 +5857,22 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized hypotonia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001290</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp">HP:0001290</a>
-
-
+This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5492,7 +5893,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5526,16 +5929,20 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001257</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.">
-                        Spasticity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp">HP:0001257</a>
-
-
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5556,7 +5963,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5578,7 +5987,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5621,16 +6032,20 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5651,7 +6066,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5673,7 +6090,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5707,16 +6126,22 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Global developmental delay</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5737,7 +6162,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5771,16 +6198,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5801,7 +6232,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5823,7 +6256,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24321868" target="_blank">PMID:24321868</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5857,16 +6292,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
-                        Ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
-
-
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5887,7 +6326,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5909,7 +6350,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5931,7 +6374,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5965,16 +6410,20 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.">
-                        Dystonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp">HP:0001332</a>
-
-
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5995,7 +6444,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6017,7 +6468,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6051,16 +6504,20 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
-                        Dysarthria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
-
-
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6081,7 +6538,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6103,7 +6562,9 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6137,16 +6598,20 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002352</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a phenotype from the Human Phenotype Ontology.">
-                        Leukoencephalopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp">HP:0002352</a>
-
-
+This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6167,7 +6632,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6189,7 +6656,9 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6223,16 +6692,20 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002080</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotype from the Human Phenotype Ontology.">
-                        Intention tremor
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank" class="curie-chip curie-chip-hp">HP:0002080</a>
-
-
+This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6253,7 +6726,9 @@ This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6287,16 +6762,22 @@ This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.">
-                        Atypical behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp">HP:0000708</a>
-
-
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6317,7 +6798,9 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6351,16 +6834,20 @@ This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.">
-                        Chorea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp">HP:0002072</a>
-
-
+This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6381,7 +6868,9 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6415,16 +6904,20 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002066</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype from the Human Phenotype Ontology.">
-                        Gait ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp">HP:0002066</a>
-
-
+This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6445,7 +6938,9 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6488,16 +6983,22 @@ This clinical feature is Gait ataxia (HP:0002066). HP:0002066 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Malignant neoplasm of the central nervous system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0100836</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Malignant neoplasm of the central nervous system (HP:0100836). HP:0100836 is a phenotype from the Human Phenotype Ontology.">
-                        Malignant neoplasm of the central nervous system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100836" target="_blank" class="curie-chip curie-chip-hp">HP:0100836</a>
-
-
+This clinical feature is Malignant neoplasm of the central nervous system (HP:0100836). HP:0100836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6521,7 +7022,9 @@ This clinical feature is Malignant neoplasm of the central nervous system (HP:01
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38716347" target="_blank">PMID:38716347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6599,15 +7102,17 @@ This clinical feature is Malignant neoplasm of the central nervous system (HP:01
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: L2HGDH
 
 
-    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20499</a>
+    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:20499</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6639,7 +7144,9 @@ This disease-associated gene is L2HGDH (hgnc:20499). hgnc:20499 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6677,15 +7184,17 @@ This disease-associated gene is L2HGDH (hgnc:20499). hgnc:20499 is a gene from t
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: L2HGDH
 
 
-    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20499</a>
+    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:20499</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -6696,6 +7205,8 @@ This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene 
 
     <div class="item-desc">Nonsense variant creating a premature stop codon, identified in a consanguineous Pakistani family. Both affected sisters were homozygous.
 </div>
+
+
 
 
 
@@ -6721,15 +7232,17 @@ This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene 
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: L2HGDH
 
 
-    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20499</a>
+    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:20499</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -6740,6 +7253,8 @@ This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene 
 
     <div class="item-desc">Missense variant affecting a conserved glycine residue, identified in a patient with severe dystonia requiring DBS intervention.
 </div>
+
+
 
 
 
@@ -6765,15 +7280,17 @@ This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene 
 
 
 
-        <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this variant is in this gene
-This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.">
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
             Gene: L2HGDH
 
 
-    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:20499</a>
+    <a href="https://bioregistry.io/hgnc:20499" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:20499</a>
 
 
+            <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
 
 
@@ -6784,6 +7301,8 @@ This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene 
 
     <div class="item-desc">Compound heterozygous frameshift mutations leading to premature termination codons and truncated FAD/NAD(P)-binding domain. Identified in a Chinese patient with psychomotor retardation and progressive ataxia.
 </div>
+
+
 
 
 
@@ -6803,7 +7322,9 @@ This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29980873" target="_blank">PMID:29980873</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6838,6 +7359,9 @@ This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6854,18 +7378,18 @@ This variant is in L2HGDH (hgnc:20499). hgnc:20499 is a gene from the HUGO Gene 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">B vitamin supplementation<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is B vitamin supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.">B vitamin supplementation</span>
+This treatment is B vitamin supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Supplementation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15425" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is B vitamin supplementation, annotated with Nutritional Supplementation (NCIT:C15425). NCIT:C15425 is a clinical intervention from the NCI Thesaurus.">NCIT:C15425</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15425" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15425">NCIT:C15425</a>
 
 
 
@@ -6890,21 +7414,31 @@ This treatment is B vitamin supplementation, annotated with Nutritional Suppleme
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         riboflavin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17015" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17015</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17015" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:17015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6937,7 +7471,9 @@ This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6982,7 +7518,9 @@ This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7023,7 +7561,9 @@ This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7045,7 +7585,9 @@ This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7067,7 +7609,9 @@ This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24321868" target="_blank">PMID:24321868</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7097,18 +7641,18 @@ This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">carnitine supplementation<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is carnitine supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">carnitine supplementation</span>
+This treatment is carnitine supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is carnitine supplementation, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">NCIT:C15433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
 
 
 
@@ -7133,21 +7677,31 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses levocarnitine, annotated with (R)-carnitine (CHEBI:16347). CHEBI:16347 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         levocarnitine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_16347" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:16347</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_16347" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:16347</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levocarnitine, annotated with (R)-carnitine (CHEBI:16347). CHEBI:16347 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7180,7 +7734,9 @@ This treatment uses levocarnitine, annotated with (R)-carnitine (CHEBI:16347). C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7221,7 +7777,9 @@ This treatment uses levocarnitine, annotated with (R)-carnitine (CHEBI:16347). C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7243,7 +7801,9 @@ This treatment uses levocarnitine, annotated with (R)-carnitine (CHEBI:16347). C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7273,18 +7833,18 @@ This treatment uses levocarnitine, annotated with (R)-carnitine (CHEBI:16347). C
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">deep brain stimulation<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinical intervention from the NCI Thesaurus.">deep brain stimulation</span>
+This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Deep Brain Stimulation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C21024" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinical intervention from the NCI Thesaurus.">NCIT:C21024</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C21024" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C21024">NCIT:C21024</a>
 
 
 
@@ -7302,6 +7862,14 @@ This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinica
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7336,7 +7904,9 @@ This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinica
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7366,18 +7936,20 @@ This treatment is deep brain stimulation (NCIT:C21024). NCIT:C21024 is a clinica
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dystonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7397,7 +7969,9 @@ This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7419,7 +7993,9 @@ This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7449,18 +8025,18 @@ This treatment targets Dystonia (HP:0001332). HP:0001332 is a phenotype from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7483,6 +8059,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Comprehensive supportive care including physical therapy, occupational therapy, speech therapy, and educational support is essential for managing the chronic neurological disabilities of L2HGA.
 </div>
 
@@ -7492,63 +8076,71 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Cerebellar ataxia, annotated with Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cerebellar ataxia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001251</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cerebellar ataxia, annotated with Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dysarthria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp">HP:0001260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Psychomotor retardation, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Psychomotor retardation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001263</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Psychomotor retardation, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Intellectual disability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001249</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7568,7 +8160,9 @@ This treatment targets Intellectual disability (HP:0001249). HP:0001249 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7598,17 +8192,17 @@ This treatment targets Intellectual disability (HP:0001249). HP:0001249 is a phe
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -7626,6 +8220,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7660,7 +8262,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7701,7 +8305,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7731,18 +8337,18 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -7760,6 +8366,25 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7788,13 +8413,15 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37275239" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37275239" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7835,7 +8462,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37275239" target="_blank">PMID:37275239</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7865,18 +8494,18 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7899,6 +8528,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Regular brain MRI monitoring to track disease progression and to screen for CNS tumor development, given the elevated tumor risk in L2HGA patients. MR spectroscopy can provide additional metabolic information.
 </div>
 
@@ -7908,33 +8545,37 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets CNS neoplasm, annotated with Malignant neoplasm of the central nervous system (HP:0100836). HP:0100836 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         CNS neoplasm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100836" target="_blank" class="curie-chip curie-chip-hp">HP:0100836</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0100836</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets CNS neoplasm, annotated with Malignant neoplasm of the central nervous system (HP:0100836). HP:0100836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Subcortical leukoencephalopathy, annotated with Leukoencephalopathy (HP:0002352). HP:0002352 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Subcortical leukoencephalopathy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp">HP:0002352</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002352</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Subcortical leukoencephalopathy, annotated with Leukoencephalopathy (HP:0002352). HP:0002352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7954,7 +8595,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38716347" target="_blank">PMID:38716347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8041,7 +8684,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8081,7 +8726,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8103,7 +8750,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8175,7 +8824,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8215,7 +8866,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8237,7 +8890,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28137912" target="_blank">PMID:28137912</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8309,7 +8964,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8349,7 +9006,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8421,7 +9080,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37113859" target="_blank">PMID:37113859</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8461,7 +9122,9 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38714179" target="_blank">PMID:38714179</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8485,6 +9148,358 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-insidious-childhood-onset">
+                <div class="item-name">Insidious childhood onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Infancy to early childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Onset is insidious rather than acute. Unlike the organic acidemias with which it is grouped biochemically, L-2-HGA has NO acute metabolic decompensation crises - there is no catabolic trigger, no acidotic episode, and no metabolic emergency to recognise. Presentation is instead delayed mental and motor development, which virtually all patients display.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22391998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An insidious onset of disease starting in childhood, developmental delay, epilepsy and cerebellar ataxia were the cardinal clinical signs"</div>
+
+
+                <div class="evidence-explanation">Establishes the insidious onset and the cardinal presenting features.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22391998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Virtually all patients display delayed mental and motor development"</div>
+
+
+                <div class="evidence-explanation">Establishes developmental delay as near-universal at presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-slowly-progressive-neurological-deterioration">
+                <div class="item-name">Slowly progressive neurological deterioration</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood through adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">The course is slowly progressive over years to decades. The tone abnormality itself evolves: hypotonia predominates in earlier stages and spasticity in later stages, so a patient assessed once may be mischaracterised. About a quarter of patients experience frank neurological decompensation in the sense of losing acquired milestones - unassisted walking, speech - which is a loss of function rather than a metabolic crisis.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22391998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hypotonia was most prevalent in the earlier stages and spasticity in the latter stages of disease in their cohort."</div>
+
+
+                <div class="evidence-explanation">Documents the stage-dependent evolution from hypotonia to spasticity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22391998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neurological decompensation (e.g., loss of milestones, such as unassisted walking and the development of speech deficits) was also present in a quarter of the patients."</div>
+
+
+                <div class="evidence-explanation">Quantifies milestone loss at about a quarter of patients, and defines what decompensation means in this disorder - loss of function, not metabolic crisis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-delayed-diagnosis-in-mildly-affected-patients">
+                <div class="item-name">Delayed diagnosis in mildly affected patients</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Because progression is slow, mildly affected patients often remain undiagnosed until adolescence or even adulthood. This is a distinct clinical problem from the childhood-onset presentation and is the reason cohort sizes understate the disorder.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22391998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Therefore, mild L-2-HGA patients often remain undiagnosed until adolescence or even adulthood."</div>
+
+
+                <div class="evidence-explanation">Documents the diagnostic delay in mildly affected patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population rate has been established for L-2-HGA; the disorder is characterised in the literature by cohort size rather than incidence. The largest reported cohort is 106 patients. Because the course is slowly progressive, mildly affected patients often remain undiagnosed until adolescence or adulthood, so any case count is a floor rather than an estimate of true frequency.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT04880356" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT04880356" target="_blank">clinicaltrials:NCT04880356</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"General aim of the study is the improvement of the clinical knowledge of ultra-rare inherited metabolic and degenerative neurological diseases"</div>
+
+
+                <div class="evidence-explanation">The registry describes the observational disease population as ultra-rare, supporting the qualitative class where no population rate is available.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22391998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Steenweg and co-workers described the largest cohort of 106 patients."</div>
+
+
+                <div class="evidence-explanation">Gives the largest reported L-2-HGA cohort size, the closest available proxy for disease frequency.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22391998" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22391998" target="_blank">PMID:22391998</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Therefore, mild L-2-HGA patients often remain undiagnosed until adolescence or even adulthood."</div>
+
+
+                <div class="evidence-explanation">Establishes systematic under-ascertainment, which is why case counts under-represent true frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8519,7 +9534,6 @@ This treatment targets Subcortical leukoencephalopathy, annotated with Leukoence
                 <pre class="yaml-preview">name: L-2-Hydroxyglutaric Aciduria
 category: Mendelian
 creation_date: &#39;2025-06-12T20:16:27Z&#39;
-updated_date: &#39;2026-07-06T02:20:39Z&#39;
 synonyms:
 - L2HGA
 - L-2-HGA
@@ -8632,11 +9646,18 @@ pathophysiology:
     term:
       id: hgnc:20499
       label: L2HGDH
+  molecular_functions:
+  - preferred_term: L-2-hydroxyglutarate dehydrogenase metabolite-repair activity
+    term:
+      id: GO:0047545
+      label: (S)-2-hydroxyglutarate dehydrogenase activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: organic acid metabolic process
     term:
       id: GO:0006082
       label: organic acid metabolic process
+    modifier: DECREASED
   cell_types:
   - preferred_term: neuron
     term:
@@ -8680,6 +9701,7 @@ pathophysiology:
     term:
       id: GO:0006082
       label: organic acid metabolic process
+    modifier: DECREASED
   cell_types:
   - preferred_term: neuron
     term:
@@ -8821,10 +9843,12 @@ pathophysiology:
     term:
       id: GO:0042552
       label: myelination
+    modifier: DECREASED
   - preferred_term: reactive gliosis
     term:
       id: GO:0150103
       label: reactive gliosis
+    modifier: INCREASED
   cell_types:
   - preferred_term: oligodendrocyte
     term:
@@ -9069,14 +10093,17 @@ pathophysiology:
     term:
       id: GO:0006119
       label: oxidative phosphorylation
+    modifier: DECREASED
   - preferred_term: glycolytic process
     term:
       id: GO:0006096
       label: glycolytic process
+    modifier: INCREASED
   - preferred_term: response to oxidative stress
     term:
       id: GO:0006979
       label: response to oxidative stress
+    modifier: INCREASED
   locations:
   - preferred_term: mitochondrion
     term:
@@ -9104,11 +10131,13 @@ pathophysiology:
     term:
       id: GO:0141166
       label: chromosomal 5-methylcytosine DNA demethylation pathway
+    modifier: DECREASED
   molecular_functions:
   - preferred_term: histone demethylase activity
     term:
       id: GO:0032452
       label: histone demethylase activity
+    modifier: DECREASED
   locations:
   - preferred_term: nucleus
     term:
@@ -9829,7 +10858,7 @@ treatments:
     evidence:
     - reference: PMID:37275239
       reference_title: &#34;Glutaric aciduria and L-2-hydroxyglutaric aciduria: Clinical and molecular findings of 35 patients from Turkey.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Current treatment strategies are based on levocarnitine, vitamin B2, and diet.
       explanation: The cohort identifies diet as part of treatment strategy but does not isolate a diet-specific effect on L-2-HG.
@@ -10497,7 +11526,7 @@ The retrieved excerpts in this run did not include PubMed IDs (PMIDs) in the too
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "L-2-Hydroxyglutaric Aciduria", "mondoId": "MONDO:0009370", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "L-2-Hydroxyglutaric_Aciduria", "yamlRevision": "ce5d8e8ef301"};
+        const OS_CONFIG = {"diseaseName": "L-2-Hydroxyglutaric Aciduria", "mondoId": "MONDO:0009370", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "L-2-Hydroxyglutaric_Aciduria", "yamlRevision": "f689290508af"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10916,5 +11945,73 @@ The retrieved excerpts in this run did not include PubMed IDs (PMIDs) in the too
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

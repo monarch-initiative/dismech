@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Charcot-Marie-Tooth Disease Type 2</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Charcot-Marie-Tooth Disease Type 2</h1>
             <div class="header-meta">
 
@@ -3914,7 +4061,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -3960,7 +4107,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21327736" target="_blank">PMID:21327736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3983,7 +4132,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -3995,7 +4144,7 @@
 
                 </div>
 
-                <div class="item-desc">Some CMT2 subtypes follow autosomal recessive inheritance, including CMT2B1 (LMNA), CMT2B2 (MED25), and SORD-CMT2. Recessive NEFL mutations also cause a severe early-onset form.
+                <div class="item-desc">Some CMT2 subtypes follow autosomal recessive inheritance, including CMT2B1 (LMNA), CMT2B2 (PNKP; originally attributed to MED25), and SORD-CMT2. Recessive NEFL mutations also cause a severe early-onset form. Note: CMT2B2 was initially reported as a MED25 disorder, but re-evaluation of the original family reassigned the cause to a homozygous PNKP variant, so MED25 is no longer considered a CMT gene.
 </div>
 
 
@@ -4019,7 +4168,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4029,7 +4178,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21327736" target="_blank">PMID:21327736</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4040,6 +4191,30 @@
 
 
                 <div class="evidence-explanation">Review supports the presence of autosomal recessive CMT2 forms.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30039206" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30039206" target="_blank">PMID:30039206</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using exome sequencing, we now identified a homozygous nonsense variant (p.Gln517ter) in the last exon of an adjacent gene, the polynucleotide kinase 3&#39;-phosphatase (PNKP) gene."</div>
+
+
+                <div class="evidence-explanation">Re-evaluation of the original CMT2B2 family reassigned the cause from MED25 to a homozygous PNKP variant, so CMT2B2 is a PNKP disorder and MED25 is no longer a CMT gene.</div>
 
 
 
@@ -4114,7 +4289,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2a">
 
                     <div class="item-name">
                         CMT2A (MFN2-related)
@@ -4149,7 +4324,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32733278" target="_blank">PMID:32733278</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4175,7 +4352,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2e">
 
                     <div class="item-name">
                         CMT2E (NEFL-related)
@@ -4210,7 +4387,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34485306" target="_blank">PMID:34485306</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4236,7 +4415,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2b">
 
                     <div class="item-name">
                         CMT2B (RAB7A-related)
@@ -4271,7 +4450,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24521780" target="_blank">PMID:24521780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4297,7 +4478,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2d">
 
                     <div class="item-name">
                         CMT2D (GARS1-related)
@@ -4332,7 +4513,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36928301" target="_blank">PMID:36928301</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4358,7 +4541,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2i-j">
 
                     <div class="item-name">
                         CMT2I/J (MPZ-related)
@@ -4393,7 +4576,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27774063" target="_blank">PMID:27774063</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4419,7 +4604,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sord-cmt2">
 
                     <div class="item-name">
                         SORD-related axonal CMT2
@@ -4454,7 +4639,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32367058" target="_blank">PMID:32367058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4480,7 +4667,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2f">
 
                     <div class="item-name">
                         CMT2F (HSPB1 / HSP27-related)
@@ -4515,7 +4702,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122254" target="_blank">PMID:15122254</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4541,7 +4730,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2z">
 
                     <div class="item-name">
                         CMT2Z (MORC2-related)
@@ -4576,7 +4765,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26497905" target="_blank">PMID:26497905</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4602,7 +4793,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2k">
 
                     <div class="item-name">
                         CMT2K (GDAP1-related, axonal)
@@ -4637,7 +4828,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20685671" target="_blank">PMID:20685671</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4663,7 +4856,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cmt2cc">
 
                     <div class="item-name">
                         CMT2CC (NEFH-related)
@@ -4698,7 +4891,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28709447" target="_blank">PMID:28709447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4814,6 +5009,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4830,6 +5031,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">In iPSC-derived motor neurons heterozygous for a pathogenic MFN2 missense allele (not shRNA knockdown), test whether neuronal overexpression of wild-type MFN2 (as in PMID:42301793) rescues axonal transport defects and mitochondrial fragmentation at the single-axon level. Quantitative rescue in dominant-missense neurons would confirm that dominant-negative competition with WT is the operative mechanism and establish that the LOF knockdown model and the dominant-missense model converge on the same downstream transport pathway. Lack of rescue in dominant-missense neurons despite being effective in LOF cells would indicate distinct mechanisms.</div>
+
+
+
+
+
+
 
 
 
@@ -4887,18 +5094,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4915,18 +5124,20 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4954,17 +5165,21 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MFN2 (hgnc:16877). hgnc:16877 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MFN2
 
 
-    <a href="https://bioregistry.io/hgnc:16877" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16877</a>
+    <a href="https://bioregistry.io/hgnc:16877" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:16877</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MFN2 (hgnc:16877). hgnc:16877 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4993,18 +5208,20 @@ This pathophysiological event involves MFN2 (hgnc:16877). hgnc:16877 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Mitochondrial fusion (GO:0008053). GO:0008053 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Mitochondrial fusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008053" target="_blank" class="curie-chip curie-chip-go">GO:0008053</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008053" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0008053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Mitochondrial fusion (GO:0008053). GO:0008053 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5063,7 +5280,9 @@ This pathophysiological event involves decreased Mitochondrial fusion (GO:000805
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32733278" target="_blank">PMID:32733278</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5085,7 +5304,9 @@ This pathophysiological event involves decreased Mitochondrial fusion (GO:000805
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34602978" target="_blank">PMID:34602978</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5119,18 +5340,20 @@ This pathophysiological event involves decreased Mitochondrial fusion (GO:000805
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5147,18 +5370,20 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5186,17 +5411,21 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MFN2 (hgnc:16877). hgnc:16877 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MFN2
 
 
-    <a href="https://bioregistry.io/hgnc:16877" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16877</a>
+    <a href="https://bioregistry.io/hgnc:16877" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:16877</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MFN2 (hgnc:16877). hgnc:16877 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5225,18 +5454,20 @@ This pathophysiological event involves MFN2 (hgnc:16877). hgnc:16877 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Axonal transport of mitochondria, annotated with axonal transport of mitochondrion (GO:0019896). GO:0019896 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Axonal transport of mitochondria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019896" target="_blank" class="curie-chip curie-chip-go">GO:0019896</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019896" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0019896</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Axonal transport of mitochondria, annotated with axonal transport of mitochondrion (GO:0019896). GO:0019896 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5295,7 +5526,9 @@ This pathophysiological event involves decreased Axonal transport of mitochondri
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34602978" target="_blank">PMID:34602978</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5329,18 +5562,20 @@ This pathophysiological event involves decreased Axonal transport of mitochondri
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5368,17 +5603,21 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NEFL (hgnc:7739). hgnc:7739 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NEFL
 
 
-    <a href="https://bioregistry.io/hgnc:7739" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7739</a>
+    <a href="https://bioregistry.io/hgnc:7739" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:7739</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NEFL (hgnc:7739). hgnc:7739 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5407,18 +5646,20 @@ This pathophysiological event involves NEFL (hgnc:7739). hgnc:7739 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Neurofilament cytoskeleton organization (GO:0060052). GO:0060052 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Neurofilament cytoskeleton organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060052" target="_blank" class="curie-chip curie-chip-go">GO:0060052</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060052" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0060052</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Neurofilament cytoskeleton organization (GO:0060052). GO:0060052 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5477,7 +5718,9 @@ This pathophysiological event involves abnormal Neurofilament cytoskeleton organ
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12432080" target="_blank">PMID:12432080</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5499,7 +5742,9 @@ This pathophysiological event involves abnormal Neurofilament cytoskeleton organ
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34485306" target="_blank">PMID:34485306</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5521,7 +5766,9 @@ This pathophysiological event involves abnormal Neurofilament cytoskeleton organ
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29940160" target="_blank">PMID:29940160</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5555,18 +5802,20 @@ This pathophysiological event involves abnormal Neurofilament cytoskeleton organ
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5594,17 +5843,21 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RAB7A (hgnc:9788). hgnc:9788 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RAB7A
 
 
-    <a href="https://bioregistry.io/hgnc:9788" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9788</a>
+    <a href="https://bioregistry.io/hgnc:9788" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:9788</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RAB7A (hgnc:9788). hgnc:9788 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5633,18 +5886,20 @@ This pathophysiological event involves RAB7A (hgnc:9788). hgnc:9788 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Endosome to lysosome transport (GO:0008333). GO:0008333 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endosome to lysosome transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008333" target="_blank" class="curie-chip curie-chip-go">GO:0008333</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008333" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Endosome to lysosome transport (GO:0008333). GO:0008333 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5703,7 +5958,9 @@ This pathophysiological event involves abnormal Endosome to lysosome transport (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34486665" target="_blank">PMID:34486665</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5725,7 +5982,9 @@ This pathophysiological event involves abnormal Endosome to lysosome transport (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24521780" target="_blank">PMID:24521780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5759,18 +6018,20 @@ This pathophysiological event involves abnormal Endosome to lysosome transport (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5787,18 +6048,20 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5826,17 +6089,21 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves GARS1 (hgnc:4162). hgnc:4162 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         GARS1
 
 
-    <a href="https://bioregistry.io/hgnc:4162" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4162</a>
+    <a href="https://bioregistry.io/hgnc:4162" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:4162</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GARS1 (hgnc:4162). hgnc:4162 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5865,18 +6132,20 @@ This pathophysiological event involves GARS1 (hgnc:4162). hgnc:4162 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Axonal transport (GO:0098930). GO:0098930 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Axonal transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0098930" target="_blank" class="curie-chip curie-chip-go">GO:0098930</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0098930" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0098930</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Axonal transport (GO:0098930). GO:0098930 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5935,7 +6204,9 @@ This pathophysiological event involves decreased Axonal transport (GO:0098930). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36928301" target="_blank">PMID:36928301</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5957,7 +6228,9 @@ This pathophysiological event involves decreased Axonal transport (GO:0098930). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36928301" target="_blank">PMID:36928301</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5991,18 +6264,20 @@ This pathophysiological event involves decreased Axonal transport (GO:0098930). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6019,18 +6294,20 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6058,17 +6335,21 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SORD
 
 
-    <a href="https://bioregistry.io/hgnc:11184" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11184</a>
+    <a href="https://bioregistry.io/hgnc:11184" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:11184</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6097,18 +6378,20 @@ This pathophysiological event involves SORD (hgnc:11184). hgnc:11184 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Carbohydrate metabolic process (GO:0005975). GO:0005975 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Carbohydrate metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005975" target="_blank" class="curie-chip curie-chip-go">GO:0005975</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005975" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0005975</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Carbohydrate metabolic process (GO:0005975). GO:0005975 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6167,7 +6450,9 @@ This pathophysiological event involves abnormal Carbohydrate metabolic process (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32367058" target="_blank">PMID:32367058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6189,7 +6474,9 @@ This pathophysiological event involves abnormal Carbohydrate metabolic process (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32367058" target="_blank">PMID:32367058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6223,18 +6510,20 @@ This pathophysiological event involves abnormal Carbohydrate metabolic process (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6251,18 +6540,20 @@ This pathophysiological event involves Motor neuron (CL:0000100). CL:0000100 is 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6290,18 +6581,20 @@ This pathophysiological event involves Sensory neuron (CL:0000101). CL:0000101 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated Autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6393,7 +6686,9 @@ This pathophysiological event involves dysregulated Autophagy (GO:0006914). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34606075" target="_blank">PMID:34606075</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6415,7 +6710,9 @@ This pathophysiological event involves dysregulated Autophagy (GO:0006914). GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32733278" target="_blank">PMID:32733278</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6511,16 +6808,20 @@ This pathophysiological event involves dysregulated Autophagy (GO:0006914). GO:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000648</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.">
-                        Optic atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp">HP:0000648</a>
-
-
+This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6531,7 +6832,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -6541,7 +6842,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16437557" target="_blank">PMID:16437557</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6563,7 +6866,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16437557" target="_blank">PMID:16437557</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6574,6 +6879,30 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                 <div class="evidence-explanation">Confirms that each of the six HMSN VI families harbored a distinct MFN2 mutation, establishing the genotype-phenotype link for optic atrophy in CMT2A.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16437557" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16437557" target="_blank">PMID:16437557</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"six HMSN VI families with a subacute onset of optic atrophy and subsequent slow recovery of visual acuity in 60% of the patients"</div>
+
+
+                <div class="evidence-explanation">Directly supports the described subacute onset and slow partial recovery of visual acuity in 60% of affected individuals in the original HMSN VI (CMT2A) series.</div>
 
 
 
@@ -6606,16 +6935,20 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001761</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.">
-                        Pes cavus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp">HP:0001761</a>
-
-
+This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6636,7 +6969,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40636623" target="_blank">PMID:40636623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6679,16 +7014,20 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002460</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.">
-                        Distal muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp">HP:0002460</a>
-
-
+This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6709,7 +7048,9 @@ This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34606075" target="_blank">PMID:34606075</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6752,16 +7093,22 @@ This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Areflexia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001284</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.">
-                        Areflexia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp">HP:0001284</a>
-
-
+This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6793,16 +7140,22 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Distal sensory impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a phenotype from the Human Phenotype Ontology.">
-                        Distal sensory impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002936" target="_blank" class="curie-chip curie-chip-hp">HP:0002936</a>
-
-
+This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6823,7 +7176,9 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24521780" target="_blank">PMID:24521780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6857,16 +7212,22 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Distal lower limb amyotrophy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0008944</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Distal lower limb amyotrophy (HP:0008944). HP:0008944 is a phenotype from the Human Phenotype Ontology.">
-                        Distal lower limb amyotrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008944" target="_blank" class="curie-chip curie-chip-hp">HP:0008944</a>
-
-
+This clinical feature is Distal lower limb amyotrophy (HP:0008944). HP:0008944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6881,23 +7242,25 @@ This clinical feature is Distal lower limb amyotrophy (HP:0008944). HP:0008944 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36445400" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:34819907" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36445400" target="_blank">PMID:36445400</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34819907" target="_blank">PMID:34819907</a>
                     </span>
+
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Hereditary motor neuropathies (HMN) were first defined as a group of neuromuscular disorders characterized by lower motor neuron dysfunction, slowly progressive length-dependent distal muscle weakness and atrophy, without sensory involvement."</div>
+                <div class="evidence-snippet">"All patients presented with distal weakness and atrophy in the lower limb, two of whom had minor clinical sensory abnormalities and small fiber neuropathy."</div>
 
 
-                <div class="evidence-explanation">Confirms distal muscle atrophy as a defining feature of hereditary motor neuropathies overlapping with CMT2.</div>
+                <div class="evidence-explanation">In an axonal CMT2 (SORD) clinical series, all patients had distal lower-limb weakness and atrophy, directly supporting distal lower-limb amyotrophy as a core CMT2 phenotype.</div>
 
 
 
@@ -6921,16 +7284,20 @@ This clinical feature is Distal lower limb amyotrophy (HP:0008944). HP:0008944 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Steppage gait (HP:0003376). HP:0003376 is a phenotype from the Human Phenotype Ontology.">
-                        Steppage gait
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003376" target="_blank" class="curie-chip curie-chip-hp">HP:0003376</a>
-
-
+This clinical feature is Steppage gait (HP:0003376). HP:0003376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6951,7 +7318,9 @@ This clinical feature is Steppage gait (HP:0003376). HP:0003376 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40636623" target="_blank">PMID:40636623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6985,16 +7354,20 @@ This clinical feature is Steppage gait (HP:0003376). HP:0003376 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003484</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Distal upper limb muscle weakness, annotated with Upper limb muscle weakness (HP:0003484). HP:0003484 is a phenotype from the Human Phenotype Ontology.">
-                        Upper limb muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003484" target="_blank" class="curie-chip curie-chip-hp">HP:0003484</a>
-
-
+This clinical feature is Distal upper limb muscle weakness, annotated with Upper limb muscle weakness (HP:0003484). HP:0003484 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7061,15 +7434,17 @@ This clinical feature is Distal upper limb muscle weakness, annotated with Upper
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MFN2 (hgnc:16877). hgnc:16877 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MFN2
 
 
-    <a href="https://bioregistry.io/hgnc:16877" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16877</a>
+    <a href="https://bioregistry.io/hgnc:16877" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:16877</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MFN2 (hgnc:16877). hgnc:16877 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7091,7 +7466,9 @@ This disease-associated gene is MFN2 (hgnc:16877). hgnc:16877 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32733278" target="_blank">PMID:32733278</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7128,15 +7505,17 @@ This disease-associated gene is MFN2 (hgnc:16877). hgnc:16877 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NEFL (hgnc:7739). hgnc:7739 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NEFL
 
 
-    <a href="https://bioregistry.io/hgnc:7739" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7739</a>
+    <a href="https://bioregistry.io/hgnc:7739" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:7739</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEFL (hgnc:7739). hgnc:7739 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7158,7 +7537,9 @@ This disease-associated gene is NEFL (hgnc:7739). hgnc:7739 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34485306" target="_blank">PMID:34485306</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7180,7 +7561,9 @@ This disease-associated gene is NEFL (hgnc:7739). hgnc:7739 is a gene from the H
                         <a href="https://bioregistry.io/CGGV:assertion_49d4cf82-b365-456e-9e35-2b28a66b71ec-2023-01-10T170000.000Z" target="_blank">CGGV:assertion_49d4cf82-b365-456e-9e35-2b28a66b71ec-2023-01-10T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7217,15 +7600,17 @@ This disease-associated gene is NEFL (hgnc:7739). hgnc:7739 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RAB7A (hgnc:9788). hgnc:9788 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RAB7A
 
 
-    <a href="https://bioregistry.io/hgnc:9788" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9788</a>
+    <a href="https://bioregistry.io/hgnc:9788" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:9788</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RAB7A (hgnc:9788). hgnc:9788 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7247,7 +7632,9 @@ This disease-associated gene is RAB7A (hgnc:9788). hgnc:9788 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24521780" target="_blank">PMID:24521780</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7269,7 +7656,9 @@ This disease-associated gene is RAB7A (hgnc:9788). hgnc:9788 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_222dbfa6-db75-42a0-bab6-338b46a316c3-2022-02-10T021034.172Z" target="_blank">CGGV:assertion_222dbfa6-db75-42a0-bab6-338b46a316c3-2022-02-10T021034.172Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7306,15 +7695,17 @@ This disease-associated gene is RAB7A (hgnc:9788). hgnc:9788 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GARS1
 
 
-    <a href="https://bioregistry.io/hgnc:4162" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4162</a>
+    <a href="https://bioregistry.io/hgnc:4162" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:4162</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7336,7 +7727,9 @@ This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36928301" target="_blank">PMID:36928301</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7373,15 +7766,17 @@ This disease-associated gene is GARS1 (hgnc:4162). hgnc:4162 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MPZ (hgnc:7225). hgnc:7225 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MPZ
 
 
-    <a href="https://bioregistry.io/hgnc:7225" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7225</a>
+    <a href="https://bioregistry.io/hgnc:7225" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:7225</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MPZ (hgnc:7225). hgnc:7225 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7403,7 +7798,9 @@ This disease-associated gene is MPZ (hgnc:7225). hgnc:7225 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27774063" target="_blank">PMID:27774063</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7440,15 +7837,17 @@ This disease-associated gene is MPZ (hgnc:7225). hgnc:7225 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SORD
 
 
-    <a href="https://bioregistry.io/hgnc:11184" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11184</a>
+    <a href="https://bioregistry.io/hgnc:11184" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:11184</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SORD (hgnc:11184). hgnc:11184 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7470,7 +7869,9 @@ This disease-associated gene is SORD (hgnc:11184). hgnc:11184 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32367058" target="_blank">PMID:32367058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7507,15 +7908,17 @@ This disease-associated gene is SORD (hgnc:11184). hgnc:11184 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HSPB1 (hgnc:5246). hgnc:5246 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HSPB1
 
 
-    <a href="https://bioregistry.io/hgnc:5246" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5246</a>
+    <a href="https://bioregistry.io/hgnc:5246" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:5246</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HSPB1 (hgnc:5246). hgnc:5246 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7537,7 +7940,9 @@ This disease-associated gene is HSPB1 (hgnc:5246). hgnc:5246 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15122254" target="_blank">PMID:15122254</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7574,15 +7979,17 @@ This disease-associated gene is HSPB1 (hgnc:5246). hgnc:5246 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MORC2 (hgnc:23573). hgnc:23573 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MORC2
 
 
-    <a href="https://bioregistry.io/hgnc:23573" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23573</a>
+    <a href="https://bioregistry.io/hgnc:23573" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:23573</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MORC2 (hgnc:23573). hgnc:23573 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7604,7 +8011,9 @@ This disease-associated gene is MORC2 (hgnc:23573). hgnc:23573 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26497905" target="_blank">PMID:26497905</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7641,15 +8050,17 @@ This disease-associated gene is MORC2 (hgnc:23573). hgnc:23573 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is GDAP1 (hgnc:15968). hgnc:15968 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GDAP1
 
 
-    <a href="https://bioregistry.io/hgnc:15968" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15968</a>
+    <a href="https://bioregistry.io/hgnc:15968" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:15968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GDAP1 (hgnc:15968). hgnc:15968 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7671,7 +8082,9 @@ This disease-associated gene is GDAP1 (hgnc:15968). hgnc:15968 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20685671" target="_blank">PMID:20685671</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7708,15 +8121,17 @@ This disease-associated gene is GDAP1 (hgnc:15968). hgnc:15968 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NEFH (hgnc:7737). hgnc:7737 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NEFH
 
 
-    <a href="https://bioregistry.io/hgnc:7737" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7737</a>
+    <a href="https://bioregistry.io/hgnc:7737" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:7737</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEFH (hgnc:7737). hgnc:7737 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7738,7 +8153,9 @@ This disease-associated gene is NEFH (hgnc:7737). hgnc:7737 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28709447" target="_blank">PMID:28709447</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7768,6 +8185,9 @@ This disease-associated gene is NEFH (hgnc:7737). hgnc:7737 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7784,18 +8204,18 @@ This disease-associated gene is NEFH (hgnc:7737). hgnc:7737 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -7813,6 +8233,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7838,7 +8277,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40636623" target="_blank">PMID:40636623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7868,18 +8309,18 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">orthotic supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is orthotic supportive care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">orthotic supportive care</span>
+This treatment is orthotic supportive care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is orthotic supportive care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7897,6 +8338,14 @@ This treatment is orthotic supportive care, annotated with Supportive Care (NCIT
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7922,7 +8371,9 @@ This treatment is orthotic supportive care, annotated with Supportive Care (NCIT
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40636623" target="_blank">PMID:40636623</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7952,18 +8403,18 @@ This treatment is orthotic supportive care, annotated with Supportive Care (NCIT
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">orthopedic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.">orthopedic surgical procedure</span>
+This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Orthopedic Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16186" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.">NCIT:C16186</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16186" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16186">NCIT:C16186</a>
 
 
 
@@ -7981,6 +8432,25 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8004,18 +8474,18 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8033,6 +8503,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8056,17 +8534,17 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -8084,6 +8562,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8109,7 +8595,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301532" target="_blank">PMID:20301532</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8139,17 +8627,17 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8174,21 +8662,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses epalrestat (CHEBI:31539). CHEBI:31539 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         epalrestat
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31539" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31539</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31539" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:31539</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses epalrestat (CHEBI:31539). CHEBI:31539 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8220,18 +8718,20 @@ This treatment uses epalrestat (CHEBI:31539). CHEBI:31539 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Distal muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002460</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8245,13 +8745,15 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT05777226" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT05777226" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05777226" target="_blank">clinicaltrials:NCT05777226</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8273,7 +8775,9 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32367058" target="_blank">PMID:32367058</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8303,17 +8807,17 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8336,6 +8840,14 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">NMD670 is an investigational small-molecule therapy tested in a completed Phase IIa placebo-controlled trial enrolling ambulatory adults with CMT1 or CMT2. The treatment is modeled with partial support because the trial record establishes clinical evaluation in CMT2 but does not provide outcome results in the cache.
 </div>
 
@@ -8345,33 +8857,37 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Steppage gait (HP:0003376). HP:0003376 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Steppage gait
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003376" target="_blank" class="curie-chip curie-chip-hp">HP:0003376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0003376</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Steppage gait (HP:0003376). HP:0003376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Distal muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0002460</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8385,13 +8901,15 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT06482437" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT06482437" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT06482437" target="_blank">clinicaltrials:NCT06482437</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8421,17 +8939,17 @@ This treatment targets Distal muscle weakness (HP:0002460). HP:0002460 is a phen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8449,6 +8967,25 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8493,7 +9030,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21785432" target="_blank">PMID:21785432</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8523,17 +9062,17 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8551,6 +9090,75 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Antisense oligonucleotide</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">RNase H knockdown</span>
+
+
+
+
+    </div>
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NEFL
+
+
+    <a href="https://bioregistry.io/hgnc:7739" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:7739</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment base-pairs with the transcript of this gene
+This treatment base-pairs with the transcript of NEFL (hgnc:7739). hgnc:7739 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">NEFL mRNA (p.N98S gain-of-function allele)</span>
+
+
+    </div>
 
 
 
@@ -8595,7 +9203,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39008620" target="_blank">PMID:39008620</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8627,6 +9237,99 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-nerve-conduction-studies">
+                <div class="item-name">
+                    Nerve Conduction Studies
+
+                </div>
+
+                <div class="item-desc">Motor nerve conduction velocities are normal or near-normal (&gt;38 m/s) in CMT2, distinguishing it from CMT1 where velocities are significantly reduced (&lt;38 m/s). Compound muscle action potential amplitudes are reduced, reflecting axonal loss rather than demyelination.
+</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Key diagnostic criterion distinguishing CMT2 from CMT1</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16941080" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16941080" target="_blank">PMID:16941080</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Median nerve motor nerve conduction velocities (MNCV) were always less than 38 m/s in CMT1A patients, whereas this was also the case in 16% of the CMT2 patients. Sensory nerve conduction velocities showed less overlap. In both CMT1A and CMT2 CMAP and SNAP amplitudes were often reduced or not..."</div>
+
+
+                <div class="evidence-explanation">Comparative electrophysiology supports preserved or overlapping motor conduction velocities and reduced amplitudes as key diagnostic features separating axonal CMT2 from CMT1A.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -8642,7 +9345,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05777226">
                 <div class="item-name">
                     NCT05777226
 
@@ -8661,18 +9364,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Distal muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002460</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8691,7 +9396,9 @@ This clinical trial targets Distal muscle weakness (HP:0002460). HP:0002460 is a
                         <a href="https://clinicaltrials.gov/study/NCT05777226" target="_blank">clinicaltrials:NCT05777226</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8714,7 +9421,7 @@ This clinical trial targets Distal muscle weakness (HP:0002460). HP:0002460 is a
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06482437">
                 <div class="item-name">
                     NCT06482437
 
@@ -8733,33 +9440,37 @@ This clinical trial targets Distal muscle weakness (HP:0002460). HP:0002460 is a
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Steppage gait (HP:0003376). HP:0003376 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Steppage gait
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003376" target="_blank" class="curie-chip curie-chip-hp">HP:0003376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0003376</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Steppage gait (HP:0003376). HP:0003376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Distal muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp">HP:0002460</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002460" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0002460</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Distal muscle weakness (HP:0002460). HP:0002460 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8778,7 +9489,9 @@ This clinical trial targets Distal muscle weakness (HP:0002460). HP:0002460 is a
                         <a href="https://clinicaltrials.gov/study/NCT06482437" target="_blank">clinicaltrials:NCT06482437</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8826,7 +9539,6 @@ This clinical trial targets Distal muscle weakness (HP:0002460). HP:0002460 is a
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Charcot-Marie-Tooth Disease Type 2
 creation_date: &#34;2026-04-08T23:00:00Z&#34;
-updated_date: &#34;2026-04-29T01:06:55Z&#34;
 category: Genetic
 description: &gt;
   Charcot-Marie-Tooth disease type 2 (CMT2) is a group of inherited peripheral
@@ -9438,12 +10150,12 @@ phenotypes:
       id: HP:0008944
       label: Distal lower limb amyotrophy
   evidence:
-  - reference: PMID:36445400
-    reference_title: &#34;Early onset hereditary neuronopathies: an update on non-5q motor neuron diseases.&#34;
+  - reference: PMID:34819907
+    reference_title: &#34;Clinical and Genetic Features of Biallelic Mutations in SORD in a Series of Chinese Patients With Charcot-Marie-Tooth and Distal Hereditary Motor Neuropathy.&#34;
     supports: SUPPORT
-    evidence_source: OTHER
-    snippet: &#34;Hereditary motor neuropathies (HMN) were first defined as a group of neuromuscular disorders characterized by lower motor neuron dysfunction, slowly progressive length-dependent distal muscle weakness and atrophy, without sensory involvement.&#34;
-    explanation: Confirms distal muscle atrophy as a defining feature of hereditary motor neuropathies overlapping with CMT2.
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All patients presented with distal weakness and atrophy in the lower limb, two of whom had minor clinical sensory abnormalities and small fiber neuropathy.&#34;
+    explanation: In an axonal CMT2 (SORD) clinical series, all patients had distal lower-limb weakness and atrophy, directly supporting distal lower-limb amyotrophy as a core CMT2 phenotype.
 
 - name: Reduced Deep Tendon Reflexes
   category: Neurological
@@ -9497,10 +10209,10 @@ phenotypes:
     Visual impairment due to optic nerve degeneration, occurring in a subset
     of CMT2A (MFN2) patients. This phenotype defines the HMSN VI (hereditary
     motor and sensory neuropathy type VI) syndrome. Onset is typically
-    subacute; partial visual acuity recovery is reported in approximately
-    60% of affected individuals. Optic atrophy in CMT2A reflects the shared
-    role of mitochondrial dynamics in both peripheral neurons and retinal
-    ganglion cells.
+    subacute, with subsequent slow recovery of visual acuity in a majority
+    (60%) of affected individuals in the original HMSN VI series. Optic
+    atrophy in CMT2A reflects the shared role of mitochondrial dynamics in
+    both peripheral neurons and retinal ganglion cells.
   phenotype_term:
     preferred_term: Optic atrophy
     term:
@@ -9525,6 +10237,15 @@ phenotypes:
       Confirms that each of the six HMSN VI families harbored a distinct MFN2
       mutation, establishing the genotype-phenotype link for optic atrophy in
       CMT2A.
+  - reference: PMID:16437557
+    reference_title: &#34;Axonal neuropathy with optic atrophy is caused by mutations in mitofusin 2.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;six HMSN VI families with a subacute onset of optic atrophy and subsequent slow recovery of visual acuity in 60% of the patients&#34;
+    explanation: &gt;-
+      Directly supports the described subacute onset and slow partial recovery
+      of visual acuity in 60% of affected individuals in the original HMSN VI
+      (CMT2A) series.
 
 genetic:
 - name: MFN2
@@ -9736,8 +10457,11 @@ inheritance:
       label: Autosomal recessive inheritance
   description: &gt;
     Some CMT2 subtypes follow autosomal recessive inheritance, including
-    CMT2B1 (LMNA), CMT2B2 (MED25), and SORD-CMT2. Recessive NEFL mutations
-    also cause a severe early-onset form.
+    CMT2B1 (LMNA), CMT2B2 (PNKP; originally attributed to MED25), and SORD-CMT2.
+    Recessive NEFL mutations also cause a severe early-onset form. Note: CMT2B2
+    was initially reported as a MED25 disorder, but re-evaluation of the original
+    family reassigned the cause to a homozygous PNKP variant, so MED25 is no longer
+    considered a CMT gene.
   evidence:
   - reference: PMID:21327736
     reference_title: &#34;Recent advances in the genetics of hereditary axonal sensory-motor neuropathies type 2.&#34;
@@ -9745,6 +10469,12 @@ inheritance:
     evidence_source: OTHER
     snippet: &#34;The majority of CMT2 are autosomal-dominant but autosomal-recessive forms have been described.&#34;
     explanation: Review supports the presence of autosomal recessive CMT2 forms.
+  - reference: PMID:30039206
+    reference_title: &#34;The polynucleotide kinase 3&#39;-phosphatase gene (PNKP) is involved in Charcot-Marie-Tooth disease (CMT2B2) previously related to MED25.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Using exome sequencing, we now identified a homozygous nonsense variant (p.Gln517ter) in the last exon of an adjacent gene, the polynucleotide kinase 3&#39;-phosphatase (PNKP) gene.&#34;
+    explanation: Re-evaluation of the original CMT2B2 family reassigned the cause from MED25 to a homozygous PNKP variant, so CMT2B2 is a PNKP disorder and MED25 is no longer a CMT gene.
 
 diagnosis:
 - name: Nerve Conduction Studies
@@ -9869,7 +10599,7 @@ treatments:
   evidence:
   - reference: clinicaltrials:NCT05777226
     reference_title: &#34;Multi-center Study of Natural History of SORD-related Charcot-Marie-Tooth Disease and Epalrestat Treatment&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The primary purpose of this study is to explore the natural history of SORD-CMT2 patients by detecting the ONLS scale score and serum sorbitol level changes at 6th, 12th, 24th, and 36th months and to evaluate the effectiveness and safety of epalrestat.&#34;
     explanation: ClinicalTrials.gov documents a SORD-CMT2 epalrestat study, but results are not yet available.
@@ -9904,7 +10634,7 @@ treatments:
   evidence:
   - reference: clinicaltrials:NCT06482437
     reference_title: &#34;A Phase 2a, Randomised, Double-Blind, Placebo-Controlled Study to Evaluate the Efficacy, Safety, and Tolerability of NMD670 Over 21 Days in Ambulatory Adult Patients With Type 1 and Type 2 Charcot-Marie-Tooth Disease&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;This Phase 2a study aims to evaluate the efficacy, safety and tolerability of NMD670 vs placebo administered twice a day (BID) for 21 days in ambulatory adult patients with Charcot-Marie-Tooth disease type 1 and type 2.&#34;
     explanation: ClinicalTrials.gov documents completed Phase IIa clinical evaluation of NMD670 in adults with CMT1 or CMT2, but the cache does not include efficacy results.
@@ -9943,8 +10673,8 @@ treatments:
     NEFL p.N98S subtype, ASO treatment targeting the heterozygous gain-of-function
     variant reduced biomarkers of axonal degeneration. Preclinical/investigational.
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: RNASE_H_KNOCKDOWN
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNASE_H_KNOCKDOWN
     target_gene:
       preferred_term: NEFL
       term:
@@ -10615,7 +11345,7 @@ URL: https://clinicaltrials.gov/study/NCT06482437 (NCT06482437 chunk 1).</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Charcot-Marie-Tooth Disease Type 2", "mondoId": "MONDO:0018993", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Charcot-Marie-Tooth_Disease_Type_2", "yamlRevision": "e533de703f2b"};
+        const OS_CONFIG = {"diseaseName": "Charcot-Marie-Tooth Disease Type 2", "mondoId": "MONDO:0018993", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Charcot-Marie-Tooth_Disease_Type_2", "yamlRevision": "8083bde21676"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11034,5 +11764,73 @@ URL: https://clinicaltrials.gov/study/NCT06482437 (NCT06482437 chunk 1).</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

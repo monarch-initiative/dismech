@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Weill-Marchesani syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Weill-Marchesani syndrome</h1>
             <div class="header-meta">
 
@@ -3915,6 +4062,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3924,9 +4141,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 15 &#34;Acromelic dysplasias&#34;; listed as &#34;Weill-Marchesani syndrome&#34;.">acromelic dysplasias</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3944,7 +4177,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3989,7 +4222,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4011,7 +4246,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4034,7 +4271,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4079,7 +4316,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4101,7 +4340,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4123,7 +4364,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4184,7 +4427,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-wms1">
 
                     <div class="item-name">
                         Weill-Marchesani syndrome 1 (ADAMTS10-related, recessive)
@@ -4199,18 +4442,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ADAMTS10 (hgnc:13201). hgnc:13201 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ADAMTS10
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:13201" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13201</a>
+    <a href="https://bioregistry.io/hgnc:13201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:13201</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ADAMTS10 (hgnc:13201). hgnc:13201 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4237,7 +4482,9 @@ This subtype is caused by variation in ADAMTS10 (hgnc:13201). hgnc:13201 is a ge
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15368195" target="_blank">PMID:15368195</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4263,7 +4510,7 @@ This subtype is caused by variation in ADAMTS10 (hgnc:13201). hgnc:13201 is a ge
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-wms2">
 
                     <div class="item-name">
                         Weill-Marchesani syndrome 2 (FBN1-related, dominant)
@@ -4278,18 +4525,20 @@ This subtype is caused by variation in ADAMTS10 (hgnc:13201). hgnc:13201 is a ge
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 FBN1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3603</a>
+    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3603</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4316,7 +4565,9 @@ This subtype is caused by variation in FBN1 (hgnc:3603). hgnc:3603 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4342,7 +4593,7 @@ This subtype is caused by variation in FBN1 (hgnc:3603). hgnc:3603 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-wms3">
 
                     <div class="item-name">
                         Weill-Marchesani syndrome 3 (LTBP2-related, recessive)
@@ -4357,18 +4608,20 @@ This subtype is caused by variation in FBN1 (hgnc:3603). hgnc:3603 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in LTBP2 (hgnc:6715). hgnc:6715 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 LTBP2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6715" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6715</a>
+    <a href="https://bioregistry.io/hgnc:6715" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6715</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LTBP2 (hgnc:6715). hgnc:6715 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4395,7 +4648,9 @@ This subtype is caused by variation in LTBP2 (hgnc:6715). hgnc:6715 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22539340" target="_blank">PMID:22539340</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4421,7 +4676,7 @@ This subtype is caused by variation in LTBP2 (hgnc:6715). hgnc:6715 is a gene fr
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-wms4">
 
                     <div class="item-name">
                         Weill-Marchesani syndrome 4 (ADAMTS17-related, recessive)
@@ -4436,18 +4691,20 @@ This subtype is caused by variation in LTBP2 (hgnc:6715). hgnc:6715 is a gene fr
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ADAMTS17
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:17109" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17109</a>
+    <a href="https://bioregistry.io/hgnc:17109" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:17109</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4474,7 +4731,9 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31726086" target="_blank">PMID:31726086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4490,13 +4749,15 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37506754" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37506754" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37506754" target="_blank">PMID:37506754</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4617,6 +4878,12 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4640,7 +4907,9 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22242013" target="_blank">PMID:22242013</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4749,6 +5018,12 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4772,7 +5047,9 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14598350" target="_blank">PMID:14598350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4895,6 +5172,12 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4918,7 +5201,9 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30201140" target="_blank">PMID:30201140</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4940,7 +5225,9 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30201140" target="_blank">PMID:30201140</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4992,17 +5279,21 @@ This subtype is caused by variation in ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ADAMTS10 (hgnc:13201). hgnc:13201 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ADAMTS10
 
 
-    <a href="https://bioregistry.io/hgnc:13201" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13201</a>
+    <a href="https://bioregistry.io/hgnc:13201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:13201</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ADAMTS10 (hgnc:13201). hgnc:13201 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5031,18 +5322,20 @@ This pathophysiological event involves ADAMTS10 (hgnc:13201). hgnc:13201 is a ge
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5141,7 +5434,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21402694" target="_blank">PMID:21402694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5163,7 +5458,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21402694" target="_blank">PMID:21402694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5185,7 +5482,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30201140" target="_blank">PMID:30201140</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5225,17 +5524,21 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ADAMTS17 (hgnc:17109). hgnc:17109 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ADAMTS17
 
 
-    <a href="https://bioregistry.io/hgnc:17109" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17109</a>
+    <a href="https://bioregistry.io/hgnc:17109" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:17109</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ADAMTS17 (hgnc:17109). hgnc:17109 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5264,18 +5567,20 @@ This pathophysiological event involves ADAMTS17 (hgnc:17109). hgnc:17109 is a ge
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5358,7 +5663,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32616716" target="_blank">PMID:32616716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5380,7 +5687,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31726086" target="_blank">PMID:31726086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5420,17 +5729,21 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         FBN1
 
 
-    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3603</a>
+    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:3603</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5500,7 +5813,9 @@ This pathophysiological event involves FBN1 (hgnc:3603). hgnc:3603 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22242013" target="_blank">PMID:22242013</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5522,7 +5837,9 @@ This pathophysiological event involves FBN1 (hgnc:3603). hgnc:3603 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22242013" target="_blank">PMID:22242013</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5562,17 +5879,21 @@ This pathophysiological event involves FBN1 (hgnc:3603). hgnc:3603 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves LTBP2 (hgnc:6715). hgnc:6715 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         LTBP2
 
 
-    <a href="https://bioregistry.io/hgnc:6715" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6715</a>
+    <a href="https://bioregistry.io/hgnc:6715" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:6715</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LTBP2 (hgnc:6715). hgnc:6715 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5601,18 +5922,20 @@ This pathophysiological event involves LTBP2 (hgnc:6715). hgnc:6715 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5695,7 +6018,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24908666" target="_blank">PMID:24908666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5717,7 +6042,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17293099" target="_blank">PMID:17293099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5750,18 +6077,20 @@ This pathophysiological event involves decreased extracellular matrix organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5789,18 +6118,20 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5882,7 +6213,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30060141" target="_blank">PMID:30060141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5904,7 +6237,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22539340" target="_blank">PMID:22539340</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5926,7 +6261,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25957949" target="_blank">PMID:25957949</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5966,18 +6303,20 @@ This pathophysiological event involves decreased extracellular matrix organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6035,7 +6374,9 @@ This pathophysiological event involves decreased BMP signaling pathway (GO:00305
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31201465" target="_blank">PMID:31201465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6057,7 +6398,9 @@ This pathophysiological event involves decreased BMP signaling pathway (GO:00305
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31201465" target="_blank">PMID:31201465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6079,7 +6422,9 @@ This pathophysiological event involves decreased BMP signaling pathway (GO:00305
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30060141" target="_blank">PMID:30060141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6121,18 +6466,20 @@ This pathophysiological event involves decreased BMP signaling pathway (GO:00305
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6215,7 +6562,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6237,7 +6586,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24908666" target="_blank">PMID:24908666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6259,7 +6610,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30060141" target="_blank">PMID:30060141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6334,7 +6687,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6356,7 +6711,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36698805" target="_blank">PMID:36698805</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6429,7 +6786,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6502,7 +6861,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6524,7 +6885,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6597,7 +6960,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32561029" target="_blank">PMID:32561029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6619,7 +6984,9 @@ This pathophysiological event involves decreased extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25397784" target="_blank">PMID:25397784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6652,18 +7019,20 @@ This pathophysiological event involves decreased extracellular matrix organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal ganglion cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl">CL:0000740</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000740</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:0000740 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6691,18 +7060,20 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuron apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go">GO:0051402</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051402" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0051402</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuron apoptotic process (GO:0051402). GO:0051402 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6760,7 +7131,9 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25914734" target="_blank">PMID:25914734</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6800,18 +7173,20 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased neuroinflammatory response (GO:0150076). GO:0150076 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuroinflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go">GO:0150076</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0150076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased neuroinflammatory response (GO:0150076). GO:0150076 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6869,7 +7244,9 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33670885" target="_blank">PMID:33670885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6927,7 +7304,9 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33670885" target="_blank">PMID:33670885</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6949,7 +7328,9 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6982,18 +7363,20 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7039,7 +7422,9 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7061,7 +7446,9 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30060141" target="_blank">PMID:30060141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7083,7 +7470,9 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31201465" target="_blank">PMID:31201465</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7141,7 +7530,9 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14598350" target="_blank">PMID:14598350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7181,18 +7572,20 @@ This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7235,7 +7628,9 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22242013" target="_blank">PMID:22242013</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7257,7 +7652,9 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31726086" target="_blank">PMID:31726086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7315,7 +7712,9 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30060141" target="_blank">PMID:30060141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7415,16 +7814,20 @@ This pathophysiological event involves dysregulated extracellular matrix organiz
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001654</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:0001654 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal heart valve morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp">HP:0001654</a>
-
-
+This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:0001654 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7445,7 +7848,9 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7467,7 +7872,9 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14598350" target="_blank">PMID:14598350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7510,16 +7917,20 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001083</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ectopia lentis (HP:0001083), qualified as childhood onset. HP:0001083 is a phenotype from the Human Phenotype Ontology.">
-                        Ectopia lentis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001083" target="_blank" class="curie-chip curie-chip-hp">HP:0001083</a>
-
-
+This clinical feature is Ectopia lentis (HP:0001083), qualified as childhood onset. HP:0001083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7569,7 +7980,9 @@ This clinical feature is Ectopia lentis (HP:0001083), qualified as childhood ons
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14598350" target="_blank">PMID:14598350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7591,7 +8004,9 @@ This clinical feature is Ectopia lentis (HP:0001083), qualified as childhood ons
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7623,16 +8038,20 @@ This clinical feature is Ectopia lentis (HP:0001083), qualified as childhood ons
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011003</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is High myopia (HP:0011003), qualified as childhood onset. HP:0011003 is a phenotype from the Human Phenotype Ontology.">
-                        High myopia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" class="curie-chip curie-chip-hp">HP:0011003</a>
-
-
+This clinical feature is High myopia (HP:0011003), qualified as childhood onset. HP:0011003 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7682,7 +8101,9 @@ This clinical feature is High myopia (HP:0011003), qualified as childhood onset.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7704,7 +8125,9 @@ This clinical feature is High myopia (HP:0011003), qualified as childhood onset.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36698805" target="_blank">PMID:36698805</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7736,16 +8159,20 @@ This clinical feature is High myopia (HP:0011003), qualified as childhood onset.
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000501</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Glaucoma (HP:0000501), qualified as course progressive; childhood onset. HP:0000501 is a phenotype from the Human Phenotype Ontology.">
-                        Glaucoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" class="curie-chip curie-chip-hp">HP:0000501</a>
-
-
+This clinical feature is Glaucoma (HP:0000501), qualified as course progressive; childhood onset. HP:0000501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7797,7 +8224,9 @@ This clinical feature is Glaucoma (HP:0000501), qualified as course progressive;
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7829,16 +8258,20 @@ This clinical feature is Glaucoma (HP:0000501), qualified as course progressive;
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000518</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
-                        Cataract
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
-
-
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7859,7 +8292,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32616716" target="_blank">PMID:32616716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7900,16 +8335,20 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype from the Human Phenotype Ontology.">
-                        Thickened skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001072" target="_blank" class="curie-chip curie-chip-hp">HP:0001072</a>
-
-
+This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7930,7 +8369,9 @@ This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30060141" target="_blank">PMID:30060141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7971,16 +8412,20 @@ This clinical feature is Thickened skin (HP:0001072). HP:0001072 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001156</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.">
-                        Brachydactyly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp">HP:0001156</a>
-
-
+This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8001,7 +8446,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8044,16 +8491,20 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001387</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.">
-                        Joint stiffness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" class="curie-chip curie-chip-hp">HP:0001387</a>
-
-
+This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8074,7 +8525,9 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14598350" target="_blank">PMID:14598350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8117,16 +8570,20 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8147,7 +8604,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8169,7 +8628,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8212,16 +8673,20 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030961</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microspherophakia (HP:0030961), qualified as childhood onset. HP:0030961 is a phenotype from the Human Phenotype Ontology.">
-                        Microspherophakia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030961" target="_blank" class="curie-chip curie-chip-hp">HP:0030961</a>
-
-
+This clinical feature is Microspherophakia (HP:0030961), qualified as childhood onset. HP:0030961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8271,7 +8736,9 @@ This clinical feature is Microspherophakia (HP:0030961), qualified as childhood 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14598350" target="_blank">PMID:14598350</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8293,7 +8760,9 @@ This clinical feature is Microspherophakia (HP:0030961), qualified as childhood 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8315,7 +8784,9 @@ This clinical feature is Microspherophakia (HP:0030961), qualified as childhood 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8347,16 +8818,20 @@ This clinical feature is Microspherophakia (HP:0030961), qualified as childhood 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012109" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012109</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Angle closure glaucoma (HP:0012109). HP:0012109 is a phenotype from the Human Phenotype Ontology.">
-                        Angle closure glaucoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012109" target="_blank" class="curie-chip curie-chip-hp">HP:0012109</a>
-
-
+This clinical feature is Angle closure glaucoma (HP:0012109). HP:0012109 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8377,7 +8852,9 @@ This clinical feature is Angle closure glaucoma (HP:0012109). HP:0012109 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8409,16 +8886,20 @@ This clinical feature is Angle closure glaucoma (HP:0012109). HP:0012109 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003720" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003720</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized muscle hypertrophy (HP:0003720). HP:0003720 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized muscle hypertrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003720" target="_blank" class="curie-chip curie-chip-hp">HP:0003720</a>
-
-
+This clinical feature is Generalized muscle hypertrophy (HP:0003720). HP:0003720 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8439,7 +8920,9 @@ This clinical feature is Generalized muscle hypertrophy (HP:0003720). HP:0003720
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30060141" target="_blank">PMID:30060141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8461,7 +8944,9 @@ This clinical feature is Generalized muscle hypertrophy (HP:0003720). HP:0003720
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30060141" target="_blank">PMID:30060141</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8539,15 +9024,17 @@ This clinical feature is Generalized muscle hypertrophy (HP:0003720). HP:0003720
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ADAMTS10 (hgnc:13201). hgnc:13201 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ADAMTS10
 
 
-    <a href="https://bioregistry.io/hgnc:13201" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:13201</a>
+    <a href="https://bioregistry.io/hgnc:13201" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:13201</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ADAMTS10 (hgnc:13201). hgnc:13201 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8571,7 +9058,9 @@ This disease-associated gene is ADAMTS10 (hgnc:13201). hgnc:13201 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15368195" target="_blank">PMID:15368195</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8593,7 +9082,9 @@ This disease-associated gene is ADAMTS10 (hgnc:13201). hgnc:13201 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15368195" target="_blank">PMID:15368195</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8630,15 +9121,17 @@ This disease-associated gene is ADAMTS10 (hgnc:13201). hgnc:13201 is a gene from
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ADAMTS17 (hgnc:17109). hgnc:17109 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ADAMTS17
 
 
-    <a href="https://bioregistry.io/hgnc:17109" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:17109</a>
+    <a href="https://bioregistry.io/hgnc:17109" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:17109</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ADAMTS17 (hgnc:17109). hgnc:17109 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8662,7 +9155,9 @@ This disease-associated gene is ADAMTS17 (hgnc:17109). hgnc:17109 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8684,7 +9179,9 @@ This disease-associated gene is ADAMTS17 (hgnc:17109). hgnc:17109 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31726086" target="_blank">PMID:31726086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8721,15 +9218,17 @@ This disease-associated gene is ADAMTS17 (hgnc:17109). hgnc:17109 is a gene from
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FBN1
 
 
-    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3603</a>
+    <a href="https://bioregistry.io/hgnc:3603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:3603</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8753,7 +9252,9 @@ This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8790,15 +9291,17 @@ This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is LTBP2 (hgnc:6715). hgnc:6715 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LTBP2
 
 
-    <a href="https://bioregistry.io/hgnc:6715" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6715</a>
+    <a href="https://bioregistry.io/hgnc:6715" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:6715</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LTBP2 (hgnc:6715). hgnc:6715 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8822,7 +9325,9 @@ This disease-associated gene is LTBP2 (hgnc:6715). hgnc:6715 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22539340" target="_blank">PMID:22539340</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8844,7 +9349,9 @@ This disease-associated gene is LTBP2 (hgnc:6715). hgnc:6715 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17293099" target="_blank">PMID:17293099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8874,6 +9381,9 @@ This disease-associated gene is LTBP2 (hgnc:6715). hgnc:6715 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8890,18 +9400,18 @@ This disease-associated gene is LTBP2 (hgnc:6715). hgnc:6715 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -8919,6 +9429,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8961,7 +9490,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8991,18 +9522,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -9020,6 +9551,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -9062,7 +9612,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9092,18 +9644,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -9121,6 +9673,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -9163,7 +9734,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9193,18 +9766,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9222,6 +9795,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9246,7 +9827,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9276,18 +9859,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9305,6 +9888,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9329,7 +9920,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9359,18 +9952,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9388,6 +9981,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9412,7 +10013,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9442,18 +10045,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -9471,6 +10074,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -9495,7 +10117,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9525,18 +10149,18 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9554,6 +10178,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9578,7 +10210,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9608,18 +10242,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9637,6 +10271,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9661,7 +10303,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9691,18 +10335,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -9720,6 +10364,14 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9744,7 +10396,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9766,7 +10420,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9798,6 +10454,557 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-diagnosis">
+                <div class="item-name">
+                    Clinical diagnosis
+
+                </div>
+
+                <div class="item-desc">The diagnosis is established clinically in a proband with the characteristic combination of ocular, skeletal and joint findings. The ophthalmological findings are mandatory for the diagnosis; the systemic phenotype is more variable than originally described.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        physical examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20989" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C20989</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301293" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis WMS is established in a proband with characteristic clinical features."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states that the diagnosis rests on characteristic clinical features.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37734846" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37734846" target="_blank">PMID:37734846</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Apart from the ophthalmological findings, which are mandatory for the diagnosis, the phenotype of WMS seems to be more variable than initially described"</div>
+
+
+                <div class="evidence-explanation">Establishes the ocular findings as the obligate diagnostic anchor and warns that the systemic phenotype is variable.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-anterior-segment-eye-examination-and-ocular-biometry">
+                <div class="item-name">
+                    Anterior-segment eye examination and ocular biometry
+
+                </div>
+
+                <div class="item-desc">Detailed ophthalmic assessment should evaluate lens shape and thickness, refraction, axial length, lens position, anterior-chamber angle and intraocular pressure. In children, progressive lens-induced myopia with a normal axial length can be an early clue before the full systemic phenotype is recognized.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        eye examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C38060</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Microspherophakia or progressive lens thickening, lenticular myopia, ectopia lentis or iridodonesis, angle narrowing and/or elevated intraocular pressure.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36698805" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36698805" target="_blank">PMID:36698805</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Comprehensive clinical examinations and genetic testing may improve diagnosis, which allows early therapeutic interventions for complications and better visual outcomes for the patient."</div>
+
+
+                <div class="evidence-explanation">The longitudinal WMS4 report demonstrates how multimodal ocular biometry can distinguish progressive lens-induced myopia from ordinary axial myopia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301293" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ocular problems, typically recognized in childhood, include microspherophakia (small spherical lens), myopia secondary to the abnormal shape of the lens, ectopia lentis (abnormal position of the lens), and glaucoma, which can lead to blindness."</div>
+
+
+                <div class="evidence-explanation">Defines the childhood ocular abnormalities the examination is intended to detect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing confirms the diagnosis when clinical features are inconclusive, and is the only way to assign inheritance mode, since the recessive and dominant forms cannot be told apart clinically.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301293" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Identification of biallelic pathogenic variants in ADAMTS10, ADAMTS17, or LTBP2 or of a heterozygous pathogenic variant in FBN1 by molecular genetic testing can confirm the diagnosis if clinical features are inconclusive."</div>
+
+
+                <div class="evidence-explanation">Specifies the four-gene molecular testing strategy and its role relative to clinical diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-childhood-ocular-recognition">
+                <div class="item-name">Childhood ocular recognition</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Lens-shape and lens-position abnormalities, lenticular myopia and glaucoma are typically recognized in childhood, although the exact combination and timing vary between individuals.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301293" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ocular problems, typically recognized in childhood, include microspherophakia (small spherical lens), myopia secondary to the abnormal shape of the lens, ectopia lentis (abnormal position of the lens), and glaucoma, which can lead to blindness."</div>
+
+
+                <div class="evidence-explanation">Establishes childhood as the typical recognition period for the ocular phenotype without implying that every listed abnormality is present.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-lens-related-and-glaucomatous-complications">
+                <div class="item-name">Progressive lens-related and glaucomatous complications</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood onward</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Lens thickening and lenticular myopia can progress during childhood in WMS4; ectopic or microspherophakic lenses can later produce pupillary block, chronic angle closure and sight-threatening glaucoma. The longitudinal lens trajectory is documented in a single child and may not generalize to every genotype.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36698805" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36698805" target="_blank">PMID:36698805</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During the 3 years of follow-up, the thickness of lenses increased significantly (right 4.49 mm, left 4.48 mm), but the equatorial diameter of the lenses had no significant change (right 7.32 mm, left 7.21 mm). As the equivalent lens power increased, the patient&#39;s myopia spherical refractive..."</div>
+
+
+                <div class="evidence-explanation">Provides longitudinal evidence for progressive childhood lens thickening and lenticular myopia in one molecularly diagnosed WMS4 patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301293" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301293" target="_blank">PMID:20301293</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"and glaucoma, which can lead to blindness"</div>
+
+
+                <div class="evidence-explanation">Establishes the sight-threatening endpoint of the ocular course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">A contemporary WMS family study reports a prevalence estimate of one per 100,000; because ascertainment for this rare, genetically heterogeneous disorder is incomplete, this should be treated as an approximate estimate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32616716" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32616716" target="_blank">PMID:32616716</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Weill-Marchesani syndrome (WMS) is a rare heritable connective tissue disorder (prevalence 1 in 100,000)"</div>
+
+
+                <div class="evidence-explanation">Provides the published worldwide prevalence estimate; evidence source is OTHER because the value is background synthesis rather than a new population ascertainment study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -9812,7 +11019,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-marfan-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Marfan_Syndrome.html">Marfan syndrome</a>
@@ -9855,7 +11062,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22242013" target="_blank">PMID:22242013</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9877,7 +11086,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22242013" target="_blank">PMID:22242013</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9899,7 +11110,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30201140" target="_blank">PMID:30201140</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9924,7 +11137,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-isolated-ectopia-lentis-especially-adamtsl4-related-disease">
                 <div class="item-name">
 
                     Isolated ectopia lentis, especially ADAMTSL4-related disease
@@ -9967,7 +11180,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20141359" target="_blank">PMID:20141359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9989,7 +11204,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20141359" target="_blank">PMID:20141359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10011,7 +11228,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20141359" target="_blank">PMID:20141359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10038,7 +11257,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-isolated-microspherophakia">
                 <div class="item-name">
 
                     Isolated microspherophakia
@@ -10081,7 +11300,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19696795" target="_blank">PMID:19696795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10103,7 +11324,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19696795" target="_blank">PMID:19696795</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10125,7 +11348,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25397784" target="_blank">PMID:25397784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10152,7 +11377,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-geleophysic-dysplasia-and-acromicric-dysplasia">
                 <div class="item-name">
 
                     Geleophysic dysplasia and acromicric dysplasia
@@ -10195,7 +11420,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24214363" target="_blank">PMID:24214363</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10220,7 +11447,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-homocystinuria-due-to-cystathionine-beta-synthase-deficiency">
                 <div class="item-name">
 
                     Homocystinuria due to cystathionine beta-synthase deficiency
@@ -10263,7 +11490,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301697" target="_blank">PMID:20301697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10285,7 +11514,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301697" target="_blank">PMID:20301697</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10349,17 +11580,19 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <div class="tag-list" style="margin-top: 10px;">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
 
                         fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-50">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -10370,17 +11603,19 @@ This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-51">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-51">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -10454,7 +11689,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21402694" target="_blank">PMID:21402694</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10499,17 +11736,19 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                 <div class="tag-list" style="margin-top: 10px;">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this experimental model uses this cell type
-This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
 
                         fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-52">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -10520,17 +11759,19 @@ This experimental model uses fibroblast (CL:0000057). CL:0000057 is a cell type 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-53">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-53">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -10604,7 +11845,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31726086" target="_blank">PMID:31726086</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10654,17 +11897,19 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
 
-                        <div class="model-detail-value" title="NCBI Taxonomy (NCBITaxon)
-Relation: this experimental model is built in this organism
-This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.">
+
+                        <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-54">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-54">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -10752,7 +11997,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24908666" target="_blank">PMID:24908666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10774,7 +12021,9 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24908666" target="_blank">PMID:24908666</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -10871,7 +12120,7 @@ progression:
     timing vary between individuals.
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The ocular problems, typically recognized in childhood, include microspherophakia (small spherical lens), myopia secondary to the abnormal shape of the lens, ectopia lentis (abnormal position of the lens), and glaucoma, which can lead to blindness.&#34;
@@ -10896,7 +12145,7 @@ progression:
       Provides longitudinal evidence for progressive childhood lens thickening
       and lenticular myopia in one molecularly diagnosed WMS4 patient.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;and glaucoma, which can lead to blindness&#34;
@@ -10914,7 +12163,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ADAMTS10-, ADAMTS17-, and LTPBP2-related WMS are inherited in an autosomal recessive manner.&#34;
@@ -10922,7 +12171,7 @@ inheritance:
       GeneReviews assigns the three protease and binding-protein genes to
       autosomal recessive inheritance.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;each sib of an affected individual has at conception a 25% chance of being affected, a 50% chance of being an asymptomatic carrier, and a 25% chance of being unaffected and not a carrier&#34;
@@ -10941,14 +12190,14 @@ inheritance:
       label: Autosomal dominant inheritance
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;FBN1-related WMS is inherited in an autosomal dominant manner.&#34;
     explanation: &gt;-
       GeneReviews assigns FBN1-related WMS to autosomal dominant inheritance.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Each child of an individual with autosomal dominant WMS has a 50% chance of inheriting the pathogenic variant.&#34;
@@ -10956,7 +12205,7 @@ inheritance:
       Gives the transmission risk used in counselling families with the dominant
       form.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Autosomal recessive WMS cannot be distinguished from autosomal dominant WMS by clinical findings alone.&#34;
@@ -11069,7 +12318,7 @@ has_subtypes:
       attributed to the ADAMTS17 arm.
   - reference: PMID:37506754
     reference_title: &#34;Characteristics and genotype-phenotype correlations in ADAMTS17 mutation-related Weill-Marchesani syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In particular, one child was detected with valvular heart disease, which has not previously been reported in patients with ADAMTS17 mutations.&#34;
     explanation: &gt;-
@@ -11416,7 +12665,7 @@ pathophysiology:
     modifier: DECREASED
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The ocular problems, typically recognized in childhood, include microspherophakia (small spherical lens), myopia secondary to the abnormal shape of the lens, ectopia lentis (abnormal position of the lens), and glaucoma, which can lead to blindness.&#34;
@@ -11466,7 +12715,7 @@ pathophysiology:
     a population-level trajectory.
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;microspherophakia (small spherical lens), myopia secondary to the abnormal shape of the lens&#34;
@@ -11495,7 +12744,7 @@ pathophysiology:
     strategy.
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;ectopia lentis (abnormal position of the lens)&#34;
@@ -11517,7 +12766,7 @@ pathophysiology:
     induce pupillary block.
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Surgical management of glaucoma can include peripheral iridectomy to prevent or relieve pupillary block and trabeculectomy in advanced chronic angle closure glaucoma&#34;
@@ -11525,7 +12774,7 @@ pathophysiology:
       Identifies pupillary block and chronic angle closure as the operative
       mechanism of glaucoma in WMS.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;medical treatment of glaucoma is difficult because of paradoxic response to miotics and mydriatics&#34;
@@ -11640,7 +12889,7 @@ pathophysiology:
     explanation: &gt;-
       Supplies the conserved structural endpoint from a general glaucoma review.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;glaucoma, which can lead to blindness&#34;
@@ -11779,7 +13028,7 @@ phenotypes:
       The contemporary molecular series finds spherophakia in 42 of 61
       individuals, supporting a FREQUENT rather than VERY_FREQUENT overall band.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The ocular problems, typically recognized in childhood, include microspherophakia (small spherical lens), myopia secondary to the abnormal shape of the lens, ectopia lentis (abnormal position of the lens), and glaucoma, which can lead to blindness.&#34;
@@ -11830,7 +13079,7 @@ phenotypes:
       onset_category: CHILDHOOD
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;myopia secondary to the abnormal shape of the lens&#34;
@@ -11860,7 +13109,7 @@ phenotypes:
     clinical_course: PROGRESSIVE
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;and glaucoma, which can lead to blindness&#34;
@@ -11881,7 +13130,7 @@ phenotypes:
       label: Angle closure glaucoma
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;trabeculectomy in advanced chronic angle closure glaucoma&#34;
@@ -11929,7 +13178,7 @@ phenotypes:
       Quantifies frequency at 73% with the severity range, supporting a FREQUENT
       band.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Height of adult males is 142-169 cm; height of adult females is 130-157 cm.&#34;
@@ -12230,7 +13479,7 @@ diagnosis:
       label: Physical Examination
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis WMS is established in a proband with characteristic clinical features.&#34;
@@ -12270,7 +13519,7 @@ diagnosis:
       The longitudinal WMS4 report demonstrates how multimodal ocular biometry
       can distinguish progressive lens-induced myopia from ordinary axial myopia.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The ocular problems, typically recognized in childhood, include microspherophakia (small spherical lens), myopia secondary to the abnormal shape of the lens, ectopia lentis (abnormal position of the lens), and glaucoma, which can lead to blindness.&#34;
@@ -12289,7 +13538,7 @@ diagnosis:
       label: Molecular Analysis
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Identification of biallelic pathogenic variants in ADAMTS10, ADAMTS17, or LTBP2 or of a heterozygous pathogenic variant in FBN1 by molecular genetic testing can confirm the diagnosis if clinical features are inconclusive.&#34;
@@ -12317,7 +13566,7 @@ treatments:
       cause of pupillary block before pressure rises.
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Early detection and removal of an ectopic lens to decrease the possibility of pupillary block and glaucoma.&#34;
@@ -12342,7 +13591,7 @@ treatments:
       lens-driven initiating lesion.
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Surgical management of glaucoma can include peripheral iridectomy to prevent or relieve pupillary block and trabeculectomy in advanced chronic angle closure glaucoma&#34;
@@ -12368,7 +13617,7 @@ treatments:
       established persistent outflow impairment.
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Surgical management of glaucoma can include peripheral iridectomy to prevent or relieve pupillary block and trabeculectomy in advanced chronic angle closure glaucoma&#34;
@@ -12389,7 +13638,7 @@ treatments:
       label: Supportive Care
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Agents/circumstances to avoid: Ophthalmic miotics and mydriatics because they can induce pupillary block; activities that increase risk of eye injury.&#34;
@@ -12407,7 +13656,7 @@ treatments:
       label: Supportive Care
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Annual ophthalmology examinations for early detection and removal of an ectopic lens can help decrease the possibility of pupillary block and glaucoma.&#34;
@@ -12425,7 +13674,7 @@ treatments:
       label: Supportive Care
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Regular cardiac follow up with echocardiogram and electrocardiography.&#34;
@@ -12442,7 +13691,7 @@ treatments:
       label: Physical Therapy
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Consider physical therapy for joint issues.&#34;
@@ -12460,7 +13709,7 @@ treatments:
       label: Supportive Care
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Annual assessment of height and joint range of motion.&#34;
@@ -12479,7 +13728,7 @@ treatments:
       label: Supportive Care
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Careful evaluation prior to anesthesia because of stiff joints, poorly aligned teeth, and maxillary hypoplasia.&#34;
@@ -12498,14 +13747,14 @@ treatments:
       label: Genetic Counseling
   evidence:
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Carrier testing of at-risk relatives is possible if the WMS-related pathogenic variants have been identified in the family.&#34;
     explanation: &gt;-
       Supports family-specific carrier testing for the recessive forms.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Prenatal and preimplantation genetic testing are possible once the WMS-related pathogenic variant(s) have been identified in an affected family member.&#34;
@@ -12591,7 +13840,7 @@ differential_diagnoses:
       Provides family-based molecular evidence for ADAMTSL4-related isolated
       autosomal recessive ectopia lentis.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Weill-Marchesani syndrome (WMS) is a connective tissue disorder characterized by abnormalities of the lens of the eye, short stature, brachydactyly, joint stiffness, and cardiovascular defects.&#34;
@@ -12639,7 +13888,7 @@ differential_diagnoses:
       Shows why common ocular complications reflect microspherophakia itself and
       cannot serve as reliable WMS-specific discriminators.
   - reference: PMID:20301293
-    reference_title: &#34;Weill-Marchesani Syndrome (GeneReviews)&#34;
+    reference_title: &#34;Weill-Marchesani Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Identification of biallelic pathogenic variants in ADAMTS10, ADAMTS17, or LTBP2 or of a heterozygous pathogenic variant in FBN1 by molecular genetic testing can confirm the diagnosis if clinical features are inconclusive.&#34;
@@ -14037,7 +15286,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Weill-Marchesani syndrome", "mondoId": "MONDO:0018096", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Weill-Marchesani_syndrome", "yamlRevision": "b03510cd1632"};
+        const OS_CONFIG = {"diseaseName": "Weill-Marchesani syndrome", "mondoId": "MONDO:0018096", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Weill-Marchesani_syndrome", "yamlRevision": "b025d74045db"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14456,5 +15705,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

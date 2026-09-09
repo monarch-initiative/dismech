@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Aortic Valve Stenosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Aortic Valve Stenosis</h1>
             <div class="header-meta">
 
@@ -3904,7 +4051,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-notch1-related-aortic-valve-disease">
                 <div class="item-name">
                     Autosomal dominant NOTCH1-related aortic valve disease
 
@@ -3950,7 +4097,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16025100" target="_blank">PMID:16025100</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4073,7 +4222,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12719282" target="_blank">PMID:12719282</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4155,7 +4306,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15944423" target="_blank">PMID:15944423</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4177,7 +4330,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18765433" target="_blank">PMID:18765433</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4282,7 +4437,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23388002" target="_blank">PMID:23388002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4304,7 +4461,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23388002" target="_blank">PMID:23388002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4388,7 +4547,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41984459" target="_blank">PMID:41984459</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4404,13 +4565,15 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41984459" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41984459" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41984459" target="_blank">PMID:41984459</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4500,6 +4663,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4516,6 +4685,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Randomize patients with early calcific aortic valve disease to selective Lp(a) lowering versus placebo with progression of valve calcification as the primary endpoint. Intervening upstream of osteogenic commitment separates the initiation hypothesis from the autonomy hypothesis in a way the completed statin trials could not, because those enrolled established stenosis.</div>
+
+
+
+
+
+
 
 
 
@@ -4611,18 +4786,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves valvular endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         valvular endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves valvular endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4650,18 +4827,20 @@ This pathophysiological event involves valvular endothelial cell, annotated with
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal response to fluid shear stress (GO:0034405). GO:0034405 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to fluid shear stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034405" target="_blank" class="curie-chip curie-chip-go">GO:0034405</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034405" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0034405</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal response to fluid shear stress (GO:0034405). GO:0034405 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4689,18 +4868,20 @@ This pathophysiological event involves abnormal response to fluid shear stress (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:0002137 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         aortic valve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002137" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002137</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002137" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:0002137 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4738,7 +4919,9 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7519131" target="_blank">PMID:7519131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4760,7 +4943,9 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7519131" target="_blank">PMID:7519131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4812,17 +4997,21 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves LPA (hgnc:6667). hgnc:6667 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         LPA
 
 
-    <a href="https://bioregistry.io/hgnc:6667" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6667</a>
+    <a href="https://bioregistry.io/hgnc:6667" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:6667</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LPA (hgnc:6667). hgnc:6667 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4914,7 +5103,9 @@ This pathophysiological event involves LPA (hgnc:6667). hgnc:6667 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23388002" target="_blank">PMID:23388002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4936,7 +5127,9 @@ This pathophysiological event involves LPA (hgnc:6667). hgnc:6667 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23388002" target="_blank">PMID:23388002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4970,18 +5163,20 @@ This pathophysiological event involves LPA (hgnc:6667). hgnc:6667 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves valvular foam-cell macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         valvular foam-cell macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves valvular foam-cell macrophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4998,18 +5193,20 @@ This pathophysiological event involves valvular foam-cell macrophage, annotated 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves infiltrating T lymphocyte, annotated with T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         infiltrating T lymphocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves infiltrating T lymphocyte, annotated with T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5037,18 +5234,20 @@ This pathophysiological event involves infiltrating T lymphocyte, annotated with
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5106,7 +5305,9 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7519131" target="_blank">PMID:7519131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5128,7 +5329,9 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7519131" target="_blank">PMID:7519131</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5169,17 +5372,21 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:7881</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5211,18 +5418,20 @@ This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:0002137 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         aortic valve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002137" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002137</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002137" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:0002137 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5268,7 +5477,9 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16025100" target="_blank">PMID:16025100</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5290,7 +5501,9 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16025100" target="_blank">PMID:16025100</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5335,18 +5548,20 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves valve interstitial cell, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         valve interstitial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves valve interstitial cell, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5363,18 +5578,20 @@ This pathophysiological event involves valve interstitial cell, annotated with f
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves osteoblast-like valve interstitial cell, annotated with osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         osteoblast-like valve interstitial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl">CL:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves osteoblast-like valve interstitial cell, annotated with osteoblast (CL:0000062). CL:0000062 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5402,17 +5619,21 @@ This pathophysiological event involves osteoblast-like valve interstitial cell, 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RUNX2 (hgnc:10472). hgnc:10472 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RUNX2
 
 
-    <a href="https://bioregistry.io/hgnc:10472" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10472</a>
+    <a href="https://bioregistry.io/hgnc:10472" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:10472</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RUNX2 (hgnc:10472). hgnc:10472 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5441,18 +5662,20 @@ This pathophysiological event involves RUNX2 (hgnc:10472). hgnc:10472 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         osteoblast differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go">GO:0001649</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0001649</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased osteoblast differentiation (GO:0001649). GO:0001649 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5521,7 +5744,9 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12719282" target="_blank">PMID:12719282</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5543,7 +5768,9 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12719282" target="_blank">PMID:12719282</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5565,7 +5792,9 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16025100" target="_blank">PMID:16025100</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5617,18 +5846,20 @@ This pathophysiological event involves increased osteoblast differentiation (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased bone mineralization (GO:0030282). GO:0030282 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         bone mineralization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="curie-chip curie-chip-go">GO:0030282</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030282</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased bone mineralization (GO:0030282). GO:0030282 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5649,18 +5880,20 @@ This pathophysiological event involves increased bone mineralization (GO:0030282
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5688,18 +5921,20 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:0002137 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         aortic valve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002137" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002137</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002137" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:0002137 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5756,7 +5991,9 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12719282" target="_blank">PMID:12719282</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5778,7 +6015,9 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10965007" target="_blank">PMID:10965007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5822,18 +6061,20 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:0002137 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         aortic valve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002137" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002137</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002137" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002137</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:0002137 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5871,7 +6112,9 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10965007" target="_blank">PMID:10965007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5905,18 +6148,20 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5947,18 +6192,20 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5996,7 +6243,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6030,18 +6279,20 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiac fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiac fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6069,18 +6320,20 @@ This pathophysiological event involves cardiac fibroblast, annotated with fibrob
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6108,18 +6361,20 @@ This pathophysiological event involves increased extracellular matrix organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6157,7 +6412,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6179,7 +6436,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6201,7 +6460,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6247,18 +6508,20 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         heart left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6281,7 +6544,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6303,7 +6568,9 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10965007" target="_blank">PMID:10965007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6391,16 +6658,20 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aortic valve stenosis (HP:0001650), qualified as course progressive. HP:0001650 is a phenotype from the Human Phenotype Ontology.">
-                        Aortic valve stenosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001650" target="_blank" class="curie-chip curie-chip-hp">HP:0001650</a>
-
-
+This clinical feature is Aortic valve stenosis (HP:0001650), qualified as course progressive. HP:0001650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6439,7 +6710,9 @@ This clinical feature is Aortic valve stenosis (HP:0001650), qualified as course
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10965007" target="_blank">PMID:10965007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6471,16 +6744,20 @@ This clinical feature is Aortic valve stenosis (HP:0001650), qualified as course
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001647</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phenotype from the Human Phenotype Ontology.">
-                        Bicuspid aortic valve
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001647" target="_blank" class="curie-chip curie-chip-hp">HP:0001647</a>
-
-
+This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6501,7 +6778,9 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16025100" target="_blank">PMID:16025100</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6533,16 +6812,20 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001712</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.">
-                        Left ventricular hypertrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp">HP:0001712</a>
-
-
+This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6563,7 +6846,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6595,16 +6880,20 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001681" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001681</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Angina pectoris (HP:0001681). HP:0001681 is a phenotype from the Human Phenotype Ontology.">
-                        Angina pectoris
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001681" target="_blank" class="curie-chip curie-chip-hp">HP:0001681</a>
-
-
+This clinical feature is Angina pectoris (HP:0001681). HP:0001681 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6625,7 +6914,9 @@ This clinical feature is Angina pectoris (HP:0001681). HP:0001681 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24104373" target="_blank">PMID:24104373</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6647,7 +6938,9 @@ This clinical feature is Angina pectoris (HP:0001681). HP:0001681 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12732812" target="_blank">PMID:12732812</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6679,16 +6972,20 @@ This clinical feature is Angina pectoris (HP:0001681). HP:0001681 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001279</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.">
-                        Syncope
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp">HP:0001279</a>
-
-
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6709,7 +7006,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24104373" target="_blank">PMID:24104373</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6731,7 +7030,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12732812" target="_blank">PMID:12732812</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6763,16 +7064,20 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6793,7 +7098,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6834,16 +7141,20 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004380" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004380</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aortic valve calcification (HP:0004380). HP:0004380 is a phenotype from the Human Phenotype Ontology.">
-                        Aortic valve calcification
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004380" target="_blank" class="curie-chip curie-chip-hp">HP:0004380</a>
-
-
+This clinical feature is Aortic valve calcification (HP:0004380). HP:0004380 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6864,7 +7175,9 @@ This clinical feature is Aortic valve calcification (HP:0004380). HP:0004380 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12719282" target="_blank">PMID:12719282</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6896,16 +7209,20 @@ This clinical feature is Aortic valve calcification (HP:0004380). HP:0004380 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001685" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001685</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myocardial fibrosis (HP:0001685), qualified as course progressive. HP:0001685 is a phenotype from the Human Phenotype Ontology.">
-                        Myocardial fibrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001685" target="_blank" class="curie-chip curie-chip-hp">HP:0001685</a>
-
-
+This clinical feature is Myocardial fibrosis (HP:0001685), qualified as course progressive. HP:0001685 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6944,7 +7261,9 @@ This clinical feature is Myocardial fibrosis (HP:0001685), qualified as course p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6976,16 +7295,20 @@ This clinical feature is Myocardial fibrosis (HP:0001685), qualified as course p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002875</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenotype from the Human Phenotype Ontology.">
-                        Exertional dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp">HP:0002875</a>
-
-
+This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7006,7 +7329,9 @@ This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24104373" target="_blank">PMID:24104373</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7082,15 +7407,17 @@ This clinical feature is Exertional dyspnea (HP:0002875). HP:0002875 is a phenot
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is LPA (hgnc:6667). hgnc:6667 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LPA
 
 
-    <a href="https://bioregistry.io/hgnc:6667" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6667</a>
+    <a href="https://bioregistry.io/hgnc:6667" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:6667</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LPA (hgnc:6667). hgnc:6667 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7114,7 +7441,9 @@ This disease-associated gene is LPA (hgnc:6667). hgnc:6667 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23388002" target="_blank">PMID:23388002</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7149,15 +7478,17 @@ This disease-associated gene is LPA (hgnc:6667). hgnc:6667 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:7881</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7181,7 +7512,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16025100" target="_blank">PMID:16025100</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7211,6 +7544,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7227,18 +7563,18 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">aortic valve replacement<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is aortic valve replacement (NCIT:C50815). NCIT:C50815 is a clinical intervention from the NCI Thesaurus.">aortic valve replacement</span>
+This treatment is aortic valve replacement (NCIT:C50815). NCIT:C50815 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Aortic Valve Replacement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C50815" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is aortic valve replacement (NCIT:C50815). NCIT:C50815 is a clinical intervention from the NCI Thesaurus.">NCIT:C50815</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C50815" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C50815">NCIT:C50815</a>
 
 
 
@@ -7256,6 +7592,25 @@ This treatment is aortic valve replacement (NCIT:C50815). NCIT:C50815 is a clini
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7299,7 +7654,9 @@ This treatment is aortic valve replacement (NCIT:C50815). NCIT:C50815 is a clini
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10965007" target="_blank">PMID:10965007</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7329,18 +7686,18 @@ This treatment is aortic valve replacement (NCIT:C50815). NCIT:C50815 is a clini
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">transcatheter aortic valve replacement<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is transcatheter aortic valve replacement (NCIT:C158018). NCIT:C158018 is a clinical intervention from the NCI Thesaurus.">transcatheter aortic valve replacement</span>
+This treatment is transcatheter aortic valve replacement (NCIT:C158018). NCIT:C158018 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Transcatheter Aortic Valve Replacement</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C158018" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is transcatheter aortic valve replacement (NCIT:C158018). NCIT:C158018 is a clinical intervention from the NCI Thesaurus.">NCIT:C158018</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C158018" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C158018">NCIT:C158018</a>
 
 
 
@@ -7358,6 +7715,25 @@ This treatment is transcatheter aortic valve replacement (NCIT:C158018). NCIT:C1
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7401,7 +7777,9 @@ This treatment is transcatheter aortic valve replacement (NCIT:C158018). NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41984459" target="_blank">PMID:41984459</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7431,17 +7809,17 @@ This treatment is transcatheter aortic valve replacement (NCIT:C158018). NCIT:C1
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7459,6 +7837,25 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7502,7 +7899,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15944423" target="_blank">PMID:15944423</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7524,7 +7923,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18765433" target="_blank">PMID:18765433</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7546,7 +7947,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18765433" target="_blank">PMID:18765433</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7578,6 +7981,629 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-transthoracic-echocardiography">
+                <div class="item-name">
+                    Transthoracic Echocardiography
+
+                </div>
+
+                <div class="item-desc">The diagnostic and staging modality. Echocardiography establishes leaflet calcification and restriction and quantifies severity by transvalvular peak velocity, mean gradient, and effective orifice area. It is also what defines disease progression in this entry, since the prognostic rate-of-change data are expressed as change in aortic-jet velocity per year.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        echocardiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16525" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C16525</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10965007" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10965007" target="_blank">PMID:10965007</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The rate of progression of stenosis, as reflected by the aortic-jet velocity, was significantly higher in patients who had cardiac events"</div>
+
+
+                <div class="evidence-explanation">Documents the echocardiographic measurement (aortic-jet velocity) used to stage severity and track progression, and its prognostic weight.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exercise-stress-testing">
+                <div class="item-name">
+                    Exercise Stress Testing
+
+                </div>
+
+                <div class="item-desc">Used to unmask symptoms in patients who report none, which matters because the whole management algorithm pivots on symptom status and patients routinely under-report by limiting their own activity. In the EARLY TAVR screening cohort, standardized treadmill testing of apparently asymptomatic patients with severe stenosis was positive in 15.2% - meaning roughly one in seven &#34;asymptomatic&#34; patients was not. It is safe in this population and nonetheless infrequently used.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        exercise cardiac stress test
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C168192" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C168192</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42485012" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42485012" target="_blank">PMID:42485012</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In patients with asymptomatic severe aortic stenosis (AS), exercise stress testing is recommended to unmask symptoms and guide the timing of intervention, yet it is infrequently used in clinical practice."</div>
+
+
+                <div class="evidence-explanation">States both the indication and the practice gap this entry records.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42485012" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42485012" target="_blank">PMID:42485012</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of these, 816 (84.8%) had a normal TST result and 146 (15.2%) had a positive TST result."</div>
+
+
+                <div class="evidence-explanation">Quantifies how often apparently asymptomatic severe stenosis is unmasked by testing, which is what makes symptom status a measured rather than a reported variable.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42485012" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42485012" target="_blank">PMID:42485012</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TST was found to be safe, with no reported deaths, syncope, or cardioversions."</div>
+
+
+                <div class="evidence-explanation">Addresses the historical safety concern about exercising patients with severe outflow obstruction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cardiac-magnetic-resonance-with-late-gadolinium-enhancement">
+                <div class="item-name">
+                    Cardiac Magnetic Resonance with Late Gadolinium Enhancement
+
+                </div>
+
+                <div class="item-desc">Not needed to diagnose the valve lesion, but the only way to see the ventricular disease that determines survival. T1 mapping quantifies extracellular volume expansion (diffuse interstitial fibrosis) and late gadolinium enhancement detects focal replacement fibrosis; the two together stratify mortality stepwise, and midwall fibrosis burden is prognostic even in patients whose valve does not yet meet intervention criteria.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        cardiac magnetic resonance imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28017384" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diffuse fibrosis is associated with extracellular volume expansion that is detectable by T1 mapping, whereas late gadolinium enhancement (LGE) detects replacement fibrosis."</div>
+
+
+                <div class="evidence-explanation">Establishes the two cardiac magnetic resonance measurements and what each detects.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28017384" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28017384" target="_blank">PMID:28017384</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CMR detects ventricular decompensation in aortic stenosis through the identification of myocardial extracellular expansion and replacement fibrosis."</div>
+
+
+                <div class="evidence-explanation">States the diagnostic claim: cardiac magnetic resonance is how ventricular decompensation is detected in this disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-global-burden-of-disease-estimates">
+                <div class="item-name">Worldwide (Global Burden of Disease estimates)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        138.0 per 100,000
+                        (120.0&ndash;158.0)
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">9.6-12.6 million people worldwide with calcific aortic valve stenosis per Global Burden of Disease estimates. The rates per 100,000 are derived from those counts against a world population of roughly 8 billion and are therefore approximate; the count, not the rate, is what the source states.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42177117" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42177117" target="_blank">PMID:42177117</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The worldwide prevalence of CAVS is rising, affecting a 9.6 to 12.6 million people according to Global Disease Burden estimates"</div>
+
+
+                <div class="evidence-explanation">Supplies the worldwide case count. Evidence source is OTHER because this is a narrative review of Global Burden of Disease estimates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-global-mortality-burden">
+                <div class="item-name">Global mortality burden</div>
+
+                <div class="item-desc">Calcific aortic valve stenosis contributes over 100,000 deaths worldwide each year, and the source attaches that burden specifically to the post-symptomatic phase - which is the entry&#39;s organising point restated epidemiologically.
+</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42177117" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42177117" target="_blank">PMID:42177117</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Once symptoms emerge, CAVS is associated with high morbidity and mortality, contributing to over 100,000 deaths globally each year."</div>
+
+
+                <div class="evidence-explanation">Quantifies annual mortality and ties it to symptom emergence rather than to the presence of the valve lesion. Evidence source is OTHER because this is a narrative review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-rising-global-burden">
+                <div class="item-name">Rising global burden</div>
+
+                <div class="item-desc">Prevalence and incidence rose globally between 1990 and 2021, with the highest burdens in Western Europe and North America; ageing and population growth are the principal drivers.
+</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42129826" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42129826" target="_blank">PMID:42129826</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence and incidence of NRCAVD increased globally between 1990 and 2021, with higher burdens in Western Europe and North America."</div>
+
+
+                <div class="evidence-explanation">Documents the direction and geography of the trend from Global Burden of Disease data.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42129826" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42129826" target="_blank">PMID:42129826</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Aging and population growth drove the increase in DALYs, while body mass index was identified as a causal risk factor."</div>
+
+
+                <div class="evidence-explanation">Attributes the rising burden to demography and identifies body mass index as causal by Mendelian randomization.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-event-free-survival-in-asymptomatic-severe-aortic-stenosis">
+                <div class="item-name">Event-free survival in asymptomatic severe aortic stenosis</div>
+
+                <div class="item-desc">Event-free survival in prospectively followed asymptomatic severe stenosis falls steeply, and the extent of valvular calcification stratifies it sharply.
+</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10965007" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10965007" target="_blank">PMID:10965007</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Event-free survival for patients with no or mild valvular calcification was 92+/-5 percent at one year"</div>
+
+
+                <div class="evidence-explanation">Quantifies outcome in the low-calcification stratum of a prospective asymptomatic cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7706,6 +8732,7 @@ pathophysiology:
     modifier: ABNORMAL
   evidence:
   - reference: PMID:7519131
+    reference_title: &#34;Characterization of the early lesion of &#39;degenerative&#39; valvular aortic stenosis. Histological and immunohistochemical studies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7716,6 +8743,7 @@ pathophysiology:
       Localizes the initiating lesion to the subendothelial space on the aortic
       side of the leaflet, the anatomic claim of this node.
   - reference: PMID:7519131
+    reference_title: &#34;Characterization of the early lesion of &#39;degenerative&#39; valvular aortic stenosis. Histological and immunohistochemical studies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7751,6 +8779,7 @@ pathophysiology:
       label: LPA
   evidence:
   - reference: PMID:23388002
+    reference_title: &#34;Genetic associations with valvular calcification and aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7761,6 +8790,7 @@ pathophysiology:
       Establishes an Lp(a)-mediated genetic contribution to both valve
       calcification and incident clinical stenosis.
   - reference: PMID:23388002
+    reference_title: &#34;Genetic associations with valvular calcification and aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7812,6 +8842,7 @@ pathophysiology:
     modifier: INCREASED
   evidence:
   - reference: PMID:7519131
+    reference_title: &#34;Characterization of the early lesion of &#39;degenerative&#39; valvular aortic stenosis. Histological and immunohistochemical studies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7821,6 +8852,7 @@ pathophysiology:
     explanation: &gt;-
       Directly characterizes the cellular composition asserted by this node.
   - reference: PMID:7519131
+    reference_title: &#34;Characterization of the early lesion of &#39;degenerative&#39; valvular aortic stenosis. Histological and immunohistochemical studies.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7861,6 +8893,7 @@ pathophysiology:
       label: NOTCH1
   evidence:
   - reference: PMID:16025100
+    reference_title: &#34;Mutations in NOTCH1 cause aortic valve disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7871,6 +8904,7 @@ pathophysiology:
       Establishes NOTCH1 as causal for both the developmental valve anomaly and
       the later severe calcification in human pedigrees.
   - reference: PMID:16025100
+    reference_title: &#34;Mutations in NOTCH1 cause aortic valve disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7923,6 +8957,7 @@ pathophysiology:
       label: RUNX2
   evidence:
   - reference: PMID:12719282
+    reference_title: &#34;Human aortic valve calcification is associated with an osteoblast phenotype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7933,6 +8968,7 @@ pathophysiology:
       Provides the direct molecular evidence for an osteoblast transcriptional
       program in human calcified valves compared with normal valves.
   - reference: PMID:12719282
+    reference_title: &#34;Human aortic valve calcification is associated with an osteoblast phenotype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7943,6 +8979,7 @@ pathophysiology:
       States the reframing this node encodes - an actively regulated osteogenic
       process rather than passive degeneration.
   - reference: PMID:16025100
+    reference_title: &#34;Mutations in NOTCH1 cause aortic valve disease.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
@@ -7988,6 +9025,7 @@ pathophysiology:
     modifier: ABNORMAL
   evidence:
   - reference: PMID:12719282
+    reference_title: &#34;Human aortic valve calcification is associated with an osteoblast phenotype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -7998,6 +9036,7 @@ pathophysiology:
       Confirms that the deposited mineral is bone-type calcium phosphate rather
       than nonspecific debris.
   - reference: PMID:10965007
+    reference_title: &#34;Predictors of outcome in severe, asymptomatic aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8038,6 +9077,7 @@ pathophysiology:
       label: aortic valve
   evidence:
   - reference: PMID:10965007
+    reference_title: &#34;Predictors of outcome in severe, asymptomatic aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8075,6 +9115,7 @@ pathophysiology:
       label: cardiac muscle cell
   evidence:
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8119,6 +9160,7 @@ pathophysiology:
     modifier: INCREASED
   evidence:
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8129,6 +9171,7 @@ pathophysiology:
       Establishes the two-compartment distinction between diffuse interstitial
       and focal replacement fibrosis that this node asserts.
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8138,6 +9181,7 @@ pathophysiology:
       Supports the stepwise mortality gradient across normal myocardium,
       extracellular expansion, and replacement fibrosis.
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8148,6 +9192,7 @@ pathophysiology:
       treating extracellular volume as a fibrosis measurement rather than an
       imaging artifact.
   - reference: PMID:41984459
+    reference_title: &#34;Myocardial Fibrosis and Early Intervention in Asymptomatic Patients With Severe Aortic Stenosis: Insights From the EVOLVED Randomized Clinical Trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8179,6 +9224,7 @@ pathophysiology:
       label: heart left ventricle
   evidence:
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8189,6 +9235,7 @@ pathophysiology:
       Documents the physiological components of decompensation tracking with
       fibrosis stage.
   - reference: PMID:10965007
+    reference_title: &#34;Predictors of outcome in severe, asymptomatic aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8210,6 +9257,7 @@ phenotypes:
     clinical_course: PROGRESSIVE
   evidence:
   - reference: PMID:10965007
+    reference_title: &#34;Predictors of outcome in severe, asymptomatic aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8231,6 +9279,7 @@ phenotypes:
       label: Aortic valve calcification
   evidence:
   - reference: PMID:12719282
+    reference_title: &#34;Human aortic valve calcification is associated with an osteoblast phenotype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8251,6 +9300,7 @@ phenotypes:
       label: Bicuspid aortic valve
   evidence:
   - reference: PMID:16025100
+    reference_title: &#34;Mutations in NOTCH1 cause aortic valve disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8271,6 +9321,7 @@ phenotypes:
       label: Left ventricular hypertrophy
   evidence:
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8292,6 +9343,7 @@ phenotypes:
     clinical_course: PROGRESSIVE
   evidence:
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8311,6 +9363,7 @@ phenotypes:
       label: Exertional dyspnea
   evidence:
   - reference: PMID:24104373
+    reference_title: &#34;Asymptomatic aortic stenosis in the elderly: a clinical review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8333,6 +9386,7 @@ phenotypes:
       label: Angina pectoris
   evidence:
   - reference: PMID:24104373
+    reference_title: &#34;Asymptomatic aortic stenosis in the elderly: a clinical review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8342,6 +9396,7 @@ phenotypes:
       Names angina among the symptoms whose appearance indicates a need for
       intervention.
   - reference: PMID:12732812
+    reference_title: &#34;Pathophysiology of valvular aortic stenosis in the elderly.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8364,6 +9419,7 @@ phenotypes:
       label: Syncope
   evidence:
   - reference: PMID:24104373
+    reference_title: &#34;Asymptomatic aortic stenosis in the elderly: a clinical review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8373,6 +9429,7 @@ phenotypes:
       Names syncope, and specifically its exertional character, among the
       intervention-triggering symptoms.
   - reference: PMID:12732812
+    reference_title: &#34;Pathophysiology of valvular aortic stenosis in the elderly.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8392,6 +9449,7 @@ phenotypes:
       label: Congestive heart failure
   evidence:
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8414,6 +9472,7 @@ mechanistic_hypotheses:
     established disease, which is what randomized trials found.
   evidence:
   - reference: PMID:12719282
+    reference_title: &#34;Human aortic valve calcification is associated with an osteoblast phenotype.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8436,6 +9495,7 @@ mechanistic_hypotheses:
     at the start.
   evidence:
   - reference: PMID:15944423
+    reference_title: &#34;A randomized trial of intensive lipid-lowering therapy in calcific aortic stenosis.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8445,6 +9505,7 @@ mechanistic_hypotheses:
       Directly refutes the prediction that lipid lowering modifies progression of
       established calcific aortic stenosis.
   - reference: PMID:18765433
+    reference_title: &#34;Intensive lipid lowering with simvastatin and ezetimibe in aortic stenosis.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8467,6 +9528,7 @@ mechanistic_hypotheses:
     unfashionable.
   evidence:
   - reference: PMID:23388002
+    reference_title: &#34;Genetic associations with valvular calcification and aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8476,6 +9538,7 @@ mechanistic_hypotheses:
       Supplies the genome-wide genetic anchor that singles out the Lp(a) locus
       among lipid loci.
   - reference: PMID:23388002
+    reference_title: &#34;Genetic associations with valvular calcification and aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8505,6 +9568,7 @@ treatments:
       gradient driving ventricular remodeling.
   evidence:
   - reference: PMID:10965007
+    reference_title: &#34;Predictors of outcome in severe, asymptomatic aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8532,6 +9596,7 @@ treatments:
       restores an unobstructed outflow orifice.
   evidence:
   - reference: PMID:41984459
+    reference_title: &#34;Myocardial Fibrosis and Early Intervention in Asymptomatic Patients With Severe Aortic Stenosis: Insights From the EVOLVED Randomized Clinical Trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8561,6 +9626,7 @@ treatments:
       lesion. The intended effect on valve progression was not observed.
   evidence:
   - reference: PMID:15944423
+    reference_title: &#34;A randomized trial of intensive lipid-lowering therapy in calcific aortic stenosis.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8569,6 +9635,7 @@ treatments:
     explanation: &gt;-
       Refutes a disease-modifying effect of lipid lowering on the valve lesion.
   - reference: PMID:18765433
+    reference_title: &#34;Intensive lipid lowering with simvastatin and ezetimibe in aortic stenosis.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8577,6 +9644,7 @@ treatments:
     explanation: &gt;-
       Second randomized refutation, on the primary composite endpoint.
   - reference: PMID:18765433
+    reference_title: &#34;Intensive lipid lowering with simvastatin and ezetimibe in aortic stenosis.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8587,7 +9655,8 @@ treatments:
       The valve-specific null quantified: a hazard ratio of exactly 1.00 for
       aortic-valve replacement.
   - reference: PMID:18765433
-    supports: PARTIAL
+    reference_title: &#34;Intensive lipid lowering with simvastatin and ezetimibe in aortic stenosis.&#34;
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Such therapy reduced the incidence of ischemic cardiovascular events but
@@ -8616,6 +9685,7 @@ discussions:
     interaction is demonstrated, and that demonstration has not been made.
   evidence:
   - reference: PMID:41984459
+    reference_title: &#34;Myocardial Fibrosis and Early Intervention in Asymptomatic Patients With Severe Aortic Stenosis: Insights From the EVOLVED Randomized Clinical Trial.&#34;
     supports: REFUTE
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8626,7 +9696,8 @@ discussions:
       Directly refutes the treatment-selection interpretation of fibrosis burden
       on the trial&#39;s primary analysis.
   - reference: PMID:41984459
-    supports: PARTIAL
+    reference_title: &#34;Myocardial Fibrosis and Early Intervention in Asymptomatic Patients With Severe Aortic Stenosis: Insights From the EVOLVED Randomized Clinical Trial.&#34;
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       unplanned aortic stenosis-related hospitalization in 4 (7%) and 13 (25%)
@@ -8702,6 +9773,7 @@ inheritance:
     disease; omitting it entirely would lose the only inherited form.
   evidence:
   - reference: PMID:16025100
+    reference_title: &#34;Mutations in NOTCH1 cause aortic valve disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8726,6 +9798,7 @@ diagnosis:
       label: Echocardiography Test
   evidence:
   - reference: PMID:10965007
+    reference_title: &#34;Predictors of outcome in severe, asymptomatic aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8750,6 +9823,7 @@ diagnosis:
       label: Exercise Cardiac Stress Test
   evidence:
   - reference: PMID:42485012
+    reference_title: &#34;Treadmill Stress Test in Patients With Asymptomatic Severe Aortic Stenosis: A Prespecified Registry-Based Follow-Up of the EARLY TAVR Randomized Clinical Trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8759,6 +9833,7 @@ diagnosis:
     explanation: &gt;-
       States both the indication and the practice gap this entry records.
   - reference: PMID:42485012
+    reference_title: &#34;Treadmill Stress Test in Patients With Asymptomatic Severe Aortic Stenosis: A Prespecified Registry-Based Follow-Up of the EARLY TAVR Randomized Clinical Trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8769,6 +9844,7 @@ diagnosis:
       by testing, which is what makes symptom status a measured rather than a
       reported variable.
   - reference: PMID:42485012
+    reference_title: &#34;Treadmill Stress Test in Patients With Asymptomatic Severe Aortic Stenosis: A Prespecified Registry-Based Follow-Up of the EARLY TAVR Randomized Clinical Trial.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8792,6 +9868,7 @@ diagnosis:
       label: Magnetic Resonance Imaging
   evidence:
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8802,6 +9879,7 @@ diagnosis:
       Establishes the two cardiac magnetic resonance measurements and what each
       detects.
   - reference: PMID:28017384
+    reference_title: &#34;Myocardial Fibrosis and Cardiac Decompensation in Aortic Stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8825,6 +9903,7 @@ prevalence:
     therefore approximate; the count, not the rate, is what the source states.
   evidence:
   - reference: PMID:42177117
+    reference_title: &#34;The global burden of calcified aortic valve stenosis: epidemiology, risk factors, disparities, and future perspectives - a narrative review.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8842,6 +9921,7 @@ epidemiology:
     epidemiologically.
   evidence:
   - reference: PMID:42177117
+    reference_title: &#34;The global burden of calcified aortic valve stenosis: epidemiology, risk factors, disparities, and future perspectives - a narrative review.&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -8858,6 +9938,7 @@ epidemiology:
     growth are the principal drivers.
   evidence:
   - reference: PMID:42129826
+    reference_title: &#34;Global, regional, and national burden of non-rheumatic calcific aortic valve disease from 1990 to 2021, with projections of incidence to 2050: a systematic analysis of the global burden of disease study 2021 and Mendelian randomization analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8867,6 +9948,7 @@ epidemiology:
       Documents the direction and geography of the trend from Global Burden of
       Disease data.
   - reference: PMID:42129826
+    reference_title: &#34;Global, regional, and national burden of non-rheumatic calcific aortic valve disease from 1990 to 2021, with projections of incidence to 2050: a systematic analysis of the global burden of disease study 2021 and Mendelian randomization analysis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8882,6 +9964,7 @@ epidemiology:
     sharply.
   evidence:
   - reference: PMID:10965007
+    reference_title: &#34;Predictors of outcome in severe, asymptomatic aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8904,6 +9987,7 @@ genetic:
     incident clinical aortic stenosis across multiple ancestries.
   evidence:
   - reference: PMID:23388002
+    reference_title: &#34;Genetic associations with valvular calcification and aortic stenosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8925,6 +10009,7 @@ genetic:
     mechanistically through de-repression of RUNX2.
   evidence:
   - reference: PMID:16025100
+    reference_title: &#34;Mutations in NOTCH1 cause aortic valve disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -9341,7 +10426,7 @@ genetic:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aortic Valve Stenosis", "mondoId": "MONDO:0042981", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aortic_Valve_Stenosis", "yamlRevision": "9565426760c4"};
+        const OS_CONFIG = {"diseaseName": "Aortic Valve Stenosis", "mondoId": "MONDO:0042981", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aortic_Valve_Stenosis", "yamlRevision": "1cc73a54b4ba"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9760,5 +10845,73 @@ genetic:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

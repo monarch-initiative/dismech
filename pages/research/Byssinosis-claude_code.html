@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Byssinosis · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Byssinosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Byssinosis</h1>
+                
+                <p class="report-subtitle">Byssinosis: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-03</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0006688" target="_blank" rel="noopener noreferrer">MONDO:0006688</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">31 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Byssinosis: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>Byssinosis is an occupational obstructive airways disease caused by inhalation of dust generated during the processing of raw, non-synthetic textile fibers — principally cotton, but also flax, hemp, jute, and sisal — in inadequately ventilated textile mills. It is classically described as "a collection of respiratory symptoms elicited by exposure to raw nonsynthetic textiles during their manufacturing process" and combines features of both asthma and chronic bronchitis, with a hallmark work-related, cyclical symptom pattern ("Monday fever") (<a href="https://www.ncbi.nlm.nih.gov/books/NBK519549/">StatPearls, NCBI Bookshelf NBK519549</a>; <a href="https://www.cdc.gov/niosh/bulletin/2021/textiles.html">CDC NIOSH Science Bulletin 2021</a>).</p>
+<h3>Key Identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0006688" target="_blank" rel="noopener noreferrer">MONDO:0006688</a></td>
+</tr>
+<tr>
+<td>ICD-10-CM</td>
+<td>J66.0 (Byssinosis)</td>
+</tr>
+<tr>
+<td>ICD-9-CM</td>
+<td>504</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Byssinosis (synonyms: Byssinoses, Brown Lung, Brown Lung Disease/Diseases)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Orphanet and OMIM do not carry dedicated entries for byssinosis; it is classified primarily as an ICD/MeSH-coded occupational lung disease rather than a rare/genetic disease-registry entity, and Mondo cross-references it against ICD-10-CM/MeSH rather than OMIM (<a href="https://monarchinitiative.org/MONDO:0006688">Monarch Initiative MONDO:0006688</a>; <a href="https://www.icd10data.com/ICD10CM/Codes/J00-J99/J60-J70/J66-/J66.0">icd10data.com</a>).</p>
+<h3>Synonyms</h3>
+<p>Cotton worker's lung, brown lung disease, "Monday fever"/"Monday chest tightness," and (historically, though now recognized as related but distinct entities caused by contaminated fiber batches rather than the chronic cotton-dust process) mill fever, mattress-maker's fever, and weaver's cough (<a href="https://www.ncbi.nlm.nih.gov/books/NBK519549/">StatPearls NBK519549</a>; <a href="https://medicine.en-academic.com/14700/byssinosis">en-academic.com</a>).</p>
+<h3>Data Source Character</h3>
+<p>Byssinosis knowledge derives almost entirely from <strong>aggregated occupational-cohort and cross-sectional survey data</strong> — large mill-worker cohorts (e.g., the Shanghai Textile Worker Cohort, n=447–570+ workers followed 1981–2006; the Karachi MultiTex trial, n=2,031 workers) — rather than individual EHR-based case ascertainment, reflecting its nature as an exposure-defined occupational syndrome diagnosed by symptom questionnaire and spirometry rather than a single confirmatory laboratory test (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2974703/">PMID: 20797932</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9985716/">PMID: 36717255</a>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Primary Causal Factors</h3>
+<p>Byssinosis is fundamentally an <strong>environmental/occupational</strong> disease, not a primary genetic disorder. The causal exposure is inhalation of airborne particulates generated in the earliest ("opening," carding, blowing) processing stages of raw cotton, flax, or hemp — the stages with the highest bract and trash content, and correspondingly the highest bacterial contamination (<a href="https://www.ncbi.nlm.nih.gov/books/NBK519549/">StatPearls NBK519549</a>).</p>
+<p>The leading causal agent within cotton dust is <strong>bacterial endotoxin</strong> — lipopolysaccharide (LPS) shed from the outer membrane of Gram-negative bacteria colonizing raw cotton fiber during growth, harvest, and storage. Quantitative assays (Limulus amebocyte lysate) established in the 1980s–1990s identified endotoxin, rather than the cellulose/cotton particulate itself, as the principal biologically active component: guinea pigs exposed to breathable cotton dust show a full respiratory response, whereas exposure to pristine cellulose powder of identical particle-size distribution produces none (<a href="https://www.sciencedirect.com/science/article/abs/pii/0041008X84901522">ScienceDirect — animal model</a>; StatPearls). Other candidate bioactive components historically implicated include cotton bract tannins, residual pesticides, fungal contaminants, and complement- or histamine-releasing extracts, though endotoxin has the strongest and most reproducible dose-response evidence.</p>
+<h3>Risk Factors</h3>
+<p><strong>Environmental / Occupational:</strong>
+- Duration and intensity of cotton (or flax/jute/hemp) dust exposure — the single strongest predictor of both symptoms and spirometric decline in the 2023 MultiTex Karachi study (n=2,031) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9985716/">PMID: 36717255</a>)
+- Job/processing stage: prevalence is consistently highest among <strong>carders</strong> (opening/carding room workers), with spinners, weavers, and winders also affected but at lower rates (<a href="https://pubmed.ncbi.nlm.nih.gov/4689794/">WebSearch epidemiology summary</a>)
+- Airborne endotoxin concentration — correlates strongly with byssinosis prevalence (r ≈ 0.72 across 26 studies/12 countries in the low- and middle-income country systematic review) (<a href="https://pubmed.ncbi.nlm.nih.gov/35073782/">PMID: 35073782</a>)
+- Cigarette smoking (≥3.5 pack-years) — an important independent and additive risk factor for both symptoms and lung-function decline (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9985716/">PMID: 36717255</a>)
+- Inadequate ventilation / dust-control infrastructure</p>
+<p><strong>Genetic risk factors:</strong>
+- <strong>TNF gene promoter polymorphism (rs1800629, TNF-308G/A)</strong> and <strong>LTA (lymphotoxin-alpha) polymorphism rs909253</strong> modify the association between endotoxin exposure and longitudinal FEV₁ decline in a 20-year prospective cohort of Shanghai cotton textile workers (Zhang H, Hang J, Wang X, et al., <em>Occup Environ Med</em> 2007;64:409–413) — workers carrying susceptibility genotypes showed accelerated FEV₁ loss per unit endotoxin exposure (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2974703/">search summary, PMID association</a>)
+- <strong>Microsomal epoxide hydrolase (mEH/EPHX1) polymorphisms</strong> interact with endotoxin exposure to influence lung-function decline in cotton workers (<em>Am J Respir Crit Care Med</em> 2005;171:165) (<a href="https://academic.oup.com/ajrccm/article-abstract/171/2/165/8538324">academic.oup.com/ajrccm</a>)
+- A gene-centric GWAS-style association study identified additional candidate loci modifying lung-function trajectory in newly-hired female cotton textile workers under endotoxin exposure (PLOS ONE 2013) (<a href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0059035">journals.plos.org/plosone/article?id=10.1371/journal.pone.0059035</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23527081/">PMID: 23527081</a>)
+- CD14 (−159/−260) and TLR4 (Asp299Gly, Thr399Ile) polymorphisms, well established as modifiers of endotoxin-driven airway inflammation in organic-dust disease generally, are strong biological candidates for byssinosis susceptibility given the shared LPS-TLR4/CD14 signaling pathway, though byssinosis-specific replication studies are sparser than for the TNF/LTA and mEH findings above (<a href="https://pubmed.ncbi.nlm.nih.gov/16142747/">PMID 16142747</a>; <a href="https://www.jacionline.org/article/S0091-6749(03)01619-1/fulltext">JACI TLR4 paper</a>)</p>
+<p><strong>No specific genetic protective factors</strong> have been well characterized in the literature; general anti-inflammatory or endotoxin-hyporesponsive TLR4/CD14 genotype variants that reduce risk in other organic-dust diseases (e.g., farm/asthma endotoxin studies) are biologically plausible but not confirmed specifically for byssinosis.</p>
+<h3>Gene-Environment Interaction</h3>
+<p>The clearest documented gene-environment interaction is the <strong>TNF/LTA genotype × cumulative endotoxin exposure</strong> interaction driving accelerated annual FEV₁ decline (Zhang et al. 2007) — this is the paradigm case for byssinosis GxE and the strongest evidence that individual genetic variation in innate-immune/inflammatory signaling modifies susceptibility to a fixed environmental (endotoxin) dose.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>The "Monday Fever" Phenotype (Signature Clinical Pattern)</h3>
+<p>Byssinosis's defining phenotype is symptom periodicity tied to the work week: chest tightness, cough, wheeze, and dyspnea recur maximally on the <strong>first day back after a period away from exposure (classically Monday)</strong>, attenuate over the remaining work week ("tolerance"), and return with full intensity after the next exposure-free interval. This pattern is the opposite of classic occupational asthma, in which symptoms typically worsen toward the end of the work week (<a href="https://www.ncbi.nlm.nih.gov/books/NBK519549/">StatPearls; overview search</a>).</p>
+<h3>Phenotype Inventory</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Phenotype</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Symptom</td>
+<td>Chest tightness (work-related, Monday-predominant)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033987" target="_blank" rel="noopener noreferrer">HP:0033987</a> (Chest tightness) / general use <a href="http://purl.obolibrary.org/obo/HP_0025267" target="_blank" rel="noopener noreferrer">HP:0025267</a> (or free text if no exact match)</td>
+</tr>
+<tr>
+<td>Symptom</td>
+<td>Cough</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> (Cough)</td>
+</tr>
+<tr>
+<td>Symptom</td>
+<td>Wheezing</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" rel="noopener noreferrer">HP:0030828</a> (Wheezing)</td>
+</tr>
+<tr>
+<td>Symptom</td>
+<td>Dyspnea / breathlessness</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea)</td>
+</tr>
+<tr>
+<td>Symptom</td>
+<td>Sputum production (chronic phase)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031245" target="_blank" rel="noopener noreferrer">HP:0031245</a> (Increased sputum production) or similar</td>
+</tr>
+<tr>
+<td>Sign</td>
+<td>Fine basilar rales/crackles (minority of patients)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030830" target="_blank" rel="noopener noreferrer">HP:0030830</a> (Crackles)</td>
+</tr>
+<tr>
+<td>Sign</td>
+<td>Airflow obstruction on auscultation/exam</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Lab abnormality</td>
+<td>Acute leukocytosis after exposure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" rel="noopener noreferrer">HP:0001974</a> (Leukocytosis)</td>
+</tr>
+<tr>
+<td>Lab/physiologic</td>
+<td>Cross-shift (intra-shift) FEV₁ decline &gt;5–10%</td>
+<td>— (functional/laboratory finding)</td>
+</tr>
+<tr>
+<td>Lab/physiologic</td>
+<td>Longitudinal FEV₁ decline / FEV₁ &lt;80% predicted</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002812" target="_blank" rel="noopener noreferrer">HP:0002812</a> (or general "Reduced FEV1")</td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Chest radiograph: hyperlucency, diaphragmatic flattening, emphysema; diffuse lower-lung haziness in advanced disease</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>HRCT: basal-predominant ground-glass opacities with centrilobular nodules</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Phenotype Characteristics</h3>
+<ul>
+<li><strong>Age of onset:</strong> Adult-onset, occupationally determined — onset depends on duration/intensity of textile-mill employment rather than a fixed age; symptoms can begin within months of hire in high-exposure jobs (e.g., carding) and typically progress over years of continued exposure.</li>
+<li><strong>Severity/progression — the Schilling grading system:</strong> Developed by Richard Schilling in the 1960s, the classic clinical grading is:</li>
+<li><strong>Grade 0</strong> — no symptoms of chest tightness/breathlessness on Mondays</li>
+<li><strong>Grade ½</strong> — occasional mild chest tightness or respiratory irritation on Mondays</li>
+<li><strong>Grade 1</strong> — chest tightness and/or breathlessness on Mondays only</li>
+<li><strong>Grade 2</strong> — chest tightness and/or breathlessness on Mondays <strong>and</strong> other days</li>
+<li><strong>Grade 3</strong> (used in some schemes) — permanent disability with evidence of persistent lung-function impairment, symptoms no longer confined to Mondays</li>
+</ul>
+<p>(<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1039177/?page=5">Search summary based on Schilling grading literature</a>; <a href="https://www.sciencedirect.com/topics/medicine-and-dentistry/byssinosis">ScienceDirect overview</a>)</p>
+<p>A parallel <strong>WHO symptoms-based criterion</strong> (work-related chest tightness on questionnaire) is also used in modern epidemiological surveys, sometimes yielding different prevalence estimates than Schilling's criteria in the same population (e.g., 3% by WHO criteria vs 4% by Schilling's criteria in the 2023 Karachi MultiTex baseline survey) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9985716/">PMID: 36717255</a>).</p>
+<ul>
+<li><strong>Progression:</strong> With continued exposure, the episodic acute/Monday pattern evolves into a <strong>chronic, non-cyclical state</strong> resembling chronic bronchitis, with persistent cough, sputum, and progressive irreversible airflow obstruction; early removal from exposure can allow partial FEV₁ recovery, but established chronic disease/fibrosis is largely irreversible (<a href="https://www.ncbi.nlm.nih.gov/books/NBK519549/">StatPearls NBK519549</a>).</li>
+<li><strong>Frequency among affected individuals:</strong> Highly exposure- and criteria-dependent. Reported prevalence in cotton-processing workers ranges from ~3–4% (modern low-dust UK/Pakistan mills using strict criteria) up to 14–36% (older or higher-exposure South Asian mill cohorts), with a 2024 pooled meta-analysis of Indian textile workers finding <strong>24% pooled prevalence</strong> (95% CI 13–36%; 18 studies, 5,678 workers) — dropping to 20% in low-risk-of-bias studies (<a href="https://journals.lww.com/jatn/fulltext/2024/07010/pooled_prevalence_of_byssinosis_in_india__a.4.aspx">Journal of Association of Pulmonologists of Tamil Nadu, 2024</a>).</li>
+</ul>
+<h3>Quality of Life Impact</h3>
+<p>Chest tightness/dyspnea and chronic cough directly impair work capacity and daily physical functioning; in advanced/chronic byssinosis, impaired exercise tolerance and, in severe cases, oxygen dependency substantially reduce quality of life (StatPearls). Specific validated instrument (EQ-5D/SF-36) data for byssinosis specifically were not identified in this search — QoL burden is generally inferred from the shared airflow-obstruction/COPD literature rather than byssinosis-specific instrument studies.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>Byssinosis is <strong>not a Mendelian single-gene disorder</strong> — there is no single causal gene, and no ClinVar/HGMD pathogenic-variant catalog analogous to a classic genetic disease. Instead, common regulatory polymorphisms in innate-immune/inflammatory genes act as <strong>quantitative modifiers of exposure-response</strong>, altering the magnitude of lung-function decline per unit of endotoxin exposure rather than causing disease independent of exposure.</p>
+<h3>Modifier Genes and Variants</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>Variant</th>
+<th>Role</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TNF (TNF-alpha)</td>
+<td>rs1800629 (−308G/A promoter SNP)</td>
+<td>Modifies endotoxin-exposure-associated longitudinal FEV₁ decline</td>
+<td>Zhang et al., <em>Occup Environ Med</em> 2007;64:409–413</td>
+</tr>
+<tr>
+<td>LTA (lymphotoxin-alpha)</td>
+<td>rs909253</td>
+<td>Co-modifier with TNF in the same cohort</td>
+<td>Zhang et al. 2007</td>
+</tr>
+<tr>
+<td>EPHX1 (microsomal epoxide hydrolase)</td>
+<td>Functional polymorphisms</td>
+<td>Interacts with endotoxin exposure to affect lung-function decline</td>
+<td><em>Am J Respir Crit Care Med</em> 2005;171:165 (<a href="https://academic.oup.com/ajrccm/article-abstract/171/2/165/8538324">academic.oup.com</a>)</td>
+</tr>
+<tr>
+<td>CD14</td>
+<td>−159C/T (and related promoter SNPs)</td>
+<td>General endotoxin-receptor modifier (established in organic-dust/asthma literature; biologically plausible for byssinosis)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16142747/">PMID 16142747</a></td>
+</tr>
+<tr>
+<td>TLR4</td>
+<td>Asp299Gly, Thr399Ile</td>
+<td>Extracellular domain variants altering LPS-receptor responsiveness</td>
+<td><a href="https://www.jacionline.org/article/S0091-6749(03)01619-1/fulltext">JACI 2003</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>MalaCards lists approximately 8 genes associated with byssinosis in its aggregated disease-gene database, consistent with the modifier-gene (rather than causal-Mendelian-gene) model described above (<a href="https://www.malacards.org/card/byssinosis">MalaCards Byssinosis</a>).</p>
+<h3>Epigenetics, Somatic Variants, Chromosomal Abnormalities</h3>
+<p>No byssinosis-specific epigenetic (DNA methylation/histone), somatic-mutation, or chromosomal-abnormality literature was identified — consistent with its status as an exposure-driven inflammatory airway disease rather than a genetically-driven or neoplastic process. Allele-frequency (gnomAD/1000 Genomes) data for the modifier SNPs above are available generically but are not byssinosis-specific resources.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>Environmental / Occupational Factors</h3>
+<ul>
+<li><strong>Cotton dust</strong> (raw, unprocessed, particularly from opening/carding stages) — primary exposure</li>
+<li><strong>Flax dust, hemp dust, jute dust, sisal dust</strong> — cause a clinically similar syndrome in their respective processing industries</li>
+<li><strong>Bacterial endotoxin (LPS)</strong> contaminating the raw fiber — the leading specific causal component (see Etiology/Mechanism)</li>
+<li>Possible contributory agents: fungal spores, residual agricultural pesticides, plant-derived tannins/bracts (StatPearls; ScienceDirect complement-activation study)</li>
+</ul>
+<h3>Lifestyle Factors</h3>
+<ul>
+<li><strong>Cigarette smoking</strong> is consistently identified as a major effect-modifying lifestyle factor: workers with ≥3.5 pack-years smoking history show significantly worse respiratory symptom burden and spirometric outcomes independent of dust exposure, and smoking cessation is considered an essential management step (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9985716/">PMID: 36717255</a>; StatPearls).</li>
+</ul>
+<h3>Infectious Agents</h3>
+<p>Byssinosis is not an infectious disease per se, but the causal agent (endotoxin) is bacterial in origin — Gram-negative bacteria colonizing raw cotton fiber during field growth, harvest, ginning, and storage shed LPS into the fiber/dust matrix. This is a toxin-mediated, not infectious, mechanism (no live bacterial invasion of host tissue is implicated).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal Chain (Numbered Sequence)</h3>
+<ol>
+<li><strong>Raw cotton (or flax/hemp/jute) fiber is colonized by Gram-negative bacteria</strong> during field growth, harvesting, and storage, which <strong>leads to</strong> accumulation of bacterial endotoxin (LPS) adsorbed onto fiber, bract, and trash particulates.</li>
+<li><strong>Mechanical processing (opening, carding, blowing) of the raw fiber aerosolizes</strong> endotoxin-laden respirable dust, which <strong>results in</strong> inhalation exposure of textile-mill workers, concentrated in carding/opening-room jobs.</li>
+<li><strong>Inhaled endotoxin binds CD14/TLR4/MD-2 receptor complexes on airway macrophages and epithelial cells</strong>, which <strong>triggers</strong> innate-immune activation — this step is demonstrated mechanistically in organic-dust/endotoxin inhalation models generally, and inferred (rather than directly demonstrated in byssinosis-specific human biopsy studies) as the initiating receptor event in the lung.</li>
+<li><strong>Receptor activation leads to</strong> release of pro-inflammatory mediators — nitric oxide (which reacts with superoxide to amplify inflammatory injury), IL-6, IL-8, and other neutrophil-chemoattractant cytokines — from resident macrophages and epithelium.</li>
+<li><strong>This inflammatory-mediator release results in</strong> recruitment and activation of neutrophils into the airway lumen and bronchial mucosa (documented directly by bronchoalveolar lavage studies in organic-dust-exposed workers), which <strong>triggers</strong> further local cytokine amplification (IL-6, IL-8) and a self-propagating inflammatory cascade.</li>
+<li><strong>In parallel, cotton/flax dust extracts activate the complement cascade</strong> (both classical and alternative pathways, demonstrated by C1 consumption, C2 destruction, and C4 conversion assays) — notably, this complement activation does <strong>not</strong> correlate tightly with endotoxin concentration, indicating an endotoxin-independent contributing pathway (inferred to be tannin/bract-derived).</li>
+<li><strong>Cotton dust also stimulates degranulation of pulmonary mast cells</strong>, releasing histamine — histamine accumulated in the lung over an exposure-free interval (e.g., the weekend) is proposed to be released upon re-exposure, contributing mechanistically to the "Monday" symptom peak; this histamine hypothesis is supported by elevated blood/lung histamine in exposed workers and guinea-pig models but remains one contributing pathway among several rather than the sole mechanism.</li>
+<li><strong>Cotton dust constituents also stimulate release of prostaglandin F2α (PGF2α)</strong>, which <strong>leads to</strong> direct airway smooth-muscle contraction, providing an additional, receptor-independent bronchoconstrictive mechanism.</li>
+<li><strong>The combined effects of neutrophilic/cytokine inflammation, complement activation, mast-cell/histamine release, and PGF2α-mediated smooth-muscle contraction converge to cause acute bronchoconstriction</strong>, clinically manifesting as the Monday-pattern chest tightness, cough, and wheeze, and measurable as an acute cross-shift/across-week decline in FEV₁.</li>
+<li><strong>With repeated, chronic endotoxin/dust exposure, sustained low-grade airway inflammation leads to</strong> structural airway remodeling — chronic bronchitis, small-airway narrowing, and (in advanced disease) interstitial fibrotic change — which <strong>results in</strong> a fixed, non-reversible, accelerated decline in FEV₁ (approximately 50 mL/year in cotton workers versus the normal physiologic 20–30 mL/year) and, ultimately, chronic obstructive/restrictive respiratory impairment, cor pulmonale, and pulmonary arterial hypertension in severe cases.</li>
+<li><strong>Individual genetic variation at this final chronic stage — particularly TNF-308G/A, LTA rs909253, and EPHX1 polymorphisms — modifies the rate of this exposure-driven FEV₁ decline</strong>, explaining why some workers with comparable cumulative endotoxin exposure develop markedly more severe chronic disease than others.</li>
+</ol>
+<p>A key epidemiological nuance from the Shanghai Textile Worker Cohort (20-year longitudinal follow-up, n=447): <strong>past cumulative endotoxin exposure</strong> (rather than recent exposure) was the stronger predictor of <strong>long-term annual FEV₁ decline</strong>, whereas <strong>recent exposure (within the prior 5 years)</strong> correlated more strongly with <strong>current respiratory symptoms</strong> (byssinosis/chronic bronchitis) — implying that the acute inflammatory/symptomatic phase and the chronic structural-decline phase, while mechanistically linked, are not perfectly temporally coupled (Christiani et al., <a href="https://pubmed.ncbi.nlm.nih.gov/20797932/" target="_blank" rel="noopener noreferrer">PMID: 20797932</a>).</p>
+<h3>Molecular Pathways</h3>
+<ul>
+<li>Endotoxin (LPS) → CD14/TLR4/MD-2 → NF-κB-driven pro-inflammatory transcription (canonical innate-immune LPS-signaling pathway; not byssinosis-specific but the accepted mechanistic backbone)</li>
+<li>Nitric oxide–superoxide reaction generating reactive nitrogen species and downstream inflammatory/fibrotic signaling</li>
+<li>Complement classical and alternative pathway activation (C1, C2, C4)</li>
+<li>Prostaglandin F2α synthesis/release → smooth-muscle Gq-coupled contraction</li>
+</ul>
+<h3>Cellular Processes and Cell Types Involved</h3>
+<ul>
+<li><strong>Airway/alveolar macrophages</strong> — endotoxin sensing and initial cytokine release (Cell Ontology: <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>, lung macrophage)</li>
+<li><strong>Neutrophils</strong> — recruited into airway lumen/mucosa; central effector of acute inflammation (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>)</li>
+<li><strong>Mast cells</strong> — degranulation, histamine release (<a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a>)</li>
+<li><strong>Bronchial epithelial cells</strong> — IL-8 production, barrier/signaling role (<a href="http://purl.obolibrary.org/obo/CL_0002632" target="_blank" rel="noopener noreferrer">CL:0002632</a>, or <a href="http://purl.obolibrary.org/obo/CL_0005006" target="_blank" rel="noopener noreferrer">CL:0005006</a> basal cell of respiratory epithelium)</li>
+<li><strong>Airway smooth muscle cells</strong> — PGF2α-mediated contraction, and chronic remodeling/hyperplasia (<a href="http://purl.obolibrary.org/obo/CL_0002598" target="_blank" rel="noopener noreferrer">CL:0002598</a>)</li>
+</ul>
+<h3>Suggested GO Terms (Biological Processes)</h3>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/GO_0002532" target="_blank" rel="noopener noreferrer">GO:0002532</a> — production of molecular mediator involved in inflammatory response</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0032496" target="_blank" rel="noopener noreferrer">GO:0032496</a> — response to lipopolysaccharide</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> — inflammatory response</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" rel="noopener noreferrer">GO:0030593</a> — neutrophil chemotaxis</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0043303" target="_blank" rel="noopener noreferrer">GO:0043303</a> — mast cell degranulation</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a> — complement activation</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" rel="noopener noreferrer">GO:0006936</a> — muscle contraction (for the airway smooth-muscle bronchoconstriction node)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0006817" target="_blank" rel="noopener noreferrer">GO:0006817</a> (n/a) — omit; alternative: <a href="http://purl.obolibrary.org/obo/GO_0071456" target="_blank" rel="noopener noreferrer">GO:0071456</a> — cellular response to hypoxia (relevant only in advanced cor pulmonale)</li>
+</ul>
+<h3>Protein Dysfunction / Biochemical Abnormalities</h3>
+<p>No primary protein-misfolding or enzyme-deficiency defect is implicated; the relevant "dysfunction" is a genetically-modulated <strong>quantitative hyperresponsiveness</strong> of the TNF/innate-immune signaling axis to a normal environmental ligand (endotoxin), rather than a structural protein lesion.</p>
+<h3>Advanced/Omics Data</h3>
+<p>No byssinosis-specific single-cell, spatial-transcriptomic, or large-scale multi-omics dataset was identified in this search; the mechanistic evidence base is built predominantly from classical BAL cytokine/cell-count studies, animal (guinea pig, rat) inhalation models, and human epidemiologic cohort genotyping rather than modern single-cell atlases.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ Level</h3>
+<ul>
+<li><strong>Primary:</strong> Lungs — specifically conducting airways (bronchi, bronchioles) and, in advanced disease, alveolar parenchyma</li>
+<li><strong>Secondary:</strong> Heart — cor pulmonale and pulmonary arterial hypertension reported as a complication of severe/advanced byssinosis (case report, <a href="https://www.sciencedirect.com/science/article/pii/S2949918625001251">ScienceDirect 2025</a>)</li>
+<li><strong>Body system:</strong> Respiratory system primarily; cardiovascular system secondarily (right heart strain in advanced disease)</li>
+</ul>
+<p>Suggested UBERON terms: <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> (lung), <a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" rel="noopener noreferrer">UBERON:0003126</a> (trachea/bronchus tree — bronchus: <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a>), <a href="http://purl.obolibrary.org/obo/UBERON_0002186" target="_blank" rel="noopener noreferrer">UBERON:0002186</a> (bronchiole)</p>
+<h3>Tissue and Cell Level</h3>
+<ul>
+<li>Bronchial/bronchiolar epithelium (ciliated and basal cells)</li>
+<li>Airway smooth muscle layer</li>
+<li>Submucosal inflammatory infiltrate (neutrophils, mast cells, macrophages)</li>
+<li>In advanced disease: interstitial/alveolar septal tissue (fibrotic change, ground-glass on HRCT)</li>
+</ul>
+<h3>Subcellular Level</h3>
+<ul>
+<li>Plasma-membrane pattern-recognition receptor complexes (TLR4/CD14/MD-2) — GO Cellular Component: <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> (plasma membrane), receptor complex assembly</li>
+<li>Mast cell secretory granules (histamine storage/release) — <a href="http://purl.obolibrary.org/obo/GO_0042582" target="_blank" rel="noopener noreferrer">GO:0042582</a> (peroxisome n/a; correct term: <a href="http://purl.obolibrary.org/obo/GO_0030141" target="_blank" rel="noopener noreferrer">GO:0030141</a>, secretory granule)</li>
+</ul>
+<h3>Localization</h3>
+<ul>
+<li>Bilateral, diffuse involvement of the tracheobronchial tree, with basal predominance of HRCT ground-glass/nodular change in more advanced cases; no significant lateralization reported.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li>Adult-onset, occupationally triggered; no fixed age of first symptom — determined by age at hire and job exposure intensity (typically manifests within the first several years of high-exposure work, e.g., carding-room employment)</li>
+<li>Onset pattern of the <strong>acute</strong> form is characteristically <strong>episodic/cyclical</strong> (recurring at the start of each exposure period, e.g., Monday), while the <strong>chronic</strong> form has an <strong>insidious</strong>, progressive onset as episodic symptoms merge into a persistent baseline</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li><strong>Early/acute stage (Schilling Grade ½–1):</strong> intermittent, fully reversible Monday-pattern chest tightness</li>
+<li><strong>Intermediate stage (Grade 2):</strong> symptoms present on Mondays and other work days; measurable cross-shift FEV₁ decline</li>
+<li><strong>Advanced/chronic stage (Grade 3-equivalent):</strong> permanent, non-cyclical airflow obstruction, chronic bronchitis, and in the most severe/longest-exposed cases, fibrosis, oxygen dependency, cor pulmonale, and pulmonary arterial hypertension</li>
+<li>Progression rate is variable and exposure-dependent; annualized FEV₁ decline accelerates from the normal ~20–30 mL/year to ~30–50 mL/year in exposed cotton workers (StatPearls; Shanghai cohort <a href="https://pubmed.ncbi.nlm.nih.gov/20797932/" target="_blank" rel="noopener noreferrer">PMID 20797932</a> reported ~32–41 mL/year decline over the first 20 years of follow-up)</li>
+</ul>
+<h3>Patterns</h3>
+<ul>
+<li><strong>Remission:</strong> The acute phenotype is fully remission-capable with removal from exposure, especially if intervention occurs before chronic structural change sets in; the chronic phase is largely irreversible</li>
+<li><strong>Critical period:</strong> Early-career, high-intensity exposure (carding/opening-room work) represents the highest-risk/most modifiable window for intervention (dust control, respirator use, job rotation)</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<p>Byssinosis prevalence is heavily dependent on exposure intensity, mill dust-control infrastructure, diagnostic criteria used, and country income level:</p>
+<ul>
+<li><strong>United Kingdom (pre-modern regulation):</strong> historically quoted prevalence ~4%</li>
+<li><strong>United States:</strong> Cotton Dust OSHA Standard (1978) reduced prevalence from ~20% to &lt;1% among US cotton workers, per OSHA's own retrospective analysis (<a href="https://www.osha.gov/cotton-dust/hazards">OSHA Cotton Dust Hazards</a>)</li>
+<li><strong>India (2024 pooled meta-analysis, 18 studies, n=5,678, Jan 2000–Sep 2023):</strong> pooled prevalence <strong>24%</strong> (95% CI 13–36%); 20% (95% CI 11–29%) in low-risk-of-bias subgroup (<a href="https://journals.lww.com/jatn/fulltext/2024/07010/pooled_prevalence_of_byssinosis_in_india__a.4.aspx">Journal of Association of Pulmonologists of Tamil Nadu 2024</a>)</li>
+<li><strong>Low- and middle-income countries broadly (2022 systematic review, 26 studies, n=6,930, 12 countries):</strong> prevalence range <strong>8–38%</strong>, strongly correlated with cotton-dust concentration (r=0.72) (<a href="https://pubmed.ncbi.nlm.nih.gov/35073782/">PMID: 35073782</a>)</li>
+<li><strong>Pakistan (Karachi MultiTex trial, 2023, n=2,031):</strong> byssinosis prevalence 3% (WHO criteria) to 4% (Schilling criteria), though 56% reported at least one respiratory symptom and 43% reported shortness of breath — illustrating a substantial gap between symptom burden and formally diagnosed byssinosis, and highlighting that current screening questions may be poorly understood by workers in LMIC settings (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9985716/">PMID: 36717255</a>)</li>
+<li><strong>United States mortality:</strong> &gt;35,000 textile workers disabled and 183 deaths attributed to byssinosis between 1979–1992; North Carolina alone accounted for ~37% of US byssinosis deaths from 1996–2005, reflecting its historical concentration of textile manufacturing</li>
+</ul>
+<h3>Inheritance Pattern</h3>
+<p>Not applicable in the classic Mendelian sense — byssinosis is an acquired, exposure-driven disease. It shows a <strong>multifactorial/gene-environment interaction</strong> pattern: common regulatory polymorphisms (TNF, LTA, EPHX1) act as continuous-trait modifiers of an environmentally-necessary exposure (endotoxin), rather than as necessary or sufficient causal alleles. No penetrance, expressivity, anticipation, germline mosaicism, or founder-effect data apply in the traditional monogenic sense.</p>
+<h3>Population Demographics</h3>
+<ul>
+<li><strong>Affected populations:</strong> Predominantly textile-mill workers in cotton-, jute-, flax-, and hemp-producing/processing nations — India, Pakistan, Bangladesh, Nepal, Sri Lanka, Indonesia, Ethiopia, Turkey, Sudan; historically also the US (Southeastern US mill belt — Georgia, North/South Carolina, Maryland) and UK before modern dust-control regulation (StatPearls)</li>
+<li><strong>Sex ratio:</strong> Textile-mill workforces (and thus byssinosis case series) are frequently female-predominant in South/Southeast Asian settings (e.g., "newly-hired female cotton textile workers" cohorts cited above), reflecting industry hiring patterns rather than an intrinsic sex-linked susceptibility difference</li>
+<li><strong>Geographic distribution:</strong> Concentrated in regions with active cotton/textile processing industries and historically weaker occupational dust-exposure regulation; prevalence has fallen sharply in countries (US, UK) that adopted enforced permissible-exposure-limit standards</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical Tests</h3>
+<ul>
+<li><strong>No specific confirmatory diagnostic test exists</strong> — diagnosis rests on the combination of occupational history, characteristic Monday-pattern symptoms, and spirometry (StatPearls).</li>
+<li><strong>Spirometry:</strong></li>
+<li>Cross-shift (pre- vs post-shift) FEV₁ decline &gt;5–10% supports diagnosis</li>
+<li>FEV₁ &lt;80% predicted supports diagnosis</li>
+<li>Longitudinal spirometric surveillance (annual) detects accelerated decline (~50 mL/year vs normal ~20–30 mL/year)</li>
+<li><strong>Laboratory:</strong> Acute post-exposure leukocytosis has been reported but is nonspecific</li>
+<li><strong>Imaging:</strong></li>
+<li>Chest X-ray: hyperlucency, diaphragmatic flattening, emphysematous change; diffuse, ill-defined lower-lung haziness in more advanced disease</li>
+<li>HRCT: basal-predominant ground-glass opacities with centrilobular nodules</li>
+<li><strong>Histamine assay (research/adjunct use):</strong> Blood/lung histamine concentration has been proposed as a differential-diagnostic adjunct alongside PFTs, though it is not part of routine clinical practice (<a href="https://journals.sagepub.com/doi/10.1080/109158101753253054">Venkatakrishna-Bhatt et al. 2001</a>)</li>
+</ul>
+<h3>Genetic Testing</h3>
+<p>Not part of routine clinical diagnosis; TNF/LTA/EPHX1 genotyping is a research tool for understanding differential susceptibility, not a diagnostic or screening test in clinical practice.</p>
+<h3>Clinical Criteria</h3>
+<p>Two parallel standardized symptom-grading frameworks are in active use:
+- <strong>Schilling grading</strong> (Grade 0 to Grade 2/3, symptom-and-periodicity based)
+- <strong>WHO symptoms-based criteria</strong> (work-related chest tightness questionnaire)
+These can yield materially different prevalence estimates in the same population (3% WHO vs 4% Schilling in the 2023 Karachi cohort), and authors have flagged that current questionnaire wording may be poorly understood by workers in some LMIC settings, suggesting a need for criteria revision (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9985716/">PMID: 36717255</a>).</p>
+<h3>Differential Diagnosis</h3>
+<p>Asthma (including occupational asthma, distinguished by its opposite — end-of-week — symptom timing), other pneumoconioses (asbestosis, silicosis, berylliosis, coal worker's pneumoconiosis), farmer's lung/hypersensitivity pneumonitis, metal fume fever, polymer fume fever, interstitial pulmonary fibrosis, sarcoidosis, pulmonary embolism, and acute coronary syndrome (StatPearls).</p>
+<h3>Screening</h3>
+<p>Periodic (typically annual) occupational medical surveillance — symptom questionnaire plus spirometry, including cross-shift testing — is the standard screening approach in regulated textile-mill settings (OSHA 1910.1043 requires such medical surveillance in the US).</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Prognosis with early intervention:</strong> "Most people recover uneventfully with treatment, given avoidance of exposure to cotton [dust]" — early removal from exposure, before chronic structural change, allows substantial or complete FEV₁ recovery (StatPearls).</li>
+<li><strong>Prognosis with continued/late exposure removal:</strong> Chronic exposure leads to progressive, largely irreversible airflow obstruction and, in severe cases, pulmonary fibrosis, oxygen dependency, impaired exercise tolerance, and disability.</li>
+<li><strong>Severe complications:</strong> Cor pulmonale and pulmonary arterial hypertension have been reported in advanced/severe byssinosis (case report, <a href="https://www.sciencedirect.com/science/article/pii/S2949918625001251">ScienceDirect 2025</a>).</li>
+<li><strong>Mortality:</strong> Deaths attributable to byssinosis are documented in both high-income (US: 183 deaths 1979–1992, concentrated in North Carolina) and lower-income, higher-exposure settings (Pakistan, India, where deaths are described as "not uncommon" in less-regulated mill environments).</li>
+<li><strong>Prognostic factors:</strong> Cumulative exposure duration/intensity, smoking status, job/processing stage (carding highest risk), and (per the TNF/LTA/EPHX1 literature) individual genotype at endotoxin-response modifier loci.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Primary Intervention</h3>
+<p><strong>Removal from further cotton/textile-dust exposure is the single most important and effective intervention.</strong> This is emphasized across all major sources as more important than any pharmacologic measure (StatPearls).</p>
+<h3>Pharmacotherapy</h3>
+<ul>
+<li><strong>Short- and long-acting inhaled beta-agonists</strong> (bronchodilators) — symptomatic management; may be required for many months</li>
+<li>Suggested NCIT term: <code>NCIT:C15986</code> (Pharmacotherapy), with <code>therapeutic_modality: SMALL_MOLECULE</code></li>
+<li><strong>Inhaled corticosteroids</strong> — added for persistent/more severe symptoms</li>
+<li><strong>Short courses of systemic corticosteroids</strong> — reserved for patients with severe symptoms</li>
+</ul>
+<h3>Behavioral / Supportive</h3>
+<ul>
+<li><strong>Smoking cessation</strong> — explicitly identified as essential, given the strong smoking × dust-exposure interaction on symptom severity and lung-function decline</li>
+<li>Suggested NCIT term: <code>NCIT:C181743</code> (Behavioral Counseling) / <code>therapeutic_modality: BEHAVIORAL</code></li>
+<li><strong>Supportive respiratory care</strong> — oxygen therapy in advanced/chronic disease with impaired exercise tolerance</li>
+<li>Suggested NCIT term: <code>NCIT:C15747</code> (Supportive Care)</li>
+</ul>
+<h3>Experimental / Advanced Therapeutics</h3>
+<p>No gene therapy, cell therapy, RNA-based therapy, targeted molecular therapy, or immunotherapy is applicable or under investigation for byssinosis specifically — treatment remains conventional obstructive-airways-disease symptomatic management plus exposure elimination.</p>
+<h3>Treatment Strategy</h3>
+<p>There is no formalized, disease-specific staged treatment algorithm distinct from general occupational-asthma/COPD management principles: (1) exposure cessation/reduction as the primary and necessary step, (2) bronchodilator ± inhaled corticosteroid titrated to symptom severity, (3) smoking cessation, (4) surveillance spirometry to monitor recovery or progression.</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary Prevention (most emphasized in the literature)</h3>
+<ul>
+<li><strong>Engineering controls:</strong> dust extraction fans, enclosed processing equipment, adequate mill ventilation</li>
+<li><strong>Regulatory exposure limits (US):</strong> OSHA 29 CFR 1910.1043 (the Cotton Dust Standard, promulgated 1978) sets permissible exposure limits (PELs) of <strong>0.2 mg/m³</strong> (yarn manufacturing), <strong>0.5 mg/m³</strong> (weaving), and <strong>0.75 mg/m³</strong> (waste processing), specifically targeting the respirable fraction of cotton dust because only that size fraction is implicated in causing byssinosis (<a href="https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.1043">OSHA 1910.1043</a>)</li>
+<li><strong>NIOSH Recommended Exposure Limit (REL):</strong> &lt;0.2 mg/m³ for up to a 10-hour workday (<a href="https://www.cdc.gov/niosh/bulletin/2021/textiles.html">CDC NIOSH</a>)</li>
+<li><strong>Bactericidal/washing treatment of raw cotton fiber</strong> prior to processing, to reduce bacterial (and thus endotoxin) load</li>
+<li><strong>Personal protective equipment:</strong> enforced respirator mask use in high-exposure jobs</li>
+<li><strong>Documented regulatory effectiveness:</strong> OSHA's Cotton Dust Standard is credited with reducing US byssinosis prevalence from ~20% to &lt;1% among cotton workers (<a href="https://www.osha.gov/cotton-dust/hazards">OSHA</a>)</li>
+</ul>
+<h3>Secondary Prevention</h3>
+<ul>
+<li><strong>Continued annual employee medical surveillance:</strong> symptom questionnaires plus spirometry (including cross-shift testing) to detect early disease and trigger job reassignment/exposure reduction before chronic change occurs — mandated under the OSHA standard</li>
+</ul>
+<h3>Tertiary Prevention</h3>
+<ul>
+<li>Prompt job/task reassignment or exposure cessation upon detection of early symptoms or spirometric decline, to prevent progression to the chronic, irreversible disease stage</li>
+</ul>
+<h3>Behavioral/Public Health</h3>
+<ul>
+<li>Smoking-cessation programs targeted at textile-mill workforces, given the documented smoking × dust-exposure interaction</li>
+<li>Broader public-health advocacy (e.g., the historical US "Brown Lung" workers'-compensation and labor-rights movement of the 1970s) played a documented role in driving the regulatory changes that ultimately reduced disease prevalence</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Byssinosis is fundamentally an occupational human disease; there is no well-characterized naturally-occurring veterinary counterpart, as animals are not occupationally exposed to processed textile dust in the way humans are. Species relevance is confined to <strong>experimental/induced models</strong> (see Section 15) rather than spontaneous natural disease. NCBI Taxon: <em>Homo sapiens</em> (NCBITaxon:9606) as the sole naturally-affected species identified in the literature searched.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Model Types</h3>
+<ul>
+<li><strong>Guinea pig</strong> — the best-validated small-animal model. Guinea pigs exposed by inhalation to breathable, aerosolized raw cotton dust develop a measurable respiratory response (airway resistance changes), whereas exposure to particle-size-matched pure cellulose powder (lacking bacterial contamination) produces no response — directly supporting the endotoxin/bacterial-contaminant hypothesis over a pure-mechanical-irritant hypothesis (<a href="https://www.sciencedirect.com/science/article/abs/pii/0041008X84901522">ScienceDirect animal-model study</a>)</li>
+<li><strong>Rat, rabbit, hamster, and monkey</strong> — also explored historically as candidate species for modeling the acute byssinotic reaction, with varying degrees of fidelity (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1469574/">PMC1469574, "Pulmonary reactions to organic dust exposures: development of an animal model"</a>)</li>
+<li><strong>Guinea pig histamine studies</strong> — chronic cotton/flax dust exposure in guinea pigs was used to demonstrate elevated lung histamine concentrations, supporting the histamine-accumulation/release hypothesis for the Monday-pattern symptom cycle (<a href="https://pubmed.ncbi.nlm.nih.gov/6722048/">PMID: 6722048</a>)</li>
+</ul>
+<h3>Induced Models</h3>
+<p>All animal models are <strong>inhalation-exposure induced</strong> — repeated or single-dose aerosolized cotton dust or purified/extracted endotoxin challenge — rather than genetic (knockout/transgenic) models, consistent with byssinosis's fundamentally exposure-driven rather than monogenic etiology.</p>
+<h3>Model Characteristics</h3>
+<ul>
+<li><strong>Phenotype recapitulation:</strong> The guinea pig cotton-dust inhalation model recapitulates the acute bronchoconstrictive/airway-resistance response reasonably well and has been central to establishing endotoxin (rather than raw cellulose) as the causal agent.</li>
+<li><strong>Tachyphylaxis/tolerance parallel:</strong> Repeated endotoxin inhalation in animal models produces an attenuation of the airway response over repeated exposures, mirroring the "Monday-worst, improves through the week" tolerance phenomenon seen clinically in human workers — a notable and mechanistically informative cross-species parallel (search summary, animal-model literature).</li>
+<li><strong>Limitations:</strong> Acute animal-inhalation models capture the acute bronchoconstrictive/inflammatory phase well but are less well validated for reproducing the chronic, fibrotic, structurally-remodeled end-stage of human byssinosis, which develops only after years of cumulative occupational exposure not easily replicated in a laboratory exposure protocol.</li>
+</ul>
+<h3>Applications</h3>
+<p>Animal endotoxin-inhalation models have been used primarily to (1) distinguish the causal role of bacterial endotoxin from inert cotton particulate, (2) characterize acute inflammatory-cell recruitment (neutrophils) and mediator release (histamine, complement), and (3) study dose-response and tolerance/tachyphylaxis phenomena relevant to the human Monday-symptom pattern.</p>
+<h3>Resources</h3>
+<p>No byssinosis-specific dedicated model-organism database (equivalent to MGI/ZFIN/IMPC for genetic disease models) exists, reflecting the absence of genetic knockout/transgenic models for this exposure-driven condition; the relevant literature is scattered across occupational/environmental-health and toxicology journals rather than centralized model-organism repositories.</p>
+<hr />
+<h2>Summary of Key Ontology Term Suggestions for KB Curation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0006688" target="_blank" rel="noopener noreferrer">MONDO:0006688</a> (byssinosis)</td>
+</tr>
+<tr>
+<td>Phenotypes</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" rel="noopener noreferrer">HP:0030828</a> (Wheezing), <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea), <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> (Cough), <a href="http://purl.obolibrary.org/obo/HP_0030830" target="_blank" rel="noopener noreferrer">HP:0030830</a> (Crackles), <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" rel="noopener noreferrer">HP:0001974</a> (Leukocytosis)</td>
+</tr>
+<tr>
+<td>Biological processes</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0032496" target="_blank" rel="noopener noreferrer">GO:0032496</a> (response to lipopolysaccharide), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" rel="noopener noreferrer">GO:0030593</a> (neutrophil chemotaxis), <a href="http://purl.obolibrary.org/obo/GO_0043303" target="_blank" rel="noopener noreferrer">GO:0043303</a> (mast cell degranulation), <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a> (complement activation)</td>
+</tr>
+<tr>
+<td>Cell types</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a> (lung macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a> (mast cell), <a href="http://purl.obolibrary.org/obo/CL_0002598" target="_blank" rel="noopener noreferrer">CL:0002598</a> (airway smooth muscle cell)</td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> (lung), <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a> (bronchus), <a href="http://purl.obolibrary.org/obo/UBERON_0002186" target="_blank" rel="noopener noreferrer">UBERON:0002186</a> (bronchiole)</td>
+</tr>
+<tr>
+<td>Genes (modifiers)</td>
+<td>TNF (hgnc:11892), LTA (hgnc:6709), EPHX1 (hgnc:3401), CD14 (hgnc:1633), TLR4 (hgnc:11850)</td>
+</tr>
+<tr>
+<td>Chemical/exposure</td>
+<td>CHEBI (endotoxin/LPS — <a href="http://purl.obolibrary.org/obo/CHEBI_16412" target="_blank" rel="noopener noreferrer">CHEBI:16412</a>, lipopolysaccharide); ECTO exposure term for occupational cotton-dust inhalation</td>
+</tr>
+<tr>
+<td>Treatment</td>
+<td>NCIT:C15986 (Pharmacotherapy — bronchodilators/corticosteroids), NCIT:C15747 (Supportive Care), NCIT:C181743 (Behavioral Counseling — smoking cessation)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK519549/">Byssinosis — StatPearls, NCBI Bookshelf (NBK519549)</a></li>
+<li><a href="https://www.statpearls.com/point-of-care/18737">Byssinosis | Treatment &amp; Management — StatPearls Point of Care</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2974703/">Chronic Lung Function Decline in Cotton Textile Workers: Roles of Historical and Recent Exposures to Endotoxin — PMC2974703 / PMID: 20797932</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9985716/">Byssinosis and lung health among cotton textile workers: baseline findings of the MultiTex trial in Karachi, Pakistan — PMC9985716 / PMID: 36717255</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35073782/">Contemporary Prevalence of Byssinosis in Low- and Middle-Income Countries: A Systematic Review — PMID: 35073782</a></li>
+<li><a href="https://journals.lww.com/jatn/fulltext/2024/07010/pooled_prevalence_of_byssinosis_in_india__a.4.aspx">Pooled Prevalence of Byssinosis in India: A Systematic Review and Meta-analysis (2024) — Journal of the Association of Pulmonologists of Tamil Nadu</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/4689794/">Byssinosis: a study of 10,133 textile workers — PMID: 4689794</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/11844963/">Prevalence of byssinosis and respiratory symptoms among cotton mill workers — PMID: 11844963</a></li>
+<li><a href="https://academic.oup.com/ajrccm/article-abstract/171/2/165/8538324">Microsomal Epoxide Hydrolase, Endotoxin, and Lung Function Decline in Cotton Textile Workers — Am J Respir Crit Care Med 2005;171:165</a></li>
+<li><a href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0059035">A Large Scale Gene-Centric Association Study of Lung Function in Newly-Hired Female Cotton Textile Workers with Endotoxin Exposure — PLOS ONE / PMID: 23527081</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/16142747/">Organic dust induced inflammation — role of atopy and TLR-4 and CD14 gene polymorphisms — PMID: 16142747</a></li>
+<li><a href="https://www.jacionline.org/article/S0091-6749(03)01619-1/fulltext">TLR4 gene variants modify endotoxin effects on asthma — Journal of Allergy and Clinical Immunology</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/0041008X84901522">Pulmonary reactions to inhaled cotton dust: An animal model for byssinosis — ScienceDirect</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1469574/">Pulmonary reactions to organic dust exposures: development of an animal model — PMC1469574</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1009284/">Role of histamine in the aetiology of byssinosis. I — PMC1009284 / PMID: 6202313</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/6722048/">Role of histamine in the aetiology of byssinosis. II — PMID: 6722048</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/0013935183901901">In vitro alternative and classical activation of complement by extracts of cotton mill dust — ScienceDirect</a></li>
+<li><a href="https://journals.sagepub.com/doi/10.1080/109158101753253054">Differential Diagnosis of Byssinosis by Blood Histamine and Pulmonary Function Test — SAGE Journals</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S2949918625001251">Severe byssinosis with Cor pulmonale and pulmonary arterial hypertension — case report, ScienceDirect 2025</a></li>
+<li><a href="https://www.cdc.gov/niosh/bulletin/2021/textiles.html">Lung Disease in Textile Workers — CDC NIOSH Science Bulletin 2021</a></li>
+<li><a href="https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.1043">OSHA 1910.1043 — Cotton dust</a></li>
+<li><a href="https://www.osha.gov/cotton-dust/hazards">Cotton Dust — Hazards and Possible Solutions — OSHA</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/7048909/">Byssinosis — an historical perspective — PMID: 7048909</a></li>
+<li><a href="https://archive.scienceforthepeople.org/vol-9/v9n3/brown-lung-blues/">Brown Lung Blues — Science for the People Archives</a></li>
+<li><a href="https://monarchinitiative.org/MONDO:0006688">byssinosis — Monarch Initiative, MONDO:0006688</a></li>
+<li><a href="https://www.icd10data.com/ICD10CM/Codes/J00-J99/J60-J70/J66-/J66.0">2026 ICD-10-CM Diagnosis Code J66.0: Byssinosis</a></li>
+<li><a href="https://www.malacards.org/card/byssinosis">Byssinosis — MalaCards</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>17</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0006688</code> (6 mentions) - the report calls it "MONDO", "byssinosis"; MONDO calls it <strong>byssinosis</strong></li>
+<li><code>CL:0000097</code> (2 mentions) - the report calls it "Mast cells<strong> — degranulation, histamine release"; CL calls it </strong>mast cell**</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0031245</code> (1 mention) - the report calls it "Increased sputum production"; HP calls it <strong>Productive cough</strong>, and lists "Cough with mucus production" among its other names</li>
+<li><code>HP:0001974</code> (2 mentions) - the report calls it "Leukocytosis"; HP calls it <strong>Increased total leukocyte count</strong>, and lists "Leukocytosis" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MONDO:0006688</code> - called "MONDO", "byssinosis"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Buruli_Ulcer-falcon.html">← Buruli ulcer (Falcon)</a>
+                
+                
+                <a href="CACNA1A_Related_Disorder-falcon.html">CACNA1A-Related Disorder (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Byssinosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Byssinosis-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

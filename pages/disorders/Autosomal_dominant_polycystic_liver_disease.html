@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Autosomal dominant polycystic liver disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Autosomal dominant polycystic liver disease</h1>
             <div class="header-meta">
 
@@ -3979,7 +4126,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-isolated-pcld-definition">
                 <div class="item-name">Orphanet isolated PCLD definition</div>
 
                 <div class="item-desc">Genetic isolated polycystic liver disease characterized by numerous cysts spread throughout the liver, usually described as ADPLD.</div>
@@ -4023,7 +4170,9 @@
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4059,7 +4208,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4104,7 +4253,9 @@
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4165,7 +4316,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pcld1">
 
                     <div class="item-name">
                         PRKCSH-related polycystic liver disease 1
@@ -4180,18 +4331,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in PRKCSH (hgnc:9411). hgnc:9411 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 PRKCSH
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:9411" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9411</a>
+    <a href="https://bioregistry.io/hgnc:9411" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9411</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PRKCSH (hgnc:9411). hgnc:9411 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4218,7 +4371,9 @@ This subtype is caused by variation in PRKCSH (hgnc:9411). hgnc:9411 is a gene f
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4244,7 +4399,7 @@ This subtype is caused by variation in PRKCSH (hgnc:9411). hgnc:9411 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-pcld2">
 
                     <div class="item-name">
                         SEC63-related polycystic liver disease 2
@@ -4259,18 +4414,20 @@ This subtype is caused by variation in PRKCSH (hgnc:9411). hgnc:9411 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in SEC63 (hgnc:21082). hgnc:21082 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 SEC63
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:21082" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21082</a>
+    <a href="https://bioregistry.io/hgnc:21082" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:21082</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in SEC63 (hgnc:21082). hgnc:21082 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4297,7 +4454,9 @@ This subtype is caused by variation in SEC63 (hgnc:21082). hgnc:21082 is a gene 
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4323,7 +4482,7 @@ This subtype is caused by variation in SEC63 (hgnc:21082). hgnc:21082 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-alg8-related-adpld">
 
                     <div class="item-name">
                         ALG8-related ADPLD
@@ -4336,18 +4495,20 @@ This subtype is caused by variation in SEC63 (hgnc:21082). hgnc:21082 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ALG8 (hgnc:23161). hgnc:23161 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ALG8
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:23161" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23161</a>
+    <a href="https://bioregistry.io/hgnc:23161" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:23161</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ALG8 (hgnc:23161). hgnc:23161 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4374,7 +4535,9 @@ This subtype is caused by variation in ALG8 (hgnc:23161). hgnc:23161 is a gene f
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4400,7 +4563,7 @@ This subtype is caused by variation in ALG8 (hgnc:23161). hgnc:23161 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lrp5-related-adpld">
 
                     <div class="item-name">
                         LRP5-related ADPLD
@@ -4413,18 +4576,20 @@ This subtype is caused by variation in ALG8 (hgnc:23161). hgnc:23161 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 LRP5
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:6697" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6697</a>
+    <a href="https://bioregistry.io/hgnc:6697" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:6697</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4451,7 +4616,9 @@ This subtype is caused by variation in LRP5 (hgnc:6697). hgnc:6697 is a gene fro
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4513,17 +4680,21 @@ This subtype is caused by variation in LRP5 (hgnc:6697). hgnc:6697 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PRKCSH (hgnc:9411). hgnc:9411 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PRKCSH
 
 
-    <a href="https://bioregistry.io/hgnc:9411" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9411</a>
+    <a href="https://bioregistry.io/hgnc:9411" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:9411</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRKCSH (hgnc:9411). hgnc:9411 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4548,17 +4719,21 @@ This pathophysiological event involves PRKCSH (hgnc:9411). hgnc:9411 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SEC63 (hgnc:21082). hgnc:21082 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SEC63
 
 
-    <a href="https://bioregistry.io/hgnc:21082" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21082</a>
+    <a href="https://bioregistry.io/hgnc:21082" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:21082</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SEC63 (hgnc:21082). hgnc:21082 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4587,18 +4762,20 @@ This pathophysiological event involves SEC63 (hgnc:21082). hgnc:21082 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased endoplasmic-reticulum protein folding, annotated with protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         endoplasmic-reticulum protein folding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased endoplasmic-reticulum protein folding, annotated with protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4625,18 +4802,20 @@ This pathophysiological event involves decreased endoplasmic-reticulum protein f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go">GO:0005783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0005783</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4675,7 +4854,9 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26877954" target="_blank">PMID:26877954</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4715,18 +4896,20 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased polycystin protein maturation, annotated with protein maturation (GO:0051604). GO:0051604 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         polycystin protein maturation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051604" target="_blank" class="curie-chip curie-chip-go">GO:0051604</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051604" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0051604</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased polycystin protein maturation, annotated with protein maturation (GO:0051604). GO:0051604 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4753,18 +4936,20 @@ This pathophysiological event involves decreased polycystin protein maturation, 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go">GO:0005783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0005783</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4811,7 +4996,9 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26877954" target="_blank">PMID:26877954</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4844,18 +5031,20 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cholangiocyte (CL:1000488). CL:1000488 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cholangiocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl">CL:1000488</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000488" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:1000488</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cholangiocyte (CL:1000488). CL:1000488 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4883,18 +5072,20 @@ This pathophysiological event involves cholangiocyte (CL:1000488). CL:1000488 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cholangiocyte hyperproliferation, annotated with epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cholangiocyte hyperproliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go">GO:0050673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0050673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cholangiocyte hyperproliferation, annotated with epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4922,18 +5113,20 @@ This pathophysiological event involves increased cholangiocyte hyperproliferatio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4979,7 +5172,9 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23296249" target="_blank">PMID:23296249</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5001,7 +5196,9 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016902" target="_blank">PMID:27016902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5044,18 +5241,20 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5181,7 +5380,9 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35487607" target="_blank">PMID:35487607</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5203,7 +5404,9 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24886261" target="_blank">PMID:24886261</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5303,16 +5506,20 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002239</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is a phenotype from the Human Phenotype Ontology.">
-                        Gastrointestinal hemorrhage
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp">HP:0002239</a>
-
-
+This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5333,7 +5540,9 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5376,16 +5585,20 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001654</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:0001654 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal heart valve morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp">HP:0001654</a>
-
-
+This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:0001654 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5406,7 +5619,9 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5449,16 +5664,20 @@ This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:000165
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5479,7 +5698,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5501,7 +5722,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35487607" target="_blank">PMID:35487607</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5535,16 +5758,20 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal distention
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" class="curie-chip curie-chip-hp">HP:0003270</a>
-
-
+This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5565,7 +5792,9 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5587,7 +5816,9 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24886261" target="_blank">PMID:24886261</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5621,16 +5852,20 @@ This clinical feature is Abdominal distention (HP:0003270). HP:0003270 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033842" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0033842</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype from the Human Phenotype Ontology.">
-                        Early satiety
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033842" target="_blank" class="curie-chip curie-chip-hp">HP:0033842</a>
-
-
+This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5651,7 +5886,9 @@ This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5673,7 +5910,9 @@ This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016902" target="_blank">PMID:27016902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5707,16 +5946,20 @@ This clinical feature is Early satiety (HP:0033842). HP:0033842 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002020</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.">
-                        Gastroesophageal reflux
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp">HP:0002020</a>
-
-
+This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5737,7 +5980,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5759,7 +6004,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016902" target="_blank">PMID:27016902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5793,16 +6040,20 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000952</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.">
-                        Jaundice
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp">HP:0000952</a>
-
-
+This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5823,7 +6074,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5845,7 +6098,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016902" target="_blank">PMID:27016902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5888,16 +6143,20 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0005562</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Multiple renal cysts (HP:0005562). HP:0005562 is a phenotype from the Human Phenotype Ontology.">
-                        Multiple renal cysts
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005562" target="_blank" class="curie-chip curie-chip-hp">HP:0005562</a>
-
-
+This clinical feature is Multiple renal cysts (HP:0005562). HP:0005562 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5918,7 +6177,9 @@ This clinical feature is Multiple renal cysts (HP:0005562). HP:0005562 is a phen
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5940,7 +6201,9 @@ This clinical feature is Multiple renal cysts (HP:0005562). HP:0005562 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29038287" target="_blank">PMID:29038287</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5983,16 +6246,20 @@ This clinical feature is Multiple renal cysts (HP:0005562). HP:0005562 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6013,7 +6280,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6035,7 +6304,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016902" target="_blank">PMID:27016902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6069,16 +6340,20 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp">HP:0002093</a>
-
-
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6099,7 +6374,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6142,16 +6419,20 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
-
-
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6172,7 +6453,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6194,7 +6477,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24886261" target="_blank">PMID:24886261</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6228,16 +6513,20 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003418</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.">
-                        Back pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" class="curie-chip curie-chip-hp">HP:0003418</a>
-
-
+This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6258,7 +6547,9 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6280,7 +6571,9 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016902" target="_blank">PMID:27016902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6323,16 +6616,20 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006557" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0006557</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Polycystic liver disease (HP:0006557). HP:0006557 is a phenotype from the Human Phenotype Ontology.">
-                        Polycystic liver disease
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006557" target="_blank" class="curie-chip curie-chip-hp">HP:0006557</a>
-
-
+This clinical feature is Polycystic liver disease (HP:0006557). HP:0006557 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6353,7 +6650,9 @@ This clinical feature is Polycystic liver disease (HP:0006557). HP:0006557 is a 
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6375,7 +6674,9 @@ This clinical feature is Polycystic liver disease (HP:0006557). HP:0006557 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36246085" target="_blank">PMID:36246085</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6409,16 +6710,22 @@ This clinical feature is Polycystic liver disease (HP:0006557). HP:0006557 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating alkaline phosphatase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003155</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated alkaline phosphatase, annotated with Elevated circulating alkaline phosphatase concentration (HP:0003155). HP:0003155 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating alkaline phosphatase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003155" target="_blank" class="curie-chip curie-chip-hp">HP:0003155</a>
-
-
+This clinical feature is Elevated alkaline phosphatase, annotated with Elevated circulating alkaline phosphatase concentration (HP:0003155). HP:0003155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6439,7 +6746,9 @@ This clinical feature is Elevated alkaline phosphatase, annotated with Elevated 
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6473,16 +6782,22 @@ This clinical feature is Elevated alkaline phosphatase, annotated with Elevated 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated gamma-glutamyltransferase level</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030948</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated gamma-glutamyltransferase, annotated with Elevated gamma-glutamyltransferase level (HP:0030948). HP:0030948 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated gamma-glutamyltransferase level
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030948" target="_blank" class="curie-chip curie-chip-hp">HP:0030948</a>
-
-
+This clinical feature is Elevated gamma-glutamyltransferase, annotated with Elevated gamma-glutamyltransferase level (HP:0030948). HP:0030948 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6503,7 +6818,9 @@ This clinical feature is Elevated gamma-glutamyltransferase, annotated with Elev
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6537,16 +6854,22 @@ This clinical feature is Elevated gamma-glutamyltransferase, annotated with Elev
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased total bilirubin</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003573" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003573</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased total bilirubin (HP:0003573). HP:0003573 is a phenotype from the Human Phenotype Ontology.">
-                        Increased total bilirubin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003573" target="_blank" class="curie-chip curie-chip-hp">HP:0003573</a>
-
-
+This clinical feature is Increased total bilirubin (HP:0003573). HP:0003573 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6567,7 +6890,9 @@ This clinical feature is Increased total bilirubin (HP:0003573). HP:0003573 is a
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6601,16 +6926,20 @@ This clinical feature is Increased total bilirubin (HP:0003573). HP:0003573 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010741" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0010741</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype from the Human Phenotype Ontology.">
-                        Pedal edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010741" target="_blank" class="curie-chip curie-chip-hp">HP:0010741</a>
-
-
+This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6631,7 +6960,9 @@ This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6665,16 +6996,20 @@ This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0004944</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dilatation of the cerebral artery (HP:0004944). HP:0004944 is a phenotype from the Human Phenotype Ontology.">
-                        Dilatation of the cerebral artery
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004944" target="_blank" class="curie-chip curie-chip-hp">HP:0004944</a>
-
-
+This clinical feature is Dilatation of the cerebral artery (HP:0004944). HP:0004944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6695,7 +7030,9 @@ This clinical feature is Dilatation of the cerebral artery (HP:0004944). HP:0004
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6729,16 +7066,20 @@ This clinical feature is Dilatation of the cerebral artery (HP:0004944). HP:0004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001732" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001732</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the pancreas (HP:0001732). HP:0001732 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the pancreas
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001732" target="_blank" class="curie-chip curie-chip-hp">HP:0001732</a>
-
-
+This clinical feature is Abnormality of the pancreas (HP:0001732). HP:0001732 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6759,7 +7100,9 @@ This clinical feature is Abnormality of the pancreas (HP:0001732). HP:0001732 is
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6837,15 +7180,17 @@ This clinical feature is Abnormality of the pancreas (HP:0001732). HP:0001732 is
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PRKCSH (hgnc:9411). hgnc:9411 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRKCSH
 
 
-    <a href="https://bioregistry.io/hgnc:9411" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9411</a>
+    <a href="https://bioregistry.io/hgnc:9411" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:9411</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRKCSH (hgnc:9411). hgnc:9411 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6875,7 +7220,9 @@ This disease-associated gene is PRKCSH (hgnc:9411). hgnc:9411 is a gene from the
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6897,7 +7244,9 @@ This disease-associated gene is PRKCSH (hgnc:9411). hgnc:9411 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38097330" target="_blank">PMID:38097330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6934,15 +7283,17 @@ This disease-associated gene is PRKCSH (hgnc:9411). hgnc:9411 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SEC63 (hgnc:21082). hgnc:21082 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SEC63
 
 
-    <a href="https://bioregistry.io/hgnc:21082" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:21082</a>
+    <a href="https://bioregistry.io/hgnc:21082" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:21082</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SEC63 (hgnc:21082). hgnc:21082 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6972,7 +7323,9 @@ This disease-associated gene is SEC63 (hgnc:21082). hgnc:21082 is a gene from th
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6994,7 +7347,9 @@ This disease-associated gene is SEC63 (hgnc:21082). hgnc:21082 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38097330" target="_blank">PMID:38097330</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7031,15 +7386,17 @@ This disease-associated gene is SEC63 (hgnc:21082). hgnc:21082 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ALG8 (hgnc:23161). hgnc:23161 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALG8
 
 
-    <a href="https://bioregistry.io/hgnc:23161" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23161</a>
+    <a href="https://bioregistry.io/hgnc:23161" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:23161</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALG8 (hgnc:23161). hgnc:23161 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7069,7 +7426,9 @@ This disease-associated gene is ALG8 (hgnc:23161). hgnc:23161 is a gene from the
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7091,7 +7450,9 @@ This disease-associated gene is ALG8 (hgnc:23161). hgnc:23161 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29038287" target="_blank">PMID:29038287</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7128,15 +7489,17 @@ This disease-associated gene is ALG8 (hgnc:23161). hgnc:23161 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LRP5
 
 
-    <a href="https://bioregistry.io/hgnc:6697" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6697</a>
+    <a href="https://bioregistry.io/hgnc:6697" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:6697</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7166,7 +7529,9 @@ This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the H
                         <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7188,7 +7553,9 @@ This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29038287" target="_blank">PMID:29038287</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7218,6 +7585,83 @@ This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-isolated-polycystic-liver-disease-record">
+
+
+    <div class="item-name">Orphanet isolated polycystic liver disease record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=2924" target="_blank" rel="noopener noreferrer" title="Open ORPHA:2924">ORPHA:2924</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:2924 structured record defines isolated polycystic liver disease, lists autosomal dominant inheritance and adult onset, provides the European point-prevalence class, asserts disease-causing gene associations for ALG8, LRP5, PRKCSH, and SEC63, and supplies the HPO phenotype-frequency table used in this curation.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2924" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Isolated polycystic liver disease (PCLD) is a genetic disorder characterized by the appearance of numerous cysts spread throughout the liver and that in most cases is described as autosomal dominant polycystic liver disease (ADPCLD)."</div>
+
+
+                <div class="evidence-explanation">Orphanet defines the disease scope as genetic isolated PCLD, usually described as ADPCLD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7234,17 +7678,17 @@ This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7269,21 +7713,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses somatostatin receptor agonist (NCIT:C62799). NCIT:C62799 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         somatostatin receptor agonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C62799" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C62799</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C62799" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C62799</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses somatostatin receptor agonist (NCIT:C62799). NCIT:C62799 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7315,7 +7769,9 @@ This treatment uses somatostatin receptor agonist (NCIT:C62799). NCIT:C62799 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016902" target="_blank">PMID:27016902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7356,7 +7812,9 @@ This treatment uses somatostatin receptor agonist (NCIT:C62799). NCIT:C62799 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35487607" target="_blank">PMID:35487607</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7378,7 +7836,9 @@ This treatment uses somatostatin receptor agonist (NCIT:C62799). NCIT:C62799 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23296249" target="_blank">PMID:23296249</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7408,18 +7868,18 @@ This treatment uses somatostatin receptor agonist (NCIT:C62799). NCIT:C62799 is 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7437,6 +7897,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7470,7 +7949,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016902" target="_blank">PMID:27016902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7511,7 +7992,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23296249" target="_blank">PMID:23296249</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7533,7 +8016,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016902" target="_blank">PMID:27016902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7563,18 +8048,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">liver transplantation<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">liver transplantation</span>
+This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Liver Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">NCIT:C15271</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15271">NCIT:C15271</a>
 
 
 
@@ -7592,6 +8077,14 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7625,7 +8118,9 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22974902" target="_blank">PMID:22974902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7666,7 +8161,9 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35487607" target="_blank">PMID:35487607</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7688,7 +8185,9 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22974902" target="_blank">PMID:22974902</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7718,6 +8217,527 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-abdominal-ultrasonography">
+                <div class="item-name">
+                    Abdominal ultrasonography
+
+                </div>
+
+                <div class="item-desc">Ultrasonography is a first-line imaging approach for identifying a polycystic liver phenotype and distinguishing isolated PCLD from ADPKD by hepatorenal cyst distribution.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        ultrasonography procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19337" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C19337</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23296249" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23296249" target="_blank">PMID:23296249</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ultrasonography is very useful for achieving a correct diagnosis of a polycystic liver and to differentiate between ADPKD and PCLD."</div>
+
+
+                <div class="evidence-explanation">This review directly supports ultrasonography for diagnosis and differential separation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24886261" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24886261" target="_blank">PMID:24886261</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ultrasonography is the first instrument to assess liver phenotype."</div>
+
+
+                <div class="evidence-explanation">This review identifies ultrasonography as the first imaging instrument for liver phenotype assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ct-or-mri-liver-volume-assessment">
+                <div class="item-name">
+                    CT or MRI liver volume assessment
+
+                </div>
+
+                <div class="item-desc">CT or MRI measurement of total liver volume supports severity assessment, prognosis, and individualized management.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Total liver and kidney volumes can be measured and correlated with clinical endpoints.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36246085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36246085" target="_blank">PMID:36246085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Identified genotypes were correlated with total liver and kidney volume (assessed by CT or MRI), organ function, co-morbidities, and clinical endpoints."</div>
+
+
+                <div class="evidence-explanation">The cohort used CT or MRI liver-volume assessment for genotype-phenotype and outcome correlation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Genetic testing confirms ADPLD gene variants and is especially useful when imaging or family screening is ambiguous.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24886261" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24886261" target="_blank">PMID:24886261</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ambiguous imaging or screening may be assisted by genetic counseling and molecular diagnostics."</div>
+
+
+                <div class="evidence-explanation">The review supports molecular diagnostics when imaging or screening is ambiguous.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38097330" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38097330" target="_blank">PMID:38097330</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"employing a next-generation sequencing panel containing all known PKD and ciliopathy genes is recommended for clinical testing."</div>
+
+
+                <div class="evidence-explanation">The genetics review supports broad NGS-panel clinical testing because of gene and phenotype overlap.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adult</span>
+
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2924" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"- Age of onset: Adult"</div>
+
+
+                <div class="evidence-explanation">Orphanet records adult age of onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-clinical-course">
+                <div class="item-name">Clinical course</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Disease expression is variable, ranging from asymptomatic cyst burden to severe symptomatic hepatomegaly requiring hospitalization, surgery, or transplant assessment.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36246085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36246085" target="_blank">PMID:36246085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Polycystic liver disease (PLD) is a highly variable condition that can be asymptomatic or severe."</div>
+
+
+                <div class="evidence-explanation">This cohort study supports the variable clinical course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-europe">
+                <div class="item-name">Europe</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">1.0&ndash;9.0 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet reports a European point-prevalence class of 1-9 per 100,000.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2924" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2924" target="_blank">ORPHA:2924</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"| 1-9 / 100 000 | Europe | Point prevalence | EXPERT |"</div>
+
+
+                <div class="evidence-explanation">Orphadata provides the European point-prevalence class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7751,7 +8771,6 @@ This treatment is liver transplantation (NCIT:C15271). NCIT:C15271 is a clinical
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Autosomal dominant polycystic liver disease
 creation_date: &#34;2026-05-09T06:38:39Z&#34;
-updated_date: &#34;2026-05-09T06:38:39Z&#34;
 category: Mendelian
 description: &gt;-
   Autosomal dominant polycystic liver disease (ADPLD), also called isolated
@@ -9170,7 +10189,7 @@ mass-effect symptom burden.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal dominant polycystic liver disease", "mondoId": "MONDO:0000447", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_dominant_polycystic_liver_disease", "yamlRevision": "a99b9096bac8"};
+        const OS_CONFIG = {"diseaseName": "Autosomal dominant polycystic liver disease", "mondoId": "MONDO:0000447", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_dominant_polycystic_liver_disease", "yamlRevision": "4a5192344ef4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9589,5 +10608,73 @@ mass-effect symptom burden.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

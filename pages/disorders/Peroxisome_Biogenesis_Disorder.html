@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Peroxisome Biogenesis Disorder</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Peroxisome Biogenesis Disorder</h1>
             <div class="header-meta">
 
@@ -3907,7 +4054,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal recessive
 
@@ -3932,7 +4079,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14527301" target="_blank">PMID:14527301</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -3952,7 +4101,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9264803" target="_blank">PMID:9264803</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4014,17 +4165,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX1 (hgnc:8850). hgnc:8850 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX1
 
 
-    <a href="https://bioregistry.io/hgnc:8850" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8850</a>
+    <a href="https://bioregistry.io/hgnc:8850" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8850</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX1 (hgnc:8850). hgnc:8850 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4049,17 +4204,21 @@ This pathophysiological event involves PEX1 (hgnc:8850). hgnc:8850 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX6 (hgnc:8859). hgnc:8859 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX6
 
 
-    <a href="https://bioregistry.io/hgnc:8859" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8859</a>
+    <a href="https://bioregistry.io/hgnc:8859" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:8859</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX6 (hgnc:8859). hgnc:8859 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4084,17 +4243,21 @@ This pathophysiological event involves PEX6 (hgnc:8859). hgnc:8859 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX13 (hgnc:8855). hgnc:8855 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX13
 
 
-    <a href="https://bioregistry.io/hgnc:8855" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8855</a>
+    <a href="https://bioregistry.io/hgnc:8855" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:8855</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX13 (hgnc:8855). hgnc:8855 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4119,17 +4282,21 @@ This pathophysiological event involves PEX13 (hgnc:8855). hgnc:8855 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX26 (hgnc:22965). hgnc:22965 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX26
 
 
-    <a href="https://bioregistry.io/hgnc:22965" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:22965</a>
+    <a href="https://bioregistry.io/hgnc:22965" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:22965</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX26 (hgnc:22965). hgnc:22965 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4154,17 +4321,21 @@ This pathophysiological event involves PEX26 (hgnc:22965). hgnc:22965 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX2 (hgnc:9717). hgnc:9717 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX2
 
 
-    <a href="https://bioregistry.io/hgnc:9717" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9717</a>
+    <a href="https://bioregistry.io/hgnc:9717" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:9717</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX2 (hgnc:9717). hgnc:9717 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4189,17 +4360,21 @@ This pathophysiological event involves PEX2 (hgnc:9717). hgnc:9717 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX10 (hgnc:8851). hgnc:8851 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX10
 
 
-    <a href="https://bioregistry.io/hgnc:8851" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8851</a>
+    <a href="https://bioregistry.io/hgnc:8851" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:8851</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX10 (hgnc:8851). hgnc:8851 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4224,17 +4399,21 @@ This pathophysiological event involves PEX10 (hgnc:8851). hgnc:8851 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX12 (hgnc:8854). hgnc:8854 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX12
 
 
-    <a href="https://bioregistry.io/hgnc:8854" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8854</a>
+    <a href="https://bioregistry.io/hgnc:8854" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:8854</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX12 (hgnc:8854). hgnc:8854 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4259,17 +4438,21 @@ This pathophysiological event involves PEX12 (hgnc:8854). hgnc:8854 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX5 (hgnc:9719). hgnc:9719 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX5
 
 
-    <a href="https://bioregistry.io/hgnc:9719" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9719</a>
+    <a href="https://bioregistry.io/hgnc:9719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:9719</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX5 (hgnc:9719). hgnc:9719 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4294,17 +4477,21 @@ This pathophysiological event involves PEX5 (hgnc:9719). hgnc:9719 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX7
 
 
-    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8860</a>
+    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:8860</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4335,18 +4522,20 @@ This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Peroxisome (GO:0005777). GO:0005777 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Peroxisome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go">GO:0005777</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0005777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Peroxisome (GO:0005777). GO:0005777 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4409,7 +4598,9 @@ This pathophysiological event involves Peroxisome (GO:0005777). GO:0005777 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33417206" target="_blank">PMID:33417206</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4429,7 +4620,9 @@ This pathophysiological event involves Peroxisome (GO:0005777). GO:0005777 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28409474" target="_blank">PMID:28409474</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4449,7 +4642,9 @@ This pathophysiological event involves Peroxisome (GO:0005777). GO:0005777 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28320181" target="_blank">PMID:28320181</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4489,18 +4684,20 @@ This pathophysiological event involves Peroxisome (GO:0005777). GO:0005777 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves fatty acid beta-oxidation (GO:0006635). GO:0006635 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         fatty acid beta-oxidation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go">GO:0006635</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006635</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves fatty acid beta-oxidation (GO:0006635). GO:0006635 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4517,18 +4714,20 @@ This pathophysiological event involves fatty acid beta-oxidation (GO:0006635). G
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves very long-chain fatty acid metabolic process (GO:0000038). GO:0000038 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         very long-chain fatty acid metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000038" target="_blank" class="curie-chip curie-chip-go">GO:0000038</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000038" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0000038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves very long-chain fatty acid metabolic process (GO:0000038). GO:0000038 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4596,13 +4795,15 @@ This pathophysiological event involves very long-chain fatty acid metabolic proc
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19933170" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19933170" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19933170" target="_blank">PMID:19933170</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4616,13 +4817,15 @@ This pathophysiological event involves very long-chain fatty acid metabolic proc
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:3119940" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:3119940" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3119940" target="_blank">PMID:3119940</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4636,13 +4839,15 @@ This pathophysiological event involves very long-chain fatty acid metabolic proc
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22978395" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22978395" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22978395" target="_blank">PMID:22978395</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4680,18 +4885,20 @@ This pathophysiological event involves very long-chain fatty acid metabolic proc
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves ether lipid biosynthetic process (GO:0008611). GO:0008611 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ether lipid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008611" target="_blank" class="curie-chip curie-chip-go">GO:0008611</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008611" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0008611</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves ether lipid biosynthetic process (GO:0008611). GO:0008611 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4708,18 +4915,20 @@ This pathophysiological event involves ether lipid biosynthetic process (GO:0008
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves bile acid biosynthetic process (GO:0006699). GO:0006699 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         bile acid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006699" target="_blank" class="curie-chip curie-chip-go">GO:0006699</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006699" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006699</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves bile acid biosynthetic process (GO:0006699). GO:0006699 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4795,7 +5004,9 @@ This pathophysiological event involves bile acid biosynthetic process (GO:000669
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36720320" target="_blank">PMID:36720320</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4815,7 +5026,9 @@ This pathophysiological event involves bile acid biosynthetic process (GO:000669
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32165495" target="_blank">PMID:32165495</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4835,7 +5048,9 @@ This pathophysiological event involves bile acid biosynthetic process (GO:000669
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33417206" target="_blank">PMID:33417206</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4866,18 +5081,20 @@ This pathophysiological event involves bile acid biosynthetic process (GO:000669
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4908,18 +5125,20 @@ This pathophysiological event involves oligodendrocyte (CL:0000128). CL:0000128 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in central nervous system (UBERON:0001017). UBERON:0001017 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         central nervous system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001017</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0001017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in central nervous system (UBERON:0001017). UBERON:0001017 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4973,7 +5192,9 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15868469" target="_blank">PMID:15868469</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4993,7 +5214,9 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33417206" target="_blank">PMID:33417206</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5007,13 +5230,15 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22978395" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22978395" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22978395" target="_blank">PMID:22978395</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5046,18 +5271,20 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5088,18 +5315,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5149,7 +5378,9 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12473763" target="_blank">PMID:12473763</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5169,7 +5400,9 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22978395" target="_blank">PMID:22978395</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5189,7 +5422,9 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29282281" target="_blank">PMID:29282281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5232,33 +5467,37 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in bones, annotated with bone element (UBERON:0001474). UBERON:0001474 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         bones
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001474</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0001474</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bones, annotated with bone element (UBERON:0001474). UBERON:0001474 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cartilage, annotated with cartilage tissue (UBERON:0002418). UBERON:0002418 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cartilage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002418</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002418</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cartilage, annotated with cartilage tissue (UBERON:0002418). UBERON:0002418 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5302,7 +5541,9 @@ This pathophysiological event occurs in cartilage, annotated with cartilage tiss
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10904262" target="_blank">PMID:10904262</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5322,7 +5563,9 @@ This pathophysiological event occurs in cartilage, annotated with cartilage tiss
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10972423" target="_blank">PMID:10972423</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5342,7 +5585,9 @@ This pathophysiological event occurs in cartilage, annotated with cartilage tiss
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8507680" target="_blank">PMID:8507680</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5447,7 +5692,9 @@ This pathophysiological event occurs in cartilage, annotated with cartilage tiss
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14527301" target="_blank">PMID:14527301</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5467,7 +5714,9 @@ This pathophysiological event occurs in cartilage, annotated with cartilage tiss
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33417210" target="_blank">PMID:33417210</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5487,7 +5736,9 @@ This pathophysiological event occurs in cartilage, annotated with cartilage tiss
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26453805" target="_blank">PMID:26453805</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5520,18 +5771,20 @@ This pathophysiological event occurs in cartilage, annotated with cartilage tiss
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5562,18 +5815,20 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in central nervous system (UBERON:0001017). UBERON:0001017 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         central nervous system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001017</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0001017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in central nervous system (UBERON:0001017). UBERON:0001017 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5621,48 +5876,54 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         peroxisome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go">GO:0005777</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0005777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a cellular component from the Gene Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go">GO:0005783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0005783</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5710,18 +5971,20 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         retinal pigment epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl">CL:0002586</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0002586</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves retinal pigment epithelial cell (CL:0002586). CL:0002586 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5738,18 +6001,20 @@ This pathophysiological event involves retinal pigment epithelial cell (CL:00025
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         photoreceptor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl">CL:0000210</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000210</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves photoreceptor cell (CL:0000210). CL:0000210 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5780,18 +6045,20 @@ This pathophysiological event involves photoreceptor cell (CL:0000210). CL:00002
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         retina
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000966</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0000966</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5835,18 +6102,20 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves protein import into peroxisome matrix (GO:0016558). GO:0016558 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein import into peroxisome matrix
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016558" target="_blank" class="curie-chip curie-chip-go">GO:0016558</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016558" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0016558</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves protein import into peroxisome matrix (GO:0016558). GO:0016558 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5863,18 +6132,20 @@ This pathophysiological event involves protein import into peroxisome matrix (GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves peroxisome organization (GO:0007031). GO:0007031 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         peroxisome organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007031" target="_blank" class="curie-chip curie-chip-go">GO:0007031</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007031" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0007031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves peroxisome organization (GO:0007031). GO:0007031 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5897,18 +6168,20 @@ This pathophysiological event involves peroxisome organization (GO:0007031). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         peroxisome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go">GO:0005777</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0005777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -6027,16 +6300,20 @@ This pathophysiological event involves peroxisome (GO:0005777). GO:0005777 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001892</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal bleeding
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp">HP:0001892</a>
-
-
+This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6059,7 +6336,9 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29139025" target="_blank">PMID:29139025</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6081,7 +6360,9 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26627182" target="_blank">PMID:26627182</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6124,16 +6405,20 @@ This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001638</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp">HP:0001638</a>
-
-
+This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6157,13 +6442,15 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33335840" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33335840" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33335840" target="_blank">PMID:33335840</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6197,16 +6484,22 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Congestive heart failure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001635</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Heart Failure, annotated with Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.">
-                        Congestive heart failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp">HP:0001635</a>
-
-
+This clinical feature is Heart Failure, annotated with Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6240,16 +6533,20 @@ This clinical feature is Heart Failure, annotated with Congestive heart failure 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6264,13 +6561,15 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31005404" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31005404" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31005404" target="_blank">PMID:31005404</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6284,13 +6583,15 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22978395" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22978395" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22978395" target="_blank">PMID:22978395</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6310,7 +6611,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26615381" target="_blank">PMID:26615381</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -6342,16 +6645,20 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001396</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype from the Human Phenotype Ontology.">
-                        Cholestasis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp">HP:0001396</a>
-
-
+This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6385,16 +6692,22 @@ This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000365</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hearing Loss, annotated with Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.">
-                        Hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp">HP:0000365</a>
-
-
+This clinical feature is Hearing Loss, annotated with Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6415,7 +6728,9 @@ This clinical feature is Hearing Loss, annotated with Hearing impairment (HP:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34534157" target="_blank">PMID:34534157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6435,7 +6750,9 @@ This clinical feature is Hearing Loss, annotated with Hearing impairment (HP:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36291074" target="_blank">PMID:36291074</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6455,7 +6772,9 @@ This clinical feature is Hearing Loss, annotated with Hearing impairment (HP:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33417209" target="_blank">PMID:33417209</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6496,16 +6815,20 @@ This clinical feature is Hearing Loss, annotated with Hearing impairment (HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000846</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Adrenal Insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.">
-                        Adrenal insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp">HP:0000846</a>
-
-
+This clinical feature is Adrenal Insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6528,7 +6851,9 @@ This clinical feature is Adrenal Insufficiency (HP:0000846). HP:0000846 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36649687" target="_blank">PMID:36649687</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6548,7 +6873,9 @@ This clinical feature is Adrenal Insufficiency (HP:0000846). HP:0000846 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25179809" target="_blank">PMID:25179809</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6589,16 +6916,20 @@ This clinical feature is Adrenal Insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000488</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Retinopathy (HP:0000488). HP:0000488 is a phenotype from the Human Phenotype Ontology.">
-                        Retinopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000488" target="_blank" class="curie-chip curie-chip-hp">HP:0000488</a>
-
-
+This clinical feature is Retinopathy (HP:0000488). HP:0000488 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6619,7 +6950,9 @@ This clinical feature is Retinopathy (HP:0000488). HP:0000488 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31884631" target="_blank">PMID:31884631</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6639,7 +6972,9 @@ This clinical feature is Retinopathy (HP:0000488). HP:0000488 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12473763" target="_blank">PMID:12473763</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6659,7 +6994,9 @@ This clinical feature is Retinopathy (HP:0000488). HP:0000488 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227579" target="_blank">PMID:35227579</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6702,16 +7039,20 @@ This clinical feature is Retinopathy (HP:0000488). HP:0000488 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
-
-
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6732,7 +7073,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7685145" target="_blank">PMID:7685145</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6746,13 +7089,15 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28320181" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28320181" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28320181" target="_blank">PMID:28320181</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6772,7 +7117,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/13129589" target="_blank">PMID:13129589</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6815,16 +7162,22 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Global developmental delay</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Developmental Delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Developmental Delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6845,7 +7198,9 @@ This clinical feature is Developmental Delay, annotated with Global developmenta
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7685145" target="_blank">PMID:7685145</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6865,7 +7220,9 @@ This clinical feature is Developmental Delay, annotated with Global developmenta
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36293220" target="_blank">PMID:36293220</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6885,7 +7242,9 @@ This clinical feature is Developmental Delay, annotated with Global developmenta
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11769739" target="_blank">PMID:11769739</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6919,16 +7278,20 @@ This clinical feature is Developmental Delay, annotated with Global developmenta
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6953,16 +7316,20 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002415" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002415</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype from the Human Phenotype Ontology.">
-                        Leukodystrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002415" target="_blank" class="curie-chip curie-chip-hp">HP:0002415</a>
-
-
+This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6996,16 +7363,22 @@ This clinical feature is Leukodystrophy (HP:0002415). HP:0002415 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal renal physiology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012211" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0012211</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal renal physiology (HP:0012211). HP:0012211 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal renal physiology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012211" target="_blank" class="curie-chip curie-chip-hp">HP:0012211</a>
-
-
+This clinical feature is Abnormal renal physiology (HP:0012211). HP:0012211 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7047,7 +7420,9 @@ This clinical feature is Abnormal renal physiology (HP:0012211). HP:0012211 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23671347" target="_blank">PMID:23671347</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7061,13 +7436,15 @@ This clinical feature is Abnormal renal physiology (HP:0012211). HP:0012211 is a
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:1710072" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:1710072" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1710072" target="_blank">PMID:1710072</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7099,16 +7476,22 @@ This clinical feature is Abnormal renal physiology (HP:0012211). HP:0012211 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Epiphyseal stippling</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0010655</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chondrodysplasia Punctata, annotated with Epiphyseal stippling (HP:0010655). HP:0010655 is a phenotype from the Human Phenotype Ontology.">
-                        Epiphyseal stippling
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010655" target="_blank" class="curie-chip curie-chip-hp">HP:0010655</a>
-
-
+This clinical feature is Chondrodysplasia Punctata, annotated with Epiphyseal stippling (HP:0010655). HP:0010655 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7131,7 +7514,9 @@ This clinical feature is Chondrodysplasia Punctata, annotated with Epiphyseal st
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10904262" target="_blank">PMID:10904262</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7151,7 +7536,9 @@ This clinical feature is Chondrodysplasia Punctata, annotated with Epiphyseal st
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24030027" target="_blank">PMID:24030027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7171,7 +7558,9 @@ This clinical feature is Chondrodysplasia Punctata, annotated with Epiphyseal st
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17671048" target="_blank">PMID:17671048</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7247,15 +7636,17 @@ This clinical feature is Chondrodysplasia Punctata, annotated with Epiphyseal st
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX1 (hgnc:8850). hgnc:8850 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX1
 
 
-    <a href="https://bioregistry.io/hgnc:8850" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8850</a>
+    <a href="https://bioregistry.io/hgnc:8850" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:8850</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX1 (hgnc:8850). hgnc:8850 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7277,7 +7668,9 @@ This disease-associated gene is PEX1 (hgnc:8850). hgnc:8850 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33955040" target="_blank">PMID:33955040</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7297,7 +7690,9 @@ This disease-associated gene is PEX1 (hgnc:8850). hgnc:8850 is a gene from the H
                         <a href="https://bioregistry.io/CGGV:assertion_a345ba65-9dcd-43dd-a1c2-1778c1a921ea-2023-09-06T160000.000Z" target="_blank">CGGV:assertion_a345ba65-9dcd-43dd-a1c2-1778c1a921ea-2023-09-06T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7334,15 +7729,17 @@ This disease-associated gene is PEX1 (hgnc:8850). hgnc:8850 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX6 (hgnc:8859). hgnc:8859 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX6
 
 
-    <a href="https://bioregistry.io/hgnc:8859" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8859</a>
+    <a href="https://bioregistry.io/hgnc:8859" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:8859</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX6 (hgnc:8859). hgnc:8859 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7364,7 +7761,9 @@ This disease-associated gene is PEX6 (hgnc:8859). hgnc:8859 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17055079" target="_blank">PMID:17055079</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7384,7 +7783,9 @@ This disease-associated gene is PEX6 (hgnc:8859). hgnc:8859 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15858711" target="_blank">PMID:15858711</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7404,7 +7805,9 @@ This disease-associated gene is PEX6 (hgnc:8859). hgnc:8859 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36980088" target="_blank">PMID:36980088</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7441,15 +7844,17 @@ This disease-associated gene is PEX6 (hgnc:8859). hgnc:8859 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX13
 
 
-    <a href="https://bioregistry.io/hgnc:8855" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8855</a>
+    <a href="https://bioregistry.io/hgnc:8855" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:8855</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7471,7 +7876,9 @@ This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_0c662669-4eb8-45e3-8540-c394ea40c1b2-2019-10-04T160000.000Z" target="_blank">CGGV:assertion_0c662669-4eb8-45e3-8540-c394ea40c1b2-2019-10-04T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7508,15 +7915,17 @@ This disease-associated gene is PEX13 (hgnc:8855). hgnc:8855 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX26 (hgnc:22965). hgnc:22965 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX26
 
 
-    <a href="https://bioregistry.io/hgnc:22965" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:22965</a>
+    <a href="https://bioregistry.io/hgnc:22965" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:22965</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX26 (hgnc:22965). hgnc:22965 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7538,7 +7947,9 @@ This disease-associated gene is PEX26 (hgnc:22965). hgnc:22965 is a gene from th
                         <a href="https://bioregistry.io/CGGV:assertion_bf6af95e-6696-420c-8731-d2e37ca6e692-2020-02-07T170000.000Z" target="_blank">CGGV:assertion_bf6af95e-6696-420c-8731-d2e37ca6e692-2020-02-07T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7575,15 +7986,17 @@ This disease-associated gene is PEX26 (hgnc:22965). hgnc:22965 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX2 (hgnc:9717). hgnc:9717 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX2
 
 
-    <a href="https://bioregistry.io/hgnc:9717" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9717</a>
+    <a href="https://bioregistry.io/hgnc:9717" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:9717</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX2 (hgnc:9717). hgnc:9717 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7605,7 +8018,9 @@ This disease-associated gene is PEX2 (hgnc:9717). hgnc:9717 is a gene from the H
                         <a href="https://bioregistry.io/CGGV:assertion_17bf1c4a-1775-40c6-a499-774c93827343-2020-02-07T170000.000Z" target="_blank">CGGV:assertion_17bf1c4a-1775-40c6-a499-774c93827343-2020-02-07T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7642,15 +8057,17 @@ This disease-associated gene is PEX2 (hgnc:9717). hgnc:9717 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX10 (hgnc:8851). hgnc:8851 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX10
 
 
-    <a href="https://bioregistry.io/hgnc:8851" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8851</a>
+    <a href="https://bioregistry.io/hgnc:8851" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:8851</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX10 (hgnc:8851). hgnc:8851 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7672,7 +8089,9 @@ This disease-associated gene is PEX10 (hgnc:8851). hgnc:8851 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_c0f7f094-ac3b-4309-ad8f-8e604f006485-2019-12-06T050000.000Z" target="_blank">CGGV:assertion_c0f7f094-ac3b-4309-ad8f-8e604f006485-2019-12-06T050000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7709,15 +8128,17 @@ This disease-associated gene is PEX10 (hgnc:8851). hgnc:8851 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX12 (hgnc:8854). hgnc:8854 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX12
 
 
-    <a href="https://bioregistry.io/hgnc:8854" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8854</a>
+    <a href="https://bioregistry.io/hgnc:8854" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:8854</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX12 (hgnc:8854). hgnc:8854 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7739,7 +8160,9 @@ This disease-associated gene is PEX12 (hgnc:8854). hgnc:8854 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_124c97b0-92ed-4921-a0b9-2ff33135139d-2019-12-06T170000.000Z" target="_blank">CGGV:assertion_124c97b0-92ed-4921-a0b9-2ff33135139d-2019-12-06T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7776,15 +8199,17 @@ This disease-associated gene is PEX12 (hgnc:8854). hgnc:8854 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX5 (hgnc:9719). hgnc:9719 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX5
 
 
-    <a href="https://bioregistry.io/hgnc:9719" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9719</a>
+    <a href="https://bioregistry.io/hgnc:9719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:9719</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX5 (hgnc:9719). hgnc:9719 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7806,7 +8231,9 @@ This disease-associated gene is PEX5 (hgnc:9719). hgnc:9719 is a gene from the H
                         <a href="https://bioregistry.io/CGGV:assertion_b49d9cfd-0e51-4219-84bb-76b4c9b99fa9-2020-01-17T170000.000Z" target="_blank">CGGV:assertion_b49d9cfd-0e51-4219-84bb-76b4c9b99fa9-2020-01-17T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7843,15 +8270,17 @@ This disease-associated gene is PEX5 (hgnc:9719). hgnc:9719 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX7
 
 
-    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8860</a>
+    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:8860</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7873,7 +8302,9 @@ This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the H
                         <a href="https://bioregistry.io/CGGV:assertion_d0796d69-b304-4670-b4a2-8785ff6fd161-2020-02-14T170000.000Z" target="_blank">CGGV:assertion_d0796d69-b304-4670-b4a2-8785ff6fd161-2020-02-14T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7920,7 +8351,9 @@ This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10904262" target="_blank">PMID:10904262</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7940,7 +8373,9 @@ This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32399598" target="_blank">PMID:32399598</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7960,7 +8395,9 @@ This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34804114" target="_blank">PMID:34804114</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7997,15 +8434,17 @@ This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX11B (hgnc:8853). hgnc:8853 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX11B
 
 
-    <a href="https://bioregistry.io/hgnc:8853" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8853</a>
+    <a href="https://bioregistry.io/hgnc:8853" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:8853</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX11B (hgnc:8853). hgnc:8853 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8027,7 +8466,9 @@ This disease-associated gene is PEX11B (hgnc:8853). hgnc:8853 is a gene from the
                         <a href="https://bioregistry.io/CGGV:assertion_93eacb33-b099-485d-bf8a-782479dc0a3b-2020-01-17T170000.000Z" target="_blank">CGGV:assertion_93eacb33-b099-485d-bf8a-782479dc0a3b-2020-01-17T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8064,15 +8505,17 @@ This disease-associated gene is PEX11B (hgnc:8853). hgnc:8853 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX14 (hgnc:8856). hgnc:8856 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX14
 
 
-    <a href="https://bioregistry.io/hgnc:8856" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8856</a>
+    <a href="https://bioregistry.io/hgnc:8856" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:8856</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX14 (hgnc:8856). hgnc:8856 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8094,7 +8537,9 @@ This disease-associated gene is PEX14 (hgnc:8856). hgnc:8856 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_846efcc3-5456-4db3-9bc2-e441acb768cd-2019-09-20T160000.000Z" target="_blank">CGGV:assertion_846efcc3-5456-4db3-9bc2-e441acb768cd-2019-09-20T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8131,15 +8576,17 @@ This disease-associated gene is PEX14 (hgnc:8856). hgnc:8856 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX16 (hgnc:8857). hgnc:8857 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX16
 
 
-    <a href="https://bioregistry.io/hgnc:8857" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8857</a>
+    <a href="https://bioregistry.io/hgnc:8857" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:8857</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX16 (hgnc:8857). hgnc:8857 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8161,7 +8608,9 @@ This disease-associated gene is PEX16 (hgnc:8857). hgnc:8857 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_7506d938-efb4-416c-aafd-221251d00e6e-2020-01-13T170000.000Z" target="_blank">CGGV:assertion_7506d938-efb4-416c-aafd-221251d00e6e-2020-01-13T170000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8198,15 +8647,17 @@ This disease-associated gene is PEX16 (hgnc:8857). hgnc:8857 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX19 (hgnc:9713). hgnc:9713 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX19
 
 
-    <a href="https://bioregistry.io/hgnc:9713" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9713</a>
+    <a href="https://bioregistry.io/hgnc:9713" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:9713</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX19 (hgnc:9713). hgnc:9713 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8228,7 +8679,9 @@ This disease-associated gene is PEX19 (hgnc:9713). hgnc:9713 is a gene from the 
                         <a href="https://bioregistry.io/CGGV:assertion_fa073c77-0623-4e82-b5b2-9fcd0eb0dc6e-2023-04-27T160000.000Z" target="_blank">CGGV:assertion_fa073c77-0623-4e82-b5b2-9fcd0eb0dc6e-2023-04-27T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8265,15 +8718,17 @@ This disease-associated gene is PEX19 (hgnc:9713). hgnc:9713 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX3 (hgnc:8858). hgnc:8858 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX3
 
 
-    <a href="https://bioregistry.io/hgnc:8858" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8858</a>
+    <a href="https://bioregistry.io/hgnc:8858" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:8858</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX3 (hgnc:8858). hgnc:8858 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8295,7 +8750,9 @@ This disease-associated gene is PEX3 (hgnc:8858). hgnc:8858 is a gene from the H
                         <a href="https://bioregistry.io/CGGV:assertion_d53df483-c31a-4672-8a11-04d33d6df336-2019-11-01T160000.000Z" target="_blank">CGGV:assertion_d53df483-c31a-4672-8a11-04d33d6df336-2019-11-01T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8325,6 +8782,9 @@ This disease-associated gene is PEX3 (hgnc:8858). hgnc:8858 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8341,18 +8801,18 @@ This disease-associated gene is PEX3 (hgnc:8858). hgnc:8858 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -8370,6 +8830,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8406,13 +8885,15 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:11060787" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:11060787" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11060787" target="_blank">PMID:11060787</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8426,13 +8907,15 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38409970" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38409970" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38409970" target="_blank">PMID:38409970</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8460,17 +8943,17 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Nutritional Support<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">Nutritional Support</span>
+This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.">NCIT:C15433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15433">NCIT:C15433</a>
 
 
 
@@ -8488,6 +8971,14 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8543,7 +9034,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11060787" target="_blank">PMID:11060787</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8563,7 +9056,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18758655" target="_blank">PMID:18758655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8583,7 +9078,9 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16819396" target="_blank">PMID:16819396</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -8611,17 +9108,17 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">Liver Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">Liver Transplantation</span>
+This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.">NCIT:C15271</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15271" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15271">NCIT:C15271</a>
 
 
 
@@ -8639,6 +9136,14 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8681,7 +9186,9 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35331403" target="_blank">PMID:35331403</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8695,13 +9202,15 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26615381" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26615381" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26615381" target="_blank">PMID:26615381</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8715,13 +9224,15 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22974902" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22974902" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22974902" target="_blank">PMID:22974902</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8749,17 +9260,17 @@ This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -8777,6 +9288,14 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8801,7 +9320,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14619605" target="_blank">PMID:14619605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8821,7 +9342,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30237433" target="_blank">PMID:30237433</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8861,6 +9384,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8873,7 +9400,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26305119" target="_blank">PMID:26305119</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -8893,7 +9422,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30656921" target="_blank">PMID:30656921</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -8947,13 +9478,15 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:8729109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:8729109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8729109" target="_blank">PMID:8729109</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8973,7 +9506,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14527301" target="_blank">PMID:14527301</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -8993,7 +9528,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37567036" target="_blank">PMID:37567036</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9042,7 +9579,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36914043" target="_blank">PMID:36914043</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9062,7 +9601,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12473763" target="_blank">PMID:12473763</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9082,7 +9623,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3460088" target="_blank">PMID:3460088</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9131,7 +9674,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37802748" target="_blank">PMID:37802748</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9151,7 +9696,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3119940" target="_blank">PMID:3119940</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9171,7 +9718,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/3119940" target="_blank">PMID:3119940</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9195,6 +9744,98 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-japan">
+                <div class="item-name">Japan</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.125 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Peroxisome-deficient disorders estimated at approximately 1 in 800,000 births in Japan (~0.125 per 100,000), reported to be lower than figures from the USA. Peroxisome biogenesis disorders are ultra-rare.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8914632" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8914632" target="_blank">PMID:8914632</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The incidence of peroxisome-deficient disorders was estimated to be approximately 1 in 800,000 births which is far less than that in the USA."</div>
+
+
+                <div class="evidence-explanation">Quantifies peroxisome-deficient disorder birth prevalence at approximately 1 in 800,000 births in Japan, supporting an ultra-rare occurrence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -9207,7 +9848,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse167197">
                 <div class="item-name">
                     Peroxisome import stress induces eIF2α phosphorylation and impairs ribosome biogenesis
 
@@ -9248,7 +9889,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse68134">
                 <div class="item-name">
                     DNA methylation profiles of fibroblasts and induced pluripotent stem cells (iPSCs) from individuals with Zellweger spectrum disorder (ZSD), a class of peroxisome biogenesis disorder, and healthy controls
 
@@ -9287,7 +9928,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse43996">
                 <div class="item-name">
                     Gene expression profiles of fibroblasts and induced pluripotent stem cells (iPSCs) from individuals with Zellweger spectrum disorder (ZSD), a class of peroxisome biogenesis disorder, and healthy controls
 
@@ -9354,7 +9995,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Peroxisome Biogenesis Disorder
 creation_date: &#39;2025-12-04T16:57:31Z&#39;
-updated_date: &#39;2026-05-09T15:04:05Z&#39;
 description: &gt;-
   Peroxisome biogenesis disorders are autosomal recessive multisystem diseases
   caused by pathogenic variants in PEX genes, which encode peroxins required for
@@ -9514,17 +10154,17 @@ pathophysiology:
   evidence:
   - reference: PMID:19933170
     reference_title: &#34;Drosophila models of peroxisomal biogenesis disorder: peroxins are required for spermatogenesis and very-long-chain fatty acid metabolism.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Peroxisomes are vital eukaryotic organelles that participate in lipid metabolism, in particular the metabolism of very-long-chain fatty acids (VLCFA)... including impaired peroxisomal protein import, elevated VLCFA levels and growth retardation.
     explanation: The reference supports the accumulation of VLCFAs as part of the pathophysiology of Peroxisome Biogenesis Disorders but does not mention bile acid intermediates or phytanic acid.
   - reference: PMID:3119940
     reference_title: &#34;Zellweger syndrome: biochemical procedures in diagnosis, prevention and treatment.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: In patients with cerebro-hepato-renal (Zellweger) syndrome, the absence of peroxisomes results in an impairment of metabolic processes... These include the catabolism of very long chain (greater than C22) fatty acids... the catabolism of phytanic acid and the catabolism of pipecolic acid.
     explanation: This reference supports the accumulation of VLCFAs and phytanic acid in peroxisomal disorders but does not mention bile acid intermediates.
   - reference: PMID:22978395
     reference_title: &#34;Peroxisomes, peroxisomal diseases, and the hepatotoxicity induced by peroxisomal metabolites.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: By comparing the different peroxisomal disorders, we provide evidence suggesting that the main hepatotoxic metabolites responsible for the liver pathology found in patients, are the bile acid synthesis intermediates di- and trihydroxycholestanoic acid (DHCA and THCA).
     explanation: This reference supports the accumulation of bile acid intermediates in peroxisomal disorders but does not mention VLCFAs or phytanic acid.
   downstream:
@@ -9611,7 +10251,7 @@ pathophysiology:
     explanation: This reference describes PBDs leading to significant neurodegeneration and psychomotor dysfunction, consistent with the statement on neurological dysfunction due to the disorder.
   - reference: PMID:22978395
     reference_title: &#34;Peroxisomes, peroxisomal diseases, and the hepatotoxicity induced by peroxisomal metabolites.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Liver pathology is a frequent finding in patients affected by a peroxisomal disorder. ... we provide evidence suggesting that the main hepatotoxic metabolites responsible for the liver pathology found in patients, are the bile acid synthesis intermediates di- and trihydroxycholestanoic acid (DHCA and THCA).
     explanation: While this reference supports the role of toxic metabolites, it focuses on liver pathology rather than CNS-specific features like demyelination and neuronal migration defects.
   - reference: PMID:7685145
@@ -9621,7 +10261,7 @@ pathophysiology:
     explanation: The reference acknowledges the impact on the nervous system and describes psychomotor dysfunction, supporting the idea of neurological dysfunction.
   - reference: PMID:30739266
     reference_title: &#34;Peroxisomal dysfunction in neurodegenerative diseases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The importance of functional peroxisomes for cellular metabolism is demonstrated by the marked brain and systemic organ abnormalities occuring in peroxisome biogenesis disorders and peroxisomal enzyme deficiencies
     explanation: This reference highlights general brain abnormalities due to peroxisomal dysfunction but does not specifically describe demyelination and neuronal migration defects. Partial support is given as it indicates a broad CNS impact.
   downstream:
@@ -9867,7 +10507,7 @@ phenotypes:
     explanation: The reference mentions hypotonia as a significant clinical feature in peroxisomal disorders.
   - reference: PMID:28320181
     reference_title: &#34;Ataxic form of autosomal recessive PEX10-related peroxisome biogenesis disorders with a novel compound heterozygous gene mutation and characteristic clinical phenotype.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The present cases suggest that these PEX10 mutations involve not only cerebellar but also more multiple nervous systems including pupillary autonomic, pyramidal and extrapyramidal systems.
     explanation: While the reference primarily discusses cerebellar involvement, it indirectly supports the statement by implicating neurological systems in PEX10-related peroxisome biogenesis disorders.
   - reference: PMID:13129589
@@ -9943,12 +10583,12 @@ phenotypes:
   evidence:
   - reference: PMID:31005404
     reference_title: &#34;Clinical and biochemical footprints of inherited metabolic diseases. II. Metabolic liver diseases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Inherited metabolic diseases account for about one third of pediatric patients with hepatomegaly, acute liver failure, cirrhosis or cholestasis.
     explanation: The reference states that inherited metabolic diseases, which include peroxisome biogenesis disorders, account for a substantial portion of pediatric hepatomegaly cases but does not specify the frequency as &#39;frequent.&#39;
   - reference: PMID:22978395
     reference_title: &#34;Peroxisomes, peroxisomal diseases, and the hepatotoxicity induced by peroxisomal metabolites.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Liver pathology is a frequent finding in patients affected by a peroxisomal disorder.
     explanation: The reference mentions liver pathology as frequent but does not specifically state hepatomegaly.
   - reference: PMID:26615381
@@ -10043,7 +10683,7 @@ phenotypes:
     explanation: Distinctive facial stigmata can be considered a form of craniofacial dysmorphism, supporting the statement.
   - reference: PMID:1710072
     reference_title: &#34;The peroxisome and the eye.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Zellweger syndrome, the most lethal of the three peroxisomal biogenesis disorders, causes infantile hypotonia, seizures, and death within the first year.
     explanation: While the text does not explicitly mention craniofacial dysmorphism, the severity of symptoms and multisystem involvement suggest potential craniofacial manifestations.
 - category: Endocrine
@@ -10143,7 +10783,7 @@ phenotypes:
   evidence:
   - reference: PMID:33335840
     reference_title: &#34;Zellweger spectrum disorder: A cross-sectional study of symptom prevalence using input from family caregivers.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: caregivers of deceased individuals reported their child having cardiac symptoms
     explanation: &gt;-
@@ -10175,7 +10815,7 @@ biochemical:
   evidence:
   - reference: PMID:8729109
     reference_title: &#34;Very long-chain fatty acids in diagnosis, pathogenesis, and therapy of peroxisomal disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Abnormally high levels of very long-chain fatty acids (VLCFA) are a feature in nine of the fifteen peroxisomal disorders that have been identified so far.
     explanation: This reference indicates that elevated VLCFA levels are a feature in nine peroxisomal disorders but does not specify peroxisome biogenesis disorders (PBD) exclusively.
   - reference: PMID:14527301
@@ -10195,7 +10835,7 @@ biochemical:
     explanation: This reference supports that elevated VLCFA levels are relevant in peroxisomal disorders which include peroxisome biogenesis disorders.
   - reference: PMID:8914632
     reference_title: &#34;Incidence of peroxisomal disorders in Japan.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Very long chain fatty acid analysis in the serum sphingomyelin was introduced since 1987 and was useful for the first screening of peroxisomal disorders.
     explanation: Although this reference states that VLCFA analysis is useful for peroxisomal disorders, it is not specific to PBD.
 - name: Plasmalogens
@@ -10523,12 +11163,12 @@ treatments:
   evidence:
   - reference: PMID:11060787
     reference_title: &#34;Therapeutic developments in peroxisome biogenesis disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Treatment of PBD patients has generally involved only supportive care and symptomatic therapy.
     explanation: The statement about supportive care and symptomatic therapy is accurate but does not explicitly mention physical therapy for hypotonia and seizure management.
   - reference: PMID:38409970
     reference_title: &#34;Zellweger Syndrome: A Case Report.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Despite an absence of treatment options, prompt diagnosis of Zellweger syndrome is important for providing appropriate symptomatic care, definitive genetic testing and prenatal counselling.
     explanation: The statement supports symptomatic care but does not detail specific treatments such as physical therapy for hypotonia or seizure management.
   therapeutic_modality: BEHAVIORAL
@@ -10581,12 +11221,12 @@ treatments:
     explanation: The reference indicates that liver transplantation is the standard of care for congenital inherited hepatic disorders, which includes peroxisomal disorders like Peroxisome Biogenesis Disorder (PBD), supporting that liver transplant is considered in severe cases with significant liver dysfunction.
   - reference: PMID:26615381
     reference_title: &#34;Early Onset Hepatocellular Disease in an Infant with Zellweger Syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: ZS should be considered in the list of differential diagnosis in infants with stereotypical phenotype, neurodevelopmental delay, and severe hypotonia in association with liver and other organs involvement.
     explanation: While this reference confirms liver involvement in Peroxisome Biogenesis Disorders such as Zellweger Syndrome, it does not specifically mention liver transplantation as a treatment.
   - reference: PMID:22974902
     reference_title: &#34;Liver transplantation for massive hepatomegaly due to polycystic liver disease: an extreme case.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: When none of the liver parenchyma is spared, or kidney insufficiency is marked, the only potentially curable treatment is liver transplantation (LT).
     explanation: This reference supports the use of liver transplantation in severe liver conditions, though it does not directly mention Peroxisome Biogenesis Disorder.
   treatment_term:
@@ -11124,7 +11764,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peroxisome Biogenesis Disorder", "mondoId": "MONDO:0019234", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peroxisome_Biogenesis_Disorder", "yamlRevision": "ce6bb5eb5cb8"};
+        const OS_CONFIG = {"diseaseName": "Peroxisome Biogenesis Disorder", "mondoId": "MONDO:0019234", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peroxisome_Biogenesis_Disorder", "yamlRevision": "265acc869cad"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11543,5 +12183,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

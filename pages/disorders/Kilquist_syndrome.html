@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Kilquist syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Kilquist syndrome</h1>
             <div class="header-meta">
 
@@ -3972,7 +4119,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4017,7 +4164,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4081,17 +4230,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SLC12A2
 
 
-    <a href="https://bioregistry.io/hgnc:10911" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10911</a>
+    <a href="https://bioregistry.io/hgnc:10911" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:10911</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4120,18 +4273,20 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal monoatomic ion transmembrane transport (GO:0034220). GO:0034220 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         monoatomic ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034220" target="_blank" class="curie-chip curie-chip-go">GO:0034220</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034220" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0034220</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal monoatomic ion transmembrane transport (GO:0034220). GO:0034220 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4189,7 +4344,9 @@ This pathophysiological event involves abnormal monoatomic ion transmembrane tra
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4211,7 +4368,9 @@ This pathophysiological event involves abnormal monoatomic ion transmembrane tra
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4251,17 +4410,21 @@ This pathophysiological event involves abnormal monoatomic ion transmembrane tra
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         SLC12A2
 
 
-    <a href="https://bioregistry.io/hgnc:10911" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10911</a>
+    <a href="https://bioregistry.io/hgnc:10911" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:10911</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4339,7 +4502,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40678848" target="_blank">PMID:40678848</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4361,7 +4526,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40678848" target="_blank">PMID:40678848</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4383,7 +4550,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40678848" target="_blank">PMID:40678848</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4456,7 +4625,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4523,13 +4694,15 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4610,7 +4783,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4632,7 +4807,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4705,7 +4882,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40678848" target="_blank">PMID:40678848</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4786,7 +4965,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4875,7 +5056,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4964,7 +5147,9 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5062,16 +5247,22 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Keratoconjunctivitis sicca</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0001097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Absent tear production, annotated with Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is a phenotype from the Human Phenotype Ontology.">
-                        Keratoconjunctivitis sicca
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp">HP:0001097</a>
-
-
+This clinical feature is Absent tear production, annotated with Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5092,7 +5283,9 @@ This clinical feature is Absent tear production, annotated with Keratoconjunctiv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5133,16 +5326,20 @@ This clinical feature is Absent tear production, annotated with Keratoconjunctiv
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5163,7 +5360,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40678848" target="_blank">PMID:40678848</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5204,16 +5403,20 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000217</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from the Human Phenotype Ontology.">
-                        Xerostomia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp">HP:0000217</a>
-
-
+This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5234,7 +5437,9 @@ This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5275,16 +5480,20 @@ This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
-
-
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5305,7 +5514,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40678848" target="_blank">PMID:40678848</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5346,16 +5557,20 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.">
-                        Global developmental delay
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp">HP:0001263</a>
-
-
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5376,7 +5591,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5417,16 +5634,20 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.">
-                        Failure to thrive
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp">HP:0001508</a>
-
-
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5447,7 +5668,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5488,16 +5711,20 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000970" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000970</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anhidrosis (HP:0000970). HP:0000970 is a phenotype from the Human Phenotype Ontology.">
-                        Anhidrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000970" target="_blank" class="curie-chip curie-chip-hp">HP:0000970</a>
-
-
+This clinical feature is Anhidrosis (HP:0000970). HP:0000970 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5518,7 +5745,9 @@ This clinical feature is Anhidrosis (HP:0000970). HP:0000970 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5550,16 +5779,22 @@ This clinical feature is Anhidrosis (HP:0000970). HP:0000970 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Airway obstruction</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0006536</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Mucus plugging with airway obstruction, annotated with Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.">
-                        Airway obstruction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006536" target="_blank" class="curie-chip curie-chip-hp">HP:0006536</a>
-
-
+This clinical feature is Mucus plugging with airway obstruction, annotated with Airway obstruction (HP:0006536). HP:0006536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5580,7 +5815,9 @@ This clinical feature is Mucus plugging with airway obstruction, annotated with 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5612,16 +5849,20 @@ This clinical feature is Mucus plugging with airway obstruction, annotated with 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002579</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 is a phenotype from the Human Phenotype Ontology.">
-                        Gastrointestinal dysmotility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002579" target="_blank" class="curie-chip curie-chip-hp">HP:0002579</a>
-
-
+This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5642,7 +5883,9 @@ This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5720,15 +5963,17 @@ This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 i
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SLC12A2 (hgnc:10911). hgnc:10911 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC12A2
 
 
-    <a href="https://bioregistry.io/hgnc:10911" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:10911</a>
+    <a href="https://bioregistry.io/hgnc:10911" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:10911</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC12A2 (hgnc:10911). hgnc:10911 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5750,7 +5995,9 @@ This disease-associated gene is SLC12A2 (hgnc:10911). hgnc:10911 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5780,6 +6027,9 @@ This disease-associated gene is SLC12A2 (hgnc:10911). hgnc:10911 is a gene from 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5796,18 +6046,18 @@ This disease-associated gene is SLC12A2 (hgnc:10911). hgnc:10911 is a gene from 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5830,6 +6080,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management remains supportive and should be multidisciplinary because the reported biallelic cases involve profound hearing loss, severe developmental impairment, growth failure, gastrointestinal abnormalities, and secretory epithelial complications.</div>
 
 
@@ -5843,13 +6101,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5879,18 +6139,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">cochlear device implantation<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cochlear device implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">cochlear device implantation</span>
+This treatment is cochlear device implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cochlear device implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -5913,6 +6173,14 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hearing-directed management may include hearing aids, cochlear implant evaluation, and ongoing audiology support, but published experience is limited and benefit may be incomplete.</div>
 
 
@@ -5926,13 +6194,15 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5962,18 +6232,18 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.">gastrostomy</span>
+This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gastrostomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C52006" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.">NCIT:C52006</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C52006" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C52006">NCIT:C52006</a>
 
 
 
@@ -5991,6 +6261,14 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6015,7 +6293,9 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6045,18 +6325,18 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">respiratory tract agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is respiratory tract agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">respiratory tract agent therapy</span>
+This treatment is respiratory tract agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is respiratory tract agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6079,6 +6359,14 @@ This treatment is respiratory tract agent therapy, annotated with Pharmacotherap
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Respiratory management should address mucus plugging, airway obstruction, and cystic-fibrosis-like pulmonary complications when present.</div>
 
 
@@ -6092,13 +6380,15 @@ This treatment is respiratory tract agent therapy, annotated with Pharmacotherap
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6128,18 +6418,18 @@ This treatment is respiratory tract agent therapy, annotated with Pharmacotherap
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6162,6 +6452,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supportive management should include care for absent tear production, xerostomia, and related oral or ocular surface complications.</div>
 
 
@@ -6175,13 +6473,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6211,18 +6511,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6245,6 +6545,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Children with Kilquist syndrome should receive developmental surveillance and rehabilitation services tailored to profound global developmental impairment and hypotonia.</div>
 
 
@@ -6258,13 +6566,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6296,6 +6606,535 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-deletion-sensitive-slc12a2-molecular-genetic-testing">
+                <div class="item-name">
+                    Deletion-sensitive SLC12A2 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Diagnosis is established by identifying biallelic pathogenic SLC12A2 variants. Because reported biallelic disease includes both a homozygous deletion and a homozygous splice variant, testing should include sequencing plus deletion/duplication- or genome/CNV-sensitive methods.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-20">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic loss-of-function SLC12A2 variants support the Kilquist syndrome diagnosis; isolated heterozygous variants should be interpreted in the separate dominant SLC12A2-related spectrum.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole genome-sequencing identified a homozygous deletion of 22kb in SLC12A2."</div>
+
+
+                <div class="evidence-explanation">The foundational case demonstrates a deletion-sensitive molecular diagnosis of biallelic SLC12A2 loss.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40678848" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40678848" target="_blank">PMID:40678848</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"genetic investigations confirmed the diagnosis by identifying a novel homozygous splice-site variant"</div>
+
+
+                <div class="evidence-explanation">The second molecularly confirmed report supports sequence-level testing for biallelic SLC12A2 splice variants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-audiology-evaluation-with-abr-and-otoacoustic-emissions">
+                <div class="item-name">
+                    Audiology evaluation with ABR and otoacoustic emissions
+
+                </div>
+
+                <div class="item-desc">Early audiology evaluation should document the severity and type of hearing loss using electrophysiologic testing, including auditory brainstem response and otoacoustic emissions when clinically available.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        hearing examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38036" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-21">NCIT:C38036</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Profound bilateral sensorineural hearing loss with absent otoacoustic emissions supports the auditory component of the Kilquist syndrome phenotype.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Auditory- brainstem evoked potentials (ABR) demonstrated profound bilateral sensorineural hearing loss, Distortion Product Otoacoustic Emissions (DPOAE) were absent bilaterally, and he was fitted with hearing aids."</div>
+
+
+                <div class="evidence-explanation">The report documents ABR and DPOAE findings used to characterize the profound sensorineural hearing phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-neurodevelopmental-assessment">
+                <div class="item-name">
+                    Neurodevelopmental assessment
+
+                </div>
+
+                <div class="item-desc">Formal developmental evaluation helps characterize the severe neurologic involvement, establish support needs, and distinguish biallelic Kilquist syndrome from cochlea-restricted dominant SLC12A2 presentations.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        neurodevelopmental assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C95403" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C95403</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Profound global delays across developmental domains support severe neurodevelopmental involvement.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neuropsychological testing demonstrated profound delays in all developmental areas, with skills ranging from 1 to 6 months."</div>
+
+
+                <div class="evidence-explanation">This supports neurodevelopmental testing as a key component of the phenotypic assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-nutrition-and-gastrointestinal-assessment">
+                <div class="item-name">
+                    Nutrition and gastrointestinal assessment
+
+                </div>
+
+                <div class="item-desc">Growth, feeding, reflux, malrotation, constipation, and gastrostomy-tube complications should be assessed because severe nutritional and gastrointestinal problems are part of the reported biallelic syndrome.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        nutrition assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Failure to thrive, malnutrition, reflux, malrotation, constipation, or gastrostomy dependence identify major supportive-care needs.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"While his calorie, protein, and water intake exceed his estimated needs (&gt;95% of required daily allowance), he was severely malnourished."</div>
+
+
+                <div class="evidence-explanation">The original case supports nutrition assessment because severe malnutrition occurred despite apparently adequate intake.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-secretory-epithelial-assessment">
+                <div class="item-name">
+                    Secretory epithelial assessment
+
+                </div>
+
+                <div class="item-desc">Schirmer testing, oral/salivary evaluation, sweat-function assessment, and review of mucus-related respiratory problems help document the secretory-epithelial arm of the syndrome.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        ophthalmic diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C38060</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Absent tears, severe oral dryness, absent salivary production, sweat dysfunction, or mucus plugging support multisystem secretory failure.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An ophthalmologic exam was normal, although a Schirmer test confirmed absence of tears (&lt;1mm bilaterally)."</div>
+
+
+                <div class="evidence-explanation">The cited diagnostic procedure directly documented absent tear production.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30740830" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was severe oral dryness and saliva was not able to be produced by massage of the salivary glands."</div>
+
+
+                <div class="evidence-explanation">This supports targeted salivary assessment as part of documenting secretory epithelial failure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6310,7 +7149,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-dominant-slc12a2-related-cochleovestibular-or-neurodevelopmental-disorder">
                 <div class="item-name">
 
                     Dominant SLC12A2-related cochleovestibular or neurodevelopmental disorder
@@ -6351,7 +7190,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40503591" target="_blank">PMID:40503591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6373,7 +7214,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40503591" target="_blank">PMID:40503591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6395,7 +7238,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32658972" target="_blank">PMID:32658972</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6422,7 +7267,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-cystic-fibrosis">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Cystic_Fibrosis.html">Cystic fibrosis</a>
@@ -6462,7 +7307,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-usher-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Usher_Syndrome.html">Usher syndrome</a>
@@ -6512,7 +7357,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-pmid-30740830">
                 <div class="item-name">
                     Kilquist syndrome: A novel syndromic hearing loss disorder caused by homozygous deletion of SLC12A2.
 
@@ -6569,7 +7414,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30740830" target="_blank">PMID:30740830</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6620,7 +7467,6 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Kilquist syndrome
 creation_date: &#39;2026-04-11T19:38:25Z&#39;
-updated_date: &#39;2026-05-31T11:05:00Z&#39;
 category: Mendelian
 description: &gt;-
   Kilquist syndrome is an ultra-rare autosomal recessive multisystem disorder
@@ -6772,7 +7618,7 @@ pathophysiology:
   evidence:
   - reference: PMID:30740830
     reference_title: &#34;Kilquist syndrome: A novel syndromic hearing loss disorder caused by homozygous deletion of SLC12A2.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       In the mouse model, NKCC1 is necessary for maintaining normal neuronal
@@ -7259,7 +8105,7 @@ treatments:
   evidence:
   - reference: PMID:30740830
     reference_title: &#34;Kilquist syndrome: A novel syndromic hearing loss disorder caused by homozygous deletion of SLC12A2.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In summary, we present a novel cause of syndromic hearing loss associated with global developmental delay, failure to thrive, respiratory problems, absent salivation and sweat production, and gastrointestinal abnormalities.
@@ -7279,7 +8125,7 @@ treatments:
   evidence:
   - reference: PMID:30740830
     reference_title: &#34;Kilquist syndrome: A novel syndromic hearing loss disorder caused by homozygous deletion of SLC12A2.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Cochlear implants were placed although the parents not that he has functionally derived no benefit.
@@ -7318,7 +8164,7 @@ treatments:
   evidence:
   - reference: PMID:30740830
     reference_title: &#34;Kilquist syndrome: A novel syndromic hearing loss disorder caused by homozygous deletion of SLC12A2.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       mucus plugging and respiratory problems reminiscent of cystic fibrosis
@@ -7337,7 +8183,7 @@ treatments:
   evidence:
   - reference: PMID:30740830
     reference_title: &#34;Kilquist syndrome: A novel syndromic hearing loss disorder caused by homozygous deletion of SLC12A2.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       There was severe oral dryness and saliva was not able to be produced by massage of the salivary glands.
@@ -7357,7 +8203,7 @@ treatments:
   evidence:
   - reference: PMID:30740830
     reference_title: &#34;Kilquist syndrome: A novel syndromic hearing loss disorder caused by homozygous deletion of SLC12A2.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Neuropsychological testing demonstrated profound delays in all developmental areas, with skills ranging from 1 to 6 months.
@@ -7903,7 +8749,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Kilquist syndrome", "mondoId": "MONDO:0033664", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Kilquist_syndrome", "yamlRevision": "de5531b5f87d"};
+        const OS_CONFIG = {"diseaseName": "Kilquist syndrome", "mondoId": "MONDO:0033664", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Kilquist_syndrome", "yamlRevision": "8b306966af7f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -8322,5 +9168,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

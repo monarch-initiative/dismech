@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Central Precocious Puberty</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Central Precocious Puberty</h1>
             <div class="header-meta">
 
@@ -3797,6 +3944,14 @@
 
 
 
+            <a class="stat-link" href="#inheritance">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">👪</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Inheritance</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
@@ -3884,6 +4039,108 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Primary and essentially sole Part. CPP is a disorder of the hypothalamic-pituitary-gonadal axis by definition — the diagnosis is made on laboratory confirmation of central HPG axis activation, and the first-line therapy (GnRH analog) acts on that axis. Harrison&#39;s covers puberty and its disorders within the endocrinology Part.">ENDOCRINOLOGY METABOLISM</span>
+
+
+                    <span class="tag tag-classification" title="Secondary Part, for the monogenic minority. Three of this entry&#39;s four subtypes are single-gene, and two of them (MKRN3, DLK1) are paternally expressed imprinted genes, so parent-of-origin inheritance is a substantive mechanistic axis here rather than incidental genetics. The entry&#39;s category remains Complex because most cases — idiopathic CPP in girls — have no identified monogenic cause.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -3891,6 +4148,113 @@
 
 
         <!-- Inheritance -->
+
+        <div class="card" id="inheritance">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #92400e;">👪</div>
+                <h2 class="card-title">Inheritance</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-with-maternal-imprinting">
+                <div class="item-name">
+                    Autosomal dominant with maternal imprinting
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/HP_0012275" target="_blank">
+                            HP:0012275
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The monogenic MKRN3 and DLK1 subtypes are autosomal dominant with exclusive paternal transmission: the maternal allele is silenced by imprinting, so only paternally inherited loss-of-function variants cause disease. Idiopathic CPP, the majority of cases in girls, has no Mendelian inheritance pattern.</div>
+
+
+
+
+    <div class="item-meta">
+
+        <span class="tag tag-classification">
+            Autosomal dominant inheritance with maternal imprinting
+        </span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23738509" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23738509" target="_blank">PMID:23738509</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All affected
+persons inherited the mutations from their fathers, a finding that indicates
+perfect segregation with the mode of inheritance expected for an imprinted gene."</div>
+
+
+                <div class="evidence-explanation">Establishes exclusive paternal transmission of MKRN3 CPP, the signature of maternal-allele silencing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28324015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28324015" target="_blank">PMID:28324015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only family
+members who inherited the defect from their father have precocious puberty,
+consistent with the known imprinting of DLK1."</div>
+
+
+                <div class="evidence-explanation">Confirms the same parent-of-origin pattern for the DLK1 subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Subtypes -->
@@ -3928,7 +4292,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mkrn3">
 
                     <div class="item-name">
                         MKRN3-related CPP (CPPB1)
@@ -3962,7 +4326,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23738509" target="_blank">PMID:23738509</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3991,7 +4357,7 @@ perfect segregation with the mode of inheritance expected for an imprinted gene.
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dlk1">
 
                     <div class="item-name">
                         DLK1-related CPP (CPPB2)
@@ -4025,7 +4391,9 @@ perfect segregation with the mode of inheritance expected for an imprinted gene.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28324015" target="_blank">PMID:28324015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4053,7 +4421,7 @@ consistent with the known imprinting of DLK1."</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-kiss1-kiss1r">
 
                     <div class="item-name">
                         Kisspeptin-pathway CPP (KISS1 / KISS1R gain of function)
@@ -4087,7 +4455,9 @@ consistent with the known imprinting of DLK1."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18272894" target="_blank">PMID:18272894</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4112,7 +4482,9 @@ precocious puberty"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20237166" target="_blank">PMID:20237166</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4139,7 +4511,7 @@ idiopathic CPP."</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-idiopathic">
 
                     <div class="item-name">
                         Idiopathic CPP
@@ -4160,6 +4532,65 @@ idiopathic CPP."</div>
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18272894" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18272894" target="_blank">PMID:18272894</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In girls, this condition
+is most often idiopathic."</div>
+
+
+                <div class="evidence-explanation">Supports the defining claim of this subtype — that in girls CPP is most often idiopathic, i.e. no organic or monogenic cause is identified.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19347819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19347819" target="_blank">PMID:19347819</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It may be either idiopathic or associated with hypothalamic hamartoma, brain neoplasms, numerous non-cancerous disorders of the central nervous system"</div>
+
+
+                <div class="evidence-explanation">Supports the diagnosis-of-exclusion framing: the idiopathic label is assigned only after the organic CNS causes listed here have been ruled out, which is why initial assessment centres on excluding them.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4196,18 +4627,20 @@ idiopathic CPP."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves GnRH neuron, annotated with hypothalamic gonadotropin-releasing hormone neuron (CL:0011111). CL:0011111 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         GnRH neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011111" target="_blank" class="curie-chip curie-chip-cl">CL:0011111</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011111" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0011111</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GnRH neuron, annotated with hypothalamic gonadotropin-releasing hormone neuron (CL:0011111). CL:0011111 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4235,18 +4668,20 @@ This pathophysiological event involves GnRH neuron, annotated with hypothalamic 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Gonadotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go">GO:0032274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0032274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4267,18 +4702,20 @@ This pathophysiological event involves increased Gonadotropin secretion (GO:0032
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Positive regulation of gonadotropin secretion (GO:0032278). GO:0032278 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Positive regulation of gonadotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032278" target="_blank" class="curie-chip curie-chip-go">GO:0032278</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032278" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0032278</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Positive regulation of gonadotropin secretion (GO:0032278). GO:0032278 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4336,7 +4773,9 @@ This pathophysiological event involves increased Positive regulation of gonadotr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23738509" target="_blank">PMID:23738509</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4378,18 +4817,20 @@ hypothalamic-pituitary-gonadal axis results in central precocious puberty."</div
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Gonadotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go">GO:0032274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0032274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4463,7 +4904,9 @@ This pathophysiological event involves increased Gonadotropin secretion (GO:0032
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30086862" target="_blank">PMID:30086862</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4513,7 +4956,7 @@ normal puberty."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sex-steroid exposure accelerates bone maturation, advancing bone age relative to chronological age and risking premature epiphyseal fusion and reduced adult height.\", \"meta\": {\"term_id\": \"HP:0005616\"}}, {\"id\": \"Early HPG Axis Activation and Premature Gonadarche\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature GnRH pulsatility activates pituitary gonadotrophs to secrete LH and FSH, which stimulate the gonads to produce sex steroids (estradiol in girls, testosterone in boys). The resulting premature gonadarche drives early development of secondary sexual characteristics, accelerated linear growth, and advanced skeletal maturation that can compromise adult height.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Gonadotropin secretion\"]}}, {\"id\": \"GnRH Analog Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-acting GnRH agonists (e.g., leuprolide) are first-line therapy for CPP. Continuous (non-pulsatile) GnRH receptor stimulation desensitizes pituitary gonadotrophs, suppressing LH/FSH and sex-steroid secretion, halting pubertal progression and preserving adult height potential.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"leuprolide\"]}}, {\"id\": \"Precocious puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Onset of secondary sexual characteristics before age 8 in girls and 9 in boys, driven by GnRH-dependent activation of the HPG axis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000826\"}}, {\"id\": \"Premature Reactivation of Pulsatile GnRH Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central event in CPP is premature reawakening of the hypothalamic GnRH pulse generator. Hypothalamic GnRH neurons resume high-amplitude pulsatile GnRH secretion before the normal age of puberty, driving pituitary gonadotropin release. Upstream kisspeptin (KISS1/KISS1R) signaling stimulates GnRH neurons, while inhibitory factors including the paternally expressed imprinted genes MKRN3 and DLK1 normally restrain the axis during childhood; loss of this restraint or gain of kisspeptin tone triggers premature secretion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"GnRH neuron\"], \"biological_processes\": [\"Gonadotropin secretion\", \"Positive regulation of gonadotropin secretion\"]}}, {\"id\": \"Tall stature in childhood\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sex-steroid-driven growth acceleration produces tall stature relative to peers during childhood, although early epiphyseal fusion may compromise final adult height.\", \"meta\": {\"term_id\": \"HP:0000098\"}}], \"edges\": [{\"source\": \"Premature Reactivation of Pulsatile GnRH Secretion\", \"target\": \"Early HPG Axis Activation and Premature Gonadarche\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature high-amplitude pulsatile GnRH secretion activates pituitary gonadotrophs, driving early HPG axis activation and premature gonadarche.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early HPG Axis Activation and Premature Gonadarche\", \"target\": \"Precocious puberty\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature gonadarche and sex-steroid exposure produce early onset of secondary sexual characteristics (precocious puberty).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early HPG Axis Activation and Premature Gonadarche\", \"target\": \"Accelerated skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early sex-steroid exposure advances skeletal maturation/bone age, which can compromise adult height.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early HPG Axis Activation and Premature Gonadarche\", \"target\": \"Tall stature in childhood\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sex-steroid-driven growth acceleration produces transiently increased height velocity and tall stature for age in childhood.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GnRH Analog Therapy\", \"target\": \"Premature Reactivation of Pulsatile GnRH Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated skeletal maturation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sex-steroid exposure accelerates bone maturation, advancing bone age relative to chronological age and risking premature epiphyseal fusion and reduced adult height.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005616\"}}, {\"id\": \"Early HPG Axis Activation and Premature Gonadarche\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature GnRH pulsatility activates pituitary gonadotrophs to secrete LH and FSH, which stimulate the gonads to produce sex steroids (estradiol in girls, testosterone in boys). The resulting premature gonadarche drives early development of secondary sexual characteristics, accelerated linear growth, and advanced skeletal maturation that can compromise adult height.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Gonadotropin secretion\"]}}, {\"id\": \"GnRH Analog Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-acting GnRH agonists (e.g., leuprolide) are first-line therapy for CPP. Continuous (non-pulsatile) GnRH receptor stimulation desensitizes pituitary gonadotrophs, suppressing LH/FSH and sex-steroid secretion, halting pubertal progression and preserving adult height potential.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"leuprolide\"]}}, {\"id\": \"Precocious puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Onset of secondary sexual characteristics before age 8 in girls and 9 in boys, driven by GnRH-dependent activation of the HPG axis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000826\"}}, {\"id\": \"Premature Reactivation of Pulsatile GnRH Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central event in CPP is premature reawakening of the hypothalamic GnRH pulse generator. Hypothalamic GnRH neurons resume high-amplitude pulsatile GnRH secretion before the normal age of puberty, driving pituitary gonadotropin release. Upstream kisspeptin (KISS1/KISS1R) signaling stimulates GnRH neurons, while inhibitory factors including the paternally expressed imprinted genes MKRN3 and DLK1 normally restrain the axis during childhood; loss of this restraint or gain of kisspeptin tone triggers premature secretion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"GnRH neuron\"], \"biological_processes\": [\"Gonadotropin secretion\", \"Positive regulation of gonadotropin secretion\"]}}, {\"id\": \"Tall stature in childhood\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sex-steroid-driven growth acceleration produces tall stature relative to peers during childhood, although early epiphyseal fusion may compromise final adult height.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000098\"}}], \"edges\": [{\"source\": \"Premature Reactivation of Pulsatile GnRH Secretion\", \"target\": \"Early HPG Axis Activation and Premature Gonadarche\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature high-amplitude pulsatile GnRH secretion activates pituitary gonadotrophs, driving early HPG axis activation and premature gonadarche.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early HPG Axis Activation and Premature Gonadarche\", \"target\": \"Precocious puberty\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature gonadarche and sex-steroid exposure produce early onset of secondary sexual characteristics (precocious puberty).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early HPG Axis Activation and Premature Gonadarche\", \"target\": \"Accelerated skeletal maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early sex-steroid exposure advances skeletal maturation/bone age, which can compromise adult height.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Early HPG Axis Activation and Premature Gonadarche\", \"target\": \"Tall stature in childhood\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sex-steroid-driven growth acceleration produces transiently increased height velocity and tall stature for age in childhood.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GnRH Analog Therapy\", \"target\": \"Premature Reactivation of Pulsatile GnRH Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4555,16 +4998,20 @@ normal puberty."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0005616</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:0005616 is a phenotype from the Human Phenotype Ontology.">
-                        Accelerated skeletal maturation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp">HP:0005616</a>
-
-
+This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:0005616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4572,6 +5019,64 @@ This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:000561
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19347819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19347819" target="_blank">PMID:19347819</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"acceleration of growth velocity, and rapid bone maturation that often result in reduced adult height"</div>
+
+
+                <div class="evidence-explanation">Rapid bone maturation is named as a characteristic feature of CPP, along with the reduced adult height that premature epiphyseal fusion produces.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33745030" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33745030" target="_blank">PMID:33745030</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"adequate hormone suppression results in the stabilization of pubertal progression, a decline in growth velocity, and a decrease in bone age advancement"</div>
+
+
+                <div class="evidence-explanation">Corroborates the phenotype from the treatment side: GnRH-analog suppression reduces bone age advancement, which presupposes that untreated CPP is advancing bone age.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -4594,23 +5099,90 @@ This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:000561
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.">
-                        Tall stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp">HP:0000098</a>
-
-
+This clinical feature is Tall stature (HP:0000098), qualified as childhood onset. HP:0000098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: CHILDHOOD</span>
+
+
+
+
+
 
                     </div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19347819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19347819" target="_blank">PMID:19347819</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This condition is characterised by early pubertal changes, acceleration of growth velocity"</div>
+
+
+                <div class="evidence-explanation">Indirect rather than direct support, deliberately. The source states the accelerated growth velocity that produces height above the age norm during childhood, but does not itself say &#34;tall stature&#34;; the phenotype term is the entry&#39;s reading of that acceleration. The same sentence records the opposite endpoint — reduced adult height — so the tall-stature claim holds only for childhood, as this phenotype&#39;s name and description say.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -4633,16 +5205,20 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000826</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.">
-                        Precocious puberty
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp">HP:0000826</a>
-
-
+This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4663,7 +5239,9 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18272894" target="_blank">PMID:18272894</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4697,16 +5275,20 @@ is most often idiopathic."</div>
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010314" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0010314</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Premature thelarche (HP:0010314). HP:0010314 is a phenotype from the Human Phenotype Ontology.">
-                        Premature thelarche
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010314" target="_blank" class="curie-chip curie-chip-hp">HP:0010314</a>
-
-
+This clinical feature is Premature thelarche (HP:0010314). HP:0010314 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4714,6 +5296,40 @@ This clinical feature is Premature thelarche (HP:0010314). HP:0010314 is a pheno
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33745030" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33745030" target="_blank">PMID:33745030</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main sign to suspect the onset of puberty is breast tissue development (thelarche) in girls"</div>
+
+
+                <div class="evidence-explanation">Supports thelarche as the presenting sign in girls, which is what makes it the common presentation of CPP given that CPP in girls is usually idiopathic and follows the normal pubertal sequence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -4773,15 +5389,17 @@ This clinical feature is Premature thelarche (HP:0010314). HP:0010314 is a pheno
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MKRN3 (hgnc:7114). hgnc:7114 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MKRN3
 
 
-    <a href="https://bioregistry.io/hgnc:7114" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7114</a>
+    <a href="https://bioregistry.io/hgnc:7114" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:7114</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MKRN3 (hgnc:7114). hgnc:7114 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4803,7 +5421,9 @@ This disease-associated gene is MKRN3 (hgnc:7114). hgnc:7114 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23738509" target="_blank">PMID:23738509</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4840,15 +5460,17 @@ This disease-associated gene is MKRN3 (hgnc:7114). hgnc:7114 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DLK1 (hgnc:2907). hgnc:2907 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DLK1
 
 
-    <a href="https://bioregistry.io/hgnc:2907" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2907</a>
+    <a href="https://bioregistry.io/hgnc:2907" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:2907</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DLK1 (hgnc:2907). hgnc:2907 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4870,7 +5492,9 @@ This disease-associated gene is DLK1 (hgnc:2907). hgnc:2907 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28324015" target="_blank">PMID:28324015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4908,15 +5532,17 @@ familial CPP. MKRN3 and DLK1 are both paternally expressed imprinted genes."</di
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is KISS1 (hgnc:6341). hgnc:6341 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KISS1
 
 
-    <a href="https://bioregistry.io/hgnc:6341" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:6341</a>
+    <a href="https://bioregistry.io/hgnc:6341" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:6341</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KISS1 (hgnc:6341). hgnc:6341 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -4938,7 +5564,9 @@ This disease-associated gene is KISS1 (hgnc:6341). hgnc:6341 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20237166" target="_blank">PMID:20237166</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4976,15 +5604,17 @@ in three unrelated children with idiopathic CPP."</div>
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is KISS1R (hgnc:4510). hgnc:4510 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KISS1R
 
 
-    <a href="https://bioregistry.io/hgnc:4510" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4510</a>
+    <a href="https://bioregistry.io/hgnc:4510" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:4510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KISS1R (hgnc:4510). hgnc:4510 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5006,7 +5636,9 @@ This disease-associated gene is KISS1R (hgnc:4510). hgnc:4510 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18272894" target="_blank">PMID:18272894</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5037,6 +5669,9 @@ activation of intracellular signaling pathways in response to kisspeptin."</div>
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5053,17 +5688,17 @@ activation of intracellular signaling pathways in response to kisspeptin."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5088,21 +5723,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         leuprolide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6427" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6427</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6427" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-14">CHEBI:6427</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5121,6 +5766,40 @@ This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent f
                         <span style="color: #7c3aed;"> &mdash; Continuous (non-pulsatile) GnRH-receptor agonism desensitizes pituitary gonadotrophs, suppressing the prematurely reactivated GnRH/gonadotropin drive and halting pubertal progression.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33745030" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33745030" target="_blank">PMID:33745030</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"adequate hormone suppression results in the stabilization of pubertal progression, a decline in growth velocity, and a decrease in bone age advancement"</div>
+
+
+                <div class="evidence-explanation">Evidence for the mechanism link specifically, not just for the drug: the measured effect of GnRH-analog therapy is suppression of the hormonal drive, with pubertal progression, growth velocity and bone-age advancement all reversing — i.e. the therapy acts on the reactivated GnRH/gonadotropin node and the whole downstream chain follows.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -5143,7 +5822,9 @@ This treatment uses leuprolide (CHEBI:6427). CHEBI:6427 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30086862" target="_blank">PMID:30086862</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5176,6 +5857,33 @@ with the goal of height preservation."</div>
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -5188,7 +5896,7 @@ with the goal of height preservation."</div>
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse244853">
                 <div class="item-name">
                     Development of serum cell-free miRNA panel for identification of girlish central precocious puberty and premature thelarche
 
@@ -5227,7 +5935,7 @@ with the goal of height preservation."</div>
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse208722">
                 <div class="item-name">
                     Effect of MKRN3 deletion on gene expression in hypothalamic neurons derived from human induced pluripotent stem cells (hiPSCs)
 
@@ -5378,6 +6086,24 @@ has_subtypes:
     CPP with no identifiable organic CNS lesion or monogenic cause. Idiopathic CPP accounts
     for the large majority of cases in girls and is a diagnosis of exclusion after
     neuroimaging and, where indicated, genetic evaluation.
+  evidence:
+  - reference: PMID:18272894
+    reference_title: &#34;A GPR54-activating mutation in a patient with central precocious puberty.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In girls, this condition \nis most often idiopathic.&#34;
+    explanation: &gt;-
+      Supports the defining claim of this subtype — that in girls CPP is most
+      often idiopathic, i.e. no organic or monogenic cause is identified.
+  - reference: PMID:19347819
+    reference_title: &#34;[Central precocious puberty].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;It may be either idiopathic or associated with hypothalamic hamartoma, brain neoplasms, numerous non-cancerous disorders of the central nervous system&#34;
+    explanation: &gt;-
+      Supports the diagnosis-of-exclusion framing: the idiopathic label is
+      assigned only after the organic CNS causes listed here have been ruled
+      out, which is why initial assessment centres on excluding them.
 pathophysiology:
 - name: Premature Reactivation of Pulsatile GnRH Secretion
   description: &gt;-
@@ -5450,16 +6176,48 @@ pathophysiology:
       Premature gonadarche and sex-steroid exposure produce early onset of
       secondary sexual characteristics (precocious puberty).
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:19347819
+      reference_title: &#34;[Central precocious puberty].&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;results from a premature activation of gonadotropin-releasing hormone neurons in the hypothalamus. This condition is characterised by early pubertal changes&#34;
+      explanation: &gt;-
+        Edge-level support: the early pubertal changes are stated as the
+        consequence of the premature hypothalamic GnRH activation, which is the
+        chain this edge encodes.
   - target: Accelerated skeletal maturation
     description: &gt;-
       Early sex-steroid exposure advances skeletal maturation/bone age, which can
       compromise adult height.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:19347819
+      reference_title: &#34;[Central precocious puberty].&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;acceleration of growth velocity, and rapid bone maturation that often result in reduced adult height&#34;
+      explanation: &gt;-
+        Edge-level support: rapid bone maturation is listed as a characteristic
+        consequence of the activated axis, together with the reduced adult
+        height this edge&#39;s description names as its cost.
   - target: Tall stature in childhood
     description: &gt;-
       Sex-steroid-driven growth acceleration produces transiently increased
       height velocity and tall stature for age in childhood.
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:19347819
+      reference_title: &#34;[Central precocious puberty].&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;This condition is characterised by early pubertal changes, acceleration of growth velocity&#34;
+      explanation: &gt;-
+        Edge-level support, and only indirect. The source states the
+        acceleration of growth velocity that drives this edge, but does not
+        itself use the term tall stature; the step from a raised height velocity
+        to height above the age norm is the entry&#39;s inference, so the edge is
+        not claimed at full strength.
 phenotypes:
 - name: Precocious puberty
   description: &gt;-
@@ -5486,6 +6244,24 @@ phenotypes:
     term:
       id: HP:0005616
       label: Accelerated skeletal maturation
+  evidence:
+  - reference: PMID:19347819
+    reference_title: &#34;[Central precocious puberty].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;acceleration of growth velocity, and rapid bone maturation that often result in reduced adult height&#34;
+    explanation: &gt;-
+      Rapid bone maturation is named as a characteristic feature of CPP, along
+      with the reduced adult height that premature epiphyseal fusion produces.
+  - reference: PMID:33745030
+    reference_title: &#34;Diagnosis and management of precocious sexual maturation: an updated review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;adequate hormone suppression results in the stabilization of pubertal progression, a decline in growth velocity, and a decrease in bone age advancement&#34;
+    explanation: &gt;-
+      Corroborates the phenotype from the treatment side: GnRH-analog
+      suppression reduces bone age advancement, which presupposes that untreated
+      CPP is advancing bone age.
 - name: Tall stature in childhood
   description: &gt;-
     Sex-steroid-driven growth acceleration produces tall stature relative to peers during
@@ -5495,6 +6271,21 @@ phenotypes:
     term:
       id: HP:0000098
       label: Tall stature
+    onset:
+      onset_category: CHILDHOOD
+  evidence:
+  - reference: PMID:19347819
+    reference_title: &#34;[Central precocious puberty].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This condition is characterised by early pubertal changes, acceleration of growth velocity&#34;
+    explanation: &gt;-
+      Indirect rather than direct support, deliberately. The source states the
+      accelerated growth velocity that produces height above the age norm during
+      childhood, but does not itself say &#34;tall stature&#34;; the phenotype term is
+      the entry&#39;s reading of that acceleration. The same sentence records the
+      opposite endpoint — reduced adult height — so the tall-stature claim holds
+      only for childhood, as this phenotype&#39;s name and description say.
 - name: Premature thelarche
   description: &gt;-
     Early breast development in girls, a common presenting sign of CPP.
@@ -5503,6 +6294,16 @@ phenotypes:
     term:
       id: HP:0010314
       label: Premature thelarche
+  evidence:
+  - reference: PMID:33745030
+    reference_title: &#34;Diagnosis and management of precocious sexual maturation: an updated review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The main sign to suspect the onset of puberty is breast tissue development (thelarche) in girls&#34;
+    explanation: &gt;-
+      Supports thelarche as the presenting sign in girls, which is what makes
+      it the common presentation of CPP given that CPP in girls is usually
+      idiopathic and follows the normal pubertal sequence.
 genetic:
 - name: MKRN3 loss-of-function
   association: Causative
@@ -5574,6 +6375,33 @@ genetic:
     evidence_source: IN_VITRO
     snippet: &#34;In vitro studies have shown that this mutation leads to prolonged \nactivation of intracellular signaling pathways in response to kisspeptin.&#34;
     explanation: Demonstrates that the KISS1R (GPR54) mutation is activating, causing prolonged signaling in response to kisspeptin.
+inheritance:
+- name: Autosomal dominant with maternal imprinting
+  inheritance_term:
+    preferred_term: Autosomal dominant inheritance with maternal imprinting
+    term:
+      id: HP:0012275
+      label: Autosomal dominant inheritance with maternal imprinting
+  description: &gt;-
+    The monogenic MKRN3 and DLK1 subtypes are autosomal dominant with exclusive
+    paternal transmission: the maternal allele is silenced by imprinting, so only
+    paternally inherited loss-of-function variants cause disease. Idiopathic CPP,
+    the majority of cases in girls, has no Mendelian inheritance pattern.
+  evidence:
+  - reference: PMID:23738509
+    reference_title: &#34;Central precocious puberty caused by mutations in the imprinted gene MKRN3.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All affected \npersons inherited the mutations from their fathers, a finding that indicates \nperfect segregation with the mode of inheritance expected for an imprinted gene.&#34;
+    explanation: &gt;-
+      Establishes exclusive paternal transmission of MKRN3 CPP, the signature of
+      maternal-allele silencing.
+  - reference: PMID:28324015
+    reference_title: &#34;Paternally Inherited DLK1 Deletion Associated With Familial Central Precocious Puberty.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Only family \nmembers who inherited the defect from their father have precocious puberty, \nconsistent with the known imprinting of DLK1.&#34;
+    explanation: Confirms the same parent-of-origin pattern for the DLK1 subtype.
 treatments:
 - name: GnRH Analog Therapy
   description: &gt;-
@@ -5595,6 +6423,18 @@ treatments:
       Continuous (non-pulsatile) GnRH-receptor agonism desensitizes pituitary
       gonadotrophs, suppressing the prematurely reactivated GnRH/gonadotropin
       drive and halting pubertal progression.
+    evidence:
+    - reference: PMID:33745030
+      reference_title: &#34;Diagnosis and management of precocious sexual maturation: an updated review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;adequate hormone suppression results in the stabilization of pubertal progression, a decline in growth velocity, and a decrease in bone age advancement&#34;
+      explanation: &gt;-
+        Evidence for the mechanism link specifically, not just for the drug:
+        the measured effect of GnRH-analog therapy is suppression of the
+        hormonal drive, with pubertal progression, growth velocity and bone-age
+        advancement all reversing — i.e. the therapy acts on the reactivated
+        GnRH/gonadotropin node and the whole downstream chain follows.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -5629,6 +6469,34 @@ datasets:
   sample_count: 6
   publication: PMID:37092553
   notes: Identified by GEO DataSets index search for Central Precocious Puberty (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+classifications:
+  harrisons_chapter:
+  - classification_value: ENDOCRINOLOGY_METABOLISM
+    notes: &gt;-
+      Primary and essentially sole Part. CPP is a disorder of the
+      hypothalamic-pituitary-gonadal axis by definition — the diagnosis is made
+      on laboratory confirmation of central HPG axis activation, and the
+      first-line therapy (GnRH analog) acts on that axis. Harrison&#39;s covers
+      puberty and its disorders within the endocrinology Part.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      Secondary Part, for the monogenic minority. Three of this entry&#39;s four
+      subtypes are single-gene, and two of them (MKRN3, DLK1) are paternally
+      expressed imprinted genes, so parent-of-origin inheritance is a
+      substantive mechanistic axis here rather than incidental genetics. The
+      entry&#39;s category remains Complex because most cases — idiopathic CPP in
+      girls — have no identified monogenic cause.
+notes: &gt;-
+  Classification note. Only `harrisons_chapter` is assigned. Every other slot
+  in `DiseaseClassifications` was considered and rejected as inapplicable: CPP
+  is not neoplastic (no `icdo_morphology`), not an inborn error of metabolism
+  (no `icimd_category`), not a lysosomal storage disorder, not an
+  immunodeficiency, not a channelopathy, and not listed in the ISDS skeletal
+  nosology despite the accelerated skeletal maturation. `mechanistic_category`
+  is also left empty: the natural label would be something like &#34;imprinting
+  disorder&#34; for the MKRN3/DLK1 subtypes, and `MechanisticCategoryEnum` has no
+  such value — and it would in any case describe only two of four subtypes,
+  not the disease.
 </pre>
             </div>
         </div>
@@ -7264,7 +8132,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Central Precocious Puberty", "mondoId": "MONDO:0019165", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Central_Precocious_Puberty", "yamlRevision": "cc5f7027fe88"};
+        const OS_CONFIG = {"diseaseName": "Central Precocious Puberty", "mondoId": "MONDO:0019165", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Central_Precocious_Puberty", "yamlRevision": "b220939cd49a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7683,5 +8551,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

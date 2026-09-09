@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Epilepsy with Generalized Tonic-Clonic Seizures Alone</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Epilepsy with Generalized Tonic-Clonic Seizures Alone</h1>
             <div class="header-meta">
 
@@ -3982,7 +4129,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-polygenic-susceptibility">
                 <div class="item-name">
                     Polygenic susceptibility
 
@@ -4027,7 +4174,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37653029" target="_blank">PMID:37653029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4049,7 +4198,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19191339" target="_blank">PMID:19191339</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4160,6 +4311,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4176,6 +4333,12 @@
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Syndrome-stratified genetic analysis at sample sizes large enough to detect an EGTCA-specific locus, given that the 2023 ILAE meta-analysis was underpowered for this syndrome at n = 499.</div>
+
+
+
+
+
+
 
 
 
@@ -4251,13 +4414,17 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15461683" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15461683" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15461683" target="_blank">PMID:15461683</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4267,7 +4434,7 @@
                 <div class="evidence-snippet">"The effects of OXC on GTCSs were less dramatic, with no worsening in frequency in three and a slight increase in three."</div>
 
 
-                <div class="evidence-explanation">Shows that the aggravation signal is much weaker for generalized tonic-clonic seizures than for the myoclonic and absence seizures that drive the caution. Marked PARTIAL because the series contained no EGTCA patients, so this bounds the inference rather than resolving it.</div>
+                <div class="evidence-explanation">Shows that the aggravation signal is much weaker for generalized tonic-clonic seizures than for the myoclonic and absence seizures that drive the caution. Graded INDIRECT because the series contained no EGTCA patients, so this bounds the inference rather than resolving it.</div>
 
 
 
@@ -4279,7 +4446,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15461683" target="_blank">PMID:15461683</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4369,6 +4538,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4405,18 +4580,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4444,18 +4621,20 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Regulation of Membrane Potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Regulation of Membrane Potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0042391</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of Membrane Potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4476,18 +4655,20 @@ This pathophysiological event involves abnormal Regulation of Membrane Potential
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Chemical Synaptic Transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Chemical Synaptic Transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Chemical Synaptic Transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4543,7 +4724,9 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37653029" target="_blank">PMID:37653029</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4559,13 +4742,15 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37653029" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37653029" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37653029" target="_blank">PMID:37653029</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4575,7 +4760,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                 <div class="evidence-snippet">"We did not find any genome-wide significant loci for JAE (n = 671), GTCSA (n = 499)"</div>
 
 
-                <div class="evidence-explanation">The syndrome-stratified analysis found no EGTCA-specific locus at the available sample size. Marked PARTIAL because this is an absence of evidence at n = 499 rather than evidence that no such locus exists; it supports the polygenic framing while bounding how confidently any particular gene can be attached to this syndrome.</div>
+                <div class="evidence-explanation">The syndrome-stratified analysis found no EGTCA-specific locus at the available sample size. This is an absence of evidence at n = 499 rather than evidence that no such locus exists; it supports the polygenic framing while bounding how confidently any particular gene can be attached to this syndrome.</div>
 
 
 
@@ -4598,18 +4783,20 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves GABAergic Neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         GABAergic Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic Neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4626,18 +4813,20 @@ This pathophysiological event involves GABAergic Neuron (CL:0000617). CL:0000617
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Thalamic Relay Neuron, annotated with thalamic excitatory neuron (CL:4023068). CL:4023068 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Thalamic Relay Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023068" target="_blank" class="curie-chip curie-chip-cl">CL:4023068</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023068" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:4023068</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Thalamic Relay Neuron, annotated with thalamic excitatory neuron (CL:4023068). CL:4023068 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4665,18 +4854,20 @@ This pathophysiological event involves Thalamic Relay Neuron, annotated with tha
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased GABA Signaling Pathway, annotated with gamma-aminobutyric acid signaling pathway (GO:0007214). GO:0007214 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         GABA Signaling Pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go">GO:0007214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0007214</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased GABA Signaling Pathway, annotated with gamma-aminobutyric acid signaling pathway (GO:0007214). GO:0007214 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4704,33 +4895,37 @@ This pathophysiological event involves decreased GABA Signaling Pathway, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Thalamic Reticular Nucleus (UBERON:0001903). UBERON:0001903 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Thalamic Reticular Nucleus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001903" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001903" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0001903</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Thalamic Reticular Nucleus (UBERON:0001903). UBERON:0001903 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in Cerebral Cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         Cerebral Cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Cerebral Cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4760,13 +4955,17 @@ This pathophysiological event occurs in Cerebral Cortex (UBERON:0000956). UBERON
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:28752060" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:28752060" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28752060" target="_blank">PMID:28752060</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4776,19 +4975,23 @@ This pathophysiological event occurs in Cerebral Cortex (UBERON:0000956). UBERON
                 <div class="evidence-snippet">"As interactions between thalamic sub-regions are indirect and mediated by the inhibitory thalamic reticular nucleus (TRN), the results suggest abnormal TRN function in patients with IGE"</div>
 
 
-                <div class="evidence-explanation">Human EEG-fMRI evidence implicating the inhibitory thalamic reticular nucleus in idiopathic generalized epilepsy. Marked PARTIAL because the cohort is IGE-wide rather than EGTCA-specific, and because the TRN inference is indirect, drawn from intra-thalamic connectivity rather than measured directly.</div>
+                <div class="evidence-explanation">Human EEG-fMRI evidence implicating the inhibitory thalamic reticular nucleus in idiopathic generalized epilepsy. Graded INDIRECT because the cohort is IGE-wide rather than EGTCA-specific, and because the TRN inference is indirect, drawn from intra-thalamic connectivity rather than measured directly.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38165295" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38165295" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38165295" target="_blank">PMID:38165295</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4798,7 +5001,7 @@ This pathophysiological event occurs in Cerebral Cortex (UBERON:0000956). UBERON
                 <div class="evidence-snippet">"Genetic, electrophysiologic, and neuroimaging studies provide insights into pathophysiology, including overlaps and differences from focal epilepsies."</div>
 
 
-                <div class="evidence-explanation">Supports a network-level rather than lesional pathophysiology for the IGE class. Marked PARTIAL, and evidence_source OTHER, because this is a review synthesizing across syndromes rather than primary EGTCA data.</div>
+                <div class="evidence-explanation">Supports a network-level rather than lesional pathophysiology for the IGE class. Graded INDIRECT, and evidence_source OTHER, because this is a review synthesizing across syndromes rather than primary EGTCA data.</div>
 
 
 
@@ -4821,18 +5024,20 @@ This pathophysiological event occurs in Cerebral Cortex (UBERON:0000956). UBERON
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Cortical Pyramidal Neuron, annotated with pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Cortical Pyramidal Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cortical Pyramidal Neuron, annotated with pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4849,18 +5054,20 @@ This pathophysiological event involves Cortical Pyramidal Neuron, annotated with
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Corticothalamic Projection Neuron, annotated with corticothalamic-projecting glutamatergic cortical neuron (CL:4023013). CL:4023013 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Corticothalamic Projection Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023013" target="_blank" class="curie-chip curie-chip-cl">CL:4023013</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023013" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:4023013</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Corticothalamic Projection Neuron, annotated with corticothalamic-projecting glutamatergic cortical neuron (CL:4023013). CL:4023013 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4888,18 +5095,20 @@ This pathophysiological event involves Corticothalamic Projection Neuron, annota
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Regulation of Membrane Potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Regulation of Membrane Potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0042391</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of Membrane Potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4949,13 +5158,17 @@ This pathophysiological event involves abnormal Regulation of Membrane Potential
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21269293" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21269293" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21269293" target="_blank">PMID:21269293</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4965,7 +5178,7 @@ This pathophysiological event involves abnormal Regulation of Membrane Potential
                 <div class="evidence-snippet">"Although GSWDs are the result of highly synchronized activity in the thalamocortical network, EEG without GSWDs is believed to represent normal brain activity."</div>
 
 
-                <div class="evidence-explanation">States both halves of this node&#39;s claim: the discharges reflect highly synchronized thalamocortical activity, and the network is otherwise normal between them. Marked PARTIAL because the study population is IGE-wide rather than EGTCA-specific.</div>
+                <div class="evidence-explanation">States both halves of this node&#39;s claim: the discharges reflect highly synchronized thalamocortical activity, and the network is otherwise normal between them. Graded INDIRECT because the study population is IGE-wide rather than EGTCA-specific.</div>
 
 
 
@@ -4977,7 +5190,9 @@ This pathophysiological event involves abnormal Regulation of Membrane Potential
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21269293" target="_blank">PMID:21269293</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5017,18 +5232,20 @@ This pathophysiological event involves abnormal Regulation of Membrane Potential
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). GO:0042745 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Circadian Sleep/Wake Cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042745" target="_blank" class="curie-chip curie-chip-go">GO:0042745</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042745" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042745</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). GO:0042745 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5080,7 +5297,9 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10996562" target="_blank">PMID:10996562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5102,7 +5321,9 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10996562" target="_blank">PMID:10996562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5118,13 +5339,17 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24632482" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24632482" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24632482" target="_blank">PMID:24632482</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5134,7 +5359,7 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
                 <div class="evidence-snippet">"Patients with idiopathic generalized epilepsy seemed to be more sensitive to seizures during awakening and sleep deprivation"</div>
 
 
-                <div class="evidence-explanation">Independent clinic-cohort confirmation that awakening and sleep deprivation are differentially potent precipitants in idiopathic generalized epilepsy. Marked PARTIAL because the comparison is across broad epilepsy categories rather than within EGTCA, and the authors themselves hedge with &#34;seemed to be&#34;.</div>
+                <div class="evidence-explanation">Independent clinic-cohort confirmation that awakening and sleep deprivation are differentially potent precipitants in idiopathic generalized epilepsy. Graded INDIRECT because the comparison is across broad epilepsy categories rather than within EGTCA, and the authors themselves hedge with &#34;seemed to be&#34;.</div>
 
 
 
@@ -5195,7 +5420,9 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37872695" target="_blank">PMID:37872695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5235,18 +5462,20 @@ This pathophysiological event involves Circadian Sleep/Wake Cycle (GO:0042745). 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Chemical Synaptic Transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Chemical Synaptic Transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Chemical Synaptic Transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5302,7 +5531,9 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503716" target="_blank">PMID:35503716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5373,7 +5604,9 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5431,7 +5664,9 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32030724" target="_blank">PMID:32030724</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5479,7 +5714,7 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Catamenial Gating of Seizure Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second state-gating input, parallel to the sleep-wake one. In some patients seizures cluster with the menstrual cycle, and catamenial seizures are one of only two features that independently predicted drug resistance in the largest ILAE-criteria cohort. It is modeled as a modulator on seizure generation for the same reason as the sleep-wake node: it changes when and how readily the hyperexcitable network converts to a clinical seizure without being required to produce one.\", \"meta\": {\"evidence_count\": 1, \"role\": \"modulator\"}}, {\"id\": \"Cortico-Thalamocortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The susceptibility alleles shift the balance between glutamatergic excitation and GABAergic inhibition within reciprocally connected cortical and thalamic populations toward net excitation. The thalamic reticular nucleus, whose GABAergic output paces thalamocortical relay neurons, is the inhibitory element whose dysfunction is most consistently implicated across the idiopathic generalized epilepsies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"GABAergic Neuron\", \"Thalamic Relay Neuron\"], \"biological_processes\": [\"GABA Signaling Pathway\"], \"role\": \"amplifier\", \"locations\": [\"Thalamic Reticular Nucleus\", \"Cerebral Cortex\"]}}, {\"id\": \"Generalized Hypersynchronous Discharge\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Net excitatory bias permits large populations of cortical and thalamic neurons to fire in phase, producing the bilaterally synchronous generalized spike-wave and polyspike-wave discharges that are the electrographic signature of the syndrome. Between discharges the background is normal, which is what separates this from the encephalopathic generalized epilepsies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cortical Pyramidal Neuron\", \"Corticothalamic Projection Neuron\"], \"biological_processes\": [\"Regulation of Membrane Potential\"], \"role\": \"intermediate\"}}, {\"id\": \"Habitual late and unstable sleep pattern\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Beyond acute sleep loss, patients with awakening epilepsy have been characterized as late sleepers and late risers whose habitual schedule predisposes to chronic sleep debt, with polygraphic evidence of less stable sleep. This is a chronic predisposing exposure distinct from an acute precipitant, which is why it is typed PREDISPOSES rather than EXACERBATES.\"}, {\"id\": \"Levetiracetam\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levetiracetam is the most commonly used alternative to valproate and is preferred in people of childbearing potential because of its substantially lower teratogenic risk. The honest framing is that this is a trade-off rather than an equivalence: SANAD II found levetiracetam neither non-inferior nor cost-effective against valproate, so the choice buys reproductive safety at some cost in seizure control.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levetiracetam\"]}}, {\"id\": \"Polygenic Susceptibility to Generalized Epilepsy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Susceptibility is conferred by many common variants of individually small effect together with rarer variants in genes encoding neuronal ion channels and neurotransmitter receptors, in particular voltage-gated calcium and chloride channels and GABA-A receptor subunits. No single gene is necessary or sufficient. The net effect is a lowered seizure threshold in cortico-thalamocortical circuits rather than a discrete molecular lesion, which is why the node is a distributed liability rather than a named mutation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Regulation of Membrane Potential\", \"Chemical Synaptic Transmission\"], \"role\": \"trigger\"}}, {\"id\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When hypersynchronous activity crosses the threshold at which it recruits motor cortex and brainstem tonic and clonic generators, the clinical output is a generalized tonic-clonic seizure rather than the behavioral arrest of an absence or the brief jerk of a myoclonic seizure. Why the same class of network abnormality produces convulsive output alone in this syndrome, and absence or myoclonus in its siblings, is not established; it is curated here as a difference in network engagement rather than a distinct etiology, and the uncertainty is recorded as an explicit knowledge gap.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Chemical Synaptic Transmission\"], \"role\": \"consequence\"}}, {\"id\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The established clinical disease: recurrent unprovoked generalized tonic-clonic seizures with no other seizure type, normal cognition, and normal imaging. Seizures are typically infrequent, respond well to antiseizure medication, and carry the injury risk inherent to convulsive seizures rather than the cognitive burden of the encephalopathic epilepsies.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Seizure-Related Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because every seizure in this syndrome is convulsive by definition, the morbidity is dominated by physical injury sustained during the seizure rather than by interictal cognitive impairment. This is the mechanistic reason the syndrome is not benign despite low seizure frequency and good treatment response.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Sleep deprivation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sleep deprivation is the most frequently named precipitant among EGTCA patients who can identify one, and the practical target of lifestyle counseling. It should not be over-sold: about half of patients in the prospective cohort could identify no trigger at all. It acts by transiently lowering seizure threshold in an already hyperexcitable network rather than by causing the underlying epilepsy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sleep hygiene and precipitant avoidance counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regularizing sleep schedule, avoiding sleep deprivation, and moderating alcohol are the non-pharmacological cornerstone of management, and follow directly from the syndrome\u0027s defining sensitivity to sleep-wake state. This is the one intervention that acts on the modulating input rather than on the seizure output.\"}, {\"id\": \"Sleep-Wake State Gating of Seizure Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The distinctive feature of EGTCA is not that seizures occur but when. The transition out of sleep, and sleep deprivation preceding it, transiently lower the threshold at which the hyperexcitable network converts into a clinical seizure, concentrating seizures in the hour or two after awakening independent of clock time. This node is deliberately modeled as a modulator acting on seizure generation rather than as a step in the causal chain, because it changes the probability and timing of the output without being required to produce it.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Circadian Sleep/Wake Cycle\"], \"role\": \"modulator\"}}, {\"id\": \"Valproate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium valproate is the reference first-line agent for generalized tonic-clonic seizures in the idiopathic generalized epilepsies and the comparator against which alternatives are judged; it was the initial drug for 68% of patients in the prospective EGTCA cohort. In a randomized non-inferiority trial in newly diagnosed generalized and unclassifiable epilepsy, levetiracetam failed to demonstrate non-inferiority to valproate. Its use is constrained by teratogenicity, so it is avoided in people of childbearing potential where an alternative is viable, and that trade-off is a shared decision rather than an automatic exclusion.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"valproic acid\"]}}], \"edges\": [{\"source\": \"Polygenic Susceptibility to Generalized Epilepsy\", \"target\": \"Cortico-Thalamocortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortico-Thalamocortical Excitation-Inhibition Imbalance\", \"target\": \"Generalized Hypersynchronous Discharge\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized Hypersynchronous Discharge\", \"target\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sleep-Wake State Gating of Seizure Threshold\", \"target\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catamenial Gating of Seizure Threshold\", \"target\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"target\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"target\": \"Seizure-Related Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sleep deprivation\", \"target\": \"Sleep-Wake State Gating of Seizure Threshold\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Sleep loss is the unifying external precipitant across awakening epilepsy, acting on the sleep-wake state modulation of seizure threshold.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Habitual late and unstable sleep pattern\", \"target\": \"Sleep-Wake State Gating of Seizure Threshold\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A habitually late and unstable sleep schedule maintains a chronic sleep deficit that keeps the state-gated seizure threshold persistently lower.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Valproate\", \"target\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levetiracetam\", \"target\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sleep hygiene and precipitant avoidance counseling\", \"target\": \"Sleep-Wake State Gating of Seizure Threshold\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Catamenial Gating of Seizure Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A second state-gating input, parallel to the sleep-wake one. In some patients seizures cluster with the menstrual cycle, and catamenial seizures are one of only two features that independently predicted drug resistance in the largest ILAE-criteria cohort. It is modeled as a modulator on seizure generation for the same reason as the sleep-wake node: it changes when and how readily the hyperexcitable network converts to a clinical seizure without being required to produce one.\", \"meta\": {\"evidence_count\": 1, \"role\": \"modulator\"}}, {\"id\": \"Cortico-Thalamocortical Excitation-Inhibition Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The susceptibility alleles shift the balance between glutamatergic excitation and GABAergic inhibition within reciprocally connected cortical and thalamic populations toward net excitation. The thalamic reticular nucleus, whose GABAergic output paces thalamocortical relay neurons, is the inhibitory element whose dysfunction is most consistently implicated across the idiopathic generalized epilepsies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"GABAergic Neuron\", \"Thalamic Relay Neuron\"], \"biological_processes\": [\"GABA Signaling Pathway\"], \"role\": \"amplifier\", \"locations\": [\"Thalamic Reticular Nucleus\", \"Cerebral Cortex\"]}}, {\"id\": \"Generalized Hypersynchronous Discharge\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Net excitatory bias permits large populations of cortical and thalamic neurons to fire in phase, producing the bilaterally synchronous generalized spike-wave and polyspike-wave discharges that are the electrographic signature of the syndrome. Between discharges the background is normal, which is what separates this from the encephalopathic generalized epilepsies.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cortical Pyramidal Neuron\", \"Corticothalamic Projection Neuron\"], \"biological_processes\": [\"Regulation of Membrane Potential\"], \"role\": \"intermediate\"}}, {\"id\": \"Habitual late and unstable sleep pattern\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Beyond acute sleep loss, patients with awakening epilepsy have been characterized as late sleepers and late risers whose habitual schedule predisposes to chronic sleep debt, with polygraphic evidence of less stable sleep. This is a chronic predisposing exposure distinct from an acute precipitant, which is why it is typed PREDISPOSES rather than EXACERBATES.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Levetiracetam\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Levetiracetam is the most commonly used alternative to valproate and is preferred in people of childbearing potential because of its substantially lower teratogenic risk. The honest framing is that this is a trade-off rather than an equivalence: SANAD II found levetiracetam neither non-inferior nor cost-effective against valproate, so the choice buys reproductive safety at some cost in seizure control.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levetiracetam\"]}}, {\"id\": \"Polygenic Susceptibility to Generalized Epilepsy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Susceptibility is conferred by many common variants of individually small effect together with rarer variants in genes encoding neuronal ion channels and neurotransmitter receptors, in particular voltage-gated calcium and chloride channels and GABA-A receptor subunits. No single gene is necessary or sufficient. The net effect is a lowered seizure threshold in cortico-thalamocortical circuits rather than a discrete molecular lesion, which is why the node is a distributed liability rather than a named mutation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"Regulation of Membrane Potential\", \"Chemical Synaptic Transmission\"], \"role\": \"trigger\"}}, {\"id\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When hypersynchronous activity crosses the threshold at which it recruits motor cortex and brainstem tonic and clonic generators, the clinical output is a generalized tonic-clonic seizure rather than the behavioral arrest of an absence or the brief jerk of a myoclonic seizure. Why the same class of network abnormality produces convulsive output alone in this syndrome, and absence or myoclonus in its siblings, is not established; it is curated here as a difference in network engagement rather than a distinct etiology, and the uncertainty is recorded as an explicit knowledge gap.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Chemical Synaptic Transmission\"], \"role\": \"consequence\"}}, {\"id\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The established clinical disease: recurrent unprovoked generalized tonic-clonic seizures with no other seizure type, normal cognition, and normal imaging. Seizures are typically infrequent, respond well to antiseizure medication, and carry the injury risk inherent to convulsive seizures rather than the cognitive burden of the encephalopathic epilepsies.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Seizure-Related Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because every seizure in this syndrome is convulsive by definition, the morbidity is dominated by physical injury sustained during the seizure rather than by interictal cognitive impairment. This is the mechanistic reason the syndrome is not benign despite low seizure frequency and good treatment response.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Sleep deprivation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sleep deprivation is the most frequently named precipitant among EGTCA patients who can identify one, and the practical target of lifestyle counseling. It should not be over-sold: about half of patients in the prospective cohort could identify no trigger at all. It acts by transiently lowering seizure threshold in an already hyperexcitable network rather than by causing the underlying epilepsy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sleep hygiene and precipitant avoidance counseling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Regularizing sleep schedule, avoiding sleep deprivation, and moderating alcohol are the non-pharmacological cornerstone of management, and follow directly from the syndrome\u0027s defining sensitivity to sleep-wake state. This is the one intervention that acts on the modulating input rather than on the seizure output.\"}, {\"id\": \"Sleep-Wake State Gating of Seizure Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The distinctive feature of EGTCA is not that seizures occur but when. The transition out of sleep, and sleep deprivation preceding it, transiently lower the threshold at which the hyperexcitable network converts into a clinical seizure, concentrating seizures in the hour or two after awakening independent of clock time. This node is deliberately modeled as a modulator acting on seizure generation rather than as a step in the causal chain, because it changes the probability and timing of the output without being required to produce it.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Circadian Sleep/Wake Cycle\"], \"role\": \"modulator\"}}, {\"id\": \"Valproate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium valproate is the reference first-line agent for generalized tonic-clonic seizures in the idiopathic generalized epilepsies and the comparator against which alternatives are judged; it was the initial drug for 68% of patients in the prospective EGTCA cohort. In a randomized non-inferiority trial in newly diagnosed generalized and unclassifiable epilepsy, levetiracetam failed to demonstrate non-inferiority to valproate. Its use is constrained by teratogenicity, so it is avoided in people of childbearing potential where an alternative is viable, and that trade-off is a shared decision rather than an automatic exclusion.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"valproic acid\"]}}], \"edges\": [{\"source\": \"Polygenic Susceptibility to Generalized Epilepsy\", \"target\": \"Cortico-Thalamocortical Excitation-Inhibition Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cortico-Thalamocortical Excitation-Inhibition Imbalance\", \"target\": \"Generalized Hypersynchronous Discharge\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized Hypersynchronous Discharge\", \"target\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sleep-Wake State Gating of Seizure Threshold\", \"target\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Catamenial Gating of Seizure Threshold\", \"target\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Recruitment of Motor Systems into Tonic-Clonic Output\", \"target\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"target\": \"Seizure-Related Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sleep deprivation\", \"target\": \"Sleep-Wake State Gating of Seizure Threshold\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Sleep loss is the unifying external precipitant across awakening epilepsy, acting on the sleep-wake state modulation of seizure threshold.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Habitual late and unstable sleep pattern\", \"target\": \"Sleep-Wake State Gating of Seizure Threshold\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A habitually late and unstable sleep schedule maintains a chronic sleep deficit that keeps the state-gated seizure threshold persistently lower.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Valproate\", \"target\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Levetiracetam\", \"target\": \"Recurrent Unprovoked Generalized Tonic-Clonic Seizures\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sleep hygiene and precipitant avoidance counseling\", \"target\": \"Sleep-Wake State Gating of Seizure Threshold\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5521,16 +5756,22 @@ This pathophysiological event involves abnormal Chemical Synaptic Transmission (
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002069</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified as juvenile onset, mean 16.6y, range 5.4-38.3y. HP:0002069 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral tonic-clonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp">HP:0002069</a>
-
-
+This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified as juvenile onset, mean 16.6y, range 5.4-38.3y. HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5580,7 +5821,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503716" target="_blank">PMID:35503716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5602,7 +5845,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5624,7 +5869,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37872695" target="_blank">PMID:37872695</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5658,16 +5905,22 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002069</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified as temporality recurrent. HP:0002069 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral tonic-clonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp">HP:0002069</a>
-
-
+This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified as temporality recurrent. HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5708,7 +5961,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5730,7 +5985,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5746,13 +6003,17 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:10996562" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:10996562" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10996562" target="_blank">PMID:10996562</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5762,7 +6023,7 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
                 <div class="evidence-snippet">"generalized tonic clonic seizures (GTCS) occurring predominantly on awakening (independent of the time of day) or at leisure time (almost at evening)"</div>
 
 
-                <div class="evidence-explanation">The classical description of awakening-linked timing, and the source of the syndrome&#39;s historical name. Marked PARTIAL because it describes the pre-2022 &#34;awakening epilepsy&#34; entity, which required awakening predominance by definition, so it cannot establish the frequency of that pattern within the broader ILAE-2022 syndrome.</div>
+                <div class="evidence-explanation">The classical description of awakening-linked timing, and the source of the syndrome&#39;s historical name. Graded INDIRECT because it describes the pre-2022 &#34;awakening epilepsy&#34; entity, which required awakening predominance by definition, so it cannot establish the frequency of that pattern within the broader ILAE-2022 syndrome.</div>
 
 
 
@@ -5786,16 +6047,22 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069), qualified 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized non-motor (absence) seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002121</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is absent Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized non-motor (absence) seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002121" target="_blank" class="curie-chip curie-chip-hp">HP:0002121</a>
-
-
+This clinical feature is absent Absence seizure, annotated with Generalized non-motor (absence) seizure (HP:0002121). HP:0002121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5838,7 +6105,9 @@ This clinical feature is absent Absence seizure, annotated with Generalized non-
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503716" target="_blank">PMID:35503716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5881,16 +6150,22 @@ This clinical feature is absent Absence seizure, annotated with Generalized non-
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">EEG with spike-wave complexes</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010850" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0010850</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 is a phenotype from the Human Phenotype Ontology.">
-                        EEG with spike-wave complexes
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010850" target="_blank" class="curie-chip curie-chip-hp">HP:0010850</a>
-
-
+This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5911,7 +6186,9 @@ This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5927,13 +6204,17 @@ This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35503716" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35503716" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503716" target="_blank">PMID:35503716</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5943,7 +6224,7 @@ This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 
                 <div class="evidence-snippet">"with 2.5-5.5 Hz generalized spike-wave"</div>
 
 
-                <div class="evidence-explanation">Gives the ILAE frequency band for the generalized spike-wave activity expected across this syndrome group. Marked PARTIAL because the sentence it comes from defines the residual genetic generalized epilepsy category rather than EGTCA specifically, though the same discharge band applies.</div>
+                <div class="evidence-explanation">Gives the ILAE frequency band for the generalized spike-wave activity expected across this syndrome group. Graded INDIRECT because the sentence it comes from defines the residual genetic generalized epilepsy category rather than EGTCA specifically, though the same discharge band applies.</div>
 
 
 
@@ -5967,16 +6248,22 @@ This clinical feature is EEG with spike-wave complexes (HP:0010850). HP:0010850 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">EEG with photoparoxysmal response</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010852" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0010852</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010852 is a phenotype from the Human Phenotype Ontology.">
-                        EEG with photoparoxysmal response
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010852" target="_blank" class="curie-chip curie-chip-hp">HP:0010852</a>
-
-
+This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010852 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5997,7 +6284,9 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6019,7 +6308,9 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6035,13 +6326,17 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:11442158" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:11442158" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11442158" target="_blank">PMID:11442158</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6051,7 +6346,7 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
                 <div class="evidence-snippet">"PPR accounted for 17.4% (p &lt; 0.01) of the patients with juvenile myoclonic epilepsy, 7.6% (p &lt; 0.01) of those with grand mal on awakening, and 6.1% (p &lt; 0.01) of those with symptomatic occipital lobe epilepsy."</div>
 
 
-                <div class="evidence-explanation">Useful only for the relative comparison with juvenile myoclonic epilepsy. Marked PARTIAL and NOT used to set the frequency band, because it counts the pre-2022 &#34;grand mal on awakening&#34; entity rather than EGTCA, and because the same paper notes its cohort&#39;s photoparoxysmal rate was low relative to European series.</div>
+                <div class="evidence-explanation">Useful only for the relative comparison with juvenile myoclonic epilepsy. Graded INDIRECT, and NOT used to set the frequency band, because it counts the pre-2022 &#34;grand mal on awakening&#34; entity rather than EGTCA, and because the same paper notes its cohort&#39;s photoparoxysmal rate was low relative to European series.</div>
 
 
 
@@ -6094,7 +6389,9 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6110,13 +6407,17 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38165295" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38165295" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38165295" target="_blank">PMID:38165295</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6126,7 +6427,7 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
                 <div class="evidence-snippet">"Emerging evidence reveals that patients with IGE may go undiagnosed or misdiagnosed with focal epilepsy if EEG or semiology have asymmetric or focal features."</div>
 
 
-                <div class="evidence-explanation">Supports the diagnostic importance of the expected normal, symmetric, non-focal picture by describing what happens when it is departed from. Marked PARTIAL because it evidences the diagnostic consequence rather than quantifying normal status, and evidence_source is OTHER because this is a review.</div>
+                <div class="evidence-explanation">Supports the diagnostic importance of the expected normal, symmetric, non-focal picture by describing what happens when it is departed from. Graded INDIRECT because it evidences the diagnostic consequence rather than quantifying normal status, and evidence_source is OTHER because this is a review.</div>
 
 
 
@@ -6150,16 +6451,20 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0032794</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is absent Myoclonic seizure (HP:0032794). HP:0032794 is a phenotype from the Human Phenotype Ontology.">
-                        Myoclonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" class="curie-chip curie-chip-hp">HP:0032794</a>
-
-
+This clinical feature is absent Myoclonic seizure (HP:0032794). HP:0032794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6200,7 +6505,9 @@ This clinical feature is absent Myoclonic seizure (HP:0032794). HP:0032794 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503716" target="_blank">PMID:35503716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6276,15 +6583,17 @@ This clinical feature is absent Myoclonic seizure (HP:0032794). HP:0032794 is a 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CLCN2
 
 
-    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2020</a>
+    <a href="https://bioregistry.io/hgnc:2020" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:2020</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6302,13 +6611,17 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19191339" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19191339" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19191339" target="_blank">PMID:19191339</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6318,7 +6631,7 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
                 <div class="evidence-snippet">"Functional characterization of mutant channels using heterologous expression in mammalian cells and whole-cell patch-clamp recordings revealed faster deactivation kinetics as the major phenotype of both missense mutations."</div>
 
 
-                <div class="evidence-explanation">Establishes a measured functional consequence for the candidate variants. Marked PARTIAL and IN_VITRO because the electrophysiology was done in a heterologous expression system and demonstrates an altered channel property, not a contribution to human EGTCA.</div>
+                <div class="evidence-explanation">Establishes a measured functional consequence for the candidate variants. Graded INDIRECT, and IN_VITRO, because the electrophysiology was done in a heterologous expression system and demonstrates an altered channel property, not a contribution to human EGTCA.</div>
 
 
 
@@ -6330,7 +6643,9 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19191339" target="_blank">PMID:19191339</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6346,13 +6661,15 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16932951" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16932951" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16932951" target="_blank">PMID:16932951</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6382,6 +6699,9 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6398,17 +6718,17 @@ This disease-associated gene is CLCN2 (hgnc:2020). hgnc:2020 is a gene from the 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6433,21 +6753,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         valproic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:39867</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:39867</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6473,13 +6814,17 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6489,19 +6834,23 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
                 <div class="evidence-snippet">"A GTC recurred in 14% of patients treated with ASM compared with 73% of untreated patients (p &lt; 0.00001)."</div>
 
 
-                <div class="evidence-explanation">The best available EGTCA-specific evidence that pharmacotherapy suppresses seizure recurrence, in a cohort where valproate was the initial agent for 68% of patients. Marked PARTIAL because the contrast is treated versus untreated rather than valproate versus another drug, so it cannot isolate valproate&#39;s contribution.</div>
+                <div class="evidence-explanation">The best available EGTCA-specific evidence that pharmacotherapy suppresses seizure recurrence, in a cohort where valproate was the initial agent for 68% of patients. Graded INDIRECT because the contrast is treated versus untreated rather than valproate versus another drug, so it cannot isolate valproate&#39;s contribution.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32030724" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32030724" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32030724" target="_blank">PMID:32030724</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6511,7 +6860,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
                 <div class="evidence-snippet">"Valproate reduced the risk of experiencing GTCSs significantly (OR: 0.58; 95% CI: 0.34-0.99; P = .04)."</div>
 
 
-                <div class="evidence-explanation">Marked PARTIAL, and deliberately not used as the primary support, because the outcome modeled is whether an IGE patient has generalized tonic-clonic seizures at all. The comparison group is IGE patients without such seizures, mostly absence and myoclonic syndromes, so within EGTCA - where every patient has them by definition - this odds ratio cannot describe a treatment effect. It is retained as class-level context only, and the causal reading in an earlier draft of this explanation was withdrawn.</div>
+                <div class="evidence-explanation">Marked INDIRECT, and deliberately not used as the primary support, because the outcome modeled is whether an IGE patient has generalized tonic-clonic seizures at all. The comparison group is IGE patients without such seizures, mostly absence and myoclonic syndromes, so within EGTCA - where every patient has them by definition - this odds ratio cannot describe a treatment effect. It is retained as class-level context only, and the causal reading in an earlier draft of this explanation was withdrawn.</div>
 
 
 
@@ -6542,7 +6891,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33838758" target="_blank">PMID:33838758</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6558,13 +6909,17 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33838758" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33838758" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33838758" target="_blank">PMID:33838758</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6574,7 +6929,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
                 <div class="evidence-snippet">"Valproate is a first-line treatment for patients with newly diagnosed idiopathic generalised or difficult to classify epilepsy, but not for women of child-bearing potential because of teratogenicity."</div>
 
 
-                <div class="evidence-explanation">States the teratogenicity constraint that governs prescribing. Marked PARTIAL because this is the trial&#39;s background framing rather than a teratogenicity result generated by the trial itself.</div>
+                <div class="evidence-explanation">States the teratogenicity constraint that governs prescribing. Graded INDIRECT because this is the trial&#39;s background framing rather than a teratogenicity result generated by the trial itself.</div>
 
 
 
@@ -6594,17 +6949,17 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6629,21 +6984,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         levetiracetam
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6437" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6437</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6437" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:6437</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6669,13 +7045,17 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6685,7 +7065,7 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
                 <div class="evidence-snippet">"A GTC recurred in 14% of patients treated with ASM compared with 73% of untreated patients (p &lt; 0.00001)."</div>
 
 
-                <div class="evidence-explanation">Demonstrates that antiseizure medication as a class suppresses seizure recurrence in EGTCA specifically. Marked PARTIAL because the comparison is treated versus untreated rather than levetiracetam-specific.</div>
+                <div class="evidence-explanation">Demonstrates that antiseizure medication as a class suppresses seizure recurrence in EGTCA specifically. Graded INDIRECT because the comparison is treated versus untreated rather than levetiracetam-specific.</div>
 
 
 
@@ -6710,13 +7090,17 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33838758" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33838758" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33838758" target="_blank">PMID:33838758</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6726,7 +7110,7 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
                 <div class="evidence-snippet">"For girls and women of child-bearing potential, these results inform discussions about benefit and harm of avoiding valproate."</div>
 
 
-                <div class="evidence-explanation">Frames the levetiracetam choice as a benefit-harm discussion rather than a straightforward substitution. Marked PARTIAL because it supports the decision framing rather than establishing levetiracetam efficacy.</div>
+                <div class="evidence-explanation">Frames the levetiracetam choice as a benefit-harm discussion rather than a straightforward substitution. Graded INDIRECT because it supports the decision framing rather than establishing levetiracetam efficacy.</div>
 
 
 
@@ -6746,17 +7130,17 @@ This treatment uses levetiracetam (CHEBI:6437). CHEBI:6437 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6781,21 +7165,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         lamotrigine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6367</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:6367</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6816,17 +7221,17 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6844,6 +7249,25 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6871,13 +7295,15 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:10996562" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:10996562" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10996562" target="_blank">PMID:10996562</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6887,7 +7313,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="evidence-snippet">"The common denominator of external seizures precipitating influences is lack of sleep."</div>
 
 
-                <div class="evidence-explanation">Identifies the modifiable precipitant that this intervention targets. Marked PARTIAL because no trial evidence was identified showing that counseling changes seizure outcomes in EGTCA.</div>
+                <div class="evidence-explanation">Identifies the modifiable precipitant that this intervention targets. No trial evidence was identified showing that counseling changes seizure outcomes in EGTCA.</div>
 
 
 
@@ -6924,6 +7350,33 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="item-box environmental-box anchor-target" id="environmental-sleep-deprivation" data-dismech-node="Sleep deprivation" data-dismech-type="environmental">
                 <div class="item-name">Sleep deprivation</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        sleep deprivation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/XCO_0001069" target="_blank" class="curie-chip curie-chip-xco" aria-describedby="pill-tip-28">XCO:0001069</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Experimental Conditions Ontology (XCO)
+Relation: this environmental factor is this exposure
+This environmental factor is sleep deprivation, annotated with sleep restriction (XCO:0001069). XCO:0001069 is an exposure from the Experimental Conditions Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
 
 
                 <div class="item-desc">Sleep deprivation is the most frequently named precipitant among EGTCA patients who can identify one, and the practical target of lifestyle counseling. It should not be over-sold: about half of patients in the prospective cohort could identify no trigger at all. It acts by transiently lowering seizure threshold in an already hyperexcitable network rather than by causing the underlying epilepsy.</div>
@@ -6942,7 +7395,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6958,13 +7413,17 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24632482" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24632482" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24632482" target="_blank">PMID:24632482</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6974,7 +7433,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="evidence-snippet">"Of 104 patients, 97% cited at least one precipitant. Stress, sleep deprivation, and fatigue were the most frequently reported precipitants."</div>
 
 
-                <div class="evidence-explanation">Class-level context from a general epilepsy clinic. Marked PARTIAL because the population is all-comers rather than EGTCA, and because its 97% trigger-identification rate is strikingly higher than the EGTCA cohort&#39;s 48%, which is a reason to prefer the syndrome-specific figure.</div>
+                <div class="evidence-explanation">Class-level context from a general epilepsy clinic. Marked INDIRECT because the population is all-comers rather than EGTCA, and because its 97% trigger-identification rate is strikingly higher than the EGTCA cohort&#39;s 48%, which is a reason to prefer the syndrome-specific figure.</div>
 
 
 
@@ -7013,7 +7472,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10996562" target="_blank">PMID:10996562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7045,9 +7506,47 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Beyond acute sleep loss, patients with awakening epilepsy have been characterized as late sleepers and late risers whose habitual schedule predisposes to chronic sleep debt, with polygraphic evidence of less stable sleep. This is a chronic predisposing exposure distinct from an acute precipitant, which is why it is typed PREDISPOSES rather than EXACERBATES.</div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10996562" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10996562" target="_blank">PMID:10996562</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The sleep habits of patients with AE who could roughly be characterized as late sleepers and late risers may dispose them to a chronic sleep deficit."</div>
+
+
+                <div class="evidence-explanation">Attributes the chronic sleep debt in this syndrome to habitual sleep timing rather than to any single night of lost sleep, which is what makes the habitual pattern an exposure in its own right.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 
@@ -7078,7 +7577,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10996562" target="_blank">PMID:10996562</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7111,6 +7612,582 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-sleep-deprived-eeg-with-serial-recording">
+                <div class="item-name">
+                    Sleep-deprived EEG with serial recording
+
+                </div>
+
+                <div class="item-desc">Generalized spike-wave discharge is mandatory for the diagnosis, so the EEG protocol is not incidental to it. A 3-hour sleep-deprived recording captured discharges in 88% of patients on the first study in the prospective cohort, and repeating the EEG recovered most of the remainder. A single normal routine EEG therefore does not exclude EGTCA, and serial sleep-deprived recordings are the practical standard.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Participants underwent a 3-h sleep-deprived video-EEG recording along with an epilepsy protocol brain magnetic resonance imaging (MRI) with repeat EEG at each follow-up."</div>
+
+
+                <div class="evidence-explanation">Documents the diagnostic protocol under which the cohort&#39;s 88% first-EEG yield was obtained, which is what makes that figure actionable rather than abstract.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The significance of these findings is underscored by the mandatory presence of GSWD for diagnosing EGTCA."</div>
+
+
+                <div class="evidence-explanation">Establishes that the EEG finding is a required diagnostic criterion, not merely supportive, which is why EEG yield matters so much in this syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-mri-to-exclude-a-structural-lesion">
+                <div class="item-name">
+                    MRI to exclude a structural lesion
+
+                </div>
+
+                <div class="item-desc">Brain MRI is performed to exclude a structural cause rather than to confirm EGTCA; the syndrome is non-lesional by definition. Focal slowing or a persistent focal EEG abnormality should prompt reconsideration of the diagnosis rather than reassurance.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"along with an epilepsy protocol brain magnetic resonance imaging (MRI)"</div>
+
+
+                <div class="evidence-explanation">Confirms that dedicated epilepsy-protocol MRI was part of the diagnostic workup in the ILAE-criteria cohort. Graded INDIRECT because it documents that imaging was performed rather than reporting the yield, so it supports the practice without quantifying how often a lesion is found.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-treatment-response">
+                <div class="item-name">Early treatment response</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adolescence to young adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">EGTCA is among the more manageable idiopathic generalized epilepsies. Most patients respond promptly to antiseizure medication and drug resistance is uncommon at 16.3% in the largest cohort, but a substantial minority follow a relapsing-remitting course rather than a clean remission, so the syndrome should not be described as uniformly benign.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37872695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37872695" target="_blank">PMID:37872695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Drug resistance at the last visit was observed in 40 (16.3%) patients"</div>
+
+
+                <div class="evidence-explanation">Puts a number on the &#34;drug resistance is uncommon&#34; claim rather than leaving it qualitative.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37872695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37872695" target="_blank">PMID:37872695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"had no-remission and relapsing-remitting patterns, respectively."</div>
+
+
+                <div class="evidence-explanation">Anchors the relapsing-remitting subgroup, which in that cohort was 36.3% of patients followed at least five years, against 8% with no remission.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37872695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37872695" target="_blank">PMID:37872695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GTCA could be considered a relatively easily manageable IGE syndrome, with a low rate of drug resistance and a high prevalence of early response to treatment."</div>
+
+
+                <div class="evidence-explanation">Multicenter confirmation of the favorable treatment-response profile in a cohort defined by the 2022 ILAE criteria.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-attempted-medication-withdrawal">
+                <div class="item-name">Attempted medication withdrawal</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Young adulthood onward</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Lifelong treatment is not always necessary, but relapse after withdrawal is frequent, and the two ILAE-criteria cohorts disagree sharply on how frequent: 44% recurrence in the prospective cohort versus 83% in the larger retrospective one. That gap is not resolved here and should not be averaged away; it plausibly reflects differences in follow-up duration, in who was selected for a withdrawal attempt, and in how recurrence was ascertained. The predictors also differ by cohort. The prospective cohort found patient-initiated tapering and a mixed diurnal-nocturnal seizure pattern independently predicted recurrence, and reported success where seizure freedom was long-standing and generalized spike-wave had resolved; the retrospective cohort found longer seizure freedom to be the only predictor of successful withdrawal. The circadian predictor links prognosis back to the sleep-wake gating node in the pathophysiology.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ASM discontinuation was attempted in 50 patients after a median treatment duration of 3 years, with 44% experiencing a recurrence."</div>
+
+
+                <div class="evidence-explanation">Quantifies relapse risk on withdrawal in an EGTCA-specific prospective cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient-initiated taper and a mixed circadian seizure pattern independently predicted a higher likelihood of recurrence post-ASM discontinuation."</div>
+
+
+                <div class="evidence-explanation">Identifies the two independent predictors of relapse, including the circadian pattern that ties prognosis to the sleep-wake gating node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37872695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37872695" target="_blank">PMID:37872695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At the last visit, 49 (83%) of those patients had experienced GTCS recurrence."</div>
+
+
+                <div class="evidence-explanation">The competing relapse estimate. Curated alongside the 44% figure rather than in place of it, because the two ILAE-criteria cohorts genuinely disagree and picking one would misrepresent the state of the evidence.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-long-term-outcome">
+                <div class="item-name">Long-term outcome</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adulthood to late adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Over decades of follow-up, long-term seizure outcome in EGTCA is very similar to that of the other adolescent-onset generalized genetic epilepsies, with most patients reaching terminal remission. Age at first seizure is the feature that most clearly separates EGTCA from juvenile absence and juvenile myoclonic epilepsy, being several years later.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28464258" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28464258" target="_blank">PMID:28464258</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age at first seizure was significantly higher in EGTCS patients (median 18 years) than in patients with JAE or JME (14 years each; p ≤ 0.001)."</div>
+
+
+                <div class="evidence-explanation">Establishes the later onset of EGTCA relative to its sibling syndromes in a cohort with a median 42.5-year follow-up.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28464258" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28464258" target="_blank">PMID:28464258</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Long-term outcome was shown to be highly similar across all subsyndromes of adolescent-onset GGE."</div>
+
+
+                <div class="evidence-explanation">Supports curating long-term prognosis at the adolescent-onset GGE level rather than asserting an EGTCA-specific long-term trajectory.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-patients-diagnosed-with-an-idiopathic-generalized-epilepsy">
+                <div class="item-name">Patients diagnosed with an idiopathic generalized epilepsy</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Recorded as a share of idiopathic generalized epilepsy diagnoses rather than as a population rate. Reported proportions vary widely across cohorts and diagnostic eras, so no population rate is asserted here; the 31% figure is from a single prospective center applying mandatory ILAE criteria and should not be read as a general population estimate. measure_type is UNKNOWN rather than POINT_PREVALENCE on purpose: this is a share of a diagnostic group, and PrevalenceMeasureEnum has no value for that, so claiming a point prevalence would misdescribe the statistic.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38819591" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38819591" target="_blank">PMID:38819591</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Eighty-nine patients with a median age of 16 years were included, constituting 31% of those diagnosed with an idiopathic generalized epilepsy."</div>
+
+
+                <div class="evidence-explanation">Gives the syndrome&#39;s share of idiopathic generalized epilepsy diagnoses in a prospective multicenter cohort using mandatory ILAE criteria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-all-epilepsies">
+                <div class="item-name">All epilepsies</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Class-level context only. The idiopathic generalized epilepsies as a group account for roughly a fifth of all epilepsies; EGTCA is one of four syndromes within that fifth, and no reliable syndrome-level population rate was identified during curation. As above, measure_type is UNKNOWN because this records a share of all epilepsies, not a population rate for EGTCA.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38165295" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38165295" target="_blank">PMID:38165295</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The idiopathic generalized epilepsies (IGE) make up a fifth of all epilepsies, but &lt;1% of epilepsy research."</div>
+
+
+                <div class="evidence-explanation">Establishes the class-level share of all epilepsies. Marked INDIRECT because it covers the four-syndrome group rather than EGTCA alone, and evidence_source is OTHER because this is a review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7125,7 +8202,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-focal-epilepsy-with-focal-to-bilateral-tonic-clonic-seizures">
                 <div class="item-name">
 
                     Focal epilepsy with focal to bilateral tonic-clonic seizures
@@ -7153,7 +8230,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38165295" target="_blank">PMID:38165295</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7178,7 +8257,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-juvenile-myoclonic-epilepsy-and-juvenile-absence-epilepsy">
                 <div class="item-name">
 
                     Juvenile myoclonic epilepsy and juvenile absence epilepsy
@@ -7206,7 +8285,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503716" target="_blank">PMID:35503716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7231,7 +8312,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-drug-resistant-generalized-epilepsy-outside-the-ige-definition">
                 <div class="item-name">
 
                     Drug-resistant generalized epilepsy outside the IGE definition
@@ -7259,7 +8340,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38508955" target="_blank">PMID:38508955</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7384,8 +8467,8 @@ notes: &gt;-
   Evidence-level note. Most genomic and network-physiology evidence in the
   literature is at the level of the idiopathic/genetic generalized epilepsy class
   rather than EGTCA specifically. Where a claim rests on class-level rather than
-  syndrome-level data, the evidence item is marked PARTIAL and the explanation
-  says so. The one place this is unusually well documented is the GWAS: the 2023
+  syndrome-level data, the evidence item carries directness: INDIRECT and the
+  explanation says so. The one place this is unusually well documented is the GWAS: the 2023
   ILAE meta-analysis stratified by IGE subtype and found no genome-wide
   significant locus for EGTCA, which is curated here as a positive statement
   about sample size and polygenicity rather than quietly generalized from the
@@ -7409,8 +8492,8 @@ notes: &gt;-
   ILAE-criteria cohort explicitly reports that its data challenge the conventional
   awakening view. Curators should not treat a pre-2022 &#34;grand mal on awakening&#34;
   cohort as an EGTCA-specific source without saying so. This entry marks one such
-  borrowed statistic PARTIAL for exactly that reason, and the same conflation is
-  what polluted the dataset search described below.
+  borrowed statistic with the pre-2022 cohort named for exactly that reason, and
+  the same conflation is what polluted the dataset search described below.
 
   Dataset note. This entry deliberately carries no `datasets:` block. Dataset
   discovery was run and returned twelve candidates, none of which survived
@@ -7526,17 +8609,16 @@ pathophysiology:
         reference_title: &gt;-
           GWAS meta-analysis of over 29,000 people with epilepsy identifies 26
           risk loci and subtype-specific genetic architecture.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           We did not find any genome-wide significant loci for JAE (n = 671),
           GTCSA (n = 499)
         explanation: &gt;-
           The syndrome-stratified analysis found no EGTCA-specific locus at the
-          available sample size. Marked PARTIAL because this is an absence of
-          evidence at n = 499 rather than evidence that no such locus exists; it
-          supports the polygenic framing while bounding how confidently any
-          particular gene can be attached to this syndrome.
+          available sample size. This is an absence of evidence at n = 499 rather than
+          evidence that no such locus exists; it supports the polygenic framing while
+          bounding how confidently any particular gene can be attached to this syndrome.
   - name: Cortico-Thalamocortical Excitation-Inhibition Imbalance
     biological_scale: CELLULAR
     role: amplifier
@@ -7579,32 +8661,34 @@ pathophysiology:
         reference_title: &gt;-
           Sleep onset uncovers thalamic abnormalities in patients with idiopathic
           generalised epilepsy.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           As interactions between thalamic sub-regions are indirect and mediated
           by the inhibitory thalamic reticular nucleus (TRN), the results suggest
           abnormal TRN function in patients with IGE
         explanation: &gt;-
-          Human EEG-fMRI evidence implicating the inhibitory thalamic reticular
-          nucleus in idiopathic generalized epilepsy. Marked PARTIAL because the
-          cohort is IGE-wide rather than EGTCA-specific, and because the TRN
-          inference is indirect, drawn from intra-thalamic connectivity rather
-          than measured directly.
+          Human EEG-fMRI evidence implicating the inhibitory thalamic reticular nucleus
+          in idiopathic generalized epilepsy. Graded INDIRECT because the cohort is
+          IGE-wide rather than EGTCA-specific, and because the TRN inference is
+          indirect, drawn from intra-thalamic connectivity rather than measured
+          directly.
       - reference: PMID:38165295
         reference_title: &gt;-
           Idiopathic Generalized Epilepsy: Misunderstandings, Challenges, and
           Opportunities.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: OTHER
         snippet: &gt;-
           Genetic, electrophysiologic, and neuroimaging studies provide insights
           into pathophysiology, including overlaps and differences from focal
           epilepsies.
         explanation: &gt;-
-          Supports a network-level rather than lesional pathophysiology for the
-          IGE class. Marked PARTIAL, and evidence_source OTHER, because this is a
-          review synthesizing across syndromes rather than primary EGTCA data.
+          Supports a network-level rather than lesional pathophysiology for the IGE
+          class. Graded INDIRECT, and evidence_source OTHER, because this is a review
+          synthesizing across syndromes rather than primary EGTCA data.
   - name: Generalized Hypersynchronous Discharge
     biological_scale: TISSUE
     role: intermediate
@@ -7636,7 +8720,8 @@ pathophysiology:
     evidence:
       - reference: PMID:21269293
         reference_title: Functional connectivity in patients with idiopathic generalized epilepsy.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Although GSWDs are the result of highly synchronized activity in the
@@ -7644,9 +8729,9 @@ pathophysiology:
           normal brain activity.
         explanation: &gt;-
           States both halves of this node&#39;s claim: the discharges reflect highly
-          synchronized thalamocortical activity, and the network is otherwise
-          normal between them. Marked PARTIAL because the study population is
-          IGE-wide rather than EGTCA-specific.
+          synchronized thalamocortical activity, and the network is otherwise normal
+          between them. Graded INDIRECT because the study population is IGE-wide rather
+          than EGTCA-specific.
       - reference: PMID:21269293
         reference_title: Functional connectivity in patients with idiopathic generalized epilepsy.
         supports: SUPPORT
@@ -7706,17 +8791,18 @@ pathophysiology:
           threshold-lowering mechanism this node asserts.
       - reference: PMID:24632482
         reference_title: Seizure precipitants (triggering factors) in patients with epilepsy.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Patients with idiopathic generalized epilepsy seemed to be more
           sensitive to seizures during awakening and sleep deprivation
         explanation: &gt;-
-          Independent clinic-cohort confirmation that awakening and sleep
-          deprivation are differentially potent precipitants in idiopathic
-          generalized epilepsy. Marked PARTIAL because the comparison is across
-          broad epilepsy categories rather than within EGTCA, and the authors
-          themselves hedge with &#34;seemed to be&#34;.
+          Independent clinic-cohort confirmation that awakening and sleep deprivation
+          are differentially potent precipitants in idiopathic generalized epilepsy.
+          Graded INDIRECT because the comparison is across broad epilepsy categories
+          rather than within EGTCA, and the authors themselves hedge with &#34;seemed to
+          be&#34;.
   - name: Catamenial Gating of Seizure Threshold
     biological_scale: ORGANISM
     role: modulator
@@ -7968,18 +9054,19 @@ phenotypes:
           common.
       - reference: PMID:10996562
         reference_title: Epilepsy with grand mal on awakening and sleep-waking cycle.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           generalized tonic clonic seizures (GTCS) occurring predominantly on
           awakening (independent of the time of day) or at leisure time (almost at
           evening)
         explanation: &gt;-
-          The classical description of awakening-linked timing, and the source of
-          the syndrome&#39;s historical name. Marked PARTIAL because it describes the
-          pre-2022 &#34;awakening epilepsy&#34; entity, which required awakening
-          predominance by definition, so it cannot establish the frequency of that
-          pattern within the broader ILAE-2022 syndrome.
+          The classical description of awakening-linked timing, and the source of the
+          syndrome&#39;s historical name. Graded INDIRECT because it describes the pre-2022
+          &#34;awakening epilepsy&#34; entity, which required awakening predominance by
+          definition, so it cannot establish the frequency of that pattern within the
+          broader ILAE-2022 syndrome.
   - category: Electrophysiological
     name: Generalized Spike-Wave Discharges
     frequency: VERY_FREQUENT
@@ -8013,15 +9100,16 @@ phenotypes:
         reference_title: &gt;-
           ILAE definition of the Idiopathic Generalized Epilepsy Syndromes:
           Position statement by the ILAE Task Force on Nosology and Definitions.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: OTHER
         snippet: &gt;-
           with 2.5-5.5 Hz generalized spike-wave
         explanation: &gt;-
-          Gives the ILAE frequency band for the generalized spike-wave activity
-          expected across this syndrome group. Marked PARTIAL because the sentence
-          it comes from defines the residual genetic generalized epilepsy category
-          rather than EGTCA specifically, though the same discharge band applies.
+          Gives the ILAE frequency band for the generalized spike-wave activity expected
+          across this syndrome group. Graded INDIRECT because the sentence it comes from
+          defines the residual genetic generalized epilepsy category rather than EGTCA
+          specifically, though the same discharge band applies.
   - category: Electrophysiological
     name: Photoparoxysmal EEG Response
     frequency: FREQUENT
@@ -8071,7 +9159,8 @@ phenotypes:
         reference_title: &gt;-
           Photosensitivity in relation to epileptic syndromes: asurvey from an
           epilepsy center in Japan.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           PPR accounted for 17.4% (p &lt; 0.01) of the patients with juvenile
@@ -8079,11 +9168,11 @@ phenotypes:
           awakening, and 6.1% (p &lt; 0.01) of those with symptomatic occipital lobe
           epilepsy.
         explanation: &gt;-
-          Useful only for the relative comparison with juvenile myoclonic
-          epilepsy. Marked PARTIAL and NOT used to set the frequency band, because
-          it counts the pre-2022 &#34;grand mal on awakening&#34; entity rather than
-          EGTCA, and because the same paper notes its cohort&#39;s photoparoxysmal
-          rate was low relative to European series.
+          Useful only for the relative comparison with juvenile myoclonic epilepsy.
+          Graded INDIRECT, and NOT used to set the frequency band, because it counts the
+          pre-2022 &#34;grand mal on awakening&#34; entity rather than EGTCA, and because the
+          same paper notes its cohort&#39;s photoparoxysmal rate was low relative to
+          European series.
   - category: Neurological
     name: Normal Interictal Neurological and Cognitive Status
     frequency: VERY_FREQUENT
@@ -8125,7 +9214,8 @@ phenotypes:
         reference_title: &gt;-
           Idiopathic Generalized Epilepsy: Misunderstandings, Challenges, and
           Opportunities.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: OTHER
         snippet: &gt;-
           Emerging evidence reveals that patients with IGE may go undiagnosed or
@@ -8133,10 +9223,10 @@ phenotypes:
           focal features.
         explanation: &gt;-
           Supports the diagnostic importance of the expected normal, symmetric,
-          non-focal picture by describing what happens when it is departed from.
-          Marked PARTIAL because it evidences the diagnostic consequence rather
-          than quantifying normal status, and evidence_source is OTHER because
-          this is a review.
+          non-focal picture by describing what happens when it is departed from. Graded
+          INDIRECT because it evidences the diagnostic consequence rather than
+          quantifying normal status, and evidence_source is OTHER because this is a
+          review.
   - category: Neurological
     name: Absence Seizures Absent
     frequency: EXCLUDED
@@ -8239,7 +9329,8 @@ genetic:
         reference_title: &gt;-
           Two novel CLCN2 mutations accelerating chloride channel deactivation are
           associated with idiopathic generalized epilepsy.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: IN_VITRO
         snippet: &gt;-
           Functional characterization of mutant channels using heterologous
@@ -8247,10 +9338,10 @@ genetic:
           revealed faster deactivation kinetics as the major phenotype of both
           missense mutations.
         explanation: &gt;-
-          Establishes a measured functional consequence for the candidate
-          variants. Marked PARTIAL and IN_VITRO because the electrophysiology was
-          done in a heterologous expression system and demonstrates an altered
-          channel property, not a contribution to human EGTCA.
+          Establishes a measured functional consequence for the candidate variants.
+          Graded INDIRECT, and IN_VITRO, because the electrophysiology was done in a
+          heterologous expression system and demonstrates an altered channel property,
+          not a contribution to human EGTCA.
       - reference: PMID:19191339
         reference_title: &gt;-
           Two novel CLCN2 mutations accelerating chloride channel deactivation are
@@ -8267,7 +9358,7 @@ genetic:
         reference_title: &gt;-
           Mutations in the CLCN2 gene are a rare cause of idiopathic generalized
           epilepsy syndromes.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           We conclude that mutations in the CLCN2 gene are only a rare cause of
@@ -8277,6 +9368,11 @@ genetic:
           bounding how much of the syndrome CLCN2 can explain.
 environmental:
   - name: Sleep deprivation
+    exposure_term:
+      preferred_term: sleep deprivation
+      term:
+        id: XCO:0001069
+        label: sleep restriction
     description: &gt;-
       Sleep deprivation is the most frequently named precipitant among EGTCA
       patients who can identify one, and the practical target of lifestyle
@@ -8324,16 +9420,17 @@ environmental:
           all.
       - reference: PMID:24632482
         reference_title: Seizure precipitants (triggering factors) in patients with epilepsy.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Of 104 patients, 97% cited at least one precipitant. Stress, sleep
           deprivation, and fatigue were the most frequently reported precipitants.
         explanation: &gt;-
-          Class-level context from a general epilepsy clinic. Marked PARTIAL
-          because the population is all-comers rather than EGTCA, and because its
-          97% trigger-identification rate is strikingly higher than the EGTCA
-          cohort&#39;s 48%, which is a reason to prefer the syndrome-specific figure.
+          Class-level context from a general epilepsy clinic. Marked INDIRECT because
+          the population is all-comers rather than EGTCA, and because its 97%
+          trigger-identification rate is strikingly higher than the EGTCA cohort&#39;s 48%,
+          which is a reason to prefer the syndrome-specific figure.
   - name: Habitual late and unstable sleep pattern
     description: &gt;-
       Beyond acute sleep loss, patients with awakening epilepsy have been
@@ -8361,6 +9458,19 @@ environmental:
               Directly asserts the predisposing role of habitual sleep timing,
               hedged by the source&#39;s own &#34;may dispose&#34;, which the PREDISPOSES
               typing preserves.
+    evidence:
+      - reference: PMID:10996562
+        reference_title: Epilepsy with grand mal on awakening and sleep-waking cycle.
+        supports: SUPPORT
+        evidence_source: HUMAN_CLINICAL
+        snippet: &gt;-
+          The sleep habits of patients with AE who could roughly be
+          characterized as late sleepers and late risers may dispose them to a
+          chronic sleep deficit.
+        explanation: &gt;-
+          Attributes the chronic sleep debt in this syndrome to habitual sleep
+          timing rather than to any single night of lost sleep, which is what
+          makes the habitual pattern an exposure in its own right.
 treatments:
   - name: Valproate
     description: &gt;-
@@ -8397,41 +9507,39 @@ treatments:
               Prospective study of epilepsy with generalized tonic-clonic seizures
               alone: Clinical features, response to treatment, and likelihood of
               medication withdrawal.
-            supports: PARTIAL
+            supports: SUPPORT
+            directness: INDIRECT
             evidence_source: HUMAN_CLINICAL
             snippet: &gt;-
               A GTC recurred in 14% of patients treated with ASM compared with 73%
               of untreated patients (p &lt; 0.00001).
             explanation: &gt;-
-              The best available EGTCA-specific evidence that pharmacotherapy
-              suppresses seizure recurrence, in a cohort where valproate was the
-              initial agent for 68% of patients. Marked PARTIAL because the
-              contrast is treated versus untreated rather than valproate versus
-              another drug, so it cannot isolate valproate&#39;s contribution.
+              The best available EGTCA-specific evidence that pharmacotherapy suppresses
+              seizure recurrence, in a cohort where valproate was the initial agent for
+              68% of patients. Graded INDIRECT because the contrast is treated versus
+              untreated rather than valproate versus another drug, so it cannot isolate
+              valproate&#39;s contribution.
           - reference: PMID:32030724
             reference_title: &gt;-
               Tonic-clonic seizures in idiopathic generalized epilepsies:
               Prevalence, risk factors, and outcome.
-            supports: PARTIAL
+            supports: SUPPORT
+            directness: INDIRECT
             evidence_source: HUMAN_CLINICAL
             snippet: &gt;-
               Valproate reduced the risk of experiencing GTCSs significantly (OR:
               0.58; 95% CI: 0.34-0.99; P = .04).
             explanation: &gt;-
-              Marked PARTIAL, and deliberately not used as the primary support,
-              because the outcome modeled is whether an IGE patient has
-              generalized tonic-clonic seizures at all. The comparison group is
-              IGE patients without such seizures, mostly absence and myoclonic
-              syndromes, so within EGTCA - where every patient has them by
-              definition - this odds ratio cannot describe a treatment effect. It
-              is retained as class-level context only, and the causal reading in
-              an earlier draft of this explanation was withdrawn.
+              Marked INDIRECT, and deliberately not used as the primary support, because
+              the outcome modeled is whether an IGE patient has generalized tonic-clonic
+              seizures at all. The comparison group is IGE patients without such
+              seizures, mostly absence and myoclonic syndromes, so within EGTCA - where
+              every patient has them by definition - this odds ratio cannot describe a
+              treatment effect. It is retained as class-level context only, and the
+              causal reading in an earlier draft of this explanation was withdrawn.
     evidence:
       - reference: PMID:33838758
-        reference_title: &gt;-
-          The SANAD II study of the effectiveness and cost-effectiveness of
-          valproate versus levetiracetam for newly diagnosed generalised and
-          unclassifiable epilepsy.
+        reference_title: &#34;The SANAD II study of the effectiveness and cost-effectiveness of valproate versus levetiracetam for newly diagnosed generalised and unclassifiable epilepsy: an open-label, non-inferiority, multicentre, phase 4, randomised controlled trial.&#34;
         supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
@@ -8442,20 +9550,18 @@ treatments:
           valproate, which is the basis for retaining valproate as the reference
           first-line agent.
       - reference: PMID:33838758
-        reference_title: &gt;-
-          The SANAD II study of the effectiveness and cost-effectiveness of
-          valproate versus levetiracetam for newly diagnosed generalised and
-          unclassifiable epilepsy.
-        supports: PARTIAL
+        reference_title: &#34;The SANAD II study of the effectiveness and cost-effectiveness of valproate versus levetiracetam for newly diagnosed generalised and unclassifiable epilepsy: an open-label, non-inferiority, multicentre, phase 4, randomised controlled trial.&#34;
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Valproate is a first-line treatment for patients with newly diagnosed
           idiopathic generalised or difficult to classify epilepsy, but not for
           women of child-bearing potential because of teratogenicity.
         explanation: &gt;-
-          States the teratogenicity constraint that governs prescribing. Marked
-          PARTIAL because this is the trial&#39;s background framing rather than a
-          teratogenicity result generated by the trial itself.
+          States the teratogenicity constraint that governs prescribing. Graded INDIRECT
+          because this is the trial&#39;s background framing rather than a teratogenicity
+          result generated by the trial itself.
   - name: Levetiracetam
     description: &gt;-
       Levetiracetam is the most commonly used alternative to valproate and is
@@ -8487,31 +9593,29 @@ treatments:
               Prospective study of epilepsy with generalized tonic-clonic seizures
               alone: Clinical features, response to treatment, and likelihood of
               medication withdrawal.
-            supports: PARTIAL
+            supports: SUPPORT
+            directness: INDIRECT
             evidence_source: HUMAN_CLINICAL
             snippet: &gt;-
               A GTC recurred in 14% of patients treated with ASM compared with 73%
               of untreated patients (p &lt; 0.00001).
             explanation: &gt;-
-              Demonstrates that antiseizure medication as a class suppresses
-              seizure recurrence in EGTCA specifically. Marked PARTIAL because the
-              comparison is treated versus untreated rather than
-              levetiracetam-specific.
+              Demonstrates that antiseizure medication as a class suppresses seizure
+              recurrence in EGTCA specifically. Graded INDIRECT because the comparison
+              is treated versus untreated rather than levetiracetam-specific.
     evidence:
       - reference: PMID:33838758
-        reference_title: &gt;-
-          The SANAD II study of the effectiveness and cost-effectiveness of
-          valproate versus levetiracetam for newly diagnosed generalised and
-          unclassifiable epilepsy.
-        supports: PARTIAL
+        reference_title: &#34;The SANAD II study of the effectiveness and cost-effectiveness of valproate versus levetiracetam for newly diagnosed generalised and unclassifiable epilepsy: an open-label, non-inferiority, multicentre, phase 4, randomised controlled trial.&#34;
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           For girls and women of child-bearing potential, these results inform
           discussions about benefit and harm of avoiding valproate.
         explanation: &gt;-
-          Frames the levetiracetam choice as a benefit-harm discussion rather than
-          a straightforward substitution. Marked PARTIAL because it supports the
-          decision framing rather than establishing levetiracetam efficacy.
+          Frames the levetiracetam choice as a benefit-harm discussion rather than a
+          straightforward substitution. Graded INDIRECT because it supports the decision
+          framing rather than establishing levetiracetam efficacy.
   - name: Lamotrigine
     description: &gt;-
       Lamotrigine is an alternative broad-spectrum option for generalized
@@ -8556,15 +9660,15 @@ treatments:
         evidence:
           - reference: PMID:10996562
             reference_title: Epilepsy with grand mal on awakening and sleep-waking cycle.
-            supports: PARTIAL
+            supports: SUPPORT
             evidence_source: HUMAN_CLINICAL
             snippet: &gt;-
               The common denominator of external seizures precipitating
               influences is lack of sleep.
             explanation: &gt;-
-              Identifies the modifiable precipitant that this intervention
-              targets. Marked PARTIAL because no trial evidence was identified
-              showing that counseling changes seizure outcomes in EGTCA.
+              Identifies the modifiable precipitant that this intervention targets. No
+              trial evidence was identified showing that counseling changes seizure
+              outcomes in EGTCA.
 progression:
   - phase: Early treatment response
     age_range: Adolescence to young adulthood
@@ -8766,15 +9870,16 @@ prevalence:
         reference_title: &gt;-
           Idiopathic Generalized Epilepsy: Misunderstandings, Challenges, and
           Opportunities.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: OTHER
         snippet: &gt;-
           The idiopathic generalized epilepsies (IGE) make up a fifth of all
           epilepsies, but &lt;1% of epilepsy research.
         explanation: &gt;-
-          Establishes the class-level share of all epilepsies. Marked PARTIAL
-          because it covers the four-syndrome group rather than EGTCA alone, and
-          evidence_source is OTHER because this is a review.
+          Establishes the class-level share of all epilepsies. Marked INDIRECT because
+          it covers the four-syndrome group rather than EGTCA alone, and evidence_source
+          is OTHER because this is a review.
 diagnosis:
   - name: Sleep-deprived EEG with serial recording
     description: &gt;-
@@ -8826,15 +9931,16 @@ diagnosis:
           Prospective study of epilepsy with generalized tonic-clonic seizures
           alone: Clinical features, response to treatment, and likelihood of
           medication withdrawal.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           along with an epilepsy protocol brain magnetic resonance imaging (MRI)
         explanation: &gt;-
           Confirms that dedicated epilepsy-protocol MRI was part of the diagnostic
-          workup in the ILAE-criteria cohort. Marked PARTIAL because it documents
-          that imaging was performed rather than reporting the yield, so it
-          supports the practice without quantifying how often a lesion is found.
+          workup in the ILAE-criteria cohort. Graded INDIRECT because it documents that
+          imaging was performed rather than reporting the yield, so it supports the
+          practice without quantifying how often a lesion is found.
 differential_diagnoses:
   - name: Focal epilepsy with focal to bilateral tonic-clonic seizures
     description: &gt;-
@@ -8959,16 +10065,17 @@ discussions:
         reference_title: &gt;-
           Worsening of seizures by oxcarbazepine in juvenile idiopathic
           generalized epilepsies.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           The effects of OXC on GTCSs were less dramatic, with no worsening in
           frequency in three and a slight increase in three.
         explanation: &gt;-
-          Shows that the aggravation signal is much weaker for generalized
-          tonic-clonic seizures than for the myoclonic and absence seizures that
-          drive the caution. Marked PARTIAL because the series contained no EGTCA
-          patients, so this bounds the inference rather than resolving it.
+          Shows that the aggravation signal is much weaker for generalized tonic-clonic
+          seizures than for the myoclonic and absence seizures that drive the caution.
+          Graded INDIRECT because the series contained no EGTCA patients, so this bounds
+          the inference rather than resolving it.
       - reference: PMID:15461683
         reference_title: &gt;-
           Worsening of seizures by oxcarbazepine in juvenile idiopathic
@@ -9438,7 +10545,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Epilepsy with Generalized Tonic-Clonic Seizures Alone", "mondoId": "MONDO:0005754", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone", "yamlRevision": "9320f28b1850"};
+        const OS_CONFIG = {"diseaseName": "Epilepsy with Generalized Tonic-Clonic Seizures Alone", "mondoId": "MONDO:0005754", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone", "yamlRevision": "3db31a45afd2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9857,5 +10964,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

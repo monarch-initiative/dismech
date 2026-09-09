@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Alport Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Alport Syndrome</h1>
             <div class="header-meta">
 
@@ -3794,7 +3941,19 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
+
+            <a class="stat-link" href="#mappings">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔗</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Mappings</div>
+            </div>
+            </a>
 
 
 
@@ -3867,7 +4026,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -3911,6 +4070,64 @@
 
         <!-- Mappings -->
 
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0957811" target="_blank" class="missing-ontology-link">MONDO:0957811</a>
+
+
+                        <span class="mapping-label missing-disease-name" title="No DisMech page yet for this disease">Alport syndrome 3b, autosomal recessive</span>
+
+
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0957811 (OMIM:620536) is a direct child of this entry&#39;s disease_term MONDO:0018965 and, per MONDO&#39;s causal_gene assertions, is specific to biallelic COL4A3 variants -- a sibling of, not nested under, this entry&#39;s Autosomal Recessive subtype term MONDO:0008762 (OMIM:203780), which MONDO&#39;s causal_gene data now scopes to COL4A4 only even though that term&#39;s own free-text definition still reads &#34;COL4A3 or COL4A4&#34; (likely not yet updated to match the newer structured split). Because this entry&#39;s Autosomal Recessive subtype curates biallelic COL4A3 and COL4A4 disease together without a gene-specific split, MONDO:0957811 sits narrower than -- not equal to -- that subtype&#39;s current scope; a future curation pass may want to split the Autosomal Recessive subtype into COL4A3- and COL4A4-specific entries mirroring MONDO&#39;s structure, at which point this mapping should be revisited and possibly promoted to a dedicated subtype_term. Recorded here as a disease-level narrowMatch per the coverage rule (`iter_covered_mondo_ids` reads mondo_mappings at the disease level, not per-subtype) so the concept is retired from the curation queue without overstating today&#39;s gene-level resolution.
+</div>
+
+                </div>
+
+            </div>
+
+
+
+
+
+        </div>
+
 
         <!-- Definitions -->
 
@@ -3924,7 +4141,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-inheritance">
                 <div class="item-name">
                     X-linked inheritance
 
@@ -3967,7 +4184,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32712016" target="_blank">PMID:32712016</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3991,7 +4210,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4014,7 +4235,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4038,7 +4261,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4081,7 +4304,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25649157" target="_blank">PMID:25649157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4105,7 +4330,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4128,7 +4355,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4152,7 +4381,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4195,7 +4424,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32712016" target="_blank">PMID:32712016</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4219,7 +4450,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4242,7 +4475,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4266,7 +4501,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-digenic-inheritance">
                 <div class="item-name">
                     Digenic inheritance
 
@@ -4311,7 +4546,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25575550" target="_blank">PMID:25575550</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4343,7 +4580,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
 
 
@@ -4368,10 +4605,20 @@
 
 
 
-                <div class="item-box subtype-box">
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-x-linked">
 
                     <div class="item-name">
                         X-linked Alport Syndrome (XLAS)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010520" target="_blank">MONDO:0010520</a>
 
 
 
@@ -4397,10 +4644,12 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-autosomal-recessive">
 
                     <div class="item-name">
                         Autosomal Recessive Alport Syndrome (ARAS)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0008762" target="_blank">MONDO:0008762</a>
 
 
 
@@ -4426,10 +4675,12 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-autosomal-dominant">
 
                     <div class="item-name">
                         Autosomal Dominant Alport Syndrome (ADAS)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0007086" target="_blank">MONDO:0007086</a>
 
 
 
@@ -4448,6 +4699,304 @@
 
 
 
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-digenic">
+
+                    <div class="item-name">
+                        Digenic Alport Syndrome
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0958104" target="_blank">MONDO:0958104</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                COL4A3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2204</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL4A3 (hgnc:2204). hgnc:2204 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                COL4A4
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2206" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2206</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL4A4 (hgnc:2206). hgnc:2206 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                COL4A5
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2207" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:2207</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL4A5 (hgnc:2207). hgnc:2207 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">A distinct named entity for pathogenic variants in two of the three collagen IV genes (COL4A3 plus COL4A4, or COL4A5 together with COL4A3 or COL4A4), accounting for approximately 1.7% of Alport syndrome cases in a large single-center cohort. The second variant raises the fraction of defective alpha3-alpha4-alpha5(IV) heterotrimers above the ~50% seen in autosomal dominant disease -- to 75% for COL4A3+COL4A4 digenic disease, and to a comparable 75% in women who already carry a pathogenic COL4A5 variant -- without reaching the ~100% of autosomal recessive or hemizygous X-linked disease. For COL4A3+COL4A4 digenic disease specifically, the two variants transmit as autosomal dominant when they lie on the same chromosome (in cis) or in an autosomal-recessive-like pattern when on different chromosomes (in trans); this cross-cutting of the inheritance-mode axis is why digenic disease is curated as its own subtype rather than folded into the autosomal dominant or recessive entries above. Clinical severity -- age at proteinuria detection and at end-stage kidney disease -- is intermediate between the autosomal dominant and autosomal recessive forms. This named entity is distinct from, and additive to, the general digenic inheritance model described below in `inheritance`; the two record different claims (a specific MONDO disease concept vs. the mode-of-transmission pattern) and neither supersedes the other.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35675912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35675912" target="_blank">PMID:35675912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In digenic Alport syndrome with pathogenic COL4A3 and COL4A4 variants, 75% of the heterotrimers are affected."</div>
+
+
+                <div class="evidence-explanation">Establishes the heterotrimer-dose position of COL4A3+COL4A4 digenic disease, intermediate between the ~50% of autosomal dominant and ~100% of autosomal recessive disease.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35675912" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35675912" target="_blank">PMID:35675912</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The COL4A3 and COL4A4 genes occur head-to-head on chromosome 2, and inheritance is autosomal dominant when both variants affect the same chromosome (in cis) or recessive when they affect different chromosomes (in trans)."</div>
+
+
+                <div class="evidence-explanation">Supports the cis/trans transmission-pattern distinction for COL4A3+COL4A4 digenic disease, the point that keeps it from mapping cleanly onto either existing inheritance-mode subtype.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39137047" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39137047" target="_blank">PMID:39137047</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"that at development of ESKD was significantly earlier (57.0 versus 72.0 years; P = 0.045) in patients with digenic Alport syndrome"</div>
+
+
+                <div class="evidence-explanation">Cohort comparison against autosomal dominant Alport syndrome patients from the same center, supporting the intermediate-severity claim with a statistically significant difference in age at kidney failure.
+</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-as-dl">
+
+                    <div class="item-name">
+                        X-linked Diffuse Leiomyomatosis-Alport Syndrome (AS-DL)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010641" target="_blank">MONDO:0010641</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                COL4A5
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2207" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2207</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL4A5 (hgnc:2207). hgnc:2207 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                COL4A6
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2208" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2208</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL4A6 (hgnc:2208). hgnc:2208 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">A contiguous-gene deletion spanning the 5&#39; ends of COL4A5 and the adjacent COL4A6 gene at Xq22.3, combining X-linked Alport syndrome with diffuse leiomyomatosis: benign overgrowth of visceral smooth muscle, characteristically of the esophagus and tracheobronchial tree and sometimes the female genital tract. The bidirectional promoter region shared by both genes lies within the deleted segment, and inactivation of both COL4A5 and COL4A6 is thought to be required for the leiomyomatosis component. Already curated in this entry as the &#34;Diffuse Leiomyomatosis&#34; phenotype and the matched &#34;Leiomyoma Surgery (COL4A5-COL4A6 Deletion Subtype)&#34; treatment; this binding gives that existing content a named subtype entity. Note that MONDO does not nest this concept under Alport syndrome -- its declared parents are &#34;kidney disorder&#34; and &#34;partial deletion of the long arm of chromosome X&#34; -- so it sits outside the ontology branch the other subtypes in this list share, even though it is clinically and mechanistically an X-linked Alport variant.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28275241" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28275241" target="_blank">PMID:28275241</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Alport syndrome-diffuse leiomyomatosis (AS-DL, OMIM: 308940) is a rare variant of the X-linked Alport syndrome that shows overgrowth of visceral smooth muscles in the gastrointestinal, respiratory and female reproductive tracts in addition to renal symptoms."</div>
+
+
+                <div class="evidence-explanation">Primary molecular-genetics paper naming and defining AS-DL as a distinct variant of X-linked Alport syndrome caused by a COL4A5-COL4A6 contiguous deletion.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28275241" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28275241" target="_blank">PMID:28275241</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Because deletions involved the bidirectional promoter region in each case, we suggest that the occurrence of leiomyomatosis in AS-DL requires inactivation of both genes."</div>
+
+
+                <div class="evidence-explanation">Molecular basis for why the deletion produces the smooth-muscle phenotype rather than isolated Alport syndrome: inactivation of both COL4A5 and COL4A6, not COL4A5 alone.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4521,11 +5070,15 @@
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type prospective cohort study.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-6">
 
         prospective cohort study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment is of type this experiment type
+This experiment is of type prospective cohort study.</span>
     </span>
 
 
@@ -4570,6 +5123,12 @@ This experiment is of type prospective cohort study.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4593,7 +5152,9 @@ This experiment is of type prospective cohort study.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4639,7 +5200,7 @@ This experiment is of type prospective cohort study.">
 
 
 
-    <span class="entity-ref-chip">phenotypes#Microscopic Hematuria</span>
+    <a class="entity-ref-chip" href="#phenotype-microscopic-hematuria">phenotypes#Microscopic Hematuria</a>
 
 
 
@@ -4667,11 +5228,15 @@ This experiment is of type prospective cohort study.">
 
 
 
-    <span class="tag tag-discussion-kind" title="Relation: this experiment is of type this experiment type
-This experiment is of type randomized controlled trial.">
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-7">
 
         randomized controlled trial
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this experiment is of type this experiment type
+This experiment is of type randomized controlled trial.</span>
     </span>
 
 
@@ -4716,6 +5281,12 @@ This experiment is of type randomized controlled trial.">
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4739,7 +5310,9 @@ This experiment is of type randomized controlled trial.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4786,18 +5359,20 @@ This experiment is of type randomized controlled trial.">
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4814,18 +5389,20 @@ This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Glomerular endothelial cell (CL:0002188). CL:0002188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Glomerular endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl">CL:0002188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Glomerular endothelial cell (CL:0002188). CL:0002188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4853,18 +5430,20 @@ This pathophysiological event involves Glomerular endothelial cell (CL:0002188).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased Basement membrane assembly (GO:0070831). GO:0070831 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Basement membrane assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070831" target="_blank" class="curie-chip curie-chip-go">GO:0070831</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070831" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0070831</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Basement membrane assembly (GO:0070831). GO:0070831 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4885,18 +5464,20 @@ This pathophysiological event involves decreased Basement membrane assembly (GO:
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Glomerular basement membrane development (GO:0032836). GO:0032836 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Glomerular basement membrane development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032836" target="_blank" class="curie-chip curie-chip-go">GO:0032836</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032836" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0032836</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Glomerular basement membrane development (GO:0032836). GO:0032836 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4970,7 +5551,9 @@ This pathophysiological event involves abnormal Glomerular basement membrane dev
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32712016" target="_blank">PMID:32712016</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4994,7 +5577,9 @@ This pathophysiological event involves abnormal Glomerular basement membrane dev
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25649157" target="_blank">PMID:25649157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5030,18 +5615,20 @@ This pathophysiological event involves abnormal Glomerular basement membrane dev
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cochlear hair cell, annotated with cochlea auditory hair cell (CL:4023120). CL:4023120 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cochlear hair cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023120" target="_blank" class="curie-chip curie-chip-cl">CL:4023120</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023120" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:4023120</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cochlear hair cell, annotated with cochlea auditory hair cell (CL:4023120). CL:4023120 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5069,18 +5656,20 @@ This pathophysiological event involves cochlear hair cell, annotated with cochle
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased basement membrane assembly (GO:0070831). GO:0070831 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         basement membrane assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070831" target="_blank" class="curie-chip curie-chip-go">GO:0070831</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070831" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0070831</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased basement membrane assembly (GO:0070831). GO:0070831 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5138,7 +5727,9 @@ This pathophysiological event involves decreased basement membrane assembly (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38021591" target="_blank">PMID:38021591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5181,18 +5772,20 @@ This pathophysiological event involves decreased basement membrane assembly (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased basement membrane assembly (GO:0070831). GO:0070831 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         basement membrane assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070831" target="_blank" class="curie-chip curie-chip-go">GO:0070831</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070831" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0070831</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased basement membrane assembly (GO:0070831). GO:0070831 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5266,7 +5859,9 @@ This pathophysiological event involves decreased basement membrane assembly (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25649157" target="_blank">PMID:25649157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5302,18 +5897,20 @@ This pathophysiological event involves decreased basement membrane assembly (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5330,18 +5927,20 @@ This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a ce
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Glomerular endothelial cell (CL:0002188). CL:0002188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Glomerular endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl">CL:0002188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Glomerular endothelial cell (CL:0002188). CL:0002188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5369,18 +5968,20 @@ This pathophysiological event involves Glomerular endothelial cell (CL:0002188).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5460,7 +6061,9 @@ This pathophysiological event involves abnormal Extracellular matrix organizatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34029143" target="_blank">PMID:34029143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5496,18 +6099,20 @@ This pathophysiological event involves abnormal Extracellular matrix organizatio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Podocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl">CL:0000653</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000653</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5535,18 +6140,20 @@ This pathophysiological event involves Podocyte (CL:0000653). CL:0000653 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Podocyte apoptotic process (GO:1903210). GO:1903210 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Podocyte apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1903210" target="_blank" class="curie-chip curie-chip-go">GO:1903210</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1903210" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:1903210</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Podocyte apoptotic process (GO:1903210). GO:1903210 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5602,7 +6209,9 @@ This pathophysiological event involves increased Podocyte apoptotic process (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34029143" target="_blank">PMID:34029143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5638,18 +6247,20 @@ This pathophysiological event involves increased Podocyte apoptotic process (GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Mesangial cell (CL:0000650). CL:0000650 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Mesangial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000650" target="_blank" class="curie-chip curie-chip-cl">CL:0000650</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000650" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Mesangial cell (CL:0000650). CL:0000650 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5677,18 +6288,20 @@ This pathophysiological event involves Mesangial cell (CL:0000650). CL:0000650 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5752,7 +6365,9 @@ This pathophysiological event involves increased Extracellular matrix organizati
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34029143" target="_blank">PMID:34029143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5788,18 +6403,20 @@ This pathophysiological event involves increased Extracellular matrix organizati
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Kidney tubule cell (CL:1000507). CL:1000507 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Kidney tubule cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000507" target="_blank" class="curie-chip curie-chip-cl">CL:1000507</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000507" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:1000507</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Kidney tubule cell (CL:1000507). CL:1000507 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5827,18 +6444,20 @@ This pathophysiological event involves Kidney tubule cell (CL:1000507). CL:10005
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5859,18 +6478,20 @@ This pathophysiological event involves increased Extracellular matrix organizati
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5936,7 +6557,9 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41243004" target="_blank">PMID:41243004</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6032,16 +6655,20 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000822</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
-
-
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6062,7 +6689,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38021591" target="_blank">PMID:38021591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6105,16 +6734,22 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Sensorineural hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407), qualified as course progressive; childhood onset. HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407), qualified as course progressive; childhood onset. HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6166,7 +6801,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38021591" target="_blank">PMID:38021591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6190,7 +6827,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12105244" target="_blank">PMID:12105244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6235,16 +6874,22 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Corneal opacity</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0007957</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.">
-                        Corneal opacity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp">HP:0007957</a>
-
-
+This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6265,7 +6910,9 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25649157" target="_blank">PMID:25649157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6308,16 +6955,20 @@ This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002907" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002907</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Microscopic hematuria (HP:0002907). HP:0002907 is a phenotype from the Human Phenotype Ontology.">
-                        Microscopic hematuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002907" target="_blank" class="curie-chip curie-chip-hp">HP:0002907</a>
-
-
+This clinical feature is Microscopic hematuria (HP:0002907). HP:0002907 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6338,7 +6989,9 @@ This clinical feature is Microscopic hematuria (HP:0002907). HP:0002907 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6373,16 +7026,20 @@ This clinical feature is Microscopic hematuria (HP:0002907). HP:0002907 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proteinuria (HP:0000093), qualified as course progressive. HP:0000093 is a phenotype from the Human Phenotype Ontology.">
-                        Proteinuria
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" class="curie-chip curie-chip-hp">HP:0000093</a>
-
-
+This clinical feature is Proteinuria (HP:0000093), qualified as course progressive. HP:0000093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6421,7 +7078,9 @@ This clinical feature is Proteinuria (HP:0000093), qualified as course progressi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33159213" target="_blank">PMID:33159213</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6445,7 +7104,9 @@ This clinical feature is Proteinuria (HP:0000093), qualified as course progressi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299679" target="_blank">PMID:32299679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6481,16 +7142,22 @@ This clinical feature is Proteinuria (HP:0000093), qualified as course progressi
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Stage 5 chronic kidney disease</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003774</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Stage 5 chronic kidney disease (HP:0003774), qualified as course progressive; juvenile onset. HP:0003774 is a phenotype from the Human Phenotype Ontology.">
-                        Stage 5 chronic kidney disease
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003774" target="_blank" class="curie-chip curie-chip-hp">HP:0003774</a>
-
-
+This clinical feature is Stage 5 chronic kidney disease (HP:0003774), qualified as course progressive; juvenile onset. HP:0003774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6542,7 +7209,9 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774), qualified 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12105244" target="_blank">PMID:12105244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6566,7 +7235,9 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774), qualified 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299679" target="_blank">PMID:32299679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6609,16 +7280,20 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774), qualified 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:0000097 is a phenotype from the Human Phenotype Ontology.">
-                        Focal segmental glomerulosclerosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" class="curie-chip curie-chip-hp">HP:0000097</a>
-
-
+This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:0000097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6639,7 +7314,9 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34029143" target="_blank">PMID:34029143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6663,7 +7340,9 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39384359" target="_blank">PMID:39384359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6696,16 +7375,22 @@ This clinical feature is Focal segmental glomerulosclerosis (HP:0000097). HP:000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Glomerular basement membrane lamellation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030034</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Glomerular basement membrane lamellation (HP:0030034). HP:0030034 is a phenotype from the Human Phenotype Ontology.">
-                        Glomerular basement membrane lamellation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030034" target="_blank" class="curie-chip curie-chip-hp">HP:0030034</a>
-
-
+This clinical feature is Glomerular basement membrane lamellation (HP:0030034). HP:0030034 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6726,7 +7411,9 @@ This clinical feature is Glomerular basement membrane lamellation (HP:0030034). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34029143" target="_blank">PMID:34029143</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6750,7 +7437,9 @@ This clinical feature is Glomerular basement membrane lamellation (HP:0030034). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39384359" target="_blank">PMID:39384359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6785,16 +7474,20 @@ This clinical feature is Glomerular basement membrane lamellation (HP:0030034). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011501" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0011501</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anterior lenticonus (HP:0011501). HP:0011501 is a phenotype from the Human Phenotype Ontology.">
-                        Anterior lenticonus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011501" target="_blank" class="curie-chip curie-chip-hp">HP:0011501</a>
-
-
+This clinical feature is Anterior lenticonus (HP:0011501). HP:0011501 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6815,7 +7508,9 @@ This clinical feature is Anterior lenticonus (HP:0011501). HP:0011501 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25649157" target="_blank">PMID:25649157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6839,7 +7534,9 @@ This clinical feature is Anterior lenticonus (HP:0011501). HP:0011501 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38021591" target="_blank">PMID:38021591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6875,16 +7572,22 @@ This clinical feature is Anterior lenticonus (HP:0011501). HP:0011501 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Macular flecks</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011507" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0011507</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macular flecks (HP:0011507). HP:0011507 is a phenotype from the Human Phenotype Ontology.">
-                        Macular flecks
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011507" target="_blank" class="curie-chip curie-chip-hp">HP:0011507</a>
-
-
+This clinical feature is Macular flecks (HP:0011507). HP:0011507 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6905,7 +7608,9 @@ This clinical feature is Macular flecks (HP:0011507). HP:0011507 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25649157" target="_blank">PMID:25649157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6939,16 +7644,20 @@ This clinical feature is Macular flecks (HP:0011507). HP:0011507 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0006756</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Diffuse leiomyomatosis (HP:0006756). HP:0006756 is a phenotype from the Human Phenotype Ontology.">
-                        Diffuse leiomyomatosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006756" target="_blank" class="curie-chip curie-chip-hp">HP:0006756</a>
-
-
+This clinical feature is Diffuse leiomyomatosis (HP:0006756). HP:0006756 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6969,7 +7678,9 @@ This clinical feature is Diffuse leiomyomatosis (HP:0006756). HP:0006756 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7048,15 +7759,17 @@ This clinical feature is Diffuse leiomyomatosis (HP:0006756). HP:0006756 is a ph
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is COL4A5 (hgnc:2207). hgnc:2207 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL4A5
 
 
-    <a href="https://bioregistry.io/hgnc:2207" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2207</a>
+    <a href="https://bioregistry.io/hgnc:2207" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:2207</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL4A5 (hgnc:2207). hgnc:2207 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7078,7 +7791,9 @@ This disease-associated gene is COL4A5 (hgnc:2207). hgnc:2207 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12105244" target="_blank">PMID:12105244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7102,7 +7817,9 @@ This disease-associated gene is COL4A5 (hgnc:2207). hgnc:2207 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29854973" target="_blank">PMID:29854973</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7126,7 +7843,9 @@ This disease-associated gene is COL4A5 (hgnc:2207). hgnc:2207 is a gene from the
                         <a href="https://bioregistry.io/CGGV:assertion_0407dc2e-1cab-4043-889d-4695b043d7b3-2019-03-19T160000.000Z" target="_blank">CGGV:assertion_0407dc2e-1cab-4043-889d-4695b043d7b3-2019-03-19T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7163,15 +7882,17 @@ This disease-associated gene is COL4A5 (hgnc:2207). hgnc:2207 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is COL4A3 (hgnc:2204). hgnc:2204 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL4A3
 
 
-    <a href="https://bioregistry.io/hgnc:2204" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2204</a>
+    <a href="https://bioregistry.io/hgnc:2204" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:2204</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL4A3 (hgnc:2204). hgnc:2204 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7193,7 +7914,9 @@ This disease-associated gene is COL4A3 (hgnc:2204). hgnc:2204 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25649157" target="_blank">PMID:25649157</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7217,7 +7940,9 @@ This disease-associated gene is COL4A3 (hgnc:2204). hgnc:2204 is a gene from the
                         <a href="https://bioregistry.io/CGGV:assertion_e1ed7d3b-4366-4f4a-98f2-80e431e2d8da-2021-07-26T023000.000Z" target="_blank">CGGV:assertion_e1ed7d3b-4366-4f4a-98f2-80e431e2d8da-2021-07-26T023000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7254,15 +7979,17 @@ This disease-associated gene is COL4A3 (hgnc:2204). hgnc:2204 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is COL4A4 (hgnc:2206). hgnc:2206 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL4A4
 
 
-    <a href="https://bioregistry.io/hgnc:2206" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2206</a>
+    <a href="https://bioregistry.io/hgnc:2206" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:2206</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL4A4 (hgnc:2206). hgnc:2206 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7284,7 +8011,9 @@ This disease-associated gene is COL4A4 (hgnc:2206). hgnc:2206 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29854973" target="_blank">PMID:29854973</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7308,7 +8037,9 @@ This disease-associated gene is COL4A4 (hgnc:2206). hgnc:2206 is a gene from the
                         <a href="https://bioregistry.io/CGGV:assertion_c235830a-a6f5-4cf6-b015-902da62f1b2e-2021-08-24T023000.000Z" target="_blank">CGGV:assertion_c235830a-a6f5-4cf6-b015-902da62f1b2e-2021-08-24T023000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7338,6 +8069,9 @@ This disease-associated gene is COL4A4 (hgnc:2206). hgnc:2206 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7354,18 +8088,18 @@ This disease-associated gene is COL4A4 (hgnc:2206). hgnc:2206 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">ACE inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">ACE inhibitor therapy</span>
+This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7390,21 +8124,31 @@ This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C1
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         ACE inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C247</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C247</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7428,7 +8172,9 @@ This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32299679" target="_blank">PMID:32299679</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7452,7 +8198,9 @@ This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33159213" target="_blank">PMID:33159213</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7484,18 +8232,18 @@ This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Angiotensin receptor blocker therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Angiotensin receptor blocker therapy, annotated with Antihypertensive Therapy (NCIT:C172184). NCIT:C172184 is a clinical intervention from the NCI Thesaurus.">Angiotensin receptor blocker therapy</span>
+This treatment is Angiotensin receptor blocker therapy, annotated with Antihypertensive Therapy (NCIT:C172184). NCIT:C172184 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antihypertensive Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C172184" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Angiotensin receptor blocker therapy, annotated with Antihypertensive Therapy (NCIT:C172184). NCIT:C172184 is a clinical intervention from the NCI Thesaurus.">NCIT:C172184</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C172184" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C172184">NCIT:C172184</a>
 
 
 
@@ -7513,6 +8261,14 @@ This treatment is Angiotensin receptor blocker therapy, annotated with Antihyper
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7538,7 +8294,9 @@ This treatment is Angiotensin receptor blocker therapy, annotated with Antihyper
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41243004" target="_blank">PMID:41243004</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7570,18 +8328,18 @@ This treatment is Angiotensin receptor blocker therapy, annotated with Antihyper
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Sodium-glucose cotransporter-2 inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Sodium-glucose cotransporter-2 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Sodium-glucose cotransporter-2 inhibitor therapy</span>
+This treatment is Sodium-glucose cotransporter-2 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Sodium-glucose cotransporter-2 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7604,6 +8362,14 @@ This treatment is Sodium-glucose cotransporter-2 inhibitor therapy, annotated wi
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Sodium-glucose cotransporter-2 inhibitors may offer additional kidney protection as adjunctive therapy to RAAS blockade in adults with proteinuria and CKD. A pediatric RCT (DOUBLE PRO-TECT Alport, NCT05944016) is underway.
 </div>
 
@@ -7618,13 +8384,15 @@ This treatment is Sodium-glucose cotransporter-2 inhibitor therapy, annotated wi
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41243004" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41243004" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41243004" target="_blank">PMID:41243004</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7656,18 +8424,18 @@ This treatment is Sodium-glucose cotransporter-2 inhibitor therapy, annotated wi
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Renal replacement therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.">Renal replacement therapy</span>
+This treatment is Renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Renal Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C126400" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Renal replacement therapy (NCIT:C126400). NCIT:C126400 is a clinical intervention from the NCI Thesaurus.">NCIT:C126400</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C126400" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C126400">NCIT:C126400</a>
 
 
 
@@ -7685,6 +8453,14 @@ This treatment is Renal replacement therapy (NCIT:C126400). NCIT:C126400 is a cl
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7710,7 +8486,9 @@ This treatment is Renal replacement therapy (NCIT:C126400). NCIT:C126400 is a cl
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38021591" target="_blank">PMID:38021591</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7742,18 +8520,18 @@ This treatment is Renal replacement therapy (NCIT:C126400). NCIT:C126400 is a cl
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Whole kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Whole kidney transplantation, annotated with Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinical intervention from the NCI Thesaurus.">Whole kidney transplantation</span>
+This treatment is Whole kidney transplantation, annotated with Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Kidney Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15265" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Whole kidney transplantation, annotated with Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinical intervention from the NCI Thesaurus.">NCIT:C15265</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15265" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15265">NCIT:C15265</a>
 
 
 
@@ -7771,6 +8549,14 @@ This treatment is Whole kidney transplantation, annotated with Kidney Transplant
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7796,7 +8582,9 @@ This treatment is Whole kidney transplantation, annotated with Kidney Transplant
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29854973" target="_blank">PMID:29854973</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7820,7 +8608,9 @@ This treatment is Whole kidney transplantation, annotated with Kidney Transplant
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23620401" target="_blank">PMID:23620401</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7844,7 +8634,9 @@ This treatment is Whole kidney transplantation, annotated with Kidney Transplant
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7877,6 +8669,14 @@ This treatment is Whole kidney transplantation, annotated with Kidney Transplant
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Sensorineural hearing loss is managed supportively with hearing aids as needed; hearing loss is not reversible, so audiologic surveillance and amplification are the mainstay.
 </div>
 
@@ -7897,7 +8697,9 @@ This treatment is Whole kidney transplantation, annotated with Kidney Transplant
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7928,18 +8730,18 @@ This treatment is Whole kidney transplantation, annotated with Kidney Transplant
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">cataract removal<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cataract removal, annotated with Cataract Surgery (NCIT:C157809). NCIT:C157809 is a clinical intervention from the NCI Thesaurus.">cataract removal</span>
+This treatment is cataract removal, annotated with Cataract Surgery (NCIT:C157809). NCIT:C157809 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cataract Surgery</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157809" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cataract removal, annotated with Cataract Surgery (NCIT:C157809). NCIT:C157809 is a clinical intervention from the NCI Thesaurus.">NCIT:C157809</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157809" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157809">NCIT:C157809</a>
 
 
 
@@ -7957,6 +8759,14 @@ This treatment is cataract removal, annotated with Cataract Surgery (NCIT:C15780
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7982,7 +8792,9 @@ This treatment is cataract removal, annotated with Cataract Surgery (NCIT:C15780
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8013,18 +8825,18 @@ This treatment is cataract removal, annotated with Cataract Surgery (NCIT:C15780
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8042,6 +8854,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8067,7 +8887,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8098,18 +8920,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8127,6 +8949,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8152,7 +8982,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8183,18 +9015,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8212,6 +9044,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8237,7 +9077,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8268,18 +9110,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -8297,6 +9139,14 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8322,7 +9172,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8355,6 +9207,507 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing-col4a3-col4a4-col4a5">
+                <div class="item-name">
+                    Molecular genetic testing (COL4A3/COL4A4/COL4A5)
+
+                </div>
+
+                <div class="item-desc">Definitive diagnosis is established by identifying a pathogenic variant in COL4A3, COL4A4, or COL4A5 on molecular genetic testing in a proband with suggestive clinical findings (hematuria, family history, hearing/ocular signs).
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The molecular diagnosis of Alport syndrome is established in a proband with suggestive findings and a pathogenic variant(s) in COL4A3, COL4A4, or COL4A5 identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews establishes molecular genetic testing of the three collagen IV genes as the definitive diagnostic modality.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-kidney-biopsy-with-electron-microscopy">
+                <div class="item-name">
+                    Kidney biopsy with electron microscopy
+
+                </div>
+
+                <div class="item-desc">When genetic testing is unavailable or uninformative, kidney biopsy (or skin biopsy in some XLAS individuals) supports the diagnosis; electron microscopy of the glomerular basement membrane is the key ultrastructural test, showing segmental thinning early and lamellation/basket-weaving as disease progresses.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        kidney biopsy
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51699" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C51699</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Kidney biopsy, skin biopsy (in some individuals with XLAS), or clinical diagnostic criteria may be used to establish the diagnosis"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists kidney/skin biopsy and clinical criteria as diagnostic alternatives when molecular testing is unavailable or uninformative.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39384359" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39384359" target="_blank">PMID:39384359</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The earliest electron microscopic finding of AS is segmental thinning of the lamina densa."</div>
+
+
+                <div class="evidence-explanation">Human renal-biopsy observation identifying segmental GBM thinning as the earliest electron-microscopic diagnostic clue, preceding the lamellation and basket-weaving of advanced disease.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-type-iv-collagen-alpha-chain-immunostaining">
+                <div class="item-name">
+                    Type IV collagen alpha-chain immunostaining
+
+                </div>
+
+                <div class="item-desc">Immunohistochemical staining for type IV collagen alpha chains (notably alpha-5(IV)) on kidney or skin biopsy is the most Alport-specific pathology test: absent or abnormal alpha-5(IV) staining supports the diagnosis, and the staining pattern helps distinguish the inheritance subtype. Skin biopsy is diagnostic only via this alpha-5(IV) immunostaining.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        skin biopsy (for alpha-5(IV) immunostaining)
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51692" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C51692</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39384359" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39384359" target="_blank">PMID:39384359</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Type IV collagen staining elucidates distinct patterns based on AS inheritance"</div>
+
+
+                <div class="evidence-explanation">Human renal-pathology reference establishing type IV collagen (alpha-chain) immunostaining as an Alport-specific test whose pattern reflects the inheritance subtype, complementing electron microscopy.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Microscopic hematuria is typically the first clinical manifestation, present from early childhood in X-linked males.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301386" target="_blank">PMID:20301386</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"kidney disease progresses from microhematuria to proteinuria, progressive kidney insufficiency, and end-stage kidney disease (ESKD) in most males with X-linked Alport syndrome (XLAS)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews natural-history sequence establishes microhematuria as the first kidney manifestation, preceding proteinuria and progressive insufficiency, in most males with X-linked Alport syndrome - directly supporting the childhood-onset first-manifestation claim (replaces a generic disease-definition snippet that did not state onset timing).
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progression">
+                <div class="item-name">Progression</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adolescence-Young Adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Proteinuria develops, hearing loss becomes apparent, and renal function begins to decline. Genotype-dependent: severe COL4A5 mutations lead to ESRD by mean age 19.8 years; milder mutations by 25-30 years.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12105244" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12105244" target="_blank">PMID:12105244</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"large rearrangements, frame shift, nonsense, and splice donor mutations had a mean ESRF age of 19.8+/-5.7 years; (2) non-glycine- or 3&#39; glycine-missense mutations, in-frame deletions/insertions and splice acceptor mutations had a mean ESRF age of 25.7+/-7.2 years
+"</div>
+
+
+                <div class="evidence-explanation">Provides genotype-specific progression data showing mean ESRD ages for different mutation types in X-linked Alport syndrome.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-advanced">
+                <div class="item-name">Advanced</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Young Adulthood-Adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">End-stage renal disease requiring dialysis or transplantation. Post-transplant outcomes are generally excellent.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29854973" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29854973" target="_blank">PMID:29854973</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patient survival was similar in patients with severe and nonsevere mutations (89% vs. 84% at 5 years, 83% vs. 75% at 10, 15, and 20 years
+"</div>
+
+
+                <div class="evidence-explanation">Demonstrates good post-transplant patient survival regardless of mutation severity.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -8367,7 +9720,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse281080">
                 <div class="item-name">
                     Transcriptomic profiling of prolonged-culture iPSC-derived kidney organoids and X-linked Alport syndrome organoid models carrying COL4A5 deep-intronic variants
 
@@ -8406,7 +9759,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse274298">
                 <div class="item-name">
                     SMPDL3b in Podocytes: Decoupling Proteinuria from CKD Progression in Experimental Alport Syndrome
 
@@ -8449,7 +9802,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse271383">
                 <div class="item-name">
                     Evidence that chaperone 4-PBA treatment alleviates the renal phenotype in Alport syndrome mouse models
 
@@ -8490,7 +9843,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002009">
                 <div class="item-name">
                     HipSci HumanExome BeadChip analysis - Alport Syndrome
 
@@ -8525,7 +9878,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002019">
                 <div class="item-name">
                     HipSci HumanExome BeadChip analysis - Alport syndrome (Manchester)
 
@@ -8560,7 +9913,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001002024">
                 <div class="item-name">
                     HipSci HumanHT 12 Expression BeadChip analysis - Alport syndrome
 
@@ -8623,7 +9976,6 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Alport Syndrome
 creation_date: &#34;2026-04-22T12:00:00Z&#34;
-updated_date: &#34;2026-05-05T11:34:04Z&#34;
 description: &gt;
   Alport syndrome is a hereditary nephropathy caused by mutations in genes encoding
   type IV collagen alpha chains (COL4A3, COL4A4, COL4A5). The defective collagen IV
@@ -8640,9 +9992,39 @@ disease_term:
 parents:
 - Hereditary Nephropathy
 - Collagen Disorder
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0957811
+      label: Alport syndrome 3b, autosomal recessive
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;
+      MONDO:0957811 (OMIM:620536) is a direct child of this entry&#39;s disease_term
+      MONDO:0018965 and, per MONDO&#39;s causal_gene assertions, is specific to
+      biallelic COL4A3 variants -- a sibling of, not nested under, this entry&#39;s
+      Autosomal Recessive subtype term MONDO:0008762 (OMIM:203780), which
+      MONDO&#39;s causal_gene data now scopes to COL4A4 only even though that
+      term&#39;s own free-text definition still reads &#34;COL4A3 or COL4A4&#34; (likely
+      not yet updated to match the newer structured split). Because this
+      entry&#39;s Autosomal Recessive subtype curates biallelic COL4A3 and COL4A4
+      disease together without a gene-specific split, MONDO:0957811 sits
+      narrower than -- not equal to -- that subtype&#39;s current scope; a future
+      curation pass may want to split the Autosomal Recessive subtype into
+      COL4A3- and COL4A4-specific entries mirroring MONDO&#39;s structure, at
+      which point this mapping should be revisited and possibly promoted to
+      a dedicated subtype_term. Recorded here as a disease-level narrowMatch
+      per the coverage rule (`iter_covered_mondo_ids` reads mondo_mappings at
+      the disease level, not per-subtype) so the concept is retired from the
+      curation queue without overstating today&#39;s gene-level resolution.
 has_subtypes:
 - name: X-linked
   display_name: X-linked Alport Syndrome (XLAS)
+  subtype_term:
+    preferred_term: X-linked Alport syndrome
+    term:
+      id: MONDO:0010520
+      label: X-linked Alport syndrome
   description: &gt;
     Most common form (approximately 80% of cases), caused by mutations in COL4A5 on
     the X chromosome. Males typically progress to end-stage renal disease by age 20-30,
@@ -8650,16 +10032,154 @@ has_subtypes:
     to progressive renal failure.
 - name: Autosomal Recessive
   display_name: Autosomal Recessive Alport Syndrome (ARAS)
+  subtype_term:
+    preferred_term: autosomal recessive Alport syndrome
+    term:
+      id: MONDO:0008762
+      label: autosomal recessive Alport syndrome
   description: &gt;
     Accounts for approximately 15% of cases, caused by biallelic mutations in COL4A3
     or COL4A4. Clinical severity comparable to X-linked males, with ESRD typically
     by the third decade.
 - name: Autosomal Dominant
   display_name: Autosomal Dominant Alport Syndrome (ADAS)
+  subtype_term:
+    preferred_term: autosomal dominant Alport syndrome
+    term:
+      id: MONDO:0007086
+      label: autosomal dominant Alport syndrome
   description: &gt;
     Accounts for approximately 5% of cases, caused by heterozygous mutations in COL4A3
     or COL4A4. Typically milder and later-onset, with ESRD in the fifth to sixth decade
     or later. Some cases overlap with thin basement membrane nephropathy.
+- name: Digenic
+  display_name: Digenic Alport Syndrome
+  subtype_term:
+    preferred_term: digenic Alport syndrome
+    term:
+      id: MONDO:0958104
+      label: digenic Alport syndrome
+  description: &gt;
+    A distinct named entity for pathogenic variants in two of the three collagen
+    IV genes (COL4A3 plus COL4A4, or COL4A5 together with COL4A3 or COL4A4),
+    accounting for approximately 1.7% of Alport syndrome cases in a large
+    single-center cohort. The second variant raises the fraction of defective
+    alpha3-alpha4-alpha5(IV) heterotrimers above the ~50% seen in autosomal
+    dominant disease -- to 75% for COL4A3+COL4A4 digenic disease, and to a
+    comparable 75% in women who already carry a pathogenic COL4A5 variant --
+    without reaching the ~100% of autosomal recessive or hemizygous X-linked
+    disease. For COL4A3+COL4A4 digenic disease specifically, the two variants
+    transmit as autosomal dominant when they lie on the same chromosome (in
+    cis) or in an autosomal-recessive-like pattern when on different
+    chromosomes (in trans); this cross-cutting of the inheritance-mode axis is
+    why digenic disease is curated as its own subtype rather than folded into
+    the autosomal dominant or recessive entries above. Clinical severity --
+    age at proteinuria detection and at end-stage kidney disease -- is
+    intermediate between the autosomal dominant and autosomal recessive forms.
+    This named entity is distinct from, and additive to, the general digenic
+    inheritance model described below in `inheritance`; the two record
+    different claims (a specific MONDO disease concept vs. the
+    mode-of-transmission pattern) and neither supersedes the other.
+  genes:
+  - preferred_term: COL4A3
+    term:
+      id: hgnc:2204
+      label: COL4A3
+  - preferred_term: COL4A4
+    term:
+      id: hgnc:2206
+      label: COL4A4
+  - preferred_term: COL4A5
+    term:
+      id: hgnc:2207
+      label: COL4A5
+  evidence:
+  - reference: PMID:35675912
+    reference_title: &#34;Digenic Alport Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In digenic Alport syndrome with pathogenic COL4A3 and COL4A4 variants, 75% of the heterotrimers are affected.&#34;
+    explanation: &gt;
+      Establishes the heterotrimer-dose position of COL4A3+COL4A4 digenic
+      disease, intermediate between the ~50% of autosomal dominant and ~100%
+      of autosomal recessive disease.
+  - reference: PMID:35675912
+    reference_title: &#34;Digenic Alport Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The COL4A3 and COL4A4 genes occur head-to-head on chromosome 2, and inheritance is autosomal dominant when both variants affect the same chromosome (in cis) or recessive when they affect different chromosomes (in trans).&#34;
+    explanation: &gt;
+      Supports the cis/trans transmission-pattern distinction for COL4A3+COL4A4
+      digenic disease, the point that keeps it from mapping cleanly onto either
+      existing inheritance-mode subtype.
+  - reference: PMID:39137047
+    reference_title: &#34;Clinical, Pathological, and Genetic Characteristics of Patients with Digenic Alport Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;that at development of ESKD was significantly earlier (57.0 versus 72.0 years; P = 0.045) in patients with digenic Alport syndrome&#34;
+    explanation: &gt;
+      Cohort comparison against autosomal dominant Alport syndrome patients
+      from the same center, supporting the intermediate-severity claim with a
+      statistically significant difference in age at kidney failure.
+  - reference: PMID:39137047
+    reference_title: &#34;Clinical, Pathological, and Genetic Characteristics of Patients with Digenic Alport Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The proportion of patients with digenic Alport syndrome was 1.7% among all patients with Alport syndrome.&#34;
+    explanation: &gt;
+      Quantifies the share of digenic disease within a large single-center
+      Alport syndrome cohort identified by targeted panel sequencing.
+- name: AS-DL
+  display_name: X-linked Diffuse Leiomyomatosis-Alport Syndrome (AS-DL)
+  subtype_term:
+    preferred_term: X-linked diffuse leiomyomatosis-Alport syndrome
+    term:
+      id: MONDO:0010641
+      label: X-linked diffuse leiomyomatosis-Alport syndrome
+  description: &gt;
+    A contiguous-gene deletion spanning the 5&#39; ends of COL4A5 and the adjacent
+    COL4A6 gene at Xq22.3, combining X-linked Alport syndrome with diffuse
+    leiomyomatosis: benign overgrowth of visceral smooth muscle,
+    characteristically of the esophagus and tracheobronchial tree and
+    sometimes the female genital tract. The bidirectional promoter region
+    shared by both genes lies within the deleted segment, and inactivation of
+    both COL4A5 and COL4A6 is thought to be required for the leiomyomatosis
+    component. Already curated in this entry as the &#34;Diffuse Leiomyomatosis&#34;
+    phenotype and the matched &#34;Leiomyoma Surgery (COL4A5-COL4A6 Deletion
+    Subtype)&#34; treatment; this binding gives that existing content a named
+    subtype entity. Note that MONDO does not nest this concept under Alport
+    syndrome -- its declared parents are &#34;kidney disorder&#34; and &#34;partial
+    deletion of the long arm of chromosome X&#34; -- so it sits outside the
+    ontology branch the other subtypes in this list share, even though it is
+    clinically and mechanistically an X-linked Alport variant.
+  genes:
+  - preferred_term: COL4A5
+    term:
+      id: hgnc:2207
+      label: COL4A5
+  - preferred_term: COL4A6
+    term:
+      id: hgnc:2208
+      label: COL4A6
+  evidence:
+  - reference: PMID:28275241
+    reference_title: &#34;Characterization of contiguous gene deletions in COL4A6 and COL4A5 in Alport syndrome-diffuse leiomyomatosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Alport syndrome-diffuse leiomyomatosis (AS-DL, OMIM: 308940) is a rare variant of the X-linked Alport syndrome that shows overgrowth of visceral smooth muscles in the gastrointestinal, respiratory and female reproductive tracts in addition to renal symptoms.&#34;
+    explanation: &gt;
+      Primary molecular-genetics paper naming and defining AS-DL as a distinct
+      variant of X-linked Alport syndrome caused by a COL4A5-COL4A6
+      contiguous deletion.
+  - reference: PMID:28275241
+    reference_title: &#34;Characterization of contiguous gene deletions in COL4A6 and COL4A5 in Alport syndrome-diffuse leiomyomatosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Because deletions involved the bidirectional promoter region in each case, we suggest that the occurrence of leiomyomatosis in AS-DL requires inactivation of both genes.&#34;
+    explanation: &gt;
+      Molecular basis for why the deletion produces the smooth-muscle
+      phenotype rather than isolated Alport syndrome: inactivation of both
+      COL4A5 and COL4A6, not COL4A5 alone.
 inheritance:
 - name: X-linked inheritance
   inheritance_term:
@@ -9155,7 +10675,7 @@ pathophysiology:
     evidence:
     - reference: PMID:41243004
       reference_title: &#34;From RAAS blockade to regenerative medicine: evolving treatment strategies in Alport syndrome.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;
         Emphasis is placed on the molecular mechanisms underlying podocyte injury and
@@ -9232,7 +10752,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38021591
       reference_title: &#34;Alport Syndrome: A Comprehensive Review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;
         Regular monitoring of kidney function and blood pressure, along with medications
@@ -9730,7 +11250,7 @@ treatments:
   evidence:
   - reference: PMID:41243004
     reference_title: &#34;From RAAS blockade to regenerative medicine: evolving treatment strategies in Alport syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;
       Adjunctive commercially available metabolic modulators, including SGLT2i,
@@ -10171,7 +11691,7 @@ references:
   - statement: Alport syndrome, a rare genetic disorder affecting around 1 in 50,000 individuals, primarily presents as microscopic hematuria and chronic kidney disease (CKD) with associated extrarenal complications.
     supporting_text: Alport syndrome, a rare genetic disorder affecting around 1 in 50,000 individuals, primarily presents as microscopic hematuria and chronic kidney disease (CKD) with associated extrarenal complications.
 - reference: DOI:10.3389/fgene.2023.1059322
-  title: Molecular dynamics and minigene assay of new splicing variant c.4298-20T&gt;A of COL4A5 gene that cause Alport syndrome
+  title: &#34;Molecular dynamics and minigene assay of new splicing variant c.4298-20T&amp;gt;A of COL4A5 gene that cause Alport syndrome&#34;
   found_in:
   - Alport_Syndrome-deep-research-falcon.md
   findings:
@@ -10916,7 +12436,7 @@ datasets:
                                 <a href="https://bioregistry.io/DOI:10.3389/fgene.2023.1059322" target="_blank">DOI:10.3389/fgene.2023.1059322</a>
                             </div>
 
-                            <div class="reference-title">Molecular dynamics and minigene assay of new splicing variant c.4298-20T&gt;A of COL4A5 gene that cause Alport syndrome</div>
+                            <div class="reference-title">Molecular dynamics and minigene assay of new splicing variant c.4298-20T&amp;gt;A of COL4A5 gene that cause Alport syndrome</div>
 
                         </div>
 
@@ -14208,7 +15728,7 @@ Preclinical data from Col4a3-/- mice demonstrates synergistic benefit:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alport Syndrome", "mondoId": "MONDO:0018965", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alport_Syndrome", "yamlRevision": "9762e11e9b0b"};
+        const OS_CONFIG = {"diseaseName": "Alport Syndrome", "mondoId": "MONDO:0018965", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alport_Syndrome", "yamlRevision": "6b0c57301e65"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14627,5 +16147,73 @@ Preclinical data from Col4a3-/- mice demonstrates synergistic benefit:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

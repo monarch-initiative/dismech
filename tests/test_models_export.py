@@ -163,15 +163,14 @@ def test_runnable_models_resolve_to_committed_perturb_configs():
         assert config.exists(), f"{record['name']} claims runnable without {config}"
 
 
-def test_exported_data_js_is_in_sync_with_the_knowledge_base():
-    """``just gen-models-data`` output must be regenerated when the KB changes."""
-    import json
-
-    data_js = (REPO_ROOT / "app" / "models" / "data.js").read_text()
-    committed = json.loads(
-        data_js.split("window.searchData = ", 1)[1].split(";\nwindow.searchMetrics", 1)[0]
-    )
-    current = ModelsExporter(models_dir=REPO_ROOT / "models").collect_records(
-        REPO_ROOT / "kb" / "disorders", REPO_ROOT / "kb" / "modules"
-    )
-    assert committed == current, "app/models/data.js is stale — run `just gen-models-data`"
+# Deliberately NOT tested here: the committed app/models/data.js against the
+# committed KB. This file is rebuilt from every computational_models block in
+# kb/, so requiring repo state to match forced each model-curation PR to commit
+# a regenerated 2,800-line artifact — which made any two concurrent model PRs
+# conflict on it and nothing else. Nine approved PRs deadlocked that way
+# (#9104, #9119, #9122, #9140, #9142, #9145, #9263, #9324, #9325).
+#
+# It is the same invariant, and the same resolution, as the sibling app/data.js
+# index: see the note in tests/test_check_browser_data_links.py. The invariant
+# belongs to the generate-pages run, which regenerates and commits the file
+# after rendering and gates on its links, not to repo state between builds.

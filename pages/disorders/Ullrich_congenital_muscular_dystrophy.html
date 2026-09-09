@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Ullrich congenital muscular dystrophy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Ullrich congenital muscular dystrophy</h1>
             <div class="header-meta">
 
@@ -3989,7 +4136,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-orphanet-ucmd-definition">
                 <div class="item-name">Orphanet UCMD definition</div>
 
                 <div class="item-desc">A congenital muscular dystrophy with weakness, hypotonia, proximal joint contractures, distal joint hyperlaxity, loss of ambulation, and childhood respiratory insufficiency.
@@ -4034,7 +4181,9 @@
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4070,7 +4219,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4115,7 +4264,9 @@
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4137,7 +4288,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4160,7 +4313,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4205,7 +4358,9 @@
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4227,7 +4382,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21280092" target="_blank">PMID:21280092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4288,7 +4445,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ucmd1a">
 
                     <div class="item-name">
                         Ullrich congenital muscular dystrophy 1A (COL6A1-related)
@@ -4324,7 +4481,9 @@
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4346,7 +4505,9 @@
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4372,7 +4533,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ucmd1b">
 
                     <div class="item-name">
                         Ullrich congenital muscular dystrophy 1B (COL6A2-related)
@@ -4408,7 +4569,9 @@
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4430,7 +4593,9 @@
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4456,7 +4621,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ucmd1c">
 
                     <div class="item-name">
                         Ullrich congenital muscular dystrophy 1C (COL6A3-related)
@@ -4492,7 +4657,9 @@
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4514,7 +4681,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11992252" target="_blank">PMID:11992252</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4540,7 +4709,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ucmd2">
 
                     <div class="item-name">
                         Ullrich congenital muscular dystrophy 2 (COL12A1-related)
@@ -4576,7 +4745,9 @@
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4598,7 +4769,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24334604" target="_blank">PMID:24334604</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4661,17 +4834,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves COL6A1 (hgnc:2211). hgnc:2211 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         COL6A1
 
 
-    <a href="https://bioregistry.io/hgnc:2211" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2211</a>
+    <a href="https://bioregistry.io/hgnc:2211" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2211</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL6A1 (hgnc:2211). hgnc:2211 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4696,17 +4873,21 @@ This pathophysiological event involves COL6A1 (hgnc:2211). hgnc:2211 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves COL6A2 (hgnc:2212). hgnc:2212 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         COL6A2
 
 
-    <a href="https://bioregistry.io/hgnc:2212" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2212</a>
+    <a href="https://bioregistry.io/hgnc:2212" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2212</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL6A2 (hgnc:2212). hgnc:2212 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4731,17 +4912,21 @@ This pathophysiological event involves COL6A2 (hgnc:2212). hgnc:2212 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves COL6A3 (hgnc:2213). hgnc:2213 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         COL6A3
 
 
-    <a href="https://bioregistry.io/hgnc:2213" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2213</a>
+    <a href="https://bioregistry.io/hgnc:2213" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:2213</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL6A3 (hgnc:2213). hgnc:2213 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4766,17 +4951,21 @@ This pathophysiological event involves COL6A3 (hgnc:2213). hgnc:2213 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves COL12A1 (hgnc:2188). hgnc:2188 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         COL12A1
 
 
-    <a href="https://bioregistry.io/hgnc:2188" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2188</a>
+    <a href="https://bioregistry.io/hgnc:2188" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2188</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves COL12A1 (hgnc:2188). hgnc:2188 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4806,18 +4995,20 @@ This pathophysiological event involves COL12A1 (hgnc:2188). hgnc:2188 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased extracellular matrix structural constituent (GO:0005201). GO:0005201 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix structural constituent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005201" target="_blank" class="curie-chip curie-chip-go">GO:0005201</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005201" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0005201</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased extracellular matrix structural constituent (GO:0005201). GO:0005201 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4844,18 +5035,20 @@ This pathophysiological event involves decreased extracellular matrix structural
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:0031012 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         extracellular matrix
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go">GO:0031012</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0031012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:0031012 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4893,7 +5086,9 @@ This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4915,7 +5110,9 @@ This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24334604" target="_blank">PMID:24334604</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4956,18 +5153,20 @@ This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4995,18 +5194,20 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:0031012 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         extracellular matrix
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go">GO:0031012</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0031012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:0031012 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5092,7 +5293,9 @@ This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21280092" target="_blank">PMID:21280092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5114,7 +5317,9 @@ This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21280092" target="_blank">PMID:21280092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5136,7 +5341,9 @@ This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24334604" target="_blank">PMID:24334604</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5170,18 +5377,20 @@ This pathophysiological event occurs in extracellular matrix (GO:0031012). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5209,18 +5418,20 @@ This pathophysiological event involves skeletal muscle cell, annotated with cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased mitochondrion-mediated myofiber apoptosis, annotated with apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         mitochondrion-mediated myofiber apoptosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased mitochondrion-mediated myofiber apoptosis, annotated with apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5241,18 +5452,20 @@ This pathophysiological event involves increased mitochondrion-mediated myofiber
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased impaired autophagy, annotated with autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         impaired autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased impaired autophagy, annotated with autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5280,18 +5493,20 @@ This pathophysiological event involves decreased impaired autophagy, annotated w
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5337,7 +5552,9 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5360,7 +5577,9 @@ or impaired autophagy."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18362356" target="_blank">PMID:18362356</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5394,18 +5613,20 @@ or impaired autophagy."</div>
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5433,18 +5654,20 @@ This pathophysiological event involves skeletal muscle cell, annotated with cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5556,7 +5779,9 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5578,7 +5803,9 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5734,7 +5961,9 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5768,18 +5997,20 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         skeletal muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl">CL:0000188</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000188</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle cell, annotated with cell of skeletal muscle (CL:0000188). CL:0000188 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5846,7 +6077,9 @@ This pathophysiological event involves skeletal muscle cell, annotated with cell
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5868,7 +6101,9 @@ This pathophysiological event involves skeletal muscle cell, annotated with cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5903,7 +6138,7 @@ This pathophysiological event involves skeletal muscle cell, annotated with cell
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-interstitial-and-endomysial-fibrosis">
                 <div class="item-name">
                     Interstitial and endomysial fibrosis
 
@@ -5926,7 +6161,9 @@ This pathophysiological event involves skeletal muscle cell, annotated with cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5948,7 +6185,9 @@ This pathophysiological event involves skeletal muscle cell, annotated with cell
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6043,16 +6282,20 @@ This pathophysiological event involves skeletal muscle cell, annotated with cell
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000565" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000565</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Esotropia (HP:0000565). HP:0000565 is a phenotype from the Human Phenotype Ontology.">
-                        Esotropia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000565" target="_blank" class="curie-chip curie-chip-hp">HP:0000565</a>
-
-
+This clinical feature is Esotropia (HP:0000565). HP:0000565 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6073,7 +6316,9 @@ This clinical feature is Esotropia (HP:0000565). HP:0000565 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6116,16 +6361,20 @@ This clinical feature is Esotropia (HP:0000565). HP:0000565 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.">
-                        Micrognathia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp">HP:0000347</a>
-
-
+This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6146,7 +6395,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6180,16 +6431,20 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000470</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from the Human Phenotype Ontology.">
-                        Short neck
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000470" target="_blank" class="curie-chip curie-chip-hp">HP:0000470</a>
-
-
+This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6210,7 +6465,9 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6253,16 +6510,20 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003236</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating creatine kinase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp">HP:0003236</a>
-
-
+This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6283,7 +6544,9 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6326,16 +6589,20 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001290</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp">HP:0001290</a>
-
-
+This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6356,7 +6623,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6390,16 +6659,20 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.">
-                        Muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp">HP:0001324</a>
-
-
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6420,7 +6693,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6454,16 +6729,20 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001371</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.">
-                        Flexion contracture
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp">HP:0001371</a>
-
-
+This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6484,7 +6763,9 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6518,16 +6799,20 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002359</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Frequent falls (HP:0002359). HP:0002359 is a phenotype from the Human Phenotype Ontology.">
-                        Frequent falls
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002359" target="_blank" class="curie-chip curie-chip-hp">HP:0002359</a>
-
-
+This clinical feature is Frequent falls (HP:0002359). HP:0002359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6548,7 +6833,9 @@ This clinical feature is Frequent falls (HP:0002359). HP:0002359 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6582,16 +6869,20 @@ This clinical feature is Frequent falls (HP:0002359). HP:0002359 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
-                        Scoliosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
-
-
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6612,7 +6903,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6634,7 +6927,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6668,16 +6963,20 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002808</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.">
-                        Kyphosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp">HP:0002808</a>
-
-
+This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6698,7 +6997,9 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6732,16 +7033,20 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003306</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.">
-                        Spinal rigidity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003306" target="_blank" class="curie-chip curie-chip-hp">HP:0003306</a>
-
-
+This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6762,7 +7067,9 @@ This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6796,16 +7103,20 @@ This clinical feature is Spinal rigidity (HP:0003306). HP:0003306 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized muscle weakness (HP:0003324). HP:0003324 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" class="curie-chip curie-chip-hp">HP:0003324</a>
-
-
+This clinical feature is Generalized muscle weakness (HP:0003324). HP:0003324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6826,7 +7137,9 @@ This clinical feature is Generalized muscle weakness (HP:0003324). HP:0003324 is
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6860,16 +7173,20 @@ This clinical feature is Generalized muscle weakness (HP:0003324). HP:0003324 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003700" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003700</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Generalized amyotrophy (HP:0003700). HP:0003700 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized amyotrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003700" target="_blank" class="curie-chip curie-chip-hp">HP:0003700</a>
-
-
+This clinical feature is Generalized amyotrophy (HP:0003700). HP:0003700 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6890,7 +7207,9 @@ This clinical feature is Generalized amyotrophy (HP:0003700). HP:0003700 is a ph
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6933,16 +7252,20 @@ This clinical feature is Generalized amyotrophy (HP:0003700). HP:0003700 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002878</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory failure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp">HP:0002878</a>
-
-
+This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6963,7 +7286,9 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7006,16 +7331,20 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000174" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000174</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal palate morphology (HP:0000174). HP:0000174 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal palate morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000174" target="_blank" class="curie-chip curie-chip-hp">HP:0000174</a>
-
-
+This clinical feature is Abnormal palate morphology (HP:0000174). HP:0000174 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7036,7 +7365,9 @@ This clinical feature is Abnormal palate morphology (HP:0000174). HP:0000174 is 
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7070,16 +7401,20 @@ This clinical feature is Abnormal palate morphology (HP:0000174). HP:0000174 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000473</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Torticollis (HP:0000473). HP:0000473 is a phenotype from the Human Phenotype Ontology.">
-                        Torticollis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000473" target="_blank" class="curie-chip curie-chip-hp">HP:0000473</a>
-
-
+This clinical feature is Torticollis (HP:0000473). HP:0000473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7100,7 +7435,9 @@ This clinical feature is Torticollis (HP:0000473). HP:0000473 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7134,16 +7471,20 @@ This clinical feature is Torticollis (HP:0000473). HP:0000473 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001181" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001181</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Adducted thumb (HP:0001181). HP:0001181 is a phenotype from the Human Phenotype Ontology.">
-                        Adducted thumb
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001181" target="_blank" class="curie-chip curie-chip-hp">HP:0001181</a>
-
-
+This clinical feature is Adducted thumb (HP:0001181). HP:0001181 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7164,7 +7505,9 @@ This clinical feature is Adducted thumb (HP:0001181). HP:0001181 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7198,16 +7541,20 @@ This clinical feature is Adducted thumb (HP:0001181). HP:0001181 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001238</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Slender finger (HP:0001238). HP:0001238 is a phenotype from the Human Phenotype Ontology.">
-                        Slender finger
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001238" target="_blank" class="curie-chip curie-chip-hp">HP:0001238</a>
-
-
+This clinical feature is Slender finger (HP:0001238). HP:0001238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7228,7 +7575,9 @@ This clinical feature is Slender finger (HP:0001238). HP:0001238 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7262,16 +7611,20 @@ This clinical feature is Slender finger (HP:0001238). HP:0001238 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001558" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001558</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased fetal movement
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001558" target="_blank" class="curie-chip curie-chip-hp">HP:0001558</a>
-
-
+This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7292,7 +7645,9 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7326,16 +7681,20 @@ This clinical feature is Decreased fetal movement (HP:0001558). HP:0001558 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002827</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.">
-                        Hip dislocation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp">HP:0002827</a>
-
-
+This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7356,7 +7715,9 @@ This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7390,16 +7751,20 @@ This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002987" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002987</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elbow flexion contracture (HP:0002987). HP:0002987 is a phenotype from the Human Phenotype Ontology.">
-                        Elbow flexion contracture
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002987" target="_blank" class="curie-chip curie-chip-hp">HP:0002987</a>
-
-
+This clinical feature is Elbow flexion contracture (HP:0002987). HP:0002987 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7420,7 +7785,9 @@ This clinical feature is Elbow flexion contracture (HP:0002987). HP:0002987 is a
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7454,16 +7821,20 @@ This clinical feature is Elbow flexion contracture (HP:0002987). HP:0002987 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003458" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003458</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is EMG: myopathic abnormalities (HP:0003458). HP:0003458 is a phenotype from the Human Phenotype Ontology.">
-                        EMG: myopathic abnormalities
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003458" target="_blank" class="curie-chip curie-chip-hp">HP:0003458</a>
-
-
+This clinical feature is EMG: myopathic abnormalities (HP:0003458). HP:0003458 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7484,7 +7855,9 @@ This clinical feature is EMG: myopathic abnormalities (HP:0003458). HP:0003458 i
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7518,16 +7891,20 @@ This clinical feature is EMG: myopathic abnormalities (HP:0003458). HP:0003458 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003557" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003557</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased variability in muscle fiber diameter (HP:0003557). HP:0003557 is a phenotype from the Human Phenotype Ontology.">
-                        Increased variability in muscle fiber diameter
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003557" target="_blank" class="curie-chip curie-chip-hp">HP:0003557</a>
-
-
+This clinical feature is Increased variability in muscle fiber diameter (HP:0003557). HP:0003557 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7548,7 +7925,9 @@ This clinical feature is Increased variability in muscle fiber diameter (HP:0003
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7582,16 +7961,20 @@ This clinical feature is Increased variability in muscle fiber diameter (HP:0003
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004303" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0004303</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal muscle fiber morphology (HP:0004303). HP:0004303 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal muscle fiber morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004303" target="_blank" class="curie-chip curie-chip-hp">HP:0004303</a>
-
-
+This clinical feature is Abnormal muscle fiber morphology (HP:0004303). HP:0004303 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7612,7 +7995,9 @@ This clinical feature is Abnormal muscle fiber morphology (HP:0004303). HP:00043
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7646,16 +8031,20 @@ This clinical feature is Abnormal muscle fiber morphology (HP:0004303). HP:00043
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0005072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Wrist hypermobility (HP:0005072). HP:0005072 is a phenotype from the Human Phenotype Ontology.">
-                        Wrist hypermobility
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005072" target="_blank" class="curie-chip curie-chip-hp">HP:0005072</a>
-
-
+This clinical feature is Wrist hypermobility (HP:0005072). HP:0005072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7676,7 +8065,9 @@ This clinical feature is Wrist hypermobility (HP:0005072). HP:0005072 is a pheno
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7710,16 +8101,20 @@ This clinical feature is Wrist hypermobility (HP:0005072). HP:0005072 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006149" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0006149</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased laxity of fingers (HP:0006149). HP:0006149 is a phenotype from the Human Phenotype Ontology.">
-                        Increased laxity of fingers
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006149" target="_blank" class="curie-chip curie-chip-hp">HP:0006149</a>
-
-
+This clinical feature is Increased laxity of fingers (HP:0006149). HP:0006149 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7740,7 +8135,9 @@ This clinical feature is Increased laxity of fingers (HP:0006149). HP:0006149 is
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7774,16 +8171,20 @@ This clinical feature is Increased laxity of fingers (HP:0006149). HP:0006149 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006380" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0006380</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Knee flexion contracture (HP:0006380). HP:0006380 is a phenotype from the Human Phenotype Ontology.">
-                        Knee flexion contracture
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006380" target="_blank" class="curie-chip curie-chip-hp">HP:0006380</a>
-
-
+This clinical feature is Knee flexion contracture (HP:0006380). HP:0006380 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7804,7 +8205,9 @@ This clinical feature is Knee flexion contracture (HP:0006380). HP:0006380 is a 
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7838,16 +8241,20 @@ This clinical feature is Knee flexion contracture (HP:0006380). HP:0006380 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0008081</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pes valgus (HP:0008081). HP:0008081 is a phenotype from the Human Phenotype Ontology.">
-                        Pes valgus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008081" target="_blank" class="curie-chip curie-chip-hp">HP:0008081</a>
-
-
+This clinical feature is Pes valgus (HP:0008081). HP:0008081 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7868,7 +8275,9 @@ This clinical feature is Pes valgus (HP:0008081). HP:0008081 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7902,16 +8311,20 @@ This clinical feature is Pes valgus (HP:0008081). HP:0008081 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009113" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0009113</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Diaphragmatic weakness (HP:0009113). HP:0009113 is a phenotype from the Human Phenotype Ontology.">
-                        Diaphragmatic weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009113" target="_blank" class="curie-chip curie-chip-hp">HP:0009113</a>
-
-
+This clinical feature is Diaphragmatic weakness (HP:0009113). HP:0009113 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7932,7 +8345,9 @@ This clinical feature is Diaphragmatic weakness (HP:0009113). HP:0009113 is a ph
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7966,16 +8381,20 @@ This clinical feature is Diaphragmatic weakness (HP:0009113). HP:0009113 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0010511</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Long toe (HP:0010511). HP:0010511 is a phenotype from the Human Phenotype Ontology.">
-                        Long toe
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010511" target="_blank" class="curie-chip curie-chip-hp">HP:0010511</a>
-
-
+This clinical feature is Long toe (HP:0010511). HP:0010511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7996,7 +8415,9 @@ This clinical feature is Long toe (HP:0010511). HP:0010511 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8030,16 +8451,20 @@ This clinical feature is Long toe (HP:0010511). HP:0010511 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0100297</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased endomysial connective tissue (HP:0100297). HP:0100297 is a phenotype from the Human Phenotype Ontology.">
-                        Increased endomysial connective tissue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100297" target="_blank" class="curie-chip curie-chip-hp">HP:0100297</a>
-
-
+This clinical feature is Increased endomysial connective tissue (HP:0100297). HP:0100297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8060,7 +8485,9 @@ This clinical feature is Increased endomysial connective tissue (HP:0100297). HP
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8138,15 +8565,17 @@ This clinical feature is Increased endomysial connective tissue (HP:0100297). HP
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is COL6A1 (hgnc:2211). hgnc:2211 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL6A1
 
 
-    <a href="https://bioregistry.io/hgnc:2211" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2211</a>
+    <a href="https://bioregistry.io/hgnc:2211" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:2211</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL6A1 (hgnc:2211). hgnc:2211 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8172,7 +8601,9 @@ This disease-associated gene is COL6A1 (hgnc:2211). hgnc:2211 is a gene from the
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8194,7 +8625,9 @@ This disease-associated gene is COL6A1 (hgnc:2211). hgnc:2211 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15689448" target="_blank">PMID:15689448</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8231,15 +8664,17 @@ This disease-associated gene is COL6A1 (hgnc:2211). hgnc:2211 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is COL6A2 (hgnc:2212). hgnc:2212 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL6A2
 
 
-    <a href="https://bioregistry.io/hgnc:2212" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2212</a>
+    <a href="https://bioregistry.io/hgnc:2212" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:2212</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL6A2 (hgnc:2212). hgnc:2212 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8265,7 +8700,9 @@ This disease-associated gene is COL6A2 (hgnc:2212). hgnc:2212 is a gene from the
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8287,7 +8724,9 @@ This disease-associated gene is COL6A2 (hgnc:2212). hgnc:2212 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21280092" target="_blank">PMID:21280092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8324,15 +8763,17 @@ This disease-associated gene is COL6A2 (hgnc:2212). hgnc:2212 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is COL6A3 (hgnc:2213). hgnc:2213 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL6A3
 
 
-    <a href="https://bioregistry.io/hgnc:2213" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2213</a>
+    <a href="https://bioregistry.io/hgnc:2213" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:2213</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL6A3 (hgnc:2213). hgnc:2213 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8358,7 +8799,9 @@ This disease-associated gene is COL6A3 (hgnc:2213). hgnc:2213 is a gene from the
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8380,7 +8823,9 @@ This disease-associated gene is COL6A3 (hgnc:2213). hgnc:2213 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11992252" target="_blank">PMID:11992252</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8417,15 +8862,17 @@ This disease-associated gene is COL6A3 (hgnc:2213). hgnc:2213 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is COL12A1 (hgnc:2188). hgnc:2188 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL12A1
 
 
-    <a href="https://bioregistry.io/hgnc:2188" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2188</a>
+    <a href="https://bioregistry.io/hgnc:2188" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:2188</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL12A1 (hgnc:2188). hgnc:2188 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8451,7 +8898,9 @@ This disease-associated gene is COL12A1 (hgnc:2188). hgnc:2188 is a gene from th
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8473,7 +8922,9 @@ This disease-associated gene is COL12A1 (hgnc:2188). hgnc:2188 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24334604" target="_blank">PMID:24334604</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8503,6 +8954,108 @@ This disease-associated gene is COL12A1 (hgnc:2188). hgnc:2188 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="external-assertion-orphanet-ullrich-congenital-muscular-dystrophy-record">
+
+
+    <div class="item-name">Orphanet Ullrich congenital muscular dystrophy record</div>
+
+    <div class="item-meta">
+
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">Orphanet</span>
+
+
+        <span class="tag" style="background: #f1f5f9; color: #475569;">structured disease record</span>
+
+
+
+
+
+        <a class="curie-chip" href="http://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=75840" target="_blank" rel="noopener noreferrer" title="Open ORPHA:75840">ORPHA:75840</a>
+
+
+    </div>
+
+    <div class="item-desc">Orphanet&#39;s ORPHA:75840 structured record for Ullrich congenital muscular dystrophy includes the exact MONDO cross-reference, autosomal dominant and autosomal recessive inheritance, neonatal/infancy onset, prevalence rows, COL12A1 and COL6A1/COL6A2/COL6A3 disease-gene assertions, and HPO phenotype rows used in this entry.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:75840" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MONDO:0000355 | Exact"</div>
+
+
+                <div class="evidence-explanation">Orphanet maps ORPHA:75840 exactly to the MONDO identifier used by this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:75840" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OMIM:254090 | Broader"</div>
+
+
+                <div class="evidence-explanation">Orphanet lists OMIM:254090 among broader subtype-level cross-references.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8519,18 +9072,18 @@ This disease-associated gene is COL12A1 (hgnc:2188). hgnc:2188 is a gene from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8553,6 +9106,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Current care is supportive and addresses joint contractures, respiratory failure, scoliosis, mobility, and related complications.
 </div>
 
@@ -8562,48 +9123,54 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Flexion contracture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp">HP:0001371</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp">HP:0002878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002878</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Scoliosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0002650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8623,7 +9190,9 @@ This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8645,7 +9214,9 @@ This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21078917" target="_blank">PMID:21078917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8675,17 +9246,17 @@ This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from th
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8710,21 +9281,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cyclosporin A
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4031</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:4031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8757,7 +9338,9 @@ This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18362356" target="_blank">PMID:18362356</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8798,7 +9381,9 @@ This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18362356" target="_blank">PMID:18362356</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8828,18 +9413,18 @@ This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">noninvasive ventilation<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanical Ventilation (NCIT:C171457). NCIT:C171457 is a clinical intervention from the NCI Thesaurus.">noninvasive ventilation</span>
+This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanical Ventilation (NCIT:C171457). NCIT:C171457 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Non-Invasive Mechanical Ventilation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C171457" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanical Ventilation (NCIT:C171457). NCIT:C171457 is a clinical intervention from the NCI Thesaurus.">NCIT:C171457</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C171457" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C171457">NCIT:C171457</a>
 
 
 
@@ -8862,6 +9447,14 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Nocturnal noninvasive ventilatory support is used when collagen VI-related myopathy causes progressive respiratory insufficiency or failure.
 </div>
 
@@ -8871,18 +9464,20 @@ This treatment is noninvasive ventilation, annotated with Non-Invasive Mechanica
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Respiratory failure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp">HP:0002878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002878</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8902,7 +9497,9 @@ This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24271325" target="_blank">PMID:24271325</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8932,18 +9529,18 @@ This treatment targets Respiratory failure (HP:0002878). HP:0002878 is a phenoty
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -8966,6 +9563,25 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Physical therapy and stretching are supportive interventions for weakness, mobility limitation, and contracture management.
 </div>
 
@@ -8975,33 +9591,37 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Muscle weakness
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001324</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Flexion contracture
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp">HP:0001371</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001371</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9021,7 +9641,9 @@ This treatment targets Flexion contracture (HP:0001371). HP:0001371 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21078917" target="_blank">PMID:21078917</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9085,7 +9707,9 @@ This treatment targets Flexion contracture (HP:0001371). HP:0001371 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9134,7 +9758,9 @@ This treatment targets Flexion contracture (HP:0001371). HP:0001371 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21280092" target="_blank">PMID:21280092</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9158,6 +9784,474 @@ This treatment targets Flexion contracture (HP:0001371). HP:0001371 is a phenoty
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-col6a1-col6a2-col6a3-col12a1-molecular-genetic-testing">
+                <div class="item-name">
+                    COL6A1/COL6A2/COL6A3/COL12A1 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing across COL6A1, COL6A2, COL6A3, and COL12A1 can confirm the collagen-related UCMD subtype and distinguish dominant-negative from recessive loss-of-function mechanisms.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Pathogenic variants in COL6A1, COL6A2, COL6A3, or COL12A1 support UCMD diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15689448" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15689448" target="_blank">PMID:15689448</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"rapid direct sequence analysis of all 107 coding exons of the COL6 genes"</div>
+
+
+                <div class="evidence-explanation">Sequencing study supports molecular testing of COL6 genes in UCMD.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21280092" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21280092" target="_blank">PMID:21280092</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"large genomic deletions on chromosome 21q22.3 as a novel type of mutation underlying recessively inherited UCMD"</div>
+
+
+                <div class="evidence-explanation">Large-deletion evidence supports dosage-aware molecular testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-muscle-biopsy-and-collagen-vi-immunostaining">
+                <div class="item-name">
+                    Muscle biopsy and collagen VI immunostaining
+
+                </div>
+
+                <div class="item-desc">Muscle biopsy and collagen VI immunostaining can demonstrate the interstitial fibrotic pathology and reduced or absent collagen VI matrix deposition in collagen VI-related UCMD.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-63">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Prominent interstitial fibrosis or reduced/absent collagen VI supports UCMD in context.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24938411" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Muscle pathology is characterised by prominent interstitial fibrosis"</div>
+
+
+                <div class="evidence-explanation">Review evidence supports muscle biopsy pathology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21280092" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21280092" target="_blank">PMID:21280092</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"revealed a complete absence of collagen VI immunoreactivity"</div>
+
+
+                <div class="evidence-explanation">Patient-derived cell staining supports collagen VI immunostaining as a diagnostic adjunct.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-neonatal-or-infancy-onset">
+                <div class="item-name">Neonatal or infancy onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Neonatal period to infancy</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Weakness and hypotonia begin congenitally, neonatally, or in infancy.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:75840" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Neonatal"</div>
+
+
+                <div class="evidence-explanation">Orphanet records neonatal onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:75840" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Infancy"</div>
+
+
+                <div class="evidence-explanation">Orphanet records infancy onset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-childhood-motor-and-respiratory-decline">
+                <div class="item-name">Progressive childhood motor and respiratory decline</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to adolescence</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Natural history includes loss of ambulation, rapidly progressive scoliosis, and decline in respiratory function during childhood.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24938411" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24938411" target="_blank">PMID:24938411</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"loss of ambulation by early teenage years, rapid decline in respiratory function by 10"</div>
+
+
+                <div class="evidence-explanation">Review evidence supports progressive motor and respiratory decline.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-europe">
+                <div class="item-name">Europe</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.1&ndash;0.9 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet records UCMD point prevalence of 1-9 per 1,000,000 in Europe.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:75840" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:75840" target="_blank">ORPHA:75840</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 1 000 000 | Europe | Point prevalence | ORPHANET"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the European point-prevalence band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9192,7 +10286,6 @@ This treatment targets Flexion contracture (HP:0001371). HP:0001371 is a phenoty
                 <pre class="yaml-preview">name: Ullrich congenital muscular dystrophy
 category: Mendelian
 creation_date: &#34;2026-05-09T14:11:05Z&#34;
-updated_date: &#34;2026-05-09T23:19:24Z&#34;
 synonyms:
 - UCMD
 - Ullrich scleroatonic muscular dystrophy
@@ -9236,13 +10329,13 @@ external_assertions:
     rows used in this entry.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;MONDO:0000355 | Exact&#34;
     explanation: Orphanet maps ORPHA:75840 exactly to the MONDO identifier used by this entry.
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;OMIM:254090 | Broader&#34;
@@ -9256,7 +10349,7 @@ definitions:
     respiratory insufficiency.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A form of congenital muscular dystrophy characterized by congenital weakness, hypotonia, proximal joint contractures, marked hyperlaxity of the distal joints, with a loss of ambulation (if achieved) and uniform respiratory insufficiency during childhood.&#34;
@@ -9271,7 +10364,7 @@ inheritance:
       label: Autosomal dominant inheritance
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal dominant&#34;
@@ -9291,7 +10384,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -9313,13 +10406,13 @@ has_subtypes:
   description: COL6A1-related UCMD subtype corresponding to OMIM:254090.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;COL6A1 | collagen type VI alpha 1 chain | hgnc:2211 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet identifies COL6A1 as a UCMD disease gene.
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;OMIM:254090 | Broader&#34;
@@ -9334,13 +10427,13 @@ has_subtypes:
   description: COL6A2-related UCMD subtype corresponding to OMIM:620727.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;COL6A2 | collagen type VI alpha 2 chain | hgnc:2212 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet identifies COL6A2 as a UCMD disease gene.
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;OMIM:620727 | Broader&#34;
@@ -9355,7 +10448,7 @@ has_subtypes:
   description: COL6A3-related UCMD subtype corresponding to OMIM:620728.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;COL6A3 | collagen type VI alpha 3 chain | hgnc:2213 | Disease-causing germline mutation(s) in&#34;
@@ -9376,7 +10469,7 @@ has_subtypes:
   description: COL12A1-related UCMD or EDS-myopathy overlap subtype corresponding to OMIM:616470.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;COL12A1 | collagen type XII alpha 1 chain | hgnc:2188 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -9397,7 +10490,7 @@ prevalence:
   notes: Orphanet records UCMD point prevalence of 1-9 per 1,000,000 in Europe.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;1-9 / 1 000 000 | Europe | Point prevalence | ORPHANET&#34;
@@ -9409,13 +10502,13 @@ progression:
     Weakness and hypotonia begin congenitally, neonatally, or in infancy.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: Neonatal&#34;
     explanation: Orphanet records neonatal onset.
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: Infancy&#34;
@@ -9447,7 +10540,7 @@ genetic:
     UCMD through dominant-negative or recessive collagen VI mechanisms.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;COL6A1 | collagen type VI alpha 1 chain | hgnc:2211 | Disease-causing germline mutation(s) in&#34;
@@ -9472,7 +10565,7 @@ genetic:
     variants can disrupt collagen VI assembly, secretion, or matrix deposition.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;COL6A2 | collagen type VI alpha 2 chain | hgnc:2212 | Disease-causing germline mutation(s) in&#34;
@@ -9498,7 +10591,7 @@ genetic:
     across a severity spectrum.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;COL6A3 | collagen type VI alpha 3 chain | hgnc:2213 | Disease-causing germline mutation(s) in&#34;
@@ -9524,7 +10617,7 @@ genetic:
     the UCMD spectrum.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;COL12A1 | collagen type XII alpha 1 chain | hgnc:2188 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -9715,7 +10808,7 @@ pathophysiology:
     snippet: &#34;Muscle pathology is characterised by prominent interstitial fibrosis&#34;
     explanation: Review evidence supports interstitial fibrosis as a muscle pathology feature.
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0100297 | Increased endomysial connective tissue | Very frequent (99-80%)&#34;
@@ -9796,7 +10889,7 @@ pathophysiology:
       label: cell of skeletal muscle
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0009113 | Diaphragmatic weakness | Frequent (79-30%)&#34;
@@ -9823,7 +10916,7 @@ phenotypes:
       label: Abnormal palate morphology
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000174 | Abnormal palate morphology | Very frequent (99-80%)&#34;
@@ -9837,7 +10930,7 @@ phenotypes:
       label: Micrognathia
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000347 | Micrognathia | Frequent (79-30%)&#34;
@@ -9851,7 +10944,7 @@ phenotypes:
       label: Short neck
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000470 | Short neck | Frequent (79-30%)&#34;
@@ -9865,7 +10958,7 @@ phenotypes:
       label: Torticollis
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000473 | Torticollis | Frequent (79-30%)&#34;
@@ -9879,7 +10972,7 @@ phenotypes:
       label: Esotropia
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000565 | Esotropia | Frequent (79-30%)&#34;
@@ -9893,7 +10986,7 @@ phenotypes:
       label: Adducted thumb
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001181 | Adducted thumb | Frequent (79-30%)&#34;
@@ -9907,7 +11000,7 @@ phenotypes:
       label: Slender finger
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001238 | Slender finger | Frequent (79-30%)&#34;
@@ -9921,7 +11014,7 @@ phenotypes:
       label: Generalized hypotonia
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001290 | Generalized hypotonia | Frequent (79-30%)&#34;
@@ -9935,7 +11028,7 @@ phenotypes:
       label: Muscle weakness
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001324 | Muscle weakness | Frequent (79-30%)&#34;
@@ -9949,7 +11042,7 @@ phenotypes:
       label: Flexion contracture
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001371 | Flexion contracture | Very frequent (99-80%)&#34;
@@ -9963,7 +11056,7 @@ phenotypes:
       label: Decreased fetal movement
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001558 | Decreased fetal movement | Frequent (79-30%)&#34;
@@ -9977,7 +11070,7 @@ phenotypes:
       label: Frequent falls
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002359 | Frequent falls | Frequent (79-30%)&#34;
@@ -9991,7 +11084,7 @@ phenotypes:
       label: Scoliosis
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002650 | Scoliosis | Frequent (79-30%)&#34;
@@ -10011,7 +11104,7 @@ phenotypes:
       label: Kyphosis
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002808 | Kyphosis | Very frequent (99-80%)&#34;
@@ -10025,7 +11118,7 @@ phenotypes:
       label: Hip dislocation
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002827 | Hip dislocation | Frequent (79-30%)&#34;
@@ -10039,7 +11132,7 @@ phenotypes:
       label: Respiratory failure
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002878 | Respiratory failure | Frequent (79-30%)&#34;
@@ -10053,7 +11146,7 @@ phenotypes:
       label: Elbow flexion contracture
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002987 | Elbow flexion contracture | Frequent (79-30%)&#34;
@@ -10068,7 +11161,7 @@ phenotypes:
       label: Elevated circulating creatine kinase concentration
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003236 | Elevated circulating creatine kinase concentration | Very frequent (99-80%)&#34;
@@ -10088,7 +11181,7 @@ phenotypes:
       label: Spinal rigidity
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003306 | Spinal rigidity | Very frequent (99-80%)&#34;
@@ -10102,7 +11195,7 @@ phenotypes:
       label: Generalized muscle weakness
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003324 | Generalized muscle weakness | Very frequent (99-80%)&#34;
@@ -10117,7 +11210,7 @@ phenotypes:
       label: &#34;EMG: myopathic abnormalities&#34;
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003458 | EMG: myopathic abnormalities | Very frequent (99-80%)&#34;
@@ -10132,7 +11225,7 @@ phenotypes:
       label: Increased variability in muscle fiber diameter
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003557 | Increased variability in muscle fiber diameter | Very frequent (99-80%)&#34;
@@ -10146,7 +11239,7 @@ phenotypes:
       label: Generalized amyotrophy
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003700 | Generalized amyotrophy | Frequent (79-30%)&#34;
@@ -10160,7 +11253,7 @@ phenotypes:
       label: Abnormal muscle fiber morphology
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0004303 | Abnormal muscle fiber morphology | Very frequent (99-80%)&#34;
@@ -10174,7 +11267,7 @@ phenotypes:
       label: Wrist hypermobility
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0005072 | Hyperextensibility at wrists | Very frequent (99-80%)&#34;
@@ -10188,7 +11281,7 @@ phenotypes:
       label: Increased laxity of fingers
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0006149 | Increased laxity of fingers | Very frequent (99-80%)&#34;
@@ -10202,7 +11295,7 @@ phenotypes:
       label: Knee flexion contracture
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0006380 | Knee flexion contracture | Frequent (79-30%)&#34;
@@ -10216,7 +11309,7 @@ phenotypes:
       label: Pes valgus
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008081 | Pes valgus | Frequent (79-30%)&#34;
@@ -10230,7 +11323,7 @@ phenotypes:
       label: Diaphragmatic weakness
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0009113 | Diaphragmatic weakness | Frequent (79-30%)&#34;
@@ -10244,7 +11337,7 @@ phenotypes:
       label: Long toe
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0010511 | Long toe | Frequent (79-30%)&#34;
@@ -10259,7 +11352,7 @@ phenotypes:
       label: Increased endomysial connective tissue
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0100297 | Increased endomysial connective tissue | Very frequent (99-80%)&#34;
@@ -10273,7 +11366,7 @@ biochemical:
     in UCMD and supports a dystrophic skeletal-muscle process.
   evidence:
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0003236 | Elevated circulating creatine kinase concentration | Very frequent (99-80%)&#34;
@@ -10312,7 +11405,7 @@ histopathology:
     snippet: &#34;prominent interstitial fibrosis disproportionate to the relative paucity of necrotic and regenerating fibres.&#34;
     explanation: Review evidence supports the UCMD muscle-biopsy pattern.
   - reference: ORPHA:75840
-    reference_title: Ullrich congenital muscular dystrophy (Orphanet structured-database record)
+    reference_title: &#34;Ullrich congenital muscular dystrophy&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0100297 | Increased endomysial connective tissue | Very frequent (99-80%)&#34;
@@ -11026,7 +12119,7 @@ rehabilitation, and non-invasive ventilation for respiratory decline.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ullrich congenital muscular dystrophy", "mondoId": "MONDO:0000355", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ullrich_congenital_muscular_dystrophy", "yamlRevision": "559d3c8557ce"};
+        const OS_CONFIG = {"diseaseName": "Ullrich congenital muscular dystrophy", "mondoId": "MONDO:0000355", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ullrich_congenital_muscular_dystrophy", "yamlRevision": "d04c0d3a0695"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11445,5 +12538,73 @@ rehabilitation, and non-invasive ventilation for respiratory decline.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

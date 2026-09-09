@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Adult Refsum Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Adult Refsum Disease</h1>
             <div class="header-meta">
 
@@ -3793,7 +3940,19 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
+
+            <a class="stat-link" href="#mappings">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔗</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Mappings</div>
+            </div>
+            </a>
 
 
 
@@ -3918,6 +4077,61 @@
 
         <!-- Mappings -->
 
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0009958" target="_blank">MONDO:0009958</a>
+
+
+                        <span class="mapping-label">adult Refsum disease</span>
+
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">Recorded as narrowMatch, not exactMatch: the MONDO term is labelled and defined clinically (&#34;anosmia, early-onset retinitis pigmentosa...&#34;) but is axiomatized as `is_a MONDO:0100258` phytanoyl-CoA hydroxylase deficiency, which restricts it to PHYH-caused disease. This entry covers both PHYH (type 1, &gt;90%) and PEX7 (type 2, &lt;10%) disease per PMID:20301527, so it is broader than the MONDO class as currently axiomatized. MONDO&#39;s own MONDO:0100307 &#34;adult Refsum disease due to PEX7 defect&#34; is defined as &#34;an adult Refsum disease&#34;, which cannot hold alongside that is_a edge; MONDO avoids the contradiction only by not asserting it. Retained as the entry&#39;s disease_term because it is the closest available grounding.</div>
+
+                </div>
+
+            </div>
+
+
+
+
+
+        </div>
+
 
         <!-- Definitions -->
 
@@ -3931,7 +4145,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3976,7 +4190,9 @@
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -3998,7 +4214,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4020,7 +4238,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4073,7 +4293,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-1">
 
                     <div class="item-name">
                         Type 1 (PHYH-related)
@@ -4088,18 +4308,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in PHYH (hgnc:8940). hgnc:8940 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 PHYH
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:8940" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8940</a>
+    <a href="https://bioregistry.io/hgnc:8940" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8940</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PHYH (hgnc:8940). hgnc:8940 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4126,7 +4348,9 @@ This subtype is caused by variation in PHYH (hgnc:8940). hgnc:8940 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17325280" target="_blank">PMID:17325280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4152,7 +4376,7 @@ This subtype is caused by variation in PHYH (hgnc:8940). hgnc:8940 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-2">
 
                     <div class="item-name">
                         Type 2 (PEX7-related)
@@ -4167,18 +4391,20 @@ This subtype is caused by variation in PHYH (hgnc:8940). hgnc:8940 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 PEX7
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8860</a>
+    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:8860</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4205,7 +4431,9 @@ This subtype is caused by variation in PEX7 (hgnc:8860). hgnc:8860 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17325280" target="_blank">PMID:17325280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4267,17 +4495,21 @@ This subtype is caused by variation in PEX7 (hgnc:8860). hgnc:8860 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PHYH (hgnc:8940). hgnc:8940 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PHYH
 
 
-    <a href="https://bioregistry.io/hgnc:8940" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8940</a>
+    <a href="https://bioregistry.io/hgnc:8940" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:8940</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PHYH (hgnc:8940). hgnc:8940 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4307,18 +4539,20 @@ This pathophysiological event involves PHYH (hgnc:8940). hgnc:8940 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves phytanoyl-CoA dioxygenase activity (GO:0048244). GO:0048244 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         phytanoyl-CoA dioxygenase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048244" target="_blank" class="curie-chip curie-chip-go">GO:0048244</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048244" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0048244</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves phytanoyl-CoA dioxygenase activity (GO:0048244). GO:0048244 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4341,18 +4575,20 @@ This pathophysiological event involves phytanoyl-CoA dioxygenase activity (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in peroxisome (GO:0005777). GO:0005777 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         peroxisome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go">GO:0005777</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0005777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in peroxisome (GO:0005777). GO:0005777 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4390,7 +4626,9 @@ This pathophysiological event occurs in peroxisome (GO:0005777). GO:0005777 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16186124" target="_blank">PMID:16186124</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4430,17 +4668,21 @@ This pathophysiological event occurs in peroxisome (GO:0005777). GO:0005777 is a
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX7
 
 
-    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8860</a>
+    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:8860</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4469,18 +4711,20 @@ This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased protein import into peroxisome matrix (GO:0016558). GO:0016558 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein import into peroxisome matrix
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016558" target="_blank" class="curie-chip curie-chip-go">GO:0016558</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016558" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0016558</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased protein import into peroxisome matrix (GO:0016558). GO:0016558 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4508,18 +4752,20 @@ This pathophysiological event involves decreased protein import into peroxisome 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Gene Ontology (GO)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in peroxisome (GO:0005777). GO:0005777 is an anatomical location from the Gene Ontology.">
+
+                    <span class="tag tag-location">
                         peroxisome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go">GO:0005777</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005777" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0005777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in peroxisome (GO:0005777). GO:0005777 is an anatomical location from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4565,7 +4811,9 @@ This pathophysiological event occurs in peroxisome (GO:0005777). GO:0005777 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12522768" target="_blank">PMID:12522768</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4605,17 +4853,21 @@ This pathophysiological event occurs in peroxisome (GO:0005777). GO:0005777 is a
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         PEX7
 
 
-    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8860</a>
+    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:8860</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4662,7 +4914,9 @@ This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12522768" target="_blank">PMID:12522768</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4702,18 +4956,20 @@ This pathophysiological event involves PEX7 (hgnc:8860). hgnc:8860 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:0001561). GO:0001561 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         fatty acid alpha-oxidation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001561" target="_blank" class="curie-chip curie-chip-go">GO:0001561</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001561" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0001561</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:0001561). GO:0001561 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4771,7 +5027,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/4164676" target="_blank">PMID:4164676</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4924,7 +5182,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4946,7 +5206,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/4164676" target="_blank">PMID:4164676</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5051,7 +5313,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5073,7 +5337,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32904930" target="_blank">PMID:32904930</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5146,7 +5412,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5219,7 +5487,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5292,7 +5562,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6170281" target="_blank">PMID:6170281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5365,7 +5637,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11589979" target="_blank">PMID:11589979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5454,7 +5728,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36812958" target="_blank">PMID:36812958</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5535,7 +5811,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5624,7 +5902,9 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5691,13 +5971,15 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="ORPHA:773" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="ORPHA:773" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5801,16 +6083,20 @@ This pathophysiological event involves decreased fatty acid alpha-oxidation (GO:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001638</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp">HP:0001638</a>
-
-
+This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5833,7 +6119,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5855,7 +6143,9 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5887,16 +6177,20 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011675</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.">
-                        Arrhythmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp">HP:0011675</a>
-
-
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5917,7 +6211,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5960,16 +6256,20 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000407</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.">
-                        Sensorineural hearing impairment
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp">HP:0000407</a>
-
-
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5990,7 +6290,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6012,7 +6314,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11589979" target="_blank">PMID:11589979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6053,16 +6357,20 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000510</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenotype from the Human Phenotype Ontology.">
-                        Rod-cone dystrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" class="curie-chip curie-chip-hp">HP:0000510</a>
-
-
+This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6083,7 +6391,9 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6105,7 +6415,9 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32904930" target="_blank">PMID:32904930</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6137,16 +6449,20 @@ This clinical feature is Rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0007754</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenotype from the Human Phenotype Ontology.">
-                        Macular dystrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" class="curie-chip curie-chip-hp">HP:0007754</a>
-
-
+This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6167,7 +6483,9 @@ This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41290216" target="_blank">PMID:41290216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6201,16 +6519,20 @@ This clinical feature is Macular dystrophy (HP:0007754). HP:0007754 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000518</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.">
-                        Cataract
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp">HP:0000518</a>
-
-
+This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6231,7 +6553,9 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6265,16 +6589,20 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000662</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.">
-                        Nyctalopia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" class="curie-chip curie-chip-hp">HP:0000662</a>
-
-
+This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6295,7 +6623,9 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6338,16 +6668,20 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000083</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a phenotype from the Human Phenotype Ontology.">
-                        Renal insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp">HP:0000083</a>
-
-
+This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6368,7 +6702,9 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6411,16 +6747,20 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000458</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.">
-                        Anosmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp">HP:0000458</a>
-
-
+This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6441,7 +6781,9 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6463,7 +6805,9 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6504,16 +6848,20 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000958</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from the Human Phenotype Ontology.">
-                        Dry skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" class="curie-chip curie-chip-hp">HP:0000958</a>
-
-
+This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6534,7 +6882,9 @@ This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41290216" target="_blank">PMID:41290216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6568,16 +6918,20 @@ This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008064</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.">
-                        Ichthyosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp">HP:0008064</a>
-
-
+This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6598,7 +6952,9 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6620,7 +6976,9 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6663,16 +7021,20 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001761</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.">
-                        Pes cavus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001761" target="_blank" class="curie-chip curie-chip-hp">HP:0001761</a>
-
-
+This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6693,7 +7055,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6727,16 +7091,20 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0010049</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotype from the Human Phenotype Ontology.">
-                        Short metacarpal
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank" class="curie-chip curie-chip-hp">HP:0010049</a>
-
-
+This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6757,7 +7125,9 @@ This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6800,16 +7170,20 @@ This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.">
-                        Ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp">HP:0001251</a>
-
-
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6830,7 +7204,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6852,7 +7228,9 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6170281" target="_blank">PMID:6170281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6886,16 +7264,20 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0009830</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.">
-                        Peripheral neuropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp">HP:0009830</a>
-
-
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6916,7 +7298,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6938,7 +7322,9 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6981,16 +7367,20 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000616</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the Human Phenotype Ontology.">
-                        Miosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000616" target="_blank" class="curie-chip curie-chip-hp">HP:0000616</a>
-
-
+This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7011,7 +7401,9 @@ This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7045,16 +7437,20 @@ This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001765</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hammertoe (HP:0001765). HP:0001765 is a phenotype from the Human Phenotype Ontology.">
-                        Hammertoe
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001765" target="_blank" class="curie-chip curie-chip-hp">HP:0001765</a>
-
-
+This clinical feature is Hammertoe (HP:0001765). HP:0001765 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7075,7 +7471,9 @@ This clinical feature is Hammertoe (HP:0001765). HP:0001765 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7109,16 +7507,20 @@ This clinical feature is Hammertoe (HP:0001765). HP:0001765 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012722</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Heart block (HP:0012722). HP:0012722 is a phenotype from the Human Phenotype Ontology.">
-                        Heart block
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012722" target="_blank" class="curie-chip curie-chip-hp">HP:0012722</a>
-
-
+This clinical feature is Heart block (HP:0012722). HP:0012722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7139,7 +7541,9 @@ This clinical feature is Heart block (HP:0012722). HP:0012722 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7217,15 +7621,17 @@ This clinical feature is Heart block (HP:0012722). HP:0012722 is a phenotype fro
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PHYH
 
 
-    <a href="https://bioregistry.io/hgnc:8940" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8940</a>
+    <a href="https://bioregistry.io/hgnc:8940" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:8940</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7251,7 +7657,9 @@ This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the H
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7273,7 +7681,9 @@ This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/14974078" target="_blank">PMID:14974078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7326,6 +7736,8 @@ This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the H
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7338,7 +7750,9 @@ This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38411969" target="_blank">PMID:38411969</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7360,7 +7774,9 @@ This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38411969" target="_blank">PMID:38411969</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7413,6 +7829,8 @@ This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the H
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7425,7 +7843,9 @@ This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41290216" target="_blank">PMID:41290216</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7467,15 +7887,17 @@ This disease-associated gene is PHYH (hgnc:8940). hgnc:8940 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PEX7
 
 
-    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:8860</a>
+    <a href="https://bioregistry.io/hgnc:8860" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:8860</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7501,7 +7923,9 @@ This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the H
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7523,7 +7947,9 @@ This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12522768" target="_blank">PMID:12522768</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7553,6 +7979,9 @@ This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the H
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7569,18 +7998,18 @@ This disease-associated gene is PEX7 (hgnc:8860). hgnc:8860 is a gene from the H
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">dietary intervention</span>
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -7598,6 +8027,25 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7631,7 +8079,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7672,7 +8122,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/6170281" target="_blank">PMID:6170281</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7694,7 +8146,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7716,7 +8170,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42145913" target="_blank">PMID:42145913</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7748,17 +8204,17 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Plasmapheresis<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">Plasmapheresis</span>
+This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical intervention from the NCI Thesaurus.">NCIT:C15304</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15304" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15304">NCIT:C15304</a>
 
 
 
@@ -7776,6 +8232,25 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7809,7 +8284,9 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/1716665" target="_blank">PMID:1716665</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7850,7 +8327,9 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7872,7 +8351,9 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10150979" target="_blank">PMID:10150979</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7894,7 +8375,9 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42161578" target="_blank">PMID:42161578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7924,18 +8407,18 @@ This treatment is Plasmapheresis (NCIT:C15304). NCIT:C15304 is a clinical interv
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7953,6 +8436,25 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7977,7 +8479,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26799636" target="_blank">PMID:26799636</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8007,18 +8511,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -8036,6 +8540,25 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8060,7 +8583,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8082,7 +8607,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8144,7 +8671,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8166,7 +8695,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/2475586" target="_blank">PMID:2475586</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8213,7 +8744,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/4164676" target="_blank">PMID:4164676</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8235,7 +8768,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/4164676" target="_blank">PMID:4164676</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8261,6 +8796,409 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-plasma-phytanic-acid-testing">
+                <div class="item-name">
+                    Plasma phytanic acid testing
+
+                </div>
+
+                <div class="item-desc">Plasma phytanic acid measurement is the core biochemical diagnostic test and helps distinguish classic Adult Refsum disease from isolated retinitis pigmentosa and other disorders. Some attenuated PHYH genotypes can have a normal result, so molecular testing remains important when suspicion persists.</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Marked elevation strongly supports diagnosis; a normal concentration does not fully exclude attenuated retinal-predominant PHYH disease.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2475586" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2475586" target="_blank">PMID:2475586</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The presence of phytanic acid in tissues and plasma has been considered diagnostic of heredopathia atactica polyneuritiformis (Refsum&#39;s disease)"</div>
+
+
+                <div class="evidence-explanation">Human clinical study supports plasma/tissue phytanic acid as diagnostic.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301527" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Adult Refsum disease (ARD) is associated with elevated plasma phytanic acid levels"</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports elevated plasma phytanic acid testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38411969" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38411969" target="_blank">PMID:38411969</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Blood phytanic acid levels were normal in two patients, mildly elevated in one, and markedly high in the fourth."</div>
+
+
+                <div class="evidence-explanation">Four genetically confirmed attenuated cases demonstrate that plasma phytanic acid is not uniformly elevated.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-phyh-and-pex7-molecular-genetic-testing">
+                <div class="item-name">
+                    PHYH and PEX7 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing confirms biallelic pathogenic variants in PHYH or PEX7 and distinguishes PHYH-related disease from PEX7-related disease and other peroxisomal disorders.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic variants in PHYH or PEX7 establish the molecular diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301527" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of ARD is established in a proband with suggestive clinical and biochemical findings by identification of biallelic pathogenic variants in either PHYH or PEX7 on molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews states the diagnostic role of PHYH/PEX7 molecular testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38411969" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38411969" target="_blank">PMID:38411969</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One patient had isolated retinitis pigmentosa and three had mild extraocular findings. Blood phytanic acid levels were normal in two patients, mildly elevated in one, and markedly high in the fourth."</div>
+
+
+                <div class="evidence-explanation">The attenuated series supports molecular testing when retinal disease is suggestive despite a normal biochemical result.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-late-childhood-to-adult-onset-multisystem-disease">
+                <div class="item-name">Late childhood to adult-onset multisystem disease</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood to adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Symptoms can begin in late childhood or later, with progressive sensory, neurologic, dermatologic, skeletal, and cardiac involvement.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:773" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Childhood"</div>
+
+
+                <div class="evidence-explanation">Orphanet includes childhood among onset categories.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301527" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301527" target="_blank">PMID:20301527</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Onset of symptoms ranges from age seven months to older than age 50 years."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports broad onset from infancy through adulthood.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-europe">
+                <div class="item-name">Europe</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.1&ndash;0.9 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet reports European point prevalence in the 1-9 per million range.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:773" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:773" target="_blank">ORPHA:773</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 1 000 000 | Europe | Point prevalence | PMID:20301527,EXPERT"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the European point-prevalence estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -8275,10 +9213,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-alpha-methylacyl-coa-racemase-deficiency">
                 <div class="item-name">
 
-                    Alpha-methylacyl-CoA racemase deficiency
+                    <a class="item-name-link" href="Alpha-Methylacyl-CoA_Racemase_Deficiency.html">Alpha-methylacyl-CoA racemase deficiency</a>
 
 
                 </div>
@@ -8303,7 +9241,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11948235" target="_blank">PMID:11948235</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8338,7 +9278,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse138379">
                 <div class="item-name">
                     Fibroblast-specific genome-scale modelling predicts an imbalance in amino acid metabolism in Refsum disease
 
@@ -8409,7 +9349,6 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Adult Refsum Disease
 creation_date: &#34;2026-05-07T03:23:42Z&#34;
-updated_date: &#34;2026-05-07T21:01:27Z&#34;
 category: Genetic
 parents:
 - Peroxisomal Disease
@@ -8433,6 +9372,36 @@ disease_term:
   term:
     id: MONDO:0009958
     label: adult Refsum disease
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0009958
+      label: adult Refsum disease
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      Recorded as narrowMatch, not exactMatch: the MONDO term is labelled and
+      defined clinically (&#34;anosmia, early-onset retinitis pigmentosa...&#34;) but is
+      axiomatized as `is_a MONDO:0100258` phytanoyl-CoA hydroxylase deficiency,
+      which restricts it to PHYH-caused disease. This entry covers both PHYH
+      (type 1, &gt;90%) and PEX7 (type 2, &lt;10%) disease per PMID:20301527, so it is
+      broader than the MONDO class as currently axiomatized. MONDO&#39;s own
+      MONDO:0100307 &#34;adult Refsum disease due to PEX7 defect&#34; is defined as &#34;an
+      adult Refsum disease&#34;, which cannot hold alongside that is_a edge; MONDO
+      avoids the contradiction only by not asserting it. Retained as the entry&#39;s
+      disease_term because it is the closest available grounding.
+    tracked_issues:
+    - url: https://github.com/monarch-initiative/mondo/issues/10377
+      title: Request for new term [Adult Refsum Disease] PARENT CONCEPT
+      tracked_issue_role: ontology_term_request
+      tracked_issue_status: OPEN
+      notes: &gt;-
+        Requests exactly this fix - rename MONDO:0009958 to a PHYH-specific
+        label and create a new parent term for adult Refsum disease over the
+        PHYH and PEX7 subtypes, citing the same GeneReviews source this entry
+        cites. If it lands, reground this entry to the new parent term and
+        reground the &#34;Type 1&#34; subtype from MONDO:0100258 to the renamed
+        MONDO:0009958.
 references:
 - reference: ORPHA:773
   title: Adult Refsum disease
@@ -8872,6 +9841,7 @@ genetic:
     explanation: Human genetic study identified PEX7 mutations in Refsum disease patients.
 pathophysiology:
 - name: PHYH Phytanoyl-CoA Hydroxylase Deficiency
+  conforms_to: &#34;peroxisomal_metabolic_failure#Peroxisomal Biogenesis or Enzyme Defect&#34;
   biological_scale: MOLECULAR
   mechanism_confidence: ESTABLISHED
   description: &gt;-
@@ -8983,6 +9953,7 @@ pathophysiology:
     snippet: &#34;Biochemical analyses of the patients with RD revealed defects not only in phytanic acid alpha-oxidation but also in plasmalogen synthesis and peroxisomal thiolase.&#34;
     explanation: PEX7-related patient biochemical data distinguish this additional type 2 defect from PHYH-related type 1 disease.
 - name: Phytanic Acid Alpha-Oxidation Defect
+  conforms_to: &#34;peroxisomal_metabolic_failure#Failure of Peroxisomal Fatty-Acid Oxidation and Ether-Lipid Synthesis&#34;
   biological_scale: MOLECULAR
   mechanism_confidence: ESTABLISHED
   description: Defective peroxisomal alpha-oxidation prevents normal degradation of exogenous phytanic acid.
@@ -9011,6 +9982,7 @@ pathophysiology:
       snippet: &#34;We conclude that the phytanic acid accumulating in Refsum&#39;s disease is primarily of exogenous origin and that patients with Refsum&#39;s disease have a relative block in the degradation of phytanic acid and possibly other similar branched-chain compounds.&#34;
       explanation: The tracer study directly links the degradation block to accumulation.
 - name: Plasma and Tissue Phytanic Acid Accumulation
+  conforms_to: &#34;peroxisomal_metabolic_failure#Toxic Fatty-Acid Accumulation with Ether-Lipid Deficiency&#34;
   biological_scale: ORGANISM
   mechanism_confidence: ESTABLISHED
   description: Exogenous phytanic acid accumulates in plasma and tissues because alpha-oxidation is impaired.
@@ -9060,7 +10032,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20301527
       reference_title: Adult Refsum Disease.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Adult Refsum disease (ARD) is associated with elevated plasma phytanic acid levels, late childhood-onset (or later) retinitis pigmentosa&#34;
       explanation: GeneReviews supports disease-level association, not a direct tissue-causal intermediate.
@@ -9070,7 +10042,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20301527
       reference_title: Adult Refsum Disease.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;variable combinations of anosmia, polyneuropathy, deafness, ataxia, and ichthyosis.&#34;
       explanation: GeneReviews supports association rather than direct causality.
@@ -9080,7 +10052,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20301527
       reference_title: Adult Refsum Disease.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;variable combinations of anosmia, polyneuropathy, deafness, ataxia, and ichthyosis.&#34;
       explanation: GeneReviews supports association rather than direct causality.
@@ -9090,7 +10062,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20301527
       reference_title: Adult Refsum Disease.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;variable combinations of anosmia, polyneuropathy, deafness, ataxia, and ichthyosis.&#34;
       explanation: GeneReviews supports association rather than direct causality.
@@ -9100,7 +10072,7 @@ pathophysiology:
     evidence:
     - reference: PMID:11589979
       reference_title: The site of the hearing loss in Refsum&#39;s disease.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Refsum&#39;s disease is a disorder of lipid metabolism with pigmentary retinopathy, demyelinating neuropathy, ataxia, and hearing loss.&#34;
       explanation: The case evidence supports association but does not prove the upstream causal path.
@@ -9120,7 +10092,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20301527
       reference_title: Adult Refsum Disease.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Dietary restriction of phytanic acid intake helps resolve ichthyosis, sensory neuropathy, and ataxia.&#34;
       explanation: Treatment response supports a relationship without identifying the skin intermediate.
@@ -9130,7 +10102,7 @@ pathophysiology:
     evidence:
     - reference: ORPHA:773
       reference_title: Adult Refsum disease
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Other features can be deafness, ichthyosis, skeletal abnormalities, and cardiac arrhythmia.&#34;
       explanation: Orphanet supports disease association, not a direct causal mechanism.
@@ -9140,7 +10112,7 @@ pathophysiology:
     evidence:
     - reference: ORPHA:773
       reference_title: Adult Refsum disease
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000083 | Renal insufficiency | Occasional (29-5%)&#34;
       explanation: Orphanet supports an occasional association only.
@@ -9188,7 +10160,7 @@ pathophysiology:
     evidence:
     - reference: ORPHA:773
       reference_title: Adult Refsum disease
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;anosmia, cataract, early-onset retinitis pigmentosa&#34;
       explanation: Orphanet supports co-occurrence but not a causal link from photoreceptor dysfunction.
@@ -9198,7 +10170,7 @@ pathophysiology:
     evidence:
     - reference: ORPHA:773
       reference_title: Adult Refsum disease
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000616 | Miosis | Frequent (79-30%)&#34;
       explanation: Orphanet supports disease association, not a direct retinal mechanism.
@@ -9320,7 +10292,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20301527
       reference_title: Adult Refsum Disease.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Cardiac arrhythmia and heart failure caused by cardiomyopathy are potentially severe health problems that develop later in life.&#34;
       explanation: GeneReviews establishes cardiomyopathy clinically but does not prove the experimental intermediate in humans.
@@ -9330,7 +10302,7 @@ pathophysiology:
     evidence:
     - reference: PMID:20301527
       reference_title: Adult Refsum Disease.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Cardiac arrhythmia and heart failure caused by cardiomyopathy are potentially severe health problems that develop later in life.&#34;
       explanation: GeneReviews establishes arrhythmia clinically but does not prove the experimental intermediate in humans.
@@ -9340,7 +10312,7 @@ pathophysiology:
     evidence:
     - reference: ORPHA:773
       reference_title: Adult Refsum disease
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0012722 | Heart block | Occasional (29-5%)&#34;
       explanation: Orphanet supports heart block as an associated feature only.
@@ -9394,7 +10366,7 @@ pathophysiology:
     evidence:
     - reference: ORPHA:773
       reference_title: Adult Refsum disease
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001761 | Pes cavus | Occasional (29-5%)&#34;
       explanation: Orphanet supports disease association, while the mechanism remains unknown.
@@ -9404,7 +10376,7 @@ pathophysiology:
     evidence:
     - reference: ORPHA:773
       reference_title: Adult Refsum disease
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001765 | Hammertoe | Frequent (79-30%)&#34;
       explanation: Orphanet supports disease association, while the mechanism remains unknown.
@@ -9414,7 +10386,7 @@ pathophysiology:
     evidence:
     - reference: ORPHA:773
       reference_title: Adult Refsum disease
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0010049 | Short metacarpal | Frequent (79-30%)&#34;
       explanation: Orphanet supports disease association, while the mechanism remains unknown.
@@ -9425,7 +10397,7 @@ pathophysiology:
   evidence:
   - reference: ORPHA:773
     reference_title: Adult Refsum disease
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000083 | Renal insufficiency | Occasional (29-5%)&#34;
     explanation: Orphanet supports an occasional association only.
@@ -9436,7 +10408,7 @@ pathophysiology:
     evidence:
     - reference: ORPHA:773
       reference_title: Adult Refsum disease
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000083 | Renal insufficiency | Occasional (29-5%)&#34;
       explanation: Orphanet supports an occasional association only.
@@ -9815,7 +10787,7 @@ diagnosis:
     explanation: GeneReviews supports elevated plasma phytanic acid testing.
   - reference: PMID:38411969
     reference_title: PHYH c.678+5G&gt;T Leads to In-Frame Exon Skipping and Is Associated With Attenuated Refsum Disease.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Blood phytanic acid levels were normal in two patients, mildly elevated
@@ -10902,7 +11874,7 @@ apheresis only for severe acute worsening or failure of dietary control.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Adult Refsum Disease", "mondoId": "MONDO:0009958", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adult_Refsum_Disease", "yamlRevision": "b7e2d5793e52"};
+        const OS_CONFIG = {"diseaseName": "Adult Refsum Disease", "mondoId": "MONDO:0009958", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adult_Refsum_Disease", "yamlRevision": "f55f16f920b6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11321,5 +12293,73 @@ apheresis only for severe acute worsening or failure of dietary control.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

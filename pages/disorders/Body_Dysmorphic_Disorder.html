@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Body Dysmorphic Disorder</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Body Dysmorphic Disorder</h1>
             <div class="header-meta">
 
@@ -3903,27 +4050,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
+
+
+
+
 
                     <span class="tag tag-classification">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4062,7 +4286,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4113,7 +4339,7 @@
 
 
 
-    <span class="entity-ref-chip">environmental#Peer victimization and childhood trauma</span>
+    <a class="entity-ref-chip" href="#environmental-peer-victimization-and-childhood-trauma">environmental#Peer victimization and childhood trauma</a>
 
 
 
@@ -4141,7 +4367,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4163,7 +4391,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4207,7 +4437,7 @@
 
 
 
-    <span class="entity-ref-chip">clinical_trials#NCT04656301</span>
+    <a class="entity-ref-chip" href="#clinical-trial-nct04656301">clinical_trials#NCT04656301</a>
 
 
 
@@ -4235,7 +4465,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40458078" target="_blank">PMID:40458078</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4322,13 +4554,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4344,13 +4578,15 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4417,13 +4653,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4456,18 +4694,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4498,18 +4738,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4541,13 +4783,15 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41398-022-02099-2" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1038/s41398-022-02099-2" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1038/s41398-022-02099-2" target="_blank">DOI:10.1038/s41398-022-02099-2</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4636,7 +4880,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4717,7 +4963,9 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4792,13 +5040,15 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4886,16 +5136,22 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Compulsive behaviors</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0000722</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.">
-                        Compulsive behaviors
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp">HP:0000722</a>
-
-
+This clinical feature is Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4916,7 +5172,9 @@ This clinical feature is Compulsive behaviors (HP:0000722). HP:0000722 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4948,16 +5206,22 @@ This clinical feature is Compulsive behaviors (HP:0000722). HP:0000722 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Delusion</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000746" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0000746</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Delusion (HP:0000746). HP:0000746 is a phenotype from the Human Phenotype Ontology.">
-                        Delusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000746" target="_blank" class="curie-chip curie-chip-hp">HP:0000746</a>
-
-
+This clinical feature is Delusion (HP:0000746). HP:0000746 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4972,13 +5236,15 @@ This clinical feature is Delusion (HP:0000746). HP:0000746 is a phenotype from t
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5010,16 +5276,20 @@ This clinical feature is Delusion (HP:0000746). HP:0000746 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0031589</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenotype from the Human Phenotype Ontology.">
-                        Suicidal ideation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031589" target="_blank" class="curie-chip curie-chip-hp">HP:0031589</a>
-
-
+This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5040,7 +5310,9 @@ This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30806630" target="_blank">PMID:30806630</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5072,16 +5344,20 @@ This clinical feature is Suicidal ideation (HP:0031589). HP:0031589 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0100716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.">
-                        Self-injurious behavior
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" class="curie-chip curie-chip-hp">HP:0100716</a>
-
-
+This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5102,7 +5378,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38734199" target="_blank">PMID:38734199</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5143,16 +5421,22 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal preoccupation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0025785</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal preoccupation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp">HP:0025785</a>
-
-
+This clinical feature is Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5173,7 +5457,9 @@ This clinical feature is Abnormal preoccupation (HP:0025785). HP:0025785 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5235,6 +5521,9 @@ This clinical feature is Abnormal preoccupation (HP:0025785). HP:0025785 is a ph
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5253,18 +5542,18 @@ This clinical feature is Abnormal preoccupation (HP:0025785). HP:0025785 is a ph
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-8">cognitive behavior therapy<span class="pill-tip" role="tooltip" id="pill-tip-8">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.">cognitive behavior therapy</span>
+This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cognitive Behavior Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64345" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.">NCIT:C64345</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64345" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64345">NCIT:C64345</a>
 
 
 
@@ -5282,6 +5571,14 @@ This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a cli
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5315,7 +5612,9 @@ This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a cli
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5360,7 +5659,9 @@ This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a cli
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5390,48 +5691,54 @@ This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a cli
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal preoccupation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp">HP:0025785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0025785</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Compulsive behaviors
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp">HP:0000722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000722</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000746" target="_blank" class="curie-chip curie-chip-hp">HP:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000746" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5451,7 +5758,9 @@ This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5473,7 +5782,9 @@ This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30785624" target="_blank">PMID:30785624</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5505,18 +5816,18 @@ This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">cognitive behavior therapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.">cognitive behavior therapy</span>
+This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cognitive Behavior Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C64345" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a clinical intervention from the NCI Thesaurus.">NCIT:C64345</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64345" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64345">NCIT:C64345</a>
 
 
 
@@ -5539,6 +5850,14 @@ This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a cli
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Low-intensity therapist-guided internet CBT extends access to BDD-specific treatment. Evidence is strongest for mild-to-moderate presentations, and a current randomized trial is evaluating efficacy, cost-effectiveness, and durability in children and adolescents.</div>
 
 
@@ -5547,33 +5866,37 @@ This treatment is cognitive behavior therapy (NCIT:C64345). NCIT:C64345 is a cli
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal preoccupation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp">HP:0025785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0025785</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Compulsive behaviors
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp">HP:0000722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000722</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5593,7 +5916,9 @@ This treatment targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenot
                         <a href="https://clinicaltrials.gov/study/NCT06262412" target="_blank">clinicaltrials:NCT06262412</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5625,17 +5950,17 @@ This treatment targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenot
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5660,21 +5985,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses selective serotonin reuptake inhibitor (NCIT:C94725). NCIT:C94725 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         selective serotonin reuptake inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C94725" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C94725</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C94725" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-16">NCIT:C94725</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses selective serotonin reuptake inhibitor (NCIT:C94725). NCIT:C94725 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5686,48 +6021,54 @@ This treatment uses selective serotonin reuptake inhibitor (NCIT:C94725). NCIT:C
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal preoccupation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp">HP:0025785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0025785</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Compulsive behaviors
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp">HP:0000722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000722</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000746" target="_blank" class="curie-chip curie-chip-hp">HP:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000746" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5747,7 +6088,9 @@ This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5769,7 +6112,9 @@ This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27056606" target="_blank">PMID:27056606</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5801,18 +6146,18 @@ This treatment targets Delusion (HP:0000746). HP:0000746 is a phenotype from the
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5830,6 +6175,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5854,7 +6207,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5876,7 +6231,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38734199" target="_blank">PMID:38734199</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5916,6 +6273,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
                 <div class="item-desc">Bullying, abuse, neglect, and related adverse experiences have been proposed as BDD risk factors. Current studies are largely cross-sectional and may be affected by familial, genetic, and gene-environment correlation confounding.</div>
 
 
@@ -5926,13 +6287,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5948,13 +6311,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5984,6 +6349,655 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-bdd-focused-screening-followed-by-guided-assessment">
+                <div class="item-name">
+                    BDD-focused screening followed by guided assessment
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(A positive BDD-focused screen prompts comprehensive assessment; diagnosis requires appearance preoccupation, repetitive behaviors or mental acts, distress or impairment, and appropriate exclusions.)</span>
+
+                </div>
+
+                <div class="item-desc">BDDQ, COPS, or a structured appearance-concern question can identify people requiring further evaluation, but a positive screen is not diagnostic and should be followed by a guided assessment of full criteria.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-21">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"should be followed by a more extensive, guided assessment to establish whether diagnostic"</div>
+
+
+                <div class="evidence-explanation">The primer explicitly states that screening tools must be followed by a fuller guided diagnostic assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-specialist-mental-health-diagnostic-evaluation">
+                <div class="item-name">
+                    Specialist mental-health diagnostic evaluation
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Clinical criteria are met when appearance-focused preoccupation and repetitive responses cause distress or impairment and are not better explained by an eating disorder, another medical condition, a substance, or medication.)</span>
+
+                </div>
+
+                <div class="item-desc">A psychiatrist or psychologist assesses symptom focus, repetitive behaviors, impairment, insight, muscle-dysmorphia specifier, eating-disorder exclusion, psychosis features, substance or medication effects, and whether any visible difference is slight relative to the preoccupation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        psychiatrist evaluation
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of BDD is generally made by a specialist in mental health"</div>
+
+
+                <div class="evidence-explanation">The primer identifies specialist mental-health evaluation as usual.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-bdd-ybocs-severity-and-outcome-assessment">
+                <div class="item-name">
+                    BDD-YBOCS severity and outcome assessment
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(A 30% or greater reduction is commonly used as a treatment-response threshold, while a score of 16 or below can indicate partial or full remission.)</span>
+
+                </div>
+
+                <div class="item-desc">The clinician-rated BDD-YBOCS and adolescent BDD-YBOCS-A quantify symptom severity and monitor treatment response or remission; they supplement rather than replace diagnostic assessment.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        psychologist evaluation
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Yale-Brown Obsessive–Compulsive Scale modified for BDD (BDD-YBOCS)"</div>
+
+
+                <div class="evidence-explanation">The primer identifies BDD-YBOCS and BDD-YBOCS-A for severity assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-self-harm-suicide-and-unsafe-procedure-risk-assessment">
+                <div class="item-name">
+                    Self-harm, suicide, and unsafe-procedure risk assessment
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive risk findings require immediate severity-appropriate safety management and follow-up.)</span>
+
+                </div>
+
+                <div class="item-desc">Every assessment should evaluate current and past self-harm, suicidal thoughts and behaviors, and intent to pursue unwarranted or unsafe cosmetic procedures.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"assessment process should also include a risk assessment for self-harm, suicidality and"</div>
+
+
+                <div class="evidence-explanation">The primer explicitly includes self-harm and suicide risk in BDD assessment, together with unsafe cosmetic-procedure risk.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-typical-onset">
+                <div class="item-name">Typical onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood through adolescence</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Approximately two thirds of affected people develop BDD before age 18, although recognition and specialist treatment may occur later.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The disorder typically has its onset before 18 years of age"</div>
+
+
+                <div class="evidence-explanation">The primer identifies onset before adulthood as typical.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-persistent-untreated-disorder">
+                <div class="item-name">Persistent untreated disorder</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adolescence through adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Long-term untreated natural-history cohorts are unavailable. Expert consensus considers untreated BDD likely to be chronic, so this phase should not be interpreted as a quantified longitudinal trajectory.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BDD typically follows a chronic course if left untreated"</div>
+
+
+                <div class="evidence-explanation">The primer reports expert clinical consensus rather than prospective, untreated long-term natural-history evidence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-adults-in-community-based-samples-from-high-income-countries">
+                <div class="item-name">Adults in community-based samples from high-income countries</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        2000.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">This is a weighted community estimate. Prevalence is substantially higher in psychiatric, cosmetic-surgery, and dermatology settings.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BDD affects ~2% of the adult population"</div>
+
+
+                <div class="evidence-explanation">The 2024 disease primer gives the approximate adult population prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">High</div>
+
+
+                <div class="item-desc">BDD can consume hours each day, disrupt social, educational, and occupational functioning, markedly reduce quality of life, and carry major self-harm and suicide risk. Poor insight and pursuit of cosmetic procedures can delay appropriate care.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Quality of life is markedly impaired across multiple domains and suicide risk is considerable."</div>
+
+
+                <div class="evidence-explanation">The disease primer directly supports substantial functional burden and suicide risk.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38734199" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38734199" target="_blank">PMID:38734199</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"BDD was associated with a 3-fold increased risk of intentional self-harm and death by suicide."</div>
+
+
+                <div class="evidence-explanation">A nationwide matched cohort quantifies the serious self-harm and mortality burden.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+        </div>
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -5998,7 +7012,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-obsessive-compulsive-disorder">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Obsessive-Compulsive_Disorder.html">Obsessive-Compulsive Disorder</a>
@@ -6045,7 +7059,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6070,7 +7086,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-eating-disorder">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Eating Disorder</span>
@@ -6116,7 +7132,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6141,15 +7159,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-trichotillomania">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Trichotillomania</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Trichotillomania.html">Trichotillomania</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0013189" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0013189" target="_blank">
                             MONDO:0013189
                         </a>
                     </span>
@@ -6189,7 +7206,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6214,7 +7233,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-social-anxiety-disorder">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Social_Anxiety_Disorder.html">Social Anxiety Disorder</a>
@@ -6259,7 +7278,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6284,7 +7305,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-delusional-disorder">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Delusional Disorder</span>
@@ -6324,13 +7345,15 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39639018" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39639018" target="_blank">PMID:39639018</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6368,7 +7391,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06262412">
                 <div class="item-name">
                     NCT06262412
 
@@ -6386,33 +7409,37 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal preoccupation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp">HP:0025785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0025785</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Compulsive behaviors
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp">HP:0000722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000722</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6431,7 +7458,9 @@ This clinical trial targets Compulsive behaviors (HP:0000722). HP:0000722 is a p
                         <a href="https://clinicaltrials.gov/study/NCT06262412" target="_blank">clinicaltrials:NCT06262412</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6454,7 +7483,7 @@ This clinical trial targets Compulsive behaviors (HP:0000722). HP:0000722 is a p
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04373629">
                 <div class="item-name">
                     NCT04373629
 
@@ -6472,33 +7501,37 @@ This clinical trial targets Compulsive behaviors (HP:0000722). HP:0000722 is a p
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal preoccupation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp">HP:0025785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0025785</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Delusion (HP:0000746). HP:0000746 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000746" target="_blank" class="curie-chip curie-chip-hp">HP:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000746" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Delusion (HP:0000746). HP:0000746 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6517,7 +7550,9 @@ This clinical trial targets Delusion (HP:0000746). HP:0000746 is a phenotype fro
                         <a href="https://clinicaltrials.gov/study/NCT04373629" target="_blank">clinicaltrials:NCT04373629</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6540,7 +7575,7 @@ This clinical trial targets Delusion (HP:0000746). HP:0000746 is a phenotype fro
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04656301">
                 <div class="item-name">
                     NCT04656301
 
@@ -6558,33 +7593,37 @@ This clinical trial targets Delusion (HP:0000746). HP:0000746 is a phenotype fro
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Abnormal preoccupation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp">HP:0025785</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025785" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0025785</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Abnormal preoccupation (HP:0025785). HP:0025785 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this clinical trial targets this phenotype
-This clinical trial targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Compulsive behaviors
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp">HP:0000722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000722</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Compulsive behaviors (HP:0000722). HP:0000722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6603,7 +7642,9 @@ This clinical trial targets Compulsive behaviors (HP:0000722). HP:0000722 is a p
                         <a href="https://clinicaltrials.gov/study/NCT04656301" target="_blank">clinicaltrials:NCT04656301</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6651,7 +7692,6 @@ This clinical trial targets Compulsive behaviors (HP:0000722). HP:0000722 is a p
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Body Dysmorphic Disorder
 creation_date: &#34;2026-04-28T00:00:00Z&#34;
-updated_date: &#34;2026-04-28T15:27:23Z&#34;
 category: Psychiatric
 description: &gt;-
   Body dysmorphic disorder (BDD) is an obsessive-compulsive-related psychiatric
@@ -6718,7 +7758,7 @@ progression:
   evidence:
   - reference: PMID:39639018
     reference_title: Body dysmorphic disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: BDD typically follows a chronic course if left untreated
     explanation: &gt;-
@@ -6759,7 +7799,7 @@ pathophysiology:
   evidence:
   - reference: PMID:39639018
     reference_title: Body dysmorphic disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: Research on the aetiology of BDD is scarce but likely involves an interplay between genetic and environmental factors.
     explanation: &gt;-
@@ -6767,7 +7807,7 @@ pathophysiology:
       that etiologic evidence remains sparse.
   - reference: PMID:39639018
     reference_title: Body dysmorphic disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: dysmorphic concerns ranges between 37 and 49%
     explanation: &gt;-
@@ -6782,7 +7822,7 @@ pathophysiology:
     evidence:
     - reference: PMID:39639018
       reference_title: Body dysmorphic disorder.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: Research on the aetiology of BDD is scarce but likely involves an interplay between genetic and environmental factors.
       explanation: &gt;-
@@ -6796,7 +7836,7 @@ pathophysiology:
     evidence:
     - reference: PMID:39639018
       reference_title: Body dysmorphic disorder.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         A few studies suggest functional and structural brain differences
@@ -6815,7 +7855,7 @@ pathophysiology:
   evidence:
   - reference: PMID:39639018
     reference_title: Body dysmorphic disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: appraisals of aspects of one&#39;s appearance and repeated thoughts and rumination
     explanation: &gt;-
@@ -6831,7 +7871,7 @@ pathophysiology:
     evidence:
     - reference: PMID:39639018
       reference_title: Body dysmorphic disorder.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: appraisals of aspects of one&#39;s appearance and repeated thoughts and rumination
       explanation: &gt;-
@@ -6857,7 +7897,7 @@ pathophysiology:
   evidence:
   - reference: DOI:10.1038/s41398-022-02099-2
     reference_title: Neural and behavioral effects of modification of visual attention in body dysmorphic disorder
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       In individuals with body dysmorphic disorder (BDD), perceptual appearance
@@ -6878,7 +7918,7 @@ pathophysiology:
     evidence:
     - reference: DOI:10.1038/s41398-022-02099-2
       reference_title: Neural and behavioral effects of modification of visual attention in body dysmorphic disorder
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         In individuals with body dysmorphic disorder (BDD), perceptual
@@ -6942,7 +7982,7 @@ pathophysiology:
     evidence:
     - reference: PMID:39639018
       reference_title: Body dysmorphic disorder.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: ambivalent or even convinced that the beliefs are true (that is, poor or absent insight).
       explanation: &gt;-
@@ -6985,7 +8025,7 @@ pathophysiology:
     evidence:
     - reference: PMID:39639018
       reference_title: Body dysmorphic disorder.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: and maintenance of BDD symptoms
       explanation: &gt;-
@@ -7001,7 +8041,7 @@ pathophysiology:
   evidence:
   - reference: PMID:39639018
     reference_title: Body dysmorphic disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: and maintenance of BDD symptoms
     explanation: &gt;-
@@ -7016,7 +8056,7 @@ pathophysiology:
     evidence:
     - reference: PMID:30806630
       reference_title: &#34;[Body dysmorphic disorder: Symptoms, prevalence, assessment and treatment].&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: and often leads to suicidal ideation.
       explanation: &gt;-
@@ -7030,7 +8070,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38734199
       reference_title: &#34;Intentional Self-Harm and Death by Suicide in Body Dysmorphic Disorder: A Nationwide Cohort Study.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: BDD was associated with a 3-fold increased risk of intentional self-harm and death by suicide.
       explanation: &gt;-
@@ -7092,7 +8132,7 @@ phenotypes:
   evidence:
   - reference: PMID:39639018
     reference_title: Body dysmorphic disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: ambivalent or even convinced that the beliefs are true (that is, poor or absent insight).
     explanation: &gt;-
@@ -7148,13 +8188,13 @@ environmental:
   evidence:
   - reference: PMID:39639018
     reference_title: Body dysmorphic disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: peer victimization (bullying) and childhood trauma
     explanation: The primer identifies these exposures as putative environmental risks.
   - reference: PMID:39639018
     reference_title: Body dysmorphic disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: failure to control for familial or genetic confounding.
     explanation: &gt;-
@@ -7370,7 +8410,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:39639018
     reference_title: Body dysmorphic disorder.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Despite individuals with BDD having absent insight and delusional ideas,
@@ -8937,7 +9977,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Body Dysmorphic Disorder", "mondoId": "MONDO:0000690", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Body_Dysmorphic_Disorder", "yamlRevision": "b53c8f9497f2"};
+        const OS_CONFIG = {"diseaseName": "Body Dysmorphic Disorder", "mondoId": "MONDO:0000690", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Body_Dysmorphic_Disorder", "yamlRevision": "673304733398"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9356,5 +10396,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

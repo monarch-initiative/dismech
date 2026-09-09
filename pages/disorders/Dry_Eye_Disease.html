@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Dry Eye Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Dry Eye Disease</h1>
             <div class="header-meta">
 
@@ -3940,7 +4087,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aqueous-deficient-ded">
 
                     <div class="item-name">
                         Aqueous tear-deficient dry eye disease
@@ -3982,7 +4129,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35681232" target="_blank">PMID:35681232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4004,7 +4153,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35681232" target="_blank">PMID:35681232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4030,7 +4181,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-sj-gren-associated-adde">
 
                     <div class="item-name">
                         Sjögren-associated aqueous tear-deficient DED
@@ -4064,7 +4215,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35681232" target="_blank">PMID:35681232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4090,7 +4243,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-non-sj-gren-adde">
 
                     <div class="item-name">
                         Non-Sjögren aqueous tear-deficient DED
@@ -4124,7 +4277,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35681232" target="_blank">PMID:35681232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4150,7 +4305,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-evaporative-ded">
 
                     <div class="item-name">
                         Evaporative dry eye disease
@@ -4184,7 +4339,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40472874" target="_blank">PMID:40472874</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4210,7 +4367,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-mixed-ded">
 
                     <div class="item-name">
                         Mixed aqueous-deficient and evaporative DED
@@ -4244,7 +4401,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35681232" target="_blank">PMID:35681232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4686,7 +4845,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40451408" target="_blank">PMID:40451408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4708,7 +4869,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40472874" target="_blank">PMID:40472874</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4764,7 +4927,7 @@
 
 
 
-    <span class="entity-ref-chip">treatments#Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)</span>
+    <a class="entity-ref-chip" href="#treatment-visible-light-activated-carbon-monoxide-nanoplatform-preclinical">treatments#Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)</a>
 
 
 
@@ -4806,7 +4969,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42439592" target="_blank">PMID:42439592</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4872,18 +5037,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in meibomian gland, annotated with tarsal gland (UBERON:0001818). UBERON:0001818 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         meibomian gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001818" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001818</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001818" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-1">UBERON:0001818</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in meibomian gland, annotated with tarsal gland (UBERON:0001818). UBERON:0001818 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4932,7 +5099,9 @@ This pathophysiological event occurs in meibomian gland, annotated with tarsal g
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40467022" target="_blank">PMID:40467022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4986,18 +5155,20 @@ This pathophysiological event occurs in meibomian gland, annotated with tarsal g
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:0022287 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         tear film
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0022287</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0022287</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:0022287 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5046,7 +5217,9 @@ This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:00222
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40451408" target="_blank">PMID:40451408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5100,33 +5273,37 @@ This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:00222
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in lacrimal gland (UBERON:0001817). UBERON:0001817 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         lacrimal gland
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001817" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001817</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001817" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001817</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lacrimal gland (UBERON:0001817). UBERON:0001817 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:0022287 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         tear film
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0022287</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0022287</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:0022287 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5194,7 +5371,9 @@ This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:00222
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40451408" target="_blank">PMID:40451408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5238,18 +5417,20 @@ This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:00222
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves conjunctival goblet cell, annotated with conjunctiva goblet cell (CL:2000084). CL:2000084 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         conjunctival goblet cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_2000084" target="_blank" class="curie-chip curie-chip-cl">CL:2000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_2000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:2000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves conjunctival goblet cell, annotated with conjunctiva goblet cell (CL:2000084). CL:2000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5280,33 +5461,37 @@ This pathophysiological event involves conjunctival goblet cell, annotated with 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0001811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:0022287 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         tear film
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0022287</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0022287" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0022287</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:0022287 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5355,7 +5540,9 @@ This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:00222
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40451408" target="_blank">PMID:40451408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5409,18 +5596,20 @@ This pathophysiological event occurs in tear film (UBERON:0022287). UBERON:00222
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in eyelid (UBERON:0001711). UBERON:0001711 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         eyelid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001711" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001711</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001711" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0001711</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in eyelid (UBERON:0001711). UBERON:0001711 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5469,7 +5658,9 @@ This pathophysiological event occurs in eyelid (UBERON:0001711). UBERON:0001711 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40451408" target="_blank">PMID:40451408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5523,18 +5714,20 @@ This pathophysiological event occurs in eyelid (UBERON:0001711). UBERON:0001711 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in margin of eyelid (UBERON:0034772). UBERON:0034772 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         margin of eyelid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0034772" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0034772</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0034772" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0034772</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in margin of eyelid (UBERON:0034772). UBERON:0034772 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5583,7 +5776,9 @@ This pathophysiological event occurs in margin of eyelid (UBERON:0034772). UBERO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40451408" target="_blank">PMID:40451408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5637,33 +5832,37 @@ This pathophysiological event occurs in margin of eyelid (UBERON:0034772). UBERO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0001811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5712,7 +5911,9 @@ This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40451408" target="_blank">PMID:40451408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5763,18 +5964,20 @@ This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves response to hyperosmotic stress, annotated with hyperosmotic response (GO:0006972). GO:0006972 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to hyperosmotic stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006972" target="_blank" class="curie-chip curie-chip-go">GO:0006972</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006972" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006972</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to hyperosmotic stress, annotated with hyperosmotic response (GO:0006972). GO:0006972 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5798,33 +6001,37 @@ This pathophysiological event involves response to hyperosmotic stress, annotate
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0001811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5911,7 +6118,9 @@ This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40451408" target="_blank">PMID:40451408</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5955,18 +6164,20 @@ This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:0000575 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         corneal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl">CL:0000575</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000575</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:0000575 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5994,18 +6205,20 @@ This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6029,18 +6242,20 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6098,7 +6313,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -6108,7 +6323,33 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34575438" target="_blank">PMID:34575438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"elevated levels of oxidative stress have been identified in patients with dry eye disease"</div>
+
+
+                <div class="evidence-explanation">The paper&#39;s synthesis of prior patient studies supports oxidative stress as a feature observed in human DED, complementing the cultured-cell and mouse results on this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34575438" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34575438" target="_blank">PMID:34575438</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6130,7 +6371,9 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34575438" target="_blank">PMID:34575438</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6174,18 +6417,20 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6202,18 +6447,20 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4-positive, alpha-beta T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6241,18 +6488,20 @@ This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:00006
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6336,7 +6585,9 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34421626" target="_blank">PMID:34421626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6358,7 +6609,9 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34421626" target="_blank">PMID:34421626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6402,18 +6655,20 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:0000575 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         corneal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl">CL:0000575</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000575</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:0000575 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6441,18 +6696,20 @@ This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6476,33 +6733,37 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         conjunctiva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0001811</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0001811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:0001811 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6570,7 +6831,9 @@ This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34421626" target="_blank">PMID:34421626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6624,18 +6887,20 @@ This pathophysiological event occurs in conjunctiva (UBERON:0001811). UBERON:000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6722,7 +6987,9 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40472874" target="_blank">PMID:40472874</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6770,7 +7037,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ambient Air Pollution\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Long-term ambient pollutant exposure has been associated with increased dry eye prevalence. The available study was observational and limited to women, so the factor is modeled as a predisposition with unasserted intermediates.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Aqueous Tear Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inadequate aqueous secretion from the lacrimal apparatus reduces tear volume and promotes hyperosmolar stress. Sj\\u00f6gren and non-Sj\\u00f6gren forms are modeled explicitly, and aqueous deficiency can coexist with evaporation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Sj\\u00f6gren-Associated ADDE\", \"Non-Sj\\u00f6gren ADDE\", \"Mixed DED\"], \"role\": \"trigger\", \"locations\": [\"lacrimal gland\", \"tear film\"]}}, {\"id\": \"Blink and Lid-Closure Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced or incomplete blinking and impaired lid closure limit redistribution of aqueous tears and meibomian lipids and prolong ocular-surface exposure between blinks.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\", \"locations\": [\"eyelid\"]}}, {\"id\": \"Blurred vision\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tear-film instability can produce intermittent or fluctuating blurred vision.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000622\"}}, {\"id\": \"Conjunctival hyperemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjunctival redness can accompany the inflammatory and epithelial-injury arms of DED.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030953\"}}, {\"id\": \"Contact Lens Wear\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Contact lens wear is a recognized extrinsic and iatrogenic contributor to DED. Because the cited consensus does not resolve one universal route, the link to tear-film instability retains unknown intermediates.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Corneal and Conjunctival Epithelial Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stress and inflammation can disrupt corneal and conjunctival epithelial integrity. Damage can include punctate staining, epithelial-cell loss, and, in severe disease, more extensive surface lesions.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"corneal epithelial cell\"], \"biological_processes\": [\"apoptotic process\"], \"role\": \"outcome\", \"locations\": [\"cornea\", \"conjunctiva\"]}}, {\"id\": \"Corneal foreign body sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A gritty or foreign-body sensation can occur from ocular-surface irritation and abnormal sensory signaling despite the absence of retained material.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034804\"}}, {\"id\": \"Decreased lacrimation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced aqueous tear production is the defining secretory manifestation of aqueous tear-deficient DED, including Sj\\u00f6gren and non-Sj\\u00f6gren forms.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000633\"}}, {\"id\": \"Keratoconjunctivitis sicca\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dryness and irritation of the cornea and conjunctiva are the defining ocular-surface manifestation; keratoconjunctivitis sicca is also a commonly used clinical name for DED.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001097\"}}, {\"id\": \"Lid-Margin Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural or inflammatory abnormalities of the eyelid margin can interfere with tear-film lipid delivery and normal spreading independently of other tear-component deficiencies.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\", \"locations\": [\"margin of eyelid\"]}}, {\"id\": \"Lipid Tear-Film Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insufficient or compositionally abnormal tear-film lipid permits excessive evaporation. It may arise from meibomian gland dysfunction or other lipid delivery abnormalities.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Evaporative DED\", \"Mixed DED\"], \"role\": \"trigger\", \"locations\": [\"tear film\"]}}, {\"id\": \"Low Ambient Humidity or Airflow\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Dry ambient air and direct airflow increase evaporative demand at the ocular surface. Human observational evidence supports lower humidity as a risk condition, while controlled low-humidity mouse models directly demonstrate excessive tear-film evaporation.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor and exacerbating condition\"}}, {\"id\": \"Meibomian Gland Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunction of the tarsal (meibomian) glands is a major, but not universal, evaporative DED driver. Altered delivery or quality of meibum compromises the tear-film lipid layer and increases evaporative stress.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Evaporative DED\", \"Mixed DED\"], \"role\": \"trigger\", \"locations\": [\"meibomian gland\"]}}, {\"id\": \"Meibomian-Gland-Directed Lid Warming and Hygiene\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warm compresses, lid hygiene, and selected in-office eyelid-warming approaches address meibomian gland dysfunction when a lipid-deficient, evaporative driver is present; they are not universal therapy for every DED endotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mucin and Glycocalyx Tear-Film Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced secreted mucin or disruption of the epithelial glycocalyx impairs tear spreading, lubrication, and surface retention. This component can coexist with aqueous or lipid deficiency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"conjunctival goblet cell\"], \"role\": \"trigger\", \"locations\": [\"conjunctiva\", \"tear film\"]}}, {\"id\": \"Neurosensory Dysfunction and Ocular Pain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered corneal-nerve integrity and peripheral or central sensory processing can generate ocular discomfort or pain. Neural dysfunction can coexist with epithelial damage or become partly dissociated from measured surface signs.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"cornea\"]}}, {\"id\": \"Ocular pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular pain or discomfort can reflect corneal-nerve injury, altered neuronal function, or peripheral and central sensory processing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200026\"}}, {\"id\": \"Ocular-Surface Anatomical Misalignment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malalignment of the ocular surface or apposing lids can prevent uniform tear distribution and create locally exposed, unstable tear-film regions.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\", \"locations\": [\"cornea\", \"conjunctiva\"]}}, {\"id\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In inflammatory DED contexts, epithelial and innate immune signaling recruit macrophages and antigen-presenting cells, while CD4-positive T-cell responses can sustain cytokine production and tissue injury. The intensity of this arm differs across etiologic forms.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Desiccating and hyperosmolar exposure can increase reactive oxygen species and oxidative injury in corneal epithelial cells. Oxidative stress is a contributor within a heterogeneous network, not a universal single cause of DED.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"corneal epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\"], \"role\": \"mediator\", \"locations\": [\"cornea\"]}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Light sensitivity can occur among the heterogeneous ocular symptoms of DED.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000613\"}}, {\"id\": \"Prolonged Digital Screen Use\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Longer use of computers, tablets, phones, and other digital displays is associated with DED symptoms and diagnosis. Reduced blink rate and less complete blinking are the principal proposed intermediates, so this factor is linked specifically to the blink/lid-closure driver rather than treated as a direct cause of every DED endotype.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Tear-Film Instability and Hyperosmolarity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An unstable tear film exposes the corneal and conjunctival epithelia to fluctuating desiccating and hyperosmolar stress. The importance of this node varies among individuals and can be driven by aqueous deficiency, evaporation, or mixed mechanisms.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to hyperosmotic stress\"], \"role\": \"mediator\", \"locations\": [\"cornea\", \"conjunctiva\"]}}, {\"id\": \"Tear-Film Replenishment and Conservation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ocular lubricants and other tear supplements are first-line measures used to replenish or conserve the tear film. Formulation and frequency should be matched to the individual\u0027s deficient tear component and symptom burden.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Topical Cyclosporin A for Inflammatory DED\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical 0.05% cyclosporin A is a T-cell-directed anti-inflammatory option for selected moderate-to-severe inflammatory DED. A 12-week randomized formulation-comparison trial found improvement from baseline with both aqueous solution and oil emulsion alongside lubricant drops; it did not compare cyclosporin with placebo or establish benefit for all DED forms.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cyclosporin A\"]}}, {\"id\": \"Topical or Systemic Medication Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Some topical and systemic medications can cause or predispose to iatrogenic DED. This entry remains drug-class agnostic because the cited consensus supports the category without assigning every medication the same route.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"TiZr-MOF/CO@F127 is a visible-light-activated, F127-hydrogel nanoplatform designed for controlled corneal carbon-monoxide delivery. Five days of topical treatment reduced oxidative and inflammatory readouts and improved epithelial recovery in a murine DED model. This is preclinical evidence only: human ocular safety, dose control, light-delivery parameters, and clinical efficacy have not been established, so this is not a clinical recommendation.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"carbon monoxide\"]}}], \"edges\": [{\"source\": \"Meibomian Gland Dysfunction\", \"target\": \"Lipid Tear-Film Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Meibomian-gland dysfunction reduces or alters the lipid supplied to the tear film, thereby establishing a lipid-deficient evaporative driver.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired meibum delivery to the tear-film lipid layer\"]}, {\"source\": \"Lipid Tear-Film Deficiency\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of an effective lipid layer increases evaporation and destabilizes the tear film.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"increased tear evaporation\"]}, {\"source\": \"Aqueous Tear Deficiency\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced aqueous volume decreases tear-film reserve and increases concentration and instability at the ocular surface.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced aqueous tear volume\"]}, {\"source\": \"Aqueous Tear Deficiency\", \"target\": \"Decreased lacrimation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced aqueous secretion is clinically expressed as decreased lacrimation.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucin and Glycocalyx Tear-Film Deficiency\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucin or glycocalyx deficiency reduces tear-film wetting and retention, promoting breakup and osmotic stress.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired tear spreading and ocular-surface retention\"]}, {\"source\": \"Blink and Lid-Closure Abnormality\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or incomplete blinking permits greater evaporative loss and prevents uniform replenishment of the tear film.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired tear and lipid redistribution with increased interblink evaporation\"]}, {\"source\": \"Lid-Margin Abnormality\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lid-margin disease can destabilize the tear film through altered spreading and lipid delivery.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disrupted tear-film spreading and lipid delivery\"]}, {\"source\": \"Ocular-Surface Anatomical Misalignment\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anatomical misalignment can produce uneven tear coverage and local instability.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"uneven tear distribution and exposed ocular-surface regions\"]}, {\"source\": \"Tear-Film Instability and Hyperosmolarity\", \"target\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperosmolar exposure can increase oxidative stress in corneal epithelial cells, although oxidative stress can also arise through other DED drivers.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tear-Film Instability and Hyperosmolarity\", \"target\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperosmolar stress can amplify cytokine and MAPK-mediated inflammation when this inflammatory arm is active.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tear-Film Instability and Hyperosmolarity\", \"target\": \"Blurred vision\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tear-film breakup produces a fluctuating optical surface and can therefore manifest as intermittent blurred or fluctuating vision.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"target\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive oxygen species and inflammatory signaling can reinforce one another in experimental DED.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"target\": \"Corneal and Conjunctival Epithelial Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained oxidative stress can contribute to epithelial DNA damage and loss of ocular-surface integrity.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"target\": \"Corneal and Conjunctival Epithelial Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent effector-cell activity and cytokine signaling can damage corneal and conjunctival epithelial tissues and restart innate responses.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"target\": \"Conjunctival hyperemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular-surface inflammation can produce conjunctival redness through local inflammatory vascular responses.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"inflammatory vasodilation of conjunctival vessels\"]}, {\"source\": \"Corneal and Conjunctival Epithelial Damage\", \"target\": \"Neurosensory Dysfunction and Ocular Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular-surface injury can alter corneal-nerve structure or signaling and contribute to pain, while pain can also persist through peripheral or central neural mechanisms that are not proportional to surface damage.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Corneal and Conjunctival Epithelial Damage\", \"target\": \"Keratoconjunctivitis sicca\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damage and dryness affecting both corneal and conjunctival epithelia are clinically expressed as keratoconjunctivitis sicca.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurosensory Dysfunction and Ocular Pain\", \"target\": \"Ocular pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered peripheral or central sensory processing can directly produce ocular pain.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurosensory Dysfunction and Ocular Pain\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered ocular sensory processing can accompany the light sensitivity reported in DED, although the intervening circuitry is not asserted here.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurosensory Dysfunction and Ocular Pain\", \"target\": \"Corneal foreign body sensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal ocular-surface sensory signaling can manifest as foreign-body sensation even when no foreign material is present.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prolonged Digital Screen Use\", \"target\": \"Blink and Lid-Closure Abnormality\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Digital screen tasks can reduce blink rate and completeness, increasing the time during which tears evaporate between blinks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low Ambient Humidity or Airflow\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Low humidity increases tear evaporation, reducing tear-film stability and increasing desiccating stress.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ambient Air Pollution\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Air-pollution exposure is placed upstream of the canonical tear-film homeostasis node, without asserting a specific molecular intermediate from this association study.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Contact Lens Wear\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Contact lens wear can disrupt ocular-surface homeostasis through routes that vary by lens, wearer, and exposure context.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Topical or Systemic Medication Exposure\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Medication exposure can disturb tear-film or ocular-surface homeostasis, with the operative route depending on the agent.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tear-Film Replenishment and Conservation\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Meibomian-Gland-Directed Lid Warming and Hygiene\", \"target\": \"Meibomian Gland Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Cyclosporin A for Inflammatory DED\", \"target\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)\", \"target\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)\", \"target\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)\", \"target\": \"Corneal and Conjunctival Epithelial Damage\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Ambient Air Pollution\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Long-term ambient pollutant exposure has been associated with increased dry eye prevalence. The available study was observational and limited to women, so the factor is modeled as a predisposition with unasserted intermediates.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Aqueous Tear Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inadequate aqueous secretion from the lacrimal apparatus reduces tear volume and promotes hyperosmolar stress. Sj\\u00f6gren and non-Sj\\u00f6gren forms are modeled explicitly, and aqueous deficiency can coexist with evaporation.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Sj\\u00f6gren-Associated ADDE\", \"Non-Sj\\u00f6gren ADDE\", \"Mixed DED\"], \"role\": \"trigger\", \"locations\": [\"lacrimal gland\", \"tear film\"]}}, {\"id\": \"Blink and Lid-Closure Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced or incomplete blinking and impaired lid closure limit redistribution of aqueous tears and meibomian lipids and prolong ocular-surface exposure between blinks.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\", \"locations\": [\"eyelid\"]}}, {\"id\": \"Blurred vision\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tear-film instability can produce intermittent or fluctuating blurred vision.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000622\"}}, {\"id\": \"Conjunctival hyperemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjunctival redness can accompany the inflammatory and epithelial-injury arms of DED.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030953\"}}, {\"id\": \"Contact Lens Wear\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Contact lens wear is a recognized extrinsic and iatrogenic contributor to DED. Because the cited consensus does not resolve one universal route, the link to tear-film instability retains unknown intermediates.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Corneal and Conjunctival Epithelial Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Stress and inflammation can disrupt corneal and conjunctival epithelial integrity. Damage can include punctate staining, epithelial-cell loss, and, in severe disease, more extensive surface lesions.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"corneal epithelial cell\"], \"biological_processes\": [\"apoptotic process\"], \"role\": \"outcome\", \"locations\": [\"cornea\", \"conjunctiva\"]}}, {\"id\": \"Corneal foreign body sensation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A gritty or foreign-body sensation can occur from ocular-surface irritation and abnormal sensory signaling despite the absence of retained material.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034804\"}}, {\"id\": \"Decreased lacrimation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced aqueous tear production is the defining secretory manifestation of aqueous tear-deficient DED, including Sj\\u00f6gren and non-Sj\\u00f6gren forms.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000633\"}}, {\"id\": \"Keratoconjunctivitis sicca\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dryness and irritation of the cornea and conjunctiva are the defining ocular-surface manifestation; keratoconjunctivitis sicca is also a commonly used clinical name for DED.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001097\"}}, {\"id\": \"Lid-Margin Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural or inflammatory abnormalities of the eyelid margin can interfere with tear-film lipid delivery and normal spreading independently of other tear-component deficiencies.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\", \"locations\": [\"margin of eyelid\"]}}, {\"id\": \"Lipid Tear-Film Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insufficient or compositionally abnormal tear-film lipid permits excessive evaporation. It may arise from meibomian gland dysfunction or other lipid delivery abnormalities.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Evaporative DED\", \"Mixed DED\"], \"role\": \"trigger\", \"locations\": [\"tear film\"]}}, {\"id\": \"Low Ambient Humidity or Airflow\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Dry ambient air and direct airflow increase evaporative demand at the ocular surface. Human observational evidence supports lower humidity as a risk condition, and low-humidity housing is used in mouse desiccating-stress models on the premise that it causes excessive tear-film evaporation.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor and exacerbating condition\"}}, {\"id\": \"Meibomian Gland Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunction of the tarsal (meibomian) glands is a major, but not universal, evaporative DED driver. Altered delivery or quality of meibum compromises the tear-film lipid layer and increases evaporative stress.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Evaporative DED\", \"Mixed DED\"], \"role\": \"trigger\", \"locations\": [\"meibomian gland\"]}}, {\"id\": \"Meibomian-Gland-Directed Lid Warming and Hygiene\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warm compresses, lid hygiene, and selected in-office eyelid-warming approaches address meibomian gland dysfunction when a lipid-deficient, evaporative driver is present; they are not universal therapy for every DED endotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Mucin and Glycocalyx Tear-Film Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced secreted mucin or disruption of the epithelial glycocalyx impairs tear spreading, lubrication, and surface retention. This component can coexist with aqueous or lipid deficiency.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"conjunctival goblet cell\"], \"role\": \"trigger\", \"locations\": [\"conjunctiva\", \"tear film\"]}}, {\"id\": \"Neurosensory Dysfunction and Ocular Pain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered corneal-nerve integrity and peripheral or central sensory processing can generate ocular discomfort or pain. Neural dysfunction can coexist with epithelial damage or become partly dissociated from measured surface signs.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"cornea\"]}}, {\"id\": \"Ocular pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular pain or discomfort can reflect corneal-nerve injury, altered neuronal function, or peripheral and central sensory processing.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200026\"}}, {\"id\": \"Ocular-Surface Anatomical Misalignment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malalignment of the ocular surface or apposing lids can prevent uniform tear distribution and create locally exposed, unstable tear-film regions.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\", \"locations\": [\"cornea\", \"conjunctiva\"]}}, {\"id\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In inflammatory DED contexts, epithelial and innate immune signaling recruit macrophages and antigen-presenting cells, while CD4-positive T-cell responses can sustain cytokine production and tissue injury. The intensity of this arm differs across etiologic forms.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"mediator\"}}, {\"id\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Desiccating and hyperosmolar exposure can increase reactive oxygen species and oxidative injury in corneal epithelial cells. Oxidative stress is a contributor within a heterogeneous network, not a universal single cause of DED.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"corneal epithelial cell\"], \"biological_processes\": [\"response to oxidative stress\"], \"role\": \"mediator\", \"locations\": [\"cornea\"]}}, {\"id\": \"Photophobia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Light sensitivity can occur among the heterogeneous ocular symptoms of DED.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000613\"}}, {\"id\": \"Prolonged Digital Screen Use\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Longer use of computers, tablets, phones, and other digital displays is associated with DED symptoms and diagnosis. Reduced blink rate and less complete blinking are the principal proposed intermediates, so this factor is linked specifically to the blink/lid-closure driver rather than treated as a direct cause of every DED endotype.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Tear-Film Instability and Hyperosmolarity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An unstable tear film exposes the corneal and conjunctival epithelia to fluctuating desiccating and hyperosmolar stress. The importance of this node varies among individuals and can be driven by aqueous deficiency, evaporation, or mixed mechanisms.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to hyperosmotic stress\"], \"role\": \"mediator\", \"locations\": [\"cornea\", \"conjunctiva\"]}}, {\"id\": \"Tear-Film Replenishment and Conservation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ocular lubricants and other tear supplements are first-line measures used to replenish or conserve the tear film. Formulation and frequency should be matched to the individual\u0027s deficient tear component and symptom burden.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Topical Cyclosporin A for Inflammatory DED\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical 0.05% cyclosporin A is a T-cell-directed anti-inflammatory option for selected moderate-to-severe inflammatory DED. A 12-week randomized formulation-comparison trial found improvement from baseline with both aqueous solution and oil emulsion alongside lubricant drops; it did not compare cyclosporin with placebo or establish benefit for all DED forms.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cyclosporin A\"]}}, {\"id\": \"Topical or Systemic Medication Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Some topical and systemic medications can cause or predispose to iatrogenic DED. This entry remains drug-class agnostic because the cited consensus supports the category without assigning every medication the same route.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Risk factor\"}}, {\"id\": \"Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"TiZr-MOF/CO@F127 is a visible-light-activated, F127-hydrogel nanoplatform designed for controlled corneal carbon-monoxide delivery. Five days of topical treatment reduced oxidative and inflammatory readouts and improved epithelial recovery in a murine DED model. This is preclinical evidence only: human ocular safety, dose control, light-delivery parameters, and clinical efficacy have not been established, so this is not a clinical recommendation.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"carbon monoxide\"]}}], \"edges\": [{\"source\": \"Meibomian Gland Dysfunction\", \"target\": \"Lipid Tear-Film Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Meibomian-gland dysfunction reduces or alters the lipid supplied to the tear film, thereby establishing a lipid-deficient evaporative driver.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired meibum delivery to the tear-film lipid layer\"]}, {\"source\": \"Lipid Tear-Film Deficiency\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of an effective lipid layer increases evaporation and destabilizes the tear film.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"increased tear evaporation\"]}, {\"source\": \"Aqueous Tear Deficiency\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced aqueous volume decreases tear-film reserve and increases concentration and instability at the ocular surface.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced aqueous tear volume\"]}, {\"source\": \"Aqueous Tear Deficiency\", \"target\": \"Decreased lacrimation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced aqueous secretion is clinically expressed as decreased lacrimation.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mucin and Glycocalyx Tear-Film Deficiency\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucin or glycocalyx deficiency reduces tear-film wetting and retention, promoting breakup and osmotic stress.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired tear spreading and ocular-surface retention\"]}, {\"source\": \"Blink and Lid-Closure Abnormality\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or incomplete blinking permits greater evaporative loss and prevents uniform replenishment of the tear film.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired tear and lipid redistribution with increased interblink evaporation\"]}, {\"source\": \"Lid-Margin Abnormality\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lid-margin disease can destabilize the tear film through altered spreading and lipid delivery.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"disrupted tear-film spreading and lipid delivery\"]}, {\"source\": \"Ocular-Surface Anatomical Misalignment\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anatomical misalignment can produce uneven tear coverage and local instability.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"uneven tear distribution and exposed ocular-surface regions\"]}, {\"source\": \"Tear-Film Instability and Hyperosmolarity\", \"target\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperosmolar exposure can increase oxidative stress in corneal epithelial cells, although oxidative stress can also arise through other DED drivers.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tear-Film Instability and Hyperosmolarity\", \"target\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperosmolar stress can amplify cytokine and MAPK-mediated inflammation when this inflammatory arm is active.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tear-Film Instability and Hyperosmolarity\", \"target\": \"Blurred vision\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tear-film breakup produces a fluctuating optical surface and can therefore manifest as intermittent blurred or fluctuating vision.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"target\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive oxygen species and inflammatory signaling can reinforce one another in experimental DED.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"target\": \"Corneal and Conjunctival Epithelial Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained oxidative stress can contribute to epithelial DNA damage and loss of ocular-surface integrity.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"target\": \"Corneal and Conjunctival Epithelial Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent effector-cell activity and cytokine signaling can damage corneal and conjunctival epithelial tissues and restart innate responses.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"target\": \"Conjunctival hyperemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular-surface inflammation can produce conjunctival redness through local inflammatory vascular responses.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"inflammatory vasodilation of conjunctival vessels\"]}, {\"source\": \"Corneal and Conjunctival Epithelial Damage\", \"target\": \"Neurosensory Dysfunction and Ocular Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular-surface injury can alter corneal-nerve structure or signaling and contribute to pain, while pain can also persist through peripheral or central neural mechanisms that are not proportional to surface damage.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Corneal and Conjunctival Epithelial Damage\", \"target\": \"Keratoconjunctivitis sicca\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Damage and dryness affecting both corneal and conjunctival epithelia are clinically expressed as keratoconjunctivitis sicca.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurosensory Dysfunction and Ocular Pain\", \"target\": \"Ocular pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered peripheral or central sensory processing can directly produce ocular pain.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurosensory Dysfunction and Ocular Pain\", \"target\": \"Photophobia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered ocular sensory processing can accompany the light sensitivity reported in DED, although the intervening circuitry is not asserted here.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neurosensory Dysfunction and Ocular Pain\", \"target\": \"Corneal foreign body sensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal ocular-surface sensory signaling can manifest as foreign-body sensation even when no foreign material is present.\", \"hypothesis_groups\": [\"multidriver_tear_film_homeostasis_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prolonged Digital Screen Use\", \"target\": \"Blink and Lid-Closure Abnormality\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Digital screen tasks can reduce blink rate and completeness, increasing the time during which tears evaporate between blinks; the cited review presents this blink-dynamics route as the field\u0027s most prevalent hypothesis rather than an established mechanism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low Ambient Humidity or Airflow\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Low humidity increases tear evaporation, reducing tear-film stability and increasing desiccating stress.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ambient Air Pollution\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Air-pollution exposure is placed upstream of the canonical tear-film homeostasis node, without asserting a specific molecular intermediate from this association study.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Contact Lens Wear\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Contact lens wear can disrupt ocular-surface homeostasis through routes that vary by lens, wearer, and exposure context.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Topical or Systemic Medication Exposure\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Medication exposure can disturb tear-film or ocular-surface homeostasis, with the operative route depending on the agent.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Tear-Film Replenishment and Conservation\", \"target\": \"Tear-Film Instability and Hyperosmolarity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Meibomian-Gland-Directed Lid Warming and Hygiene\", \"target\": \"Meibomian Gland Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Cyclosporin A for Inflammatory DED\", \"target\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)\", \"target\": \"Ocular-Surface Osmotic and Oxidative Stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)\", \"target\": \"Ocular-Surface Innate and Adaptive Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)\", \"target\": \"Corneal and Conjunctival Epithelial Damage\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6814,16 +7081,20 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001097</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is a phenotype from the Human Phenotype Ontology.">
-                        Keratoconjunctivitis sicca
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" class="curie-chip curie-chip-hp">HP:0001097</a>
-
-
+This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6844,7 +7115,9 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40146145" target="_blank">PMID:40146145</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6876,16 +7149,20 @@ This clinical feature is Keratoconjunctivitis sicca (HP:0001097). HP:0001097 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0030953</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Conjunctival hyperemia (HP:0030953). HP:0030953 is a phenotype from the Human Phenotype Ontology.">
-                        Conjunctival hyperemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030953" target="_blank" class="curie-chip curie-chip-hp">HP:0030953</a>
-
-
+This clinical feature is Conjunctival hyperemia (HP:0030953). HP:0030953 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6906,7 +7183,9 @@ This clinical feature is Conjunctival hyperemia (HP:0030953). HP:0030953 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34421626" target="_blank">PMID:34421626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6947,16 +7226,20 @@ This clinical feature is Conjunctival hyperemia (HP:0030953). HP:0030953 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000613</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.">
-                        Photophobia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" class="curie-chip curie-chip-hp">HP:0000613</a>
-
-
+This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6977,7 +7260,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34421626" target="_blank">PMID:34421626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7009,16 +7294,20 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype from the Human Phenotype Ontology.">
-                        Blurred vision
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp">HP:0000622</a>
-
-
+This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7039,7 +7328,9 @@ This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34421626" target="_blank">PMID:34421626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7080,16 +7371,20 @@ This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0200026</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype from the Human Phenotype Ontology.">
-                        Ocular pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200026" target="_blank" class="curie-chip curie-chip-hp">HP:0200026</a>
-
-
+This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7110,7 +7405,9 @@ This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40472874" target="_blank">PMID:40472874</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7151,16 +7448,20 @@ This clinical feature is Ocular pain (HP:0200026). HP:0200026 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000633</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Decreased lacrimation (HP:0000633). HP:0000633 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased lacrimation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000633" target="_blank" class="curie-chip curie-chip-hp">HP:0000633</a>
-
-
+This clinical feature is Decreased lacrimation (HP:0000633). HP:0000633 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7181,7 +7482,9 @@ This clinical feature is Decreased lacrimation (HP:0000633). HP:0000633 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35681232" target="_blank">PMID:35681232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7213,16 +7516,20 @@ This clinical feature is Decreased lacrimation (HP:0000633). HP:0000633 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0034804</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Corneal foreign body sensation (HP:0034804). HP:0034804 is a phenotype from the Human Phenotype Ontology.">
-                        Corneal foreign body sensation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034804" target="_blank" class="curie-chip curie-chip-hp">HP:0034804</a>
-
-
+This clinical feature is Corneal foreign body sensation (HP:0034804). HP:0034804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7243,7 +7550,9 @@ This clinical feature is Corneal foreign body sensation (HP:0034804). HP:0034804
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34421626" target="_blank">PMID:34421626</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7305,6 +7614,9 @@ This clinical feature is Corneal foreign body sensation (HP:0034804). HP:0034804
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7323,18 +7635,18 @@ This clinical feature is Corneal foreign body sensation (HP:0034804). HP:0034804
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7352,6 +7664,25 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7385,7 +7716,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40467022" target="_blank">PMID:40467022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7426,7 +7759,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40467022" target="_blank">PMID:40467022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7458,18 +7793,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7487,6 +7822,25 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -7520,7 +7874,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40467022" target="_blank">PMID:40467022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7561,7 +7917,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40467022" target="_blank">PMID:40467022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7593,17 +7951,17 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7628,21 +7986,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cyclosporin A
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4031</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4031" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:4031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -7674,7 +8053,9 @@ This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40467022" target="_blank">PMID:40467022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7715,7 +8096,9 @@ This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40467022" target="_blank">PMID:40467022</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7737,7 +8120,9 @@ This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40146145" target="_blank">PMID:40146145</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7769,17 +8154,17 @@ This treatment uses cyclosporin A (CHEBI:4031). CHEBI:4031 is a therapeutic agen
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7804,21 +8189,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses carbon monoxide (CHEBI:17245). CHEBI:17245 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         carbon monoxide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17245" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:17245</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17245" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:17245</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carbon monoxide (CHEBI:17245). CHEBI:17245 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -7850,7 +8256,9 @@ This treatment uses carbon monoxide (CHEBI:17245). CHEBI:17245 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42439592" target="_blank">PMID:42439592</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7895,7 +8303,9 @@ This treatment uses carbon monoxide (CHEBI:17245). CHEBI:17245 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42439592" target="_blank">PMID:42439592</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7940,7 +8350,9 @@ This treatment uses carbon monoxide (CHEBI:17245). CHEBI:17245 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42439592" target="_blank">PMID:42439592</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7981,7 +8393,9 @@ This treatment uses carbon monoxide (CHEBI:17245). CHEBI:17245 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42439592" target="_blank">PMID:42439592</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8003,7 +8417,9 @@ This treatment uses carbon monoxide (CHEBI:17245). CHEBI:17245 is a therapeutic 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42439592" target="_blank">PMID:42439592</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8044,15 +8460,21 @@ This treatment uses carbon monoxide (CHEBI:17245). CHEBI:17245 is a therapeutic 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Relation: this environmental factor is this exposure
-This environmental factor is prolonged digital screen use.">
+
+                    <span class="tag tag-env" tabindex="0" aria-describedby="pill-tip-39">
                         prolonged digital screen use
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Relation: this environmental factor is this exposure
+This environmental factor is prolonged digital screen use.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8072,7 +8494,9 @@ This environmental factor is prolonged digital screen use.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34531649" target="_blank">PMID:34531649</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8105,7 +8529,7 @@ This environmental factor is prolonged digital screen use.">
 
                         <strong style="color: #115e59;">Blink and Lid-Closure Abnormality</strong>
 
-                        <span style="color: #0d9488;"> &mdash; Digital screen tasks can reduce blink rate and completeness, increasing the time during which tears evaporate between blinks.</span>
+                        <span style="color: #0d9488;"> &mdash; Digital screen tasks can reduce blink rate and completeness, increasing the time during which tears evaporate between blinks; the cited review presents this blink-dynamics route as the field&#39;s most prevalent hypothesis rather than an established mechanism.</span>
 
 
 
@@ -8121,7 +8545,9 @@ This environmental factor is prolonged digital screen use.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34531649" target="_blank">PMID:34531649</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8131,7 +8557,7 @@ This environmental factor is prolonged digital screen use.">
                 <div class="evidence-snippet">"The most prevalent hypothesis to explain the link between digital screen use and dry eye is digital screen use influences blinking dynamics by reducing both blink rate and blink completeness, leading to increased ocular surface dryness."</div>
 
 
-                <div class="evidence-explanation">The review identifies altered blink rate and completeness as the proximal mechanism connecting screen use with ocular dryness.</div>
+                <div class="evidence-explanation">The review presents altered blink rate and completeness as the most prevalent hypothesis for the screen-use link; this mechanism is hypothesis-level rather than demonstrated.</div>
 
 
 
@@ -8154,10 +8580,12 @@ This environmental factor is prolonged digital screen use.">
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Relation: this environmental factor is this exposure
-This environmental factor is exposure to low ambient humidity or airflow across the eye.">
+
+                    <span class="tag tag-env" tabindex="0" aria-describedby="pill-tip-40">
                         exposure to low ambient humidity or airflow across the eye
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Relation: this environmental factor is this exposure
+This environmental factor is exposure to low ambient humidity or airflow across the eye.</span>
                     </span>
 
 
@@ -8166,7 +8594,11 @@ This environmental factor is exposure to low ambient humidity or airflow across 
 
 
 
-                <div class="item-desc">Dry ambient air and direct airflow increase evaporative demand at the ocular surface. Human observational evidence supports lower humidity as a risk condition, while controlled low-humidity mouse models directly demonstrate excessive tear-film evaporation.</div>
+
+
+
+
+                <div class="item-desc">Dry ambient air and direct airflow increase evaporative demand at the ocular surface. Human observational evidence supports lower humidity as a risk condition, and low-humidity housing is used in mouse desiccating-stress models on the premise that it causes excessive tear-film evaporation.</div>
 
 
 
@@ -8182,7 +8614,9 @@ This environmental factor is exposure to low ambient humidity or airflow across 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34206755" target="_blank">PMID:34206755</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8231,7 +8665,9 @@ This environmental factor is exposure to low ambient humidity or airflow across 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35681232" target="_blank">PMID:35681232</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8241,7 +8677,7 @@ This environmental factor is exposure to low ambient humidity or airflow across 
                 <div class="evidence-snippet">"Administration of scopolamine reduces aqueous tear production and the low humidity environment causes excessive evaporation of the tear film."</div>
 
 
-                <div class="evidence-explanation">The controlled-environment mouse model demonstrates excessive tear-film evaporation as the intermediate produced by low humidity.</div>
+                <div class="evidence-explanation">The quoted sentence is the review&#39;s description of how the desiccating-stress mouse model is constructed (citing the model&#39;s original report): low-humidity housing is used because it causes excessive tear-film evaporation. It supports evaporation as the intermediate by model design rather than as a result measured in this study.</div>
 
 
 
@@ -8264,23 +8700,29 @@ This environmental factor is exposure to low ambient humidity or airflow across 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is ambient air pollution exposure, annotated with exposure to air pollution (ECTO:8000036). ECTO:8000036 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         ambient air pollution exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto">ECTO:8000036</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-41">ECTO:8000036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is ambient air pollution exposure, annotated with exposure to air pollution (ECTO:8000036). ECTO:8000036 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8300,7 +8742,9 @@ This environmental factor is ambient air pollution exposure, annotated with expo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34206755" target="_blank">PMID:34206755</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8349,7 +8793,9 @@ This environmental factor is ambient air pollution exposure, annotated with expo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34206755" target="_blank">PMID:34206755</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8382,15 +8828,21 @@ This environmental factor is ambient air pollution exposure, annotated with expo
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Relation: this environmental factor is this exposure
-This environmental factor is contact lens wear.">
+
+                    <span class="tag tag-env" tabindex="0" aria-describedby="pill-tip-42">
                         contact lens wear
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Relation: this environmental factor is this exposure
+This environmental factor is contact lens wear.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8410,7 +8862,9 @@ This environmental factor is contact lens wear.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34531649" target="_blank">PMID:34531649</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8459,7 +8913,9 @@ This environmental factor is contact lens wear.">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40472874" target="_blank">PMID:40472874</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8492,23 +8948,29 @@ This environmental factor is contact lens wear.">
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is topical or systemic medication exposure, annotated with exposure to drug (ECTO:0000509). ECTO:0000509 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         topical or systemic medication exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0000509" target="_blank" class="curie-chip curie-chip-ecto">ECTO:0000509</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000509" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-43">ECTO:0000509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is topical or systemic medication exposure, annotated with exposure to drug (ECTO:0000509). ECTO:0000509 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -8528,7 +8990,9 @@ This environmental factor is topical or systemic medication exposure, annotated 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34531649" target="_blank">PMID:34531649</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8577,7 +9041,9 @@ This environmental factor is topical or systemic medication exposure, annotated 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40472874" target="_blank">PMID:40472874</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8610,6 +9076,199 @@ This environmental factor is topical or systemic medication exposure, annotated 
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-symptom-screening-plus-objective-tear-film-or-ocular-surface-abnormality">
+                <div class="item-name">
+                    Symptom Screening Plus Objective Tear-Film or Ocular-Surface Abnormality
+
+                </div>
+
+                <div class="item-desc">The TFOS DEWS III diagnostic pathway begins with an OSDI-6 symptom score of at least 4 and requires at least one objective abnormality: non-invasive tear break-up time under 10 seconds, qualifying tear hyperosmolarity, or specified corneal, conjunctival, or lid-margin staining.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical evaluation
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> OSDI-6 score &gt;=4 plus non-invasive break-up time &lt;10 seconds, tear osmolarity &gt;=308 mOsm/L in either eye or interocular difference &gt;8 mOsm/L, or staining above the TFOS DEWS III thresholds supports diagnosis after differential diagnosis and ocular examination.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40451408" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40451408" target="_blank">PMID:40451408</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The recommended screening questionnaire is the OSDI-6 with a cut-off score ≥4. A positive result together with a non-invasive breakup time &lt;10s or alternatively tear film hyperosmolarity (≥308mOsm/L in either eye or an interocular difference &gt;8mOsm/L) or alternatively &gt;5 corneal fluorescein..."</div>
+
+
+                <div class="evidence-explanation">This is the current consensus symptom-plus-sign diagnostic algorithm and preserves the published cutoffs.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-adults-worldwide">
+                <div class="item-name">Adults worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        27500.0 per 100,000
+                        (5000.0&ndash;50000.0)
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Reported adult worldwide prevalence range is 5% to 50%. The normalized midpoint is 27,500 per 100,000, with the reported bounds retained as 5,000-50,000 per 100,000; variation reflects heterogeneous definitions and populations. The source sentence is a second-hand introductory citation in a clinical trial and does not specify the prevalence measure type, so the measure type is recorded as UNKNOWN.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40146145" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40146145" target="_blank">PMID:40146145</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of DED among adults worldwide ranges from 5% to 50%."</div>
+
+
+                <div class="evidence-explanation">The clinical paper reports the worldwide adult prevalence range used for the structured bounds; the midpoint is explicitly derived rather than presented as a separate source estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -8624,7 +9283,7 @@ This environmental factor is topical or systemic medication exposure, annotated 
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-sj-gren-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Sjogren&#39;s_Syndrome.html">Sjögren syndrome</a>
@@ -8671,7 +9330,9 @@ This environmental factor is topical or systemic medication exposure, annotated 
                         <a href="https://bioregistry.io/ORPHA:289390" target="_blank">ORPHA:289390</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8853,7 +9514,7 @@ has_subtypes:
       classification.
 prevalence:
 - population: Adults worldwide
-  measure_type: POINT_PREVALENCE
+  measure_type: UNKNOWN
   prevalence_class: ABOVE_1_IN_1000
   rate_per_100000: 27500.0
   rate_low: 5000.0
@@ -8862,7 +9523,9 @@ prevalence:
     Reported adult worldwide prevalence range is 5% to 50%. The normalized
     midpoint is 27,500 per 100,000, with the reported bounds retained as
     5,000-50,000 per 100,000; variation reflects heterogeneous definitions and
-    populations.
+    populations. The source sentence is a second-hand introductory citation in
+    a clinical trial and does not specify the prevalence measure type, so the
+    measure type is recorded as UNKNOWN.
   evidence:
   - reference: PMID:40146145
     reference_title: &#34;Comparative evaluation of aqueous solution and oil emulsion formulations of 0.05% cyclosporine eye drops in dry eye disease - A randomized clinical trial.&#34;
@@ -8891,7 +9554,7 @@ differential_diagnoses:
   - Extraglandular autoimmune manifestations can further distinguish Sjögren syndrome from entry-local ocular-surface disease.
   evidence:
   - reference: ORPHA:289390
-    reference_title: Primary Sjögren disease (Orphanet structured-database record)
+    reference_title: &#34;Primary Sjögren disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
@@ -9216,8 +9879,10 @@ pathophysiology:
         screen use and dry eye disease is that digital screen use changes
         blinking dynamics, leading to ocular dryness.
       explanation: &gt;-
-        The review supports altered blinking as the known intermediate from
-        screen exposure to ocular dryness.
+        The review presents altered blinking dynamics leading to ocular dryness
+        as the field&#39;s commonly accepted hypothesis; it is quoted as
+        hypothesis-level support for this route rather than as a demonstrated
+        intermediate.
 - name: Lid-Margin Abnormality
   description: &gt;-
     Structural or inflammatory abnormalities of the eyelid margin can interfere
@@ -9440,6 +10105,17 @@ pathophysiology:
   - reference: PMID:34575438
     reference_title: &#34;Poly(lactic-co-glycolic acid) Nanoparticles Encapsulating the Prenylated Flavonoid, Xanthohumol, Protect Corneal Epithelial Cells from Dry Eye Disease-Associated Oxidative Stress.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      elevated levels of oxidative stress have been identified in patients with
+      dry eye disease
+    explanation: &gt;-
+      The paper&#39;s synthesis of prior patient studies supports oxidative stress
+      as a feature observed in human DED, complementing the cultured-cell and
+      mouse results on this node.
+  - reference: PMID:34575438
+    reference_title: &#34;Poly(lactic-co-glycolic acid) Nanoparticles Encapsulating the Prenylated Flavonoid, Xanthohumol, Protect Corneal Epithelial Cells from Dry Eye Disease-Associated Oxidative Stress.&#34;
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       Xanthohumol-encapsulating poly(lactic-co-glycolic acid) nanoparticles
@@ -9471,14 +10147,29 @@ pathophysiology:
     - reference: PMID:42439592
       reference_title: &#34;Visible-Light-Induced Release of Carbon Monoxide: Multifunctionally Treatment for Dry Eye Disease.&#34;
       supports: SUPPORT
-      evidence_source: MODEL_ORGANISM
+      evidence_source: OTHER
       snippet: &gt;-
         Dry eye disease (DED) is a multifactorial ocular disorder driven by a
         reinforcing cycle of oxidative stress, inflammation, and epithelial
         damage, rendering single-target therapies ineffective.
       explanation: &gt;-
-        The murine therapeutic study frames oxidative stress, inflammation, and
-        epithelial damage as a reinforcing experimental disease circuit.
+        This is the study&#39;s framing statement rather than a result: it restates
+        the field&#39;s view of a reinforcing oxidative-stress-inflammation circuit,
+        so it is graded OTHER rather than as animal data.
+    - reference: PMID:42439592
+      reference_title: &#34;Visible-Light-Induced Release of Carbon Monoxide: Multifunctionally Treatment for Dry Eye Disease.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Mechanistically, CO scavenged reactive oxygen species, suppressed MMP-9
+        expression, promoted macrophage polarization from M1 to M2 phenotype,
+        reduced inflammatory cytokine production, and enhanced corneal epithelial
+        proliferation.
+      explanation: &gt;-
+        In the murine model, an intervention that scavenged reactive oxygen
+        species was accompanied by reduced inflammatory cytokine production,
+        consistent with oxidative stress feeding the inflammatory arm in
+        experimental DED.
   - target: Corneal and Conjunctival Epithelial Damage
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     hypothesis_groups:
@@ -9947,7 +10638,9 @@ environmental:
     causal_link_type: DIRECT
     description: &gt;-
       Digital screen tasks can reduce blink rate and completeness, increasing
-      the time during which tears evaporate between blinks.
+      the time during which tears evaporate between blinks; the cited review
+      presents this blink-dynamics route as the field&#39;s most prevalent
+      hypothesis rather than an established mechanism.
     evidence:
     - reference: PMID:34531649
       reference_title: The Relationship Between Dry Eye Disease and Digital Screen Use.
@@ -9959,8 +10652,9 @@ environmental:
         reducing both blink rate and blink completeness, leading to increased
         ocular surface dryness.
       explanation: &gt;-
-        The review identifies altered blink rate and completeness as the
-        proximal mechanism connecting screen use with ocular dryness.
+        The review presents altered blink rate and completeness as the most
+        prevalent hypothesis for the screen-use link; this mechanism is
+        hypothesis-level rather than demonstrated.
   evidence:
   - reference: PMID:34531649
     reference_title: The Relationship Between Dry Eye Disease and Digital Screen Use.
@@ -9980,8 +10674,8 @@ environmental:
   description: &gt;-
     Dry ambient air and direct airflow increase evaporative demand at the ocular
     surface. Human observational evidence supports lower humidity as a risk
-    condition, while controlled low-humidity mouse models directly demonstrate
-    excessive tear-film evaporation.
+    condition, and low-humidity housing is used in mouse desiccating-stress
+    models on the premise that it causes excessive tear-film evaporation.
   effect: Predisposes to and can exacerbate evaporative tear-film instability.
   influences_mechanisms:
   - target: Tear-Film Instability and Hyperosmolarity
@@ -9999,8 +10693,12 @@ environmental:
         Administration of scopolamine reduces aqueous tear production and the
         low humidity environment causes excessive evaporation of the tear film.
       explanation: &gt;-
-        The controlled-environment mouse model demonstrates excessive tear-film
-        evaporation as the intermediate produced by low humidity.
+        The quoted sentence is the review&#39;s description of how the
+        desiccating-stress mouse model is constructed (citing the model&#39;s
+        original report): low-humidity housing is used because it causes
+        excessive tear-film evaporation. It supports evaporation as the
+        intermediate by model design rather than as a result measured in this
+        study.
   evidence:
   - reference: PMID:34206755
     reference_title: &#34;Exposure to Ambient NO(2) Increases the Risk of Dry Eye Syndrome in Females: An 11-Year Population-Based Study.&#34;
@@ -10842,7 +11540,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dry Eye Disease", "mondoId": "MONDO:0006733", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dry_Eye_Disease", "yamlRevision": "60a27372e840"};
+        const OS_CONFIG = {"diseaseName": "Dry Eye Disease", "mondoId": "MONDO:0006733", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dry_Eye_Disease", "yamlRevision": "983ffe4eddc2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11261,5 +11959,73 @@ datasets: []
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

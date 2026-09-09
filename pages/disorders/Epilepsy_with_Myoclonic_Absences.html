@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Epilepsy with Myoclonic Absences</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Epilepsy with Myoclonic Absences</h1>
             <div class="header-meta">
 
@@ -3911,27 +4058,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">NEUROLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification" title="An ILAE-recognized childhood generalized epilepsy syndrome, managed neurologically.">NEUROLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -4004,7 +4228,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-presumed-polygenic-mostly-sporadic">
                 <div class="item-name">
                     Presumed polygenic, mostly sporadic
 
@@ -4043,13 +4267,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24491945" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24491945" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24491945" target="_blank">PMID:24491945</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4071,7 +4297,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24491945" target="_blank">PMID:24491945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4194,6 +4422,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4233,6 +4467,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4256,7 +4496,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4278,7 +4520,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4300,7 +4544,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4404,6 +4650,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4443,6 +4695,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4466,7 +4724,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4488,7 +4748,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24491945" target="_blank">PMID:24491945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4510,7 +4772,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4612,6 +4876,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4635,7 +4905,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4657,7 +4929,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4673,13 +4947,15 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35770757" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35770757" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35770757" target="_blank">PMID:35770757</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4733,18 +5009,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of postsynaptic membrane potential (GO:0060078). GO:0060078 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of postsynaptic membrane potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060078" target="_blank" class="curie-chip curie-chip-go">GO:0060078</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060078" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0060078</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of postsynaptic membrane potential (GO:0060078). GO:0060078 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4794,13 +5072,15 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24491945" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24491945" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24491945" target="_blank">PMID:24491945</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4833,18 +5113,20 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         pyramidal neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4909,7 +5191,9 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4931,7 +5215,9 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24491945" target="_blank">PMID:24491945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4971,18 +5257,20 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of postsynaptic membrane potential (GO:0060078). GO:0060078 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of postsynaptic membrane potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060078" target="_blank" class="curie-chip curie-chip-go">GO:0060078</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060078" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0060078</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of postsynaptic membrane potential (GO:0060078). GO:0060078 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5038,7 +5326,9 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5060,7 +5350,9 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5131,7 +5423,9 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5208,7 +5502,9 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5230,7 +5526,9 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35770757" target="_blank">PMID:35770757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5288,7 +5586,9 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35770757" target="_blank">PMID:35770757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5346,7 +5646,9 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5368,7 +5670,9 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5458,16 +5762,22 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bilateral tonic-clonic seizure</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0002069</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.">
-                        Bilateral tonic-clonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" class="curie-chip curie-chip-hp">HP:0002069</a>
-
-
+This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5488,7 +5798,9 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5520,16 +5832,20 @@ This clinical feature is Bilateral tonic-clonic seizure (HP:0002069). HP:0002069
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0002353</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.">
-                        EEG abnormality
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp">HP:0002353</a>
-
-
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5550,7 +5866,9 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5582,16 +5900,22 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Intellectual disability</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249), qualified as course progressive. HP:0001249 is a phenotype from the Human Phenotype Ontology.">
-                        Intellectual disability
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp">HP:0001249</a>
-
-
+This clinical feature is Intellectual disability (HP:0001249), qualified as course progressive. HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5630,7 +5954,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as cour
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5671,16 +5997,20 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as cour
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011150" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0011150</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myoclonic absence seizure (HP:0011150). HP:0011150 is a phenotype from the Human Phenotype Ontology.">
-                        Myoclonic absence seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011150" target="_blank" class="curie-chip curie-chip-hp">HP:0011150</a>
-
-
+This clinical feature is Myoclonic absence seizure (HP:0011150). HP:0011150 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5701,7 +6031,9 @@ This clinical feature is Myoclonic absence seizure (HP:0011150). HP:0011150 is a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5735,16 +6067,20 @@ This clinical feature is Myoclonic absence seizure (HP:0011150). HP:0011150 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0010819</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype from the Human Phenotype Ontology.">
-                        Atonic seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010819" target="_blank" class="curie-chip curie-chip-hp">HP:0010819</a>
-
-
+This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5765,7 +6101,9 @@ This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35770757" target="_blank">PMID:35770757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5787,7 +6125,9 @@ This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35770757" target="_blank">PMID:35770757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5819,16 +6159,20 @@ This clinical feature is Atonic seizure (HP:0010819). HP:0010819 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032865" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0032865</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myoclonic absence status epilepticus (HP:0032865). HP:0032865 is a phenotype from the Human Phenotype Ontology.">
-                        Myoclonic absence status epilepticus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0032865" target="_blank" class="curie-chip curie-chip-hp">HP:0032865</a>
-
-
+This clinical feature is Myoclonic absence status epilepticus (HP:0032865). HP:0032865 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5849,7 +6193,9 @@ This clinical feature is Myoclonic absence status epilepticus (HP:0032865). HP:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35770757" target="_blank">PMID:35770757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5927,15 +6273,17 @@ This clinical feature is Myoclonic absence status epilepticus (HP:0032865). HP:0
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SLC2A1 (hgnc:11005). hgnc:11005 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SLC2A1
 
 
-    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11005</a>
+    <a href="https://bioregistry.io/hgnc:11005" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11005</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SLC2A1 (hgnc:11005). hgnc:11005 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5959,7 +6307,9 @@ This disease-associated gene is SLC2A1 (hgnc:11005). hgnc:11005 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21546317" target="_blank">PMID:21546317</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5975,13 +6325,15 @@ This disease-associated gene is SLC2A1 (hgnc:11005). hgnc:11005 is a gene from t
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21546317" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21546317" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21546317" target="_blank">PMID:21546317</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6018,15 +6370,17 @@ This disease-associated gene is SLC2A1 (hgnc:11005). hgnc:11005 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SYNGAP1
 
 
-    <a href="https://bioregistry.io/hgnc:11497" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11497</a>
+    <a href="https://bioregistry.io/hgnc:11497" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11497</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6050,7 +6404,9 @@ This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22050443" target="_blank">PMID:22050443</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6072,7 +6428,9 @@ This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22050443" target="_blank">PMID:22050443</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6094,7 +6452,9 @@ This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22050443" target="_blank">PMID:22050443</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6124,6 +6484,9 @@ This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6140,17 +6503,17 @@ This disease-associated gene is SYNGAP1 (hgnc:11497). hgnc:11497 is a gene from 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6175,36 +6538,59 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         valproic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:39867</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-13">CHEBI:39867</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses ethosuximide (CHEBI:4887). CHEBI:4887 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         ethosuximide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4887" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4887</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4887" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-14">CHEBI:4887</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ethosuximide (CHEBI:4887). CHEBI:4887 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6243,7 +6629,9 @@ This treatment uses ethosuximide (CHEBI:4887). CHEBI:4887 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6259,13 +6647,15 @@ This treatment uses ethosuximide (CHEBI:4887). CHEBI:4887 is a therapeutic agent
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17044728" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17044728" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6295,17 +6685,17 @@ This treatment uses ethosuximide (CHEBI:4887). CHEBI:4887 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6330,36 +6720,59 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         valproic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:39867</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:39867</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         lamotrigine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:6367</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6367" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-17">CHEBI:6367</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6392,13 +6805,15 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17044728" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17044728" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6420,7 +6835,9 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24491945" target="_blank">PMID:24491945</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6450,17 +6867,17 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -6485,36 +6902,59 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         valproic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:39867</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:39867</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         topiramate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63631" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:63631</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63631" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:63631</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -6547,13 +6987,15 @@ This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24491945" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24491945" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24491945" target="_blank">PMID:24491945</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6583,17 +7025,17 @@ This treatment uses topiramate (CHEBI:63631). CHEBI:63631 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Ketogenic Diet<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.">Ketogenic Diet</span>
+This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C173168" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.">NCIT:C173168</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C173168" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C173168">NCIT:C173168</a>
 
 
 
@@ -6616,6 +7058,25 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">The one genotype-directed and mechanistically corrective treatment available in this syndrome, and it applies only to the small group whose myoclonic absences are caused by SLC2A1 variants. In glucose transporter type 1 deficiency the brain cannot import enough glucose; ketones enter by a different transporter that is intact, so a ketogenic diet supplies the fuel the broken protein cannot. That makes testing for the gene worth doing even though it explains few cases, because the finding changes the treatment rather than only the label.</div>
 
 
@@ -6629,13 +7090,15 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21546317" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21546317" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21546317" target="_blank">PMID:21546317</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6657,7 +7120,9 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913944" target="_blank">PMID:32913944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6679,7 +7144,9 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913944" target="_blank">PMID:32913944</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6709,17 +7176,17 @@ This treatment is Ketogenic Diet (NCIT:C173168). NCIT:C173168 is a clinical inte
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -6737,6 +7204,25 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6761,7 +7247,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24491945" target="_blank">PMID:24491945</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6791,18 +7279,18 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">corpus callosotomy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">corpus callosotomy</span>
+This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -6820,6 +7308,25 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -6854,13 +7361,15 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35770757" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35770757" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35770757" target="_blank">PMID:35770757</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6876,13 +7385,15 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35770757" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35770757" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35770757" target="_blank">PMID:35770757</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6914,6 +7425,645 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-video-electroencephalography-with-surface-electromyography">
+                <div class="item-name">
+                    Video-electroencephalography with surface electromyography
+
+                </div>
+
+                <div class="item-desc">The diagnostic test, and the reason the syndrome is under-recognized. The electroencephalogram alone shows generalized three-hertz spike-wave and looks like childhood absence epilepsy. What makes the diagnosis is simultaneous electromyography from the deltoids showing myoclonic bursts locked to each discharge on a rising baseline of tonic contraction. Without video and polygraphy the diagnosis is routinely missed.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Electroencephalography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38054" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C38054</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Generalized three-hertz spike-wave with time-locked myoclonic bursts on surface electromyography, superimposed on a progressively increasing tonic contraction.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17044728" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"as such, despite an ECG, the diagnosis may be missed in the absence of video documentation of the seizure and/or adequate polygraphy"</div>
+
+
+                <div class="evidence-explanation">States directly that the diagnosis depends on video and polygraphy rather than on the electroencephalogram alone.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24491945" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24491945" target="_blank">PMID:24491945</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Myoclonic absences (MAs) were characterized by rhythmic, bilateral, synchronous, symmetric 3-Hz spike-wave discharges, associated with EMG myoclonic bursts at 3 Hz, superimposed on a progressively increasing tonic muscle contraction."</div>
+
+
+                <div class="evidence-explanation">Describes the polygraphic findings reported in the results field.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri">
+                <div class="item-name">
+                    Brain MRI
+
+                </div>
+
+                <div class="item-desc">Imaging does not diagnose the syndrome; it decides which version of it the child has. A normal scan is consistent with the idiopathic form, and a structural abnormality reclassifies the case as symptomatic, which carries the worse prognosis and is the arm the outcome controversy in this entry turns on. That makes imaging part of the diagnostic pathway rather than an optional extra, and it is also the first test named in the proposed experiment of that discussion.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Magnetic Resonance Imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Normal in the idiopathic form; a structural abnormality reclassifies the case as symptomatic.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40380288" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40380288" target="_blank">PMID:40380288</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"magnetic resonance imaging (MRI) serving to exclude structural etiologies"</div>
+
+
+                <div class="evidence-explanation">States the role of imaging in the diagnostic workup for this syndrome, alongside the polygraphic recording this entry already curates.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-lumbar-puncture-with-paired-csf-and-blood-glucose">
+                <div class="item-name">
+                    Lumbar puncture with paired CSF and blood glucose
+
+                </div>
+
+                <div class="item-desc">The test that finds the one treatable cause. Glucose transporter type 1 deficiency is diagnosed by a low cerebrospinal fluid glucose against a normal blood glucose, and it is worth doing in a child with myoclonic absences precisely because a positive result changes the treatment to a ketogenic diet rather than only changing the label. It closes the loop the genetic section and the diet record open.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Lumbar Puncture
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15327" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C15327</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Low cerebrospinal fluid glucose with low to low-normal lactate against normal blood values indicates glucose transporter type 1 deficiency.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32913944" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913944" target="_blank">PMID:32913944</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The principal diagnostic tool is a lumbar puncture showing low CSF glucose and low to low-normal lactate concentrations in the setting of normal blood glucose and lactate concentrations."</div>
+
+
+                <div class="evidence-explanation">States the diagnostic test and its expected result for the one cause in this syndrome that has a specific therapy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cytogenetic-testing-karyotype-or-chromosomal-microarray">
+                <div class="item-name">
+                    Cytogenetic testing (karyotype or chromosomal microarray)
+
+                </div>
+
+                <div class="item-desc">Worth doing rather than relying on a gene panel alone, because the reported chromosomal causes of this syndrome are copy number changes that sequencing a gene list will not find. Trisomy 12p is the best-documented example, and the authors of that report argue from it that myoclonic absences can be a direct or indirect consequence of a chromosomal abnormality in at least some patients. This is the test that separates the symptomatic form from the idiopathic one when imaging is unrevealing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Cytogenetic Analysis
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18280" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C18280</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A copy number abnormality in the symptomatic minority; normal in the idiopathic form.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9545186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9545186" target="_blank">PMID:9545186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our patient and other sporadic reports in the literature seem to support the hypothesis that, at least in some cases, myoclonic absences can be a direct or indirect effect of a chromosomopathy."</div>
+
+
+                <div class="evidence-explanation">States the authors&#39; inference that a chromosomal abnormality can produce this seizure syndrome, which is the rationale for testing for one.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9545186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9545186" target="_blank">PMID:9545186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report the case of a 6-year-2-month-old female affected by trisomy 12p syndrome. Seizures were typical myoclonic absences from both the clinical and EEG points of view."</div>
+
+
+                <div class="evidence-explanation">The worked case, with seizures typical of the syndrome on both clinical and electrographic grounds, which is what makes it evidence for the syndrome rather than for a lookalike.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset-in-mid-childhood-with-daily-myoclonic-absences">
+                <div class="item-name">Onset in mid-childhood with daily myoclonic absences</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Around seven years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Onset averages about seven years, with a male preponderance, which distinguishes it demographically from childhood absence epilepsy where girls predominate. Seizures are frequent from the outset.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15737698" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The age at onset is about 7 years. There is a male preponderance."</div>
+
+
+                <div class="evidence-explanation">States the onset age and sex distribution described in this phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-divergent-course-determined-largely-by-associated-seizure-types">
+                <div class="item-name">Divergent course determined largely by associated seizure types</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood into adolescence</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Children whose only seizure type is the myoclonic absence generally respond to combination therapy. Those with associated generalized tonic-clonic seizures often do not, and may persist, deteriorate cognitively, or evolve toward a more severe generalized epilepsy.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15737698" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The evolution is variable and seems to depend on the existence or not of GTCS."</div>
+
+
+                <div class="evidence-explanation">States the prognostic dependence that defines this phase.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15737698" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In cases where GTCS are associated, there is often an unfavourable outcome, with persistence of myoclonic absences or with modification of the epilepsy with a possible evolution towards a generalized cryptogenic or symptomatic form."</div>
+
+
+                <div class="evidence-explanation">Describes the unfavourable trajectory in the associated-seizure group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-children-with-epilepsy">
+                <div class="item-name">Children with epilepsy</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population-based estimate is available. The syndrome is described as rare in the contemporary literature, and the largest recent single-centre series identified ten patients over four years, which indicates the order of magnitude rather than a rate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35770757" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35770757" target="_blank">PMID:35770757</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epilepsy with myoclonic absences is a rare epilepsy syndrome with distinct features and high rates of drug resistance."</div>
+
+
+                <div class="evidence-explanation">Supports the qualitative rarity band and the drug-resistance claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6928,7 +8078,7 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-childhood-absence-epilepsy">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Childhood_Absence_Epilepsy.html">Childhood Absence Epilepsy</a>
@@ -6979,7 +8129,9 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15737698" target="_blank">PMID:15737698</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7004,7 +8156,7 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-epilepsy-with-myoclonic-atonic-seizures">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Epilepsy_with_Myoclonic-Atonic_Seizures.html">Epilepsy with Myoclonic-Atonic Seizures</a>
@@ -7055,7 +8207,9 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7080,7 +8234,7 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-epilepsy-with-eyelid-myoclonia">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Jeavons_Syndrome.html">Epilepsy with Eyelid Myoclonia</a>
@@ -7129,7 +8283,9 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7154,7 +8310,7 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-lennox-gastaut-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Lennox-Gastaut_Syndrome.html">Lennox-Gastaut Syndrome</a>
@@ -7203,7 +8359,9 @@ This treatment is corpus callosotomy, annotated with Surgical Procedure (NCIT:C1
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17044728" target="_blank">PMID:17044728</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7349,7 +8507,7 @@ inheritance:
     evidence:
       - reference: PMID:24491945
         reference_title: Epilepsy with myoclonic absences in siblings.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           To describe the clinical, electroencephalographic features, treatment
@@ -7390,7 +8548,7 @@ pathophysiology:
     evidence:
       - reference: PMID:24491945
         reference_title: Epilepsy with myoclonic absences in siblings.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Idiopathic and symptomatic EMAs need to be differentiated from childhood
@@ -7798,7 +8956,7 @@ genetic:
         reference_title: &gt;-
           Video/EEG recording of myoclonic absences in GLUT1 deficiency syndrome
           with a hot-spot R126C mutation in the SLC2A1 gene.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Although typical absences are frequent in GLUT1DS, myoclonic absence
@@ -7967,7 +9125,7 @@ treatments:
           which is the practical content of this record.
       - reference: PMID:17044728
         reference_title: Epilepsy with myoclonic absences.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: OTHER
         snippet: &gt;-
           Modern therapeutic combinations, such as valproic acid and ethosuximide,
@@ -8006,7 +9164,7 @@ treatments:
     evidence:
       - reference: PMID:17044728
         reference_title: Epilepsy with myoclonic absences.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: OTHER
         snippet: &gt;-
           Modern therapeutic combinations, such as valproic acid and ethosuximide,
@@ -8057,7 +9215,7 @@ treatments:
     evidence:
       - reference: PMID:24491945
         reference_title: Epilepsy with myoclonic absences in siblings.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           MAs are worsened by drugs like carbamazepine while valproate either alone
@@ -8088,7 +9246,7 @@ treatments:
         reference_title: &gt;-
           Video/EEG recording of myoclonic absences in GLUT1 deficiency syndrome
           with a hot-spot R126C mutation in the SLC2A1 gene.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Glucose transporter type 1 deficiency syndrome (GLUT1DS) is an inborn
@@ -8173,7 +9331,7 @@ treatments:
         reference_title: &gt;-
           Epilepsy with myoclonic absences: a case series highlighting clinical
           heterogeneity and surgical management.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Two patients with epilepsy with myoclonic absences with atonia underwent
@@ -8188,7 +9346,7 @@ treatments:
         reference_title: &gt;-
           Epilepsy with myoclonic absences: a case series highlighting clinical
           heterogeneity and surgical management.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Corpus callosotomy was performed in two of these patients with
@@ -8553,7 +9711,7 @@ discussions:
           models it as a syndrome while flagging the dispute.
       - reference: PMID:15737698
         reference_title: Epilepsy with myoclonic absences.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: OTHER
         snippet: &gt;-
           The ictal EEG shows bilateral, synchronous and symmetrical spike and wave
@@ -8735,7 +9893,7 @@ discussions:
         reference_title: &gt;-
           Epilepsy with myoclonic absences: a case series highlighting clinical
           heterogeneity and surgical management.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Of patients with an atonic component, 75% did not achieve seizure freedom
@@ -9891,7 +11049,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Epilepsy with Myoclonic Absences", "mondoId": "MONDO:0019487", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epilepsy_with_Myoclonic_Absences", "yamlRevision": "4c862c3d5839"};
+        const OS_CONFIG = {"diseaseName": "Epilepsy with Myoclonic Absences", "mondoId": "MONDO:0019487", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Epilepsy_with_Myoclonic_Absences", "yamlRevision": "2add4034007b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10310,5 +11468,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

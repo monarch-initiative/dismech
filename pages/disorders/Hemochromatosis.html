@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Hemochromatosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hemochromatosis</h1>
             <div class="header-meta">
 
@@ -3947,7 +4094,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -3972,7 +4119,9 @@
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -3992,7 +4141,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29620054" target="_blank">PMID:29620054</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4051,7 +4202,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-1">
 
                     <div class="item-name">
                         HFE-related hemochromatosis
@@ -4066,18 +4217,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in HFE (hgnc:4886). hgnc:4886 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 HFE
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4886" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4886</a>
+    <a href="https://bioregistry.io/hgnc:4886" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4886</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HFE (hgnc:4886). hgnc:4886 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4108,7 +4261,9 @@ This subtype is caused by variation in HFE (hgnc:4886). hgnc:4886 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301613" target="_blank">PMID:20301613</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4134,7 +4289,7 @@ This subtype is caused by variation in HFE (hgnc:4886). hgnc:4886 is a gene from
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-2a">
 
                     <div class="item-name">
                         HJV-related juvenile hemochromatosis
@@ -4149,18 +4304,20 @@ This subtype is caused by variation in HFE (hgnc:4886). hgnc:4886 is a gene from
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in HJV (hgnc:4887). hgnc:4887 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 HJV
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:4887" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4887</a>
+    <a href="https://bioregistry.io/hgnc:4887" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4887</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HJV (hgnc:4887). hgnc:4887 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4191,7 +4348,9 @@ This subtype is caused by variation in HJV (hgnc:4887). hgnc:4887 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35449524" target="_blank">PMID:35449524</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4217,7 +4376,7 @@ This subtype is caused by variation in HJV (hgnc:4887). hgnc:4887 is a gene from
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-2b">
 
                     <div class="item-name">
                         HAMP-related juvenile hemochromatosis
@@ -4232,18 +4391,20 @@ This subtype is caused by variation in HJV (hgnc:4887). hgnc:4887 is a gene from
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in HAMP (hgnc:15598). hgnc:15598 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 HAMP
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:15598" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15598</a>
+    <a href="https://bioregistry.io/hgnc:15598" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:15598</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in HAMP (hgnc:15598). hgnc:15598 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4274,7 +4435,9 @@ This subtype is caused by variation in HAMP (hgnc:15598). hgnc:15598 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35449524" target="_blank">PMID:35449524</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4300,7 +4463,7 @@ This subtype is caused by variation in HAMP (hgnc:15598). hgnc:15598 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-type-3">
 
                     <div class="item-name">
                         TFR2-related hemochromatosis
@@ -4315,18 +4478,20 @@ This subtype is caused by variation in HAMP (hgnc:15598). hgnc:15598 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in TFR2 (hgnc:11762). hgnc:11762 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 TFR2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11762" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11762</a>
+    <a href="https://bioregistry.io/hgnc:11762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11762</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TFR2 (hgnc:11762). hgnc:11762 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4357,7 +4522,9 @@ This subtype is caused by variation in TFR2 (hgnc:11762). hgnc:11762 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301523" target="_blank">PMID:20301523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4458,7 +4625,9 @@ This subtype is caused by variation in TFR2 (hgnc:11762). hgnc:11762 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23985001" target="_blank">PMID:23985001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4515,17 +4684,21 @@ This subtype is caused by variation in TFR2 (hgnc:11762). hgnc:11762 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves HFE (hgnc:4886). hgnc:4886 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         HFE
 
 
-    <a href="https://bioregistry.io/hgnc:4886" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4886</a>
+    <a href="https://bioregistry.io/hgnc:4886" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:4886</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HFE (hgnc:4886). hgnc:4886 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4554,18 +4727,20 @@ This pathophysiological event involves HFE (hgnc:4886). hgnc:4886 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of iron ion transport (GO:0034756). GO:0034756 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of iron ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034756" target="_blank" class="curie-chip curie-chip-go">GO:0034756</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034756" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0034756</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of iron ion transport (GO:0034756). GO:0034756 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4586,18 +4761,20 @@ This pathophysiological event involves abnormal regulation of iron ion transport
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased negative regulation of iron ion transport (GO:0034757). GO:0034757 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of iron ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034757" target="_blank" class="curie-chip curie-chip-go">GO:0034757</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034757" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0034757</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of iron ion transport (GO:0034757). GO:0034757 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4655,7 +4832,9 @@ This pathophysiological event involves decreased negative regulation of iron ion
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23985001" target="_blank">PMID:23985001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4694,17 +4873,21 @@ This pathophysiological event involves decreased negative regulation of iron ion
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves BMP6 (hgnc:1073). hgnc:1073 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         BMP6
 
 
-    <a href="https://bioregistry.io/hgnc:1073" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1073</a>
+    <a href="https://bioregistry.io/hgnc:1073" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:1073</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BMP6 (hgnc:1073). hgnc:1073 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4733,18 +4916,20 @@ This pathophysiological event involves BMP6 (hgnc:1073). hgnc:1073 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of iron ion transport (GO:0034756). GO:0034756 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of iron ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034756" target="_blank" class="curie-chip curie-chip-go">GO:0034756</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034756" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0034756</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of iron ion transport (GO:0034756). GO:0034756 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4765,18 +4950,20 @@ This pathophysiological event involves abnormal regulation of iron ion transport
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased negative regulation of iron ion transport (GO:0034757). GO:0034757 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of iron ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034757" target="_blank" class="curie-chip curie-chip-go">GO:0034757</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034757" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0034757</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of iron ion transport (GO:0034757). GO:0034757 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4834,7 +5021,9 @@ This pathophysiological event involves decreased negative regulation of iron ion
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4854,7 +5043,9 @@ This pathophysiological event involves decreased negative regulation of iron ion
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26582087" target="_blank">PMID:26582087</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4876,7 +5067,9 @@ This pathophysiological event involves decreased negative regulation of iron ion
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26582087" target="_blank">PMID:26582087</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4917,17 +5110,21 @@ This pathophysiological event involves decreased negative regulation of iron ion
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves HJV (hgnc:4887). hgnc:4887 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         HJV
 
 
-    <a href="https://bioregistry.io/hgnc:4887" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4887</a>
+    <a href="https://bioregistry.io/hgnc:4887" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:4887</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HJV (hgnc:4887). hgnc:4887 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4952,17 +5149,21 @@ This pathophysiological event involves HJV (hgnc:4887). hgnc:4887 is a gene from
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves HAMP (hgnc:15598). hgnc:15598 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         HAMP
 
 
-    <a href="https://bioregistry.io/hgnc:15598" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15598</a>
+    <a href="https://bioregistry.io/hgnc:15598" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:15598</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HAMP (hgnc:15598). hgnc:15598 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4987,17 +5188,21 @@ This pathophysiological event involves HAMP (hgnc:15598). hgnc:15598 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TFR2 (hgnc:11762). hgnc:11762 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TFR2
 
 
-    <a href="https://bioregistry.io/hgnc:11762" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11762</a>
+    <a href="https://bioregistry.io/hgnc:11762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:11762</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TFR2 (hgnc:11762). hgnc:11762 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5026,18 +5231,20 @@ This pathophysiological event involves TFR2 (hgnc:11762). hgnc:11762 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of iron ion transport (GO:0034756). GO:0034756 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of iron ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034756" target="_blank" class="curie-chip curie-chip-go">GO:0034756</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034756" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0034756</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of iron ion transport (GO:0034756). GO:0034756 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5058,18 +5265,20 @@ This pathophysiological event involves abnormal regulation of iron ion transport
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased negative regulation of iron ion transport (GO:0034757). GO:0034757 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of iron ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034757" target="_blank" class="curie-chip curie-chip-go">GO:0034757</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034757" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0034757</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of iron ion transport (GO:0034757). GO:0034757 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5127,7 +5336,9 @@ This pathophysiological event involves decreased negative regulation of iron ion
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301349" target="_blank">PMID:20301349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5149,7 +5360,9 @@ This pathophysiological event involves decreased negative regulation of iron ion
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301349" target="_blank">PMID:20301349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5171,7 +5384,9 @@ This pathophysiological event involves decreased negative regulation of iron ion
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301523" target="_blank">PMID:20301523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5205,18 +5420,20 @@ This pathophysiological event involves decreased negative regulation of iron ion
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         enterocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl">CL:0000584</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5244,18 +5461,20 @@ This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased iron ion export across plasma membrane (GO:1903988). GO:1903988 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         iron ion export across plasma membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1903988" target="_blank" class="curie-chip curie-chip-go">GO:1903988</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1903988" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:1903988</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased iron ion export across plasma membrane (GO:1903988). GO:1903988 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5276,18 +5495,20 @@ This pathophysiological event involves increased iron ion export across plasma m
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased positive regulation of iron ion transport (GO:0034758). GO:0034758 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         positive regulation of iron ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034758" target="_blank" class="curie-chip curie-chip-go">GO:0034758</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034758" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0034758</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of iron ion transport (GO:0034758). GO:0034758 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5339,13 +5560,15 @@ This pathophysiological event involves increased positive regulation of iron ion
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23985001" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23985001" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23985001" target="_blank">PMID:23985001</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5384,18 +5607,20 @@ This pathophysiological event involves increased positive regulation of iron ion
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased iron ion transport (GO:0006826). GO:0006826 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         iron ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006826" target="_blank" class="curie-chip curie-chip-go">GO:0006826</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006826" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0006826</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased iron ion transport (GO:0006826). GO:0006826 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5416,18 +5641,20 @@ This pathophysiological event involves increased iron ion transport (GO:0006826)
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal intracellular iron ion homeostasis (GO:0006879). GO:0006879 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         intracellular iron ion homeostasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006879" target="_blank" class="curie-chip curie-chip-go">GO:0006879</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006879" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006879</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal intracellular iron ion homeostasis (GO:0006879). GO:0006879 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5557,7 +5784,9 @@ This pathophysiological event involves abnormal intracellular iron ion homeostas
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39644049" target="_blank">PMID:39644049</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5579,7 +5808,9 @@ This pathophysiological event involves abnormal intracellular iron ion homeostas
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39644049" target="_blank">PMID:39644049</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5613,18 +5844,20 @@ This pathophysiological event involves abnormal intracellular iron ion homeostas
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5652,18 +5885,20 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cellular response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go">GO:0034599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0034599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5680,18 +5915,20 @@ This pathophysiological event involves cellular response to oxidative stress (GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves intrinsic apoptotic signaling pathway in response to oxidative stress (GO:0008631). GO:0008631 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         intrinsic apoptotic signaling pathway in response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008631" target="_blank" class="curie-chip curie-chip-go">GO:0008631</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008631" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0008631</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves intrinsic apoptotic signaling pathway in response to oxidative stress (GO:0008631). GO:0008631 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5708,18 +5945,20 @@ This pathophysiological event involves intrinsic apoptotic signaling pathway in 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5791,13 +6030,15 @@ This pathophysiological event involves extracellular matrix organization (GO:003
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37763705" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37763705" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37763705" target="_blank">PMID:37763705</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5829,18 +6070,20 @@ This pathophysiological event involves extracellular matrix organization (GO:003
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         cardiac muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5868,18 +6111,20 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cellular response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go">GO:0034599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0034599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5896,18 +6141,20 @@ This pathophysiological event involves cellular response to oxidative stress (GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves regulation of heart contraction (GO:0008016). GO:0008016 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of heart contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008016" target="_blank" class="curie-chip curie-chip-go">GO:0008016</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008016" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0008016</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves regulation of heart contraction (GO:0008016). GO:0008016 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5924,18 +6171,20 @@ This pathophysiological event involves regulation of heart contraction (GO:00080
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to iron ion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go">GO:0010039</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0010039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5983,13 +6232,15 @@ This pathophysiological event involves response to iron ion (GO:0010039). GO:001
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35449524" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35449524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35449524" target="_blank">PMID:35449524</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6021,18 +6272,20 @@ This pathophysiological event involves response to iron ion (GO:0010039). GO:001
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves type B pancreatic cell (CL:0000169). CL:0000169 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         type B pancreatic cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" class="curie-chip curie-chip-cl">CL:0000169</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000169</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves type B pancreatic cell (CL:0000169). CL:0000169 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6060,18 +6313,20 @@ This pathophysiological event involves type B pancreatic cell (CL:0000169). CL:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cellular response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go">GO:0034599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0034599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6088,18 +6343,20 @@ This pathophysiological event involves cellular response to oxidative stress (GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves negative regulation of insulin secretion (GO:0046676). GO:0046676 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         negative regulation of insulin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046676" target="_blank" class="curie-chip curie-chip-go">GO:0046676</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046676" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0046676</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves negative regulation of insulin secretion (GO:0046676). GO:0046676 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6116,18 +6373,20 @@ This pathophysiological event involves negative regulation of insulin secretion 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves response to iron(II) ion (GO:0010040). GO:0010040 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to iron(II) ion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010040" target="_blank" class="curie-chip curie-chip-go">GO:0010040</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010040" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0010040</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to iron(II) ion (GO:0010040). GO:0010040 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6183,13 +6442,15 @@ This pathophysiological event involves response to iron(II) ion (GO:0010040). GO
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38886778" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38886778" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38886778" target="_blank">PMID:38886778</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6221,18 +6482,20 @@ This pathophysiological event involves response to iron(II) ion (GO:0010040). GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves endocrine cell (CL:0000163). CL:0000163 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         endocrine cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000163" target="_blank" class="curie-chip curie-chip-cl">CL:0000163</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000163" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0000163</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves endocrine cell (CL:0000163). CL:0000163 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6260,18 +6523,20 @@ This pathophysiological event involves endocrine cell (CL:0000163). CL:0000163 i
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cellular response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go">GO:0034599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0034599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6292,18 +6557,20 @@ This pathophysiological event involves increased cellular response to oxidative 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to iron ion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go">GO:0010039</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0010039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6385,7 +6652,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32327622" target="_blank">PMID:32327622</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6407,7 +6676,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32327622" target="_blank">PMID:32327622</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6448,18 +6719,20 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cellular response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go">GO:0034599</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0034599</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cellular response to oxidative stress (GO:0034599). GO:0034599 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6480,18 +6753,20 @@ This pathophysiological event involves increased cellular response to oxidative 
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to iron ion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go">GO:0010039</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0010039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6549,7 +6824,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39644049" target="_blank">PMID:39644049</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6571,7 +6848,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31989186" target="_blank">PMID:31989186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6612,18 +6891,20 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to iron ion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go">GO:0010039</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0010039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6681,7 +6962,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6701,7 +6984,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32327622" target="_blank">PMID:32327622</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6742,18 +7027,20 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         bone remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go">GO:0046849</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046849" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0046849</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO:0046849 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6774,18 +7061,20 @@ This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to iron ion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go">GO:0010039</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0010039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6851,7 +7140,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31989186" target="_blank">PMID:31989186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6873,7 +7164,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31989186" target="_blank">PMID:31989186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6914,18 +7207,20 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         response to iron ion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go">GO:0010039</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010039" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0010039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to iron ion (GO:0010039). GO:0010039 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6991,7 +7286,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7011,7 +7308,9 @@ This pathophysiological event involves increased response to iron ion (GO:001003
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30244162" target="_blank">PMID:30244162</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7117,16 +7416,20 @@ This pathophysiological event involves increased response to iron ion (GO:001003
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001638</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.">
-                        Cardiomyopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp">HP:0001638</a>
-
-
+This clinical feature is cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7147,7 +7450,9 @@ This clinical feature is cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7161,13 +7466,15 @@ This clinical feature is cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35449524" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35449524" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35449524" target="_blank">PMID:35449524</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7208,16 +7515,20 @@ This clinical feature is cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002240</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatomegaly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp">HP:0002240</a>
-
-
+This clinical feature is hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7238,7 +7549,9 @@ This clinical feature is hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7252,13 +7565,15 @@ This clinical feature is hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37168645" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37168645" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37168645" target="_blank">PMID:37168645</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7290,16 +7605,20 @@ This clinical feature is hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001394</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.">
-                        Cirrhosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp">HP:0001394</a>
-
-
+This clinical feature is cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7320,7 +7639,9 @@ This clinical feature is cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7340,7 +7661,9 @@ This clinical feature is cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35662478" target="_blank">PMID:35662478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7362,7 +7685,9 @@ This clinical feature is cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38479735" target="_blank">PMID:38479735</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7396,16 +7721,20 @@ This clinical feature is cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001402</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.">
-                        Hepatocellular carcinoma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp">HP:0001402</a>
-
-
+This clinical feature is hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7426,7 +7755,9 @@ This clinical feature is hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7446,7 +7777,9 @@ This clinical feature is hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23985001" target="_blank">PMID:23985001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7468,7 +7801,9 @@ This clinical feature is hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37121243" target="_blank">PMID:37121243</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7511,16 +7846,20 @@ This clinical feature is hepatocellular carcinoma (HP:0001402). HP:0001402 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000819</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is diabetes mellitus (HP:0000819). HP:0000819 is a phenotype from the Human Phenotype Ontology.">
-                        Diabetes mellitus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp">HP:0000819</a>
-
-
+This clinical feature is diabetes mellitus (HP:0000819). HP:0000819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7541,7 +7880,9 @@ This clinical feature is diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7561,7 +7902,9 @@ This clinical feature is diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35662478" target="_blank">PMID:35662478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7577,13 +7920,15 @@ This clinical feature is diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38886778" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38886778" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38886778" target="_blank">PMID:38886778</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7617,16 +7962,20 @@ This clinical feature is diabetes mellitus (HP:0000819). HP:0000819 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000044</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.">
-                        Hypogonadotropic hypogonadism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp">HP:0000044</a>
-
-
+This clinical feature is hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7647,7 +7996,9 @@ This clinical feature is hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7661,13 +8012,15 @@ This clinical feature is hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36644615" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36644615" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36644615" target="_blank">PMID:36644615</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7687,7 +8040,9 @@ This clinical feature is hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32327622" target="_blank">PMID:32327622</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7721,16 +8076,20 @@ This clinical feature is hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000821</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.">
-                        Hypothyroidism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp">HP:0000821</a>
-
-
+This clinical feature is hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7751,7 +8110,9 @@ This clinical feature is hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7771,7 +8132,9 @@ This clinical feature is hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32327622" target="_blank">PMID:32327622</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7814,16 +8177,20 @@ This clinical feature is hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000141" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000141</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is amenorrhea (HP:0000141). HP:0000141 is a phenotype from the Human Phenotype Ontology.">
-                        Amenorrhea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000141" target="_blank" class="curie-chip curie-chip-hp">HP:0000141</a>
-
-
+This clinical feature is amenorrhea (HP:0000141). HP:0000141 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7844,7 +8211,9 @@ This clinical feature is amenorrhea (HP:0000141). HP:0000141 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7864,7 +8233,9 @@ This clinical feature is amenorrhea (HP:0000141). HP:0000141 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32327622" target="_blank">PMID:32327622</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7907,16 +8278,22 @@ This clinical feature is amenorrhea (HP:0000141). HP:0000141 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Generalized bronze hyperpigmentation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007574" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0007574</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is generalized bronze hyperpigmentation (HP:0007574). HP:0007574 is a phenotype from the Human Phenotype Ontology.">
-                        Generalized bronze hyperpigmentation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007574" target="_blank" class="curie-chip curie-chip-hp">HP:0007574</a>
-
-
+This clinical feature is generalized bronze hyperpigmentation (HP:0007574). HP:0007574 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7937,7 +8314,9 @@ This clinical feature is generalized bronze hyperpigmentation (HP:0007574). HP:0
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7951,13 +8330,15 @@ This clinical feature is generalized bronze hyperpigmentation (HP:0007574). HP:0
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38886778" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38886778" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38886778" target="_blank">PMID:38886778</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7998,16 +8379,20 @@ This clinical feature is generalized bronze hyperpigmentation (HP:0007574). HP:0
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0003074</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is hyperglycemia (HP:0003074). HP:0003074 is a phenotype from the Human Phenotype Ontology.">
-                        Hyperglycemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" class="curie-chip curie-chip-hp">HP:0003074</a>
-
-
+This clinical feature is hyperglycemia (HP:0003074). HP:0003074 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8028,7 +8413,9 @@ This clinical feature is hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8048,7 +8435,9 @@ This clinical feature is hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29620054" target="_blank">PMID:29620054</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8080,16 +8469,22 @@ This clinical feature is hyperglycemia (HP:0003074). HP:0003074 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002910</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating hepatic transaminase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp">HP:0002910</a>
-
-
+This clinical feature is elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8110,7 +8505,9 @@ This clinical feature is elevated circulating hepatic transaminase concentration
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38886778" target="_blank">PMID:38886778</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8153,16 +8550,20 @@ This clinical feature is elevated circulating hepatic transaminase concentration
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0003040</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is arthropathy (HP:0003040). HP:0003040 is a phenotype from the Human Phenotype Ontology.">
-                        Arthropathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003040" target="_blank" class="curie-chip curie-chip-hp">HP:0003040</a>
-
-
+This clinical feature is arthropathy (HP:0003040). HP:0003040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8183,7 +8584,9 @@ This clinical feature is arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8203,7 +8606,9 @@ This clinical feature is arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32728396" target="_blank">PMID:32728396</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8225,7 +8630,9 @@ This clinical feature is arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38479735" target="_blank">PMID:38479735</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8259,16 +8666,20 @@ This clinical feature is arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0000939</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.">
-                        Osteoporosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp">HP:0000939</a>
-
-
+This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8289,7 +8700,9 @@ This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8309,7 +8722,9 @@ This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32728396" target="_blank">PMID:32728396</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8331,7 +8746,9 @@ This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31989186" target="_blank">PMID:31989186</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8374,16 +8791,20 @@ This clinical feature is osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8404,7 +8825,9 @@ This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8424,7 +8847,9 @@ This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39337031" target="_blank">PMID:39337031</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8446,7 +8871,9 @@ This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30244162" target="_blank">PMID:30244162</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8480,16 +8907,20 @@ This clinical feature is fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002027</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.">
-                        Abdominal pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp">HP:0002027</a>
-
-
+This clinical feature is abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8510,7 +8941,9 @@ This clinical feature is abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8530,7 +8963,9 @@ This clinical feature is abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32327622" target="_blank">PMID:32327622</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8573,16 +9008,20 @@ This clinical feature is abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8603,7 +9042,9 @@ This clinical feature is weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8623,7 +9064,9 @@ This clinical feature is weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8664,16 +9107,20 @@ This clinical feature is weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0003199</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is decreased muscle mass (HP:0003199). HP:0003199 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased muscle mass
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003199" target="_blank" class="curie-chip curie-chip-hp">HP:0003199</a>
-
-
+This clinical feature is decreased muscle mass (HP:0003199). HP:0003199 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8694,7 +9141,9 @@ This clinical feature is decreased muscle mass (HP:0003199). HP:0003199 is a phe
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8726,16 +9175,20 @@ This clinical feature is decreased muscle mass (HP:0003199). HP:0003199 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0100639</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is erectile dysfunction (HP:0100639). HP:0100639 is a phenotype from the Human Phenotype Ontology.">
-                        Erectile dysfunction
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100639" target="_blank" class="curie-chip curie-chip-hp">HP:0100639</a>
-
-
+This clinical feature is erectile dysfunction (HP:0100639). HP:0100639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8756,7 +9209,9 @@ This clinical feature is erectile dysfunction (HP:0100639). HP:0100639 is a phen
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8832,15 +9287,17 @@ This clinical feature is erectile dysfunction (HP:0100639). HP:0100639 is a phen
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HFE (hgnc:4886). hgnc:4886 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HFE
 
 
-    <a href="https://bioregistry.io/hgnc:4886" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4886</a>
+    <a href="https://bioregistry.io/hgnc:4886" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:4886</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HFE (hgnc:4886). hgnc:4886 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8868,7 +9325,9 @@ This disease-associated gene is HFE (hgnc:4886). hgnc:4886 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23985001" target="_blank">PMID:23985001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8888,7 +9347,9 @@ This disease-associated gene is HFE (hgnc:4886). hgnc:4886 is a gene from the HU
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8908,7 +9369,9 @@ This disease-associated gene is HFE (hgnc:4886). hgnc:4886 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33259166" target="_blank">PMID:33259166</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8947,15 +9410,17 @@ This disease-associated gene is HFE (hgnc:4886). hgnc:4886 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is BMP6 (hgnc:1073). hgnc:1073 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BMP6
 
 
-    <a href="https://bioregistry.io/hgnc:1073" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1073</a>
+    <a href="https://bioregistry.io/hgnc:1073" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:1073</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BMP6 (hgnc:1073). hgnc:1073 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8983,7 +9448,9 @@ This disease-associated gene is BMP6 (hgnc:1073). hgnc:1073 is a gene from the H
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9003,7 +9470,9 @@ This disease-associated gene is BMP6 (hgnc:1073). hgnc:1073 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26582087" target="_blank">PMID:26582087</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9025,7 +9494,9 @@ This disease-associated gene is BMP6 (hgnc:1073). hgnc:1073 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26582087" target="_blank">PMID:26582087</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9062,15 +9533,17 @@ This disease-associated gene is BMP6 (hgnc:1073). hgnc:1073 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HJV (hgnc:4887). hgnc:4887 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HJV
 
 
-    <a href="https://bioregistry.io/hgnc:4887" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:4887</a>
+    <a href="https://bioregistry.io/hgnc:4887" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:4887</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HJV (hgnc:4887). hgnc:4887 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9098,7 +9571,9 @@ This disease-associated gene is HJV (hgnc:4887). hgnc:4887 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35449524" target="_blank">PMID:35449524</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9120,7 +9595,9 @@ This disease-associated gene is HJV (hgnc:4887). hgnc:4887 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35449524" target="_blank">PMID:35449524</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9157,15 +9634,17 @@ This disease-associated gene is HJV (hgnc:4887). hgnc:4887 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is HAMP (hgnc:15598). hgnc:15598 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HAMP
 
 
-    <a href="https://bioregistry.io/hgnc:15598" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:15598</a>
+    <a href="https://bioregistry.io/hgnc:15598" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:15598</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HAMP (hgnc:15598). hgnc:15598 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9193,7 +9672,9 @@ This disease-associated gene is HAMP (hgnc:15598). hgnc:15598 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35449524" target="_blank">PMID:35449524</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9215,7 +9696,9 @@ This disease-associated gene is HAMP (hgnc:15598). hgnc:15598 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301349" target="_blank">PMID:20301349</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9252,15 +9735,17 @@ This disease-associated gene is HAMP (hgnc:15598). hgnc:15598 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TFR2 (hgnc:11762). hgnc:11762 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TFR2
 
 
-    <a href="https://bioregistry.io/hgnc:11762" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:11762</a>
+    <a href="https://bioregistry.io/hgnc:11762" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-64">hgnc:11762</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TFR2 (hgnc:11762). hgnc:11762 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9288,7 +9773,9 @@ This disease-associated gene is TFR2 (hgnc:11762). hgnc:11762 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301523" target="_blank">PMID:20301523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9310,7 +9797,9 @@ This disease-associated gene is TFR2 (hgnc:11762). hgnc:11762 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29620054" target="_blank">PMID:29620054</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9340,6 +9829,9 @@ This disease-associated gene is TFR2 (hgnc:11762). hgnc:11762 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9356,18 +9848,18 @@ This disease-associated gene is TFR2 (hgnc:11762). hgnc:11762 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">phlebotomy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical intervention from the NCI Thesaurus.">phlebotomy</span>
+This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Phlebotomy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C28221" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical intervention from the NCI Thesaurus.">NCIT:C28221</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C28221" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C28221">NCIT:C28221</a>
 
 
 
@@ -9385,6 +9877,14 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9419,7 +9919,9 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35662478" target="_blank">PMID:35662478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9460,7 +9962,9 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23985001" target="_blank">PMID:23985001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9480,7 +9984,9 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38886778" target="_blank">PMID:38886778</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9500,7 +10006,9 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37121243" target="_blank">PMID:37121243</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9530,18 +10038,18 @@ This treatment is phlebotomy (NCIT:C28221). NCIT:C28221 is a clinical interventi
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">iron chelation therapy<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">iron chelation therapy</span>
+This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9559,6 +10067,14 @@ This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9593,7 +10109,9 @@ This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29620054" target="_blank">PMID:29620054</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9628,13 +10146,15 @@ This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19727383" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19727383" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19727383" target="_blank">PMID:19727383</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9654,7 +10174,9 @@ This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29620054" target="_blank">PMID:29620054</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9682,17 +10204,17 @@ This treatment is iron chelation therapy, annotated with Pharmacotherapy (NCIT:C
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">Dietary Intervention<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">Dietary Intervention</span>
+This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.">NCIT:C15447</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
 
 
 
@@ -9710,6 +10232,14 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9744,7 +10274,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38361672" target="_blank">PMID:38361672</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9779,13 +10311,15 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38361672" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38361672" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38361672" target="_blank">PMID:38361672</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9813,18 +10347,18 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -9842,6 +10376,14 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9876,7 +10418,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37121243" target="_blank">PMID:37121243</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9911,13 +10455,15 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37121243" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37121243" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37121243" target="_blank">PMID:37121243</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9999,7 +10545,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39644049" target="_blank">PMID:39644049</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10039,7 +10587,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -10059,7 +10609,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39644049" target="_blank">PMID:39644049</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10081,7 +10633,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35662478" target="_blank">PMID:35662478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10150,7 +10704,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23985001" target="_blank">PMID:23985001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10207,7 +10763,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23985001" target="_blank">PMID:23985001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10247,7 +10805,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -10267,7 +10827,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23985001" target="_blank">PMID:23985001</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10289,7 +10851,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35662478" target="_blank">PMID:35662478</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10315,6 +10879,316 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-pre-symptomatic-iron-loading">
+                <div class="item-name">Pre-symptomatic iron loading</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: 20-40 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Iron accumulates silently over decades. Symptoms typically manifest between 40-60 years in men; later in women due to menstrual iron losses. Non-HFE forms (juvenile hemochromatosis) can present in adolescence.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:465508" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:465508" target="_blank">ORPHA:465508</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Adult"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies the symptomatic form of HFE hemochromatosis as adult-onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33259166" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33259166" target="_blank">PMID:33259166</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The mean age of diagnosis was 49.1 years."</div>
+
+
+                <div class="evidence-explanation">Newfoundland cohort of C282Y homozygotes shows typical middle-age diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-white-primary-care-patients-in-rochester-new-york">
+                <div class="item-name">White primary care patients in Rochester, New York</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        540.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Screening-based U.S. estimates show hereditary hemochromatosis is relatively common among white adults, though prevalence varies substantially by ancestry and clinical penetrance is incomplete.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9867748" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9867748" target="_blank">PMID:9867748</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of clinically proven and biopsy-proven hemochromatosis combined was 4.5 per 1000 (95% CI, 3.3 to 5.8 per 1000) in the total sample and 5.4 per 1000 (CI, 4.0 to 7.1 per 1000) in white persons."</div>
+
+
+                <div class="evidence-explanation">Large primary-care screening study provides a quantitative prevalence estimate for clinically ascertained hereditary hemochromatosis in white adults.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-northern-european-ancestry-c282y-homozygosity-prevalence">
+                <div class="item-name">Northern European ancestry (C282Y homozygosity prevalence)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        500.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Nearly 1 in 200 people of Northern European descent carry C282Y homozygosity, though clinical penetrance is incomplete, especially in females.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39644049" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39644049" target="_blank">PMID:39644049</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common form is HFE-hemochromatosis (HFE-H) due to p.Cys282Tyr (C282Y) homozygosity, present in nearly 1 in 200 people of Northern European descent but characterized by low penetrance, particularly in females."</div>
+
+
+                <div class="evidence-explanation">Recent review quantifies genetic prevalence of HFE-H in Northern Europeans.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:139498" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:139498" target="_blank">ORPHA:139498</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"NON RARE IN EUROPE: Hemochromatosis type 1"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies HFE-related hemochromatosis as non-rare in Europe.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-uk-biobank-male-c282y-homozygotes">
+                <div class="item-name">UK Biobank male C282Y homozygotes</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">56.4% diagnosed by age 80</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Cumulative incidence of hemochromatosis diagnosis in male C282Y homozygotes reaches 56.4% by age 80 in a large prospective UK cohort.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38479735" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38479735" target="_blank">PMID:38479735</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"12.1% of p.C282Y+/+ males had baseline (mean age 57 years) haemochromatosis diagnoses, with a cumulative incidence of 56.4% at age 80 years."</div>
+
+
+                <div class="evidence-explanation">UK Biobank prospective data shows high cumulative diagnosis rate in male homozygotes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -10329,7 +11203,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-secondary-transfusional-iron-overload">
                 <div class="item-name">
 
                     Secondary/Transfusional Iron Overload
@@ -10373,7 +11247,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19727383" target="_blank">PMID:19727383</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -10396,7 +11272,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-ferroportin-disease-slc40a1-related-hemochromatosis">
                 <div class="item-name">
 
                     Ferroportin Disease (SLC40A1-Related Hemochromatosis)
@@ -10440,7 +11316,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38886778" target="_blank">PMID:38886778</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -10473,7 +11351,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001008347">
                 <div class="item-name">
                     Genetic and Genomic Landscape of Hemochromatosis Hepatocellular Carcinoma
 
@@ -10520,7 +11398,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct04202965">
                 <div class="item-name">
                     NCT04202965
 
@@ -10548,7 +11426,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://clinicaltrials.gov/study/NCT04202965" target="_blank">clinicaltrials:NCT04202965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -10594,7 +11474,6 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Hemochromatosis
 creation_date: &#39;2026-01-09T07:07:01Z&#39;
-updated_date: &#39;2026-05-21T17:57:54Z&#39;
 category: Mendelian
 disease_term:
   preferred_term: hereditary hemochromatosis
@@ -11002,7 +11881,7 @@ pathophysiology:
   evidence:
   - reference: PMID:23985001
     reference_title: &#34;Diagnosis and treatment of hereditary hemochromatosis: an update.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Hereditary hemochromatosis is an inherited iron overload disorder caused by inappropriately low hepcidin secretion leading to increased duodenal absorption of dietary iron&#34;
     explanation: Low hepcidin permits unregulated ferroportin-mediated iron export from the gut.
   biological_processes:
@@ -11180,7 +12059,7 @@ pathophysiology:
   evidence:
   - reference: PMID:37763705
     reference_title: &#34;A \&#34;Mix and Match\&#34; in Hemochromatosis-A Case Report and Literature Focus on the Liver.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;The key organ that is affected by iron overload is the liver, suffering from fibrosis, cirrhosis or hepatocellular carcinoma&#34;
     explanation: Liver iron overload drives fibrotic injury and malignant risk.
   cell_types:
@@ -11257,7 +12136,7 @@ pathophysiology:
   evidence:
   - reference: PMID:35449524
     reference_title: &#34;Juvenile Hemochromatosis due to a Homozygous Variant in the HJV Gene.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Hemochromatosis type 2 or juvenile hemochromatosis has an early onset of severe iron overload resulting in organ manifestation such as liver fibrosis, cirrhosis, cardiomyopathy, arthropathy, hypogonadism, diabetes&#34;
     explanation: Early severe iron overload includes cardiomyopathy, consistent with cardiac iron toxicity.
   cell_types:
@@ -11296,7 +12175,7 @@ pathophysiology:
   evidence:
   - reference: PMID:38886778
     reference_title: &#34;SLC40A1-related hemochromatosis associated with a p.Y333H mutation in mainland China: a pedigree report and literature review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Magnetic resonance imaging showed iron deposition in the liver, spleen, and pancreas, along with cirrhosis and splenomegaly.&#34;
     explanation: Imaging confirms pancreatic iron deposition contributing to endocrine dysfunction.
   cell_types:
@@ -11609,7 +12488,7 @@ phenotypes:
     explanation: Orphanet lists hepatomegaly as frequent in symptomatic HFE hemochromatosis.
   - reference: PMID:37168645
     reference_title: &#39;Juvenile Hemochromatosis in an Asymptomatic Patient-Importance of Early Diagnosis.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;One of the most serious clinical characteristics associated with early-onset iron overload is liver disease with eventual cirrhosis&#34;
     explanation: Liver involvement early in disease course leads to enlargement and progression to cirrhosis.
 - name: Skin Hyperpigmentation
@@ -11631,7 +12510,7 @@ phenotypes:
     explanation: Orphanet lists bronze hyperpigmentation as frequent in symptomatic HFE hemochromatosis.
   - reference: PMID:38886778
     reference_title: &#39;SLC40A1-related hemochromatosis associated with a p.Y333H mutation in mainland China: a pedigree report and literature review.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;The proband is a 64-year-old man complaining of persistent abnormality of liver enzyme levels for 1 year, with a history of knee joint pain, diabetes and skin pigmentation.&#34;
     explanation: Case report documents skin pigmentation in ferroportin-related hemochromatosis.
 - name: Diabetes Mellitus
@@ -11659,7 +12538,7 @@ phenotypes:
     explanation: EASL guidelines list diabetes as a preventable complication of hemochromatosis.
   - reference: PMID:38886778
     reference_title: &#39;SLC40A1-related hemochromatosis associated with a p.Y333H mutation in mainland China: a pedigree report and literature review.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The proband is a 64-year-old man complaining of persistent abnormality of liver enzyme levels for 1 year, with a history of knee joint pain, diabetes and skin pigmentation.&#34;
     explanation: Diabetes reported as part of the hemochromatosis presentation.
@@ -11713,7 +12592,7 @@ phenotypes:
     explanation: Orphanet lists cardiomyopathy as occasional in symptomatic HFE hemochromatosis.
   - reference: PMID:35449524
     reference_title: &#39;Juvenile Hemochromatosis due to a Homozygous Variant in the HJV Gene.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Hemochromatosis type 2 or juvenile hemochromatosis has an early onset of severe iron overload resulting in organ manifestation such as liver fibrosis, cirrhosis, cardiomyopathy, arthropathy, hypogonadism, diabetes&#34;
     explanation: Juvenile hemochromatosis case describes cardiomyopathy among manifestations.
 - name: Hypogonadotropic Hypogonadism
@@ -11735,7 +12614,7 @@ phenotypes:
     explanation: Orphanet lists hypogonadotropic hypogonadism as occasional in symptomatic HFE hemochromatosis.
   - reference: PMID:36644615
     reference_title: &#39;Pituitary hyposignal characteristic of hemochromatosis on MRI.&#39;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Pituitary haemochromatosis is an endocrine disorder caused by the accumulation of iron due to a lack of absorption during haemochromatosis.&#34;
     explanation: Pituitary iron deposition disrupts gonadotropin signaling leading to hypogonadism.
   - reference: PMID:32327622
@@ -12086,7 +12965,7 @@ treatments:
     explanation: EASL guideline highlights phlebotomy as preventive for multi-organ complications.
   - reference: PMID:5339192
     reference_title: &#34;The treatment of hemochromatosis by phlebotomy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;The treatment of hemochromatosis by phlebotomy.&#34;
     explanation: Early clinical report established phlebotomy as definitive iron removal.
 - name: Iron Chelation Therapy
@@ -12107,7 +12986,7 @@ treatments:
   evidence:
   - reference: PMID:19727383
     reference_title: &#34;The treatment of secondary hemochromatosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Because secondary hemochromatosis is due to hereditary or acquired anemia, phlebotomy is not a suitable means of removing excess iron in this situation. Rather, the treatment is based on the targeted elimination of iron by means of iron chelators.&#34;
     explanation: Secondary hemochromatosis requires chelation when phlebotomy is not feasible.
   - reference: PMID:29620054
@@ -12138,7 +13017,7 @@ treatments:
   evidence:
   - reference: PMID:38361672
     reference_title: &#34;Alcohol Use Unmasking Heterozygous Hereditary Hemochromatosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;This patient was counseled on lifestyle modifications which included abstaining from alcohol and reducing iron and vitamin C intake. As a result, his iron panel parameters improved.&#34;
     explanation: Lifestyle changes in alcohol and dietary iron/Vitamin C improved iron indices.
   treatment_term:
@@ -12164,7 +13043,7 @@ treatments:
   evidence:
   - reference: PMID:37121243
     reference_title: &#34;Haemochromatosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &#34;Early diagnosis by genetic testing and therapy by periodic phlebotomy can prevent the most serious complications, which include liver cirrhosis, liver cancer, and death.&#34;
     explanation: Emphasizes early genetic testing to enable preventive treatment.
   treatment_term:
@@ -13520,7 +14399,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hemochromatosis", "mondoId": "MONDO:0006507", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hemochromatosis", "yamlRevision": "fe6c59506011"};
+        const OS_CONFIG = {"diseaseName": "Hemochromatosis", "mondoId": "MONDO:0006507", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hemochromatosis", "yamlRevision": "3cb5919fccbe"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -13939,5 +14818,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

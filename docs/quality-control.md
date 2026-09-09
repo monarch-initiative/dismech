@@ -37,7 +37,7 @@ As a downstream mitigation, `scripts/run_reference_validator.sh` appends an
 affirmative count after every `validate data` run:
 
 ```console
-$ just validate-references kb/disorders/Vici_Syndrome.yaml
+$ just validate-kb-references kb/disorders/Vici_Syndrome.yaml
 Validation Summary:
   Files validated: 1
   Total checks: 0

@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>EFL1-related Shwachman-Diamond syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>EFL1-related Shwachman-Diamond syndrome</h1>
             <div class="header-meta">
 
@@ -3881,6 +4028,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3890,9 +4107,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 11 &#34;Metaphyseal dysplasias&#34;; listed as &#34;Metaphyseal dysplasia with pancreatic insufficiency and cyclic neutropenia (Shwachman-Bodian-Diamond syndrome), whose gene column explicitly lists EFL1 alongside SBDS, DNAJC21 and SRP54&#34;.">metaphyseal dysplasias</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3910,7 +4143,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3955,7 +4188,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4019,17 +4254,21 @@
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves EFL1 (hgnc:25789). hgnc:25789 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         EFL1
 
 
-    <a href="https://bioregistry.io/hgnc:25789" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25789</a>
+    <a href="https://bioregistry.io/hgnc:25789" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:25789</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EFL1 (hgnc:25789). hgnc:25789 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4058,18 +4297,20 @@ This pathophysiological event involves EFL1 (hgnc:25789). hgnc:25789 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal ribosomal large subunit assembly (GO:0000027). GO:0000027 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ribosomal large subunit assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000027" target="_blank" class="curie-chip curie-chip-go">GO:0000027</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000027" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0000027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal ribosomal large subunit assembly (GO:0000027). GO:0000027 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4127,7 +4368,9 @@ This pathophysiological event involves abnormal ribosomal large subunit assembly
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28331068" target="_blank">PMID:28331068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4149,7 +4392,9 @@ This pathophysiological event involves abnormal ribosomal large subunit assembly
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31151987" target="_blank">PMID:31151987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4189,18 +4434,20 @@ This pathophysiological event involves abnormal ribosomal large subunit assembly
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4298,7 +4545,9 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39379149" target="_blank">PMID:39379149</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4338,17 +4587,21 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves EFL1 (hgnc:25789). hgnc:25789 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         EFL1
 
 
-    <a href="https://bioregistry.io/hgnc:25789" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25789</a>
+    <a href="https://bioregistry.io/hgnc:25789" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:25789</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EFL1 (hgnc:25789). hgnc:25789 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4410,7 +4663,9 @@ This pathophysiological event involves EFL1 (hgnc:25789). hgnc:25789 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34115847" target="_blank">PMID:34115847</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4432,7 +4687,9 @@ This pathophysiological event involves EFL1 (hgnc:25789). hgnc:25789 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34115847" target="_blank">PMID:34115847</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4526,16 +4783,20 @@ This pathophysiological event involves EFL1 (hgnc:25789). hgnc:25789 is a gene f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0001876</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.">
-                        Pancytopenia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp">HP:0001876</a>
-
-
+This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4556,7 +4817,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28331068" target="_blank">PMID:28331068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4588,16 +4851,20 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001875</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.">
-                        Decreased total neutrophil count
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp">HP:0001875</a>
-
-
+This clinical feature is Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4618,7 +4885,9 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4659,16 +4928,20 @@ This clinical feature is Neutropenia, annotated with Decreased total neutrophil 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001738</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Exocrine pancreatic insufficiency (HP:0001738). HP:0001738 is a phenotype from the Human Phenotype Ontology.">
-                        Exocrine pancreatic insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" class="curie-chip curie-chip-hp">HP:0001738</a>
-
-
+This clinical feature is Exocrine pancreatic insufficiency (HP:0001738). HP:0001738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4689,7 +4962,9 @@ This clinical feature is Exocrine pancreatic insufficiency (HP:0001738). HP:0001
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28331068" target="_blank">PMID:28331068</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4730,16 +5005,20 @@ This clinical feature is Exocrine pancreatic insufficiency (HP:0001738). HP:0001
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0100255</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phenotype from the Human Phenotype Ontology.">
-                        Metaphyseal dysplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100255" target="_blank" class="curie-chip curie-chip-hp">HP:0100255</a>
-
-
+This clinical feature is Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4760,7 +5039,9 @@ This clinical feature is Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29970384" target="_blank">PMID:29970384</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4801,16 +5082,20 @@ This clinical feature is Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
-                        Short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
-
-
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4831,7 +5116,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4872,16 +5159,22 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hematological neoplasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004377" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0004377</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Predisposition to hematological malignancy, annotated with Hematological neoplasm (HP:0004377). HP:0004377 is a phenotype from the Human Phenotype Ontology.">
-                        Hematological neoplasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004377" target="_blank" class="curie-chip curie-chip-hp">HP:0004377</a>
-
-
+This clinical feature is Predisposition to hematological malignancy, annotated with Hematological neoplasm (HP:0004377). HP:0004377 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4902,7 +5195,9 @@ This clinical feature is Predisposition to hematological malignancy, annotated w
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31151987" target="_blank">PMID:31151987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4980,15 +5275,17 @@ This clinical feature is Predisposition to hematological malignancy, annotated w
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is EFL1 (hgnc:25789). hgnc:25789 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: EFL1
 
 
-    <a href="https://bioregistry.io/hgnc:25789" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:25789</a>
+    <a href="https://bioregistry.io/hgnc:25789" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:25789</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EFL1 (hgnc:25789). hgnc:25789 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -5010,7 +5307,9 @@ This disease-associated gene is EFL1 (hgnc:25789). hgnc:25789 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31151987" target="_blank">PMID:31151987</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5040,6 +5339,9 @@ This disease-associated gene is EFL1 (hgnc:25789). hgnc:25789 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5056,18 +5358,18 @@ This disease-associated gene is EFL1 (hgnc:25789). hgnc:25789 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">pancreatic enzyme replacement or supplementation therapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is pancreatic enzyme replacement or supplementation therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.">pancreatic enzyme replacement or supplementation therapy</span>
+This treatment is pancreatic enzyme replacement or supplementation therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Protein Replacement Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16221" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is pancreatic enzyme replacement or supplementation therapy, annotated with Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a clinical intervention from the NCI Thesaurus.">NCIT:C16221</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16221" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C16221">NCIT:C16221</a>
 
 
 
@@ -5090,6 +5392,14 @@ This treatment is pancreatic enzyme replacement or supplementation therapy, anno
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral pancreatic enzyme replacement with fat-soluble vitamin supplementation is used to manage exocrine pancreatic insufficiency in the SDS spectrum.</div>
 
 
@@ -5098,18 +5408,20 @@ This treatment is pancreatic enzyme replacement or supplementation therapy, anno
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Exocrine pancreatic insufficiency (HP:0001738). HP:0001738 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exocrine pancreatic insufficiency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" class="curie-chip curie-chip-hp">HP:0001738</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001738</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Exocrine pancreatic insufficiency (HP:0001738). HP:0001738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5129,7 +5441,9 @@ This treatment targets Exocrine pancreatic insufficiency (HP:0001738). HP:000173
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5159,18 +5473,18 @@ This treatment targets Exocrine pancreatic insufficiency (HP:0001738). HP:000173
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5193,6 +5507,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Nutritional status and fat-soluble vitamin concentrations should be followed longitudinally because exocrine pancreatic dysfunction can cause malabsorption and malnutrition.</div>
 
 
@@ -5201,18 +5523,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Exocrine pancreatic insufficiency (HP:0001738). HP:0001738 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exocrine pancreatic insufficiency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" class="curie-chip curie-chip-hp">HP:0001738</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001738</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Exocrine pancreatic insufficiency (HP:0001738). HP:0001738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5232,7 +5556,9 @@ This treatment targets Exocrine pancreatic insufficiency (HP:0001738). HP:000173
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5262,18 +5588,18 @@ This treatment targets Exocrine pancreatic insufficiency (HP:0001738). HP:000173
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">surveillance for malignancies<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.">surveillance for malignancies</span>
+This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cancer Screening</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15406" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.">NCIT:C15406</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15406" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15406">NCIT:C15406</a>
 
 
 
@@ -5296,6 +5622,14 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Serial complete blood counts with differential and platelet count, together with periodic bone marrow examination, monitor cytopenias, marrow failure, MDS, and AML risk in the SDS spectrum.</div>
 
 
@@ -5304,48 +5638,54 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Predisposition to hematological malignancy, annotated with Hematological neoplasm (HP:0004377). HP:0004377 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Predisposition to hematological malignancy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004377" target="_blank" class="curie-chip curie-chip-hp">HP:0004377</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004377" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Predisposition to hematological malignancy, annotated with Hematological neoplasm (HP:0004377). HP:0004377 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pancytopenia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp">HP:0001876</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001876</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pancytopenia (HP:0001876). HP:0001876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neutropenia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp">HP:0001875</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001875</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5365,7 +5705,9 @@ This treatment targets Neutropenia, annotated with Decreased total neutrophil co
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5395,18 +5737,18 @@ This treatment targets Neutropenia, annotated with Decreased total neutrophil co
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">granulocyte colony-stimulating factor therapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is granulocyte colony-stimulating factor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">granulocyte colony-stimulating factor therapy</span>
+This treatment is granulocyte colony-stimulating factor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is granulocyte colony-stimulating factor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -5431,21 +5773,31 @@ This treatment is granulocyte colony-stimulating factor therapy, annotated with 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses recombinant granulocyte colony-stimulating factor (NCIT:C1287). NCIT:C1287 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         recombinant granulocyte colony-stimulating factor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1287" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1287</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1287" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-21">NCIT:C1287</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses recombinant granulocyte colony-stimulating factor (NCIT:C1287). NCIT:C1287 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5457,18 +5809,20 @@ This treatment uses recombinant granulocyte colony-stimulating factor (NCIT:C128
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neutropenia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp">HP:0001875</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001875</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Neutropenia, annotated with Decreased total neutrophil count (HP:0001875). HP:0001875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5488,7 +5842,9 @@ This treatment targets Neutropenia, annotated with Decreased total neutrophil co
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5510,7 +5866,9 @@ This treatment targets Neutropenia, annotated with Decreased total neutrophil co
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5540,18 +5898,18 @@ This treatment targets Neutropenia, annotated with Decreased total neutrophil co
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">hematopoietic stem cell transplantation</span>
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.">NCIT:C15431</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15431" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15431">NCIT:C15431</a>
 
 
 
@@ -5569,6 +5927,25 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5593,7 +5970,9 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5623,18 +6002,18 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5657,6 +6036,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Orthopedic imaging during rapid growth stages and regular growth/endocrine assessment are used to monitor skeletal dysplasia, asymmetric growth, and endocrine manifestations.</div>
 
 
@@ -5665,33 +6052,37 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Short stature
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0004322</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Metaphyseal dysplasia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100255" target="_blank" class="curie-chip curie-chip-hp">HP:0100255</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100255" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Metaphyseal dysplasia (HP:0100255). HP:0100255 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -5711,7 +6102,9 @@ This treatment targets Metaphyseal dysplasia (HP:0100255). HP:0100255 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5733,7 +6126,9 @@ This treatment targets Metaphyseal dysplasia (HP:0100255). HP:0100255 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5763,18 +6158,18 @@ This treatment targets Metaphyseal dysplasia (HP:0100255). HP:0100255 is a pheno
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -5792,6 +6187,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5816,7 +6219,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5838,7 +6243,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38703831" target="_blank">PMID:38703831</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5868,18 +6275,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -5897,6 +6304,14 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -5921,7 +6336,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5943,7 +6360,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5973,6 +6392,535 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-pancreatic-and-bone-marrow-recognition">
+                <div class="item-name">
+                    Clinical pancreatic and bone marrow recognition
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Exocrine pancreatic dysfunction with bone marrow dysfunction supports SDS-spectrum diagnosis.)</span>
+
+                </div>
+
+                <div class="item-desc">EFL1-related SDS should be recognized clinically in the broader SDS context when exocrine pancreatic dysfunction and bone marrow dysfunction or cytopenias are present.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"DIAGNOSIS/TESTING: The diagnosis of SDS is established in a proband with the classic clinical findings of exocrine pancreatic dysfunction and bone marrow dysfunction and/or biallelic pathogenic variants in DNAJC21, EFL1, or SBDS or a heterozygous pathogenic variant in SRP54 identified by..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews anchors SDS diagnosis in pancreatic and bone marrow dysfunction and includes EFL1 among the molecular causes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-complete-blood-count-with-differential-and-platelet-count">
+                <div class="item-name">
+                    Complete blood count with differential and platelet count
+
+                </div>
+
+                <div class="item-desc">CBC with differential and platelet count evaluates neutropenia, pancytopenia, and evolving multilineage cytopenias.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        blood cell count
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C28133" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C28133</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Persistent or intermittent neutropenia and other cytopenias support SDS-spectrum marrow involvement.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Complete blood count with white blood cell differential and platelet count at least every three to six months; bone marrow examination every one to three years or more frequently if bone marrow changes are observed."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports serial CBC testing as part of SDS surveillance and diagnostic monitoring.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-bone-marrow-examination-for-marrow-failure-or-malignant-evolution">
+                <div class="item-name">
+                    Bone marrow examination for marrow failure or malignant evolution
+
+                </div>
+
+                <div class="item-desc">Bone marrow examination evaluates marrow failure and emerging marrow changes that may require closer monitoring or HSCT planning.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        bone marrow examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C92958" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C92958</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Bone marrow changes, MDS, or AML guide risk assessment and escalation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Complete blood count with white blood cell differential and platelet count at least every three to six months; bone marrow examination every one to three years or more frequently if bone marrow changes are observed."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports scheduled marrow examination in SDS surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-radiographic-skeletal-assessment">
+                <div class="item-name">
+                    Radiographic skeletal assessment
+
+                </div>
+
+                <div class="item-desc">Radiographs of the hips and knees during rapid growth and targeted skeletal imaging can identify orthopedic complications and metaphyseal dysplasia.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        radiograph imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38101" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C38101</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Metaphyseal dysplasia or orthopedic complications support multisystem EFL1-related SDS assessment.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monitor for orthopedic complications with radiographs of the hips and knees during the most rapid growth stages."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports radiographic orthopedic monitoring in SDS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29970384" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29970384" target="_blank">PMID:29970384</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a pediatric patient who presented with a metaphyseal dysplasia and was found to have biallelic variants in EFL1 on reanalysis of trio whole-exome sequencing data."</div>
+
+
+                <div class="evidence-explanation">EFL1-specific clinical evidence supports skeletal imaging for metaphyseal dysplasia in the diagnostic workup.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing-and-sds-gene-differential-diagnosis">
+                <div class="item-name">
+                    Molecular genetic testing and SDS gene differential diagnosis
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Identification of biallelic pathogenic EFL1 variants supports SDS2 diagnosis.)</span>
+
+                </div>
+
+                <div class="item-desc">Molecular testing confirms biallelic pathogenic EFL1 variants and helps distinguish EFL1-related SDS from SBDS-, DNAJC21-, or SRP54-related SDS and SDS-like presentations.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301722" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301722" target="_blank">PMID:20301722</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"DIAGNOSIS/TESTING: The diagnosis of SDS is established in a proband with the classic clinical findings of exocrine pancreatic dysfunction and bone marrow dysfunction and/or biallelic pathogenic variants in DNAJC21, EFL1, or SBDS or a heterozygous pathogenic variant in SRP54 identified by..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews supports molecular genetic testing across SDS genes and differentiates recessive EFL1 disease from SBDS, DNAJC21, and SRP54.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31151987" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31151987" target="_blank">PMID:31151987</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report biallelic mutations in EFL1 in 3 unrelated individuals with clinical features of SDS."</div>
+
+
+                <div class="evidence-explanation">The EFL1 discovery paper supports EFL1-specific molecular confirmation in SDS-like presentations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6006,7 +6954,6 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: EFL1-related Shwachman-Diamond syndrome
 creation_date: &#39;2026-04-16T19:16:34Z&#39;
-updated_date: &#39;2026-04-20T18:55:01Z&#39;
 category: Mendelian
 description: &gt;-
   EFL1-related Shwachman-Diamond syndrome is the EFL1-defined molecular subtype
@@ -7250,7 +8197,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "EFL1-related Shwachman-Diamond syndrome", "mondoId": "MONDO:0044205", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "EFL1-related_Shwachman-Diamond_syndrome", "yamlRevision": "aee1338e8fa3"};
+        const OS_CONFIG = {"diseaseName": "EFL1-related Shwachman-Diamond syndrome", "mondoId": "MONDO:0044205", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "EFL1-related_Shwachman-Diamond_syndrome", "yamlRevision": "a624607ffd4b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7669,5 +8616,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

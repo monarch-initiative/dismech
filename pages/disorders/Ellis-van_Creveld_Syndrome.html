@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Ellis-van Creveld Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Ellis-van Creveld Syndrome</h1>
             <div class="header-meta">
 
@@ -3884,6 +4031,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3893,9 +4110,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 9 &#34;Ciliopathies with major skeletal involvement&#34;; listed as &#34;Chondroectodermal dysplasia (Ellis-van Creveld)&#34;.">ciliopathies with major skeletal involvement</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3913,7 +4146,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive">
                 <div class="item-name">
                     Autosomal Recessive
 
@@ -3941,7 +4174,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10700184" target="_blank">PMID:10700184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -3961,7 +4196,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10700184" target="_blank">PMID:10700184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4017,18 +4254,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4056,18 +4295,20 @@ This pathophysiological event involves Chondrocyte (CL:0000138). CL:0000138 is a
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Hedgehog Signaling, annotated with smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Hedgehog Signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0007224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Hedgehog Signaling, annotated with smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4084,18 +4325,20 @@ This pathophysiological event involves Hedgehog Signaling, annotated with smooth
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Endochondral Ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Endochondral Ossification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go">GO:0001958</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001958" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001958</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Endochondral Ossification (GO:0001958). GO:0001958 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4112,18 +4355,20 @@ This pathophysiological event involves Endochondral Ossification (GO:0001958). G
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Limb Development (GO:0060173). GO:0060173 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Limb Development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060173" target="_blank" class="curie-chip curie-chip-go">GO:0060173</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060173" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0060173</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Limb Development (GO:0060173). GO:0060173 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4253,7 +4498,9 @@ This pathophysiological event involves Limb Development (GO:0060173). GO:0060173
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23026747" target="_blank">PMID:23026747</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4273,7 +4520,9 @@ This pathophysiological event involves Limb Development (GO:0060173). GO:0060173
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23026747" target="_blank">PMID:23026747</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4295,7 +4544,9 @@ This pathophysiological event involves Limb Development (GO:0060173). GO:0060173
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23026747" target="_blank">PMID:23026747</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4336,18 +4587,20 @@ This pathophysiological event involves Limb Development (GO:0060173). GO:0060173
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Cilium Assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cilium Assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go">GO:0060271</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0060271</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cilium Assembly (GO:0060271). GO:0060271 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4370,18 +4623,20 @@ This pathophysiological event involves Cilium Assembly (GO:0060271). GO:0060271 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Primary Cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Primary Cilium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go">GO:0005929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Primary Cilium, annotated with cilium (GO:0005929). GO:0005929 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4405,7 +4660,9 @@ This pathophysiological event involves Primary Cilium, annotated with cilium (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24582806" target="_blank">PMID:24582806</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4427,7 +4684,9 @@ This pathophysiological event involves Primary Cilium, annotated with cilium (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24582806" target="_blank">PMID:24582806</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4449,7 +4708,9 @@ This pathophysiological event involves Primary Cilium, annotated with cilium (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23026747" target="_blank">PMID:23026747</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4490,18 +4751,20 @@ This pathophysiological event involves Primary Cilium, annotated with cilium (GO
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Heart Development (GO:0007507). GO:0007507 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Heart Development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go">GO:0007507</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007507</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Heart Development (GO:0007507). GO:0007507 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4518,18 +4781,20 @@ This pathophysiological event involves Heart Development (GO:0007507). GO:000750
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Cardiac Septum Morphogenesis (GO:0060411). GO:0060411 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Cardiac Septum Morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060411" target="_blank" class="curie-chip curie-chip-go">GO:0060411</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060411" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0060411</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cardiac Septum Morphogenesis (GO:0060411). GO:0060411 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4581,13 +4846,15 @@ This pathophysiological event involves Cardiac Septum Morphogenesis (GO:0060411)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21533779" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21533779" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21533779" target="_blank">PMID:21533779</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4607,7 +4874,9 @@ This pathophysiological event involves Cardiac Septum Morphogenesis (GO:0060411)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21533779" target="_blank">PMID:21533779</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4627,7 +4896,9 @@ This pathophysiological event involves Cardiac Septum Morphogenesis (GO:0060411)
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21533779" target="_blank">PMID:21533779</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4725,16 +4996,22 @@ This pathophysiological event involves Cardiac Septum Morphogenesis (GO:0060411)
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Atrial septal defect</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001631</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.">
-                        Atrial septal defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp">HP:0001631</a>
-
-
+This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4755,7 +5032,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10700184" target="_blank">PMID:10700184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4775,7 +5054,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17547743" target="_blank">PMID:17547743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4795,7 +5076,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21533779" target="_blank">PMID:21533779</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4836,16 +5119,22 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the kidney</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000077</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the kidney
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp">HP:0000077</a>
-
-
+This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4866,7 +5155,9 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4907,16 +5198,22 @@ This clinical feature is Abnormality of the kidney (HP:0000077). HP:0000077 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the dentition</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000164</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the dentition
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp">HP:0000164</a>
-
-
+This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4937,7 +5234,9 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17547743" target="_blank">PMID:17547743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4976,16 +5275,20 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002164</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nail dysplasia (HP:0002164). HP:0002164 is a phenotype from the Human Phenotype Ontology.">
-                        Nail dysplasia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002164" target="_blank" class="curie-chip curie-chip-hp">HP:0002164</a>
-
-
+This clinical feature is Nail dysplasia (HP:0002164). HP:0002164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5006,7 +5309,9 @@ This clinical feature is Nail dysplasia (HP:0002164). HP:0002164 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17547743" target="_blank">PMID:17547743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5045,16 +5350,22 @@ This clinical feature is Nail dysplasia (HP:0002164). HP:0002164 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Postaxial hand polydactyly</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001162</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is a phenotype from the Human Phenotype Ontology.">
-                        Postaxial hand polydactyly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp">HP:0001162</a>
-
-
+This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5075,7 +5386,9 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10700184" target="_blank">PMID:10700184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5107,16 +5420,20 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002857</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype from the Human Phenotype Ontology.">
-                        Genu valgum
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp">HP:0002857</a>
-
-
+This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5137,7 +5454,9 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5171,16 +5490,20 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002983</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from the Human Phenotype Ontology.">
-                        Micromelia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp">HP:0002983</a>
-
-
+This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5201,7 +5524,9 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5223,7 +5548,9 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37903214" target="_blank">PMID:37903214</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5264,16 +5591,20 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000774</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype from the Human Phenotype Ontology.">
-                        Narrow chest
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp">HP:0000774</a>
-
-
+This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5294,7 +5625,9 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17547743" target="_blank">PMID:17547743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5333,16 +5666,22 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Disproportionate short-limb short stature</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008873</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Disproportionate short-limb short stature (HP:0008873). HP:0008873 is a phenotype from the Human Phenotype Ontology.">
-                        Disproportionate short-limb short stature
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008873" target="_blank" class="curie-chip curie-chip-hp">HP:0008873</a>
-
-
+This clinical feature is Disproportionate short-limb short stature (HP:0008873). HP:0008873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5363,7 +5702,9 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17547743" target="_blank">PMID:17547743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5395,16 +5736,20 @@ This clinical feature is Disproportionate short-limb short stature (HP:0008873).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001511</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.">
-                        Intrauterine growth retardation
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp">HP:0001511</a>
-
-
+This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5425,7 +5770,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5466,16 +5813,22 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal oral frenulum morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000190" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000190</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal oral frenulum morphology (HP:0000190). HP:0000190 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal oral frenulum morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000190" target="_blank" class="curie-chip curie-chip-hp">HP:0000190</a>
-
-
+This clinical feature is Abnormal oral frenulum morphology (HP:0000190). HP:0000190 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5496,7 +5849,9 @@ This clinical feature is Abnormal oral frenulum morphology (HP:0000190). HP:0000
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5530,16 +5885,20 @@ This clinical feature is Abnormal oral frenulum morphology (HP:0000190). HP:0000
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0006695</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Atrioventricular canal defect (HP:0006695). HP:0006695 is a phenotype from the Human Phenotype Ontology.">
-                        Atrioventricular canal defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006695" target="_blank" class="curie-chip curie-chip-hp">HP:0006695</a>
-
-
+This clinical feature is Atrioventricular canal defect (HP:0006695). HP:0006695 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5560,7 +5919,9 @@ This clinical feature is Atrioventricular canal defect (HP:0006695). HP:0006695 
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5582,7 +5943,9 @@ This clinical feature is Atrioventricular canal defect (HP:0006695). HP:0006695 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21533779" target="_blank">PMID:21533779</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5616,16 +5979,20 @@ This clinical feature is Atrioventricular canal defect (HP:0006695). HP:0006695 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010306" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0010306</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Short thorax (HP:0010306). HP:0010306 is a phenotype from the Human Phenotype Ontology.">
-                        Short thorax
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010306" target="_blank" class="curie-chip curie-chip-hp">HP:0010306</a>
-
-
+This clinical feature is Short thorax (HP:0010306). HP:0010306 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5646,7 +6013,9 @@ This clinical feature is Short thorax (HP:0010306). HP:0010306 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5680,16 +6049,20 @@ This clinical feature is Short thorax (HP:0010306). HP:0010306 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Foot polydactyly (HP:0001829). HP:0001829 is a phenotype from the Human Phenotype Ontology.">
-                        Foot polydactyly
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001829" target="_blank" class="curie-chip curie-chip-hp">HP:0001829</a>
-
-
+This clinical feature is Foot polydactyly (HP:0001829). HP:0001829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5710,7 +6083,9 @@ This clinical feature is Foot polydactyly (HP:0001829). HP:0001829 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5744,16 +6119,20 @@ This clinical feature is Foot polydactyly (HP:0001829). HP:0001829 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001241" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001241</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Capitate-hamate fusion (HP:0001241). HP:0001241 is a phenotype from the Human Phenotype Ontology.">
-                        Capitate-hamate fusion
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001241" target="_blank" class="curie-chip curie-chip-hp">HP:0001241</a>
-
-
+This clinical feature is Capitate-hamate fusion (HP:0001241). HP:0001241 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5774,7 +6153,9 @@ This clinical feature is Capitate-hamate fusion (HP:0001241). HP:0001241 is a ph
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5808,16 +6189,22 @@ This clinical feature is Capitate-hamate fusion (HP:0001241). HP:0001241 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Aplasia/Hypoplasia of the lungs</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006703" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0006703</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aplasia/Hypoplasia of the lungs (HP:0006703). HP:0006703 is a phenotype from the Human Phenotype Ontology.">
-                        Aplasia/Hypoplasia of the lungs
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006703" target="_blank" class="curie-chip curie-chip-hp">HP:0006703</a>
-
-
+This clinical feature is Aplasia/Hypoplasia of the lungs (HP:0006703). HP:0006703 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5838,7 +6225,9 @@ This clinical feature is Aplasia/Hypoplasia of the lungs (HP:0006703). HP:000670
                         <a href="https://bioregistry.io/ORPHA:289" target="_blank">ORPHA:289</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5926,7 +6315,9 @@ This clinical feature is Aplasia/Hypoplasia of the lungs (HP:0006703). HP:000670
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10700184" target="_blank">PMID:10700184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5946,7 +6337,9 @@ This clinical feature is Aplasia/Hypoplasia of the lungs (HP:0006703). HP:000670
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10700184" target="_blank">PMID:10700184</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5991,7 +6384,9 @@ This clinical feature is Aplasia/Hypoplasia of the lungs (HP:0006703). HP:000670
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12571802" target="_blank">PMID:12571802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6011,7 +6406,9 @@ This clinical feature is Aplasia/Hypoplasia of the lungs (HP:0006703). HP:000670
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12571802" target="_blank">PMID:12571802</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6039,6 +6436,9 @@ This clinical feature is Aplasia/Hypoplasia of the lungs (HP:0006703). HP:000670
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6055,17 +6455,17 @@ This clinical feature is Aplasia/Hypoplasia of the lungs (HP:0006703). HP:000670
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Cardiac Surgery<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Cardiac Surgery (NCIT:C157806), qualified as located in heart. NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">Cardiac Surgery</span>
+This treatment is Cardiac Surgery (NCIT:C157806), qualified as located in heart. NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Cardiac Surgery (NCIT:C157806), qualified as located in heart. NCIT:C157806 is a clinical intervention from the NCI Thesaurus.">NCIT:C157806</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C157806" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C157806">NCIT:C157806</a>
 
 
 
@@ -6093,23 +6493,31 @@ This treatment is Cardiac Surgery (NCIT:C157806), qualified as located in heart.
 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
 
-                    <span class="tag tag-bio" title="Uberon multi-species anatomy ontology (UBERON)
+
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-26">heart<span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
 Relation: this treatment is delivered to this anatomical location
-This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">heart</span>
+This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this treatment is delivered to this anatomical location
-This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
 
 
 
 
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6134,7 +6542,9 @@ This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21533779" target="_blank">PMID:21533779</a>
                     </span>
 
+
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
                 </div>
@@ -6164,6 +6574,14 @@ This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anat
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of polydactyly (surgical removal of extra digits), genu valgum correction, and other skeletal manifestations.
 </div>
 
@@ -6184,7 +6602,9 @@ This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17547743" target="_blank">PMID:17547743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6214,6 +6634,14 @@ This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anat
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Comprehensive dental care for anomalous dentition including prosthetic replacements and orthodontic intervention.
 </div>
 
@@ -6234,7 +6662,9 @@ This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17547743" target="_blank">PMID:17547743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6264,6 +6694,14 @@ This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anat
 
 
 
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management of respiratory distress in the neonatal period due to narrow chest and short ribs.
 </div>
 
@@ -6284,7 +6722,9 @@ This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anat
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17547743" target="_blank">PMID:17547743</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6312,6 +6752,251 @@ This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anat
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-radiographic-and-molecular-diagnosis">
+                <div class="item-name">
+                    Clinical, Radiographic, and Molecular Diagnosis
+
+                </div>
+
+                <div class="item-desc">Ellis-van Creveld syndrome is diagnosed from characteristic clinical and radiographic findings (disproportionate short stature, postaxial polydactyly, chondrodysplasia, and the EvC-zone dental/oral findings) and confirmed by molecular genetic testing of the EVC/EVC2 ciliary Hedgehog genes and other short-rib/ciliopathy loci. Early echocardiography is a diagnostic priority because of the high frequency of common atrium / atrioventricular canal defects.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37903214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37903214" target="_blank">PMID:37903214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of EVC syndrome is established in a proband with characteristic clinical and radiographic findings and biallelic pathogenic variants in DYNC2H1, DYNC2LI1, EVC, EVC2, GLI, SMO, or WDR35 or a heterozygous pathogenic variant in PRKACA or PRKACB identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews defines the combined clinical/radiographic and molecular diagnostic criteria for EvC syndrome across its ciliary Hedgehog genes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global-reported-literature">
+                <div class="item-name">Global reported literature</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">approximately 150 reported cases worldwide</span>
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Review literature describes Ellis-van Creveld syndrome as very rare globally, with about 150 reported cases and no precise worldwide prevalence estimate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17547743" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17547743" target="_blank">PMID:17547743</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ellis-van Creveld syndrome (EVC) is a chondral and ectodermal dysplasia characterized by short ribs, polydactyly, growth retardation, and ectodermal and heart defects. It is a rare disease with approximately 150 cases reported worldwide."</div>
+
+
+                <div class="evidence-explanation">This Orphanet review provides the clearest PubMed-abstract estimate of total reported EvC cases worldwide.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-old-order-amish-live-births">
+                <div class="item-name">Old Order Amish live births</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        20.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 10,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Founder-enriched Amish prevalence is dramatically higher than the reported non-Amish birth prevalence of about 7 per 1,000,000.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22232726" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22232726" target="_blank">PMID:22232726</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ellis-van Creveld syndrome is a rare congenital genetic disorder having autosomal recessive inheritance. It is a syndrome affecting the Amish population of Pennsylvania in USA with prevalence rate of 1/5,000 live at birth. In non-Amish population, the birth prevalence is 7/1,000,000."</div>
+
+
+                <div class="evidence-explanation">This case review abstract gives concrete founder-population and non-Amish birth prevalence estimates for EvC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6345,7 +7030,6 @@ This treatment is delivered to heart (UBERON:0000948). UBERON:0000948 is an anat
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Ellis-van Creveld Syndrome
 creation_date: &#39;2026-02-13T00:31:42Z&#39;
-updated_date: &#39;2026-02-16T20:19:38Z&#39;
 category: Mendelian
 description: &gt;
   Ellis-van Creveld syndrome (EvC) is an autosomal recessive skeletal ciliopathy
@@ -6405,6 +7089,7 @@ prevalence:
     estimate.
   evidence:
   - reference: PMID:17547743
+    reference_title: &#34;Ellis-van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6425,6 +7110,7 @@ prevalence:
     non-Amish birth prevalence of about 7 per 1,000,000.
   evidence:
   - reference: PMID:22232726
+    reference_title: &#34;Ellis-van Creveld syndrome in an Indian child: a case report&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6589,7 +7275,7 @@ pathophysiology:
   evidence:
   - reference: PMID:21533779
     reference_title: &#34;Ellis-van Creveld syndrome and congenital heart defects: presentation of an additional 32 cases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &gt;-
       Twenty-eight (88%) had an endocardial cushion defect, with 15 of
       these having primary failure of atrial septation resulting in CA.
@@ -6783,6 +7469,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:289
+    reference_title: &#34;Ellis Van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0002857 | Genu valgum | Very frequent (99-80%)&#34;
@@ -6803,6 +7490,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:289
+    reference_title: &#34;Ellis Van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0002983 | Micromelia | Very frequent (99-80%)&#34;
@@ -6832,6 +7520,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:289
+    reference_title: &#34;Ellis Van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0006695 | Atrioventricular canal defect | Very frequent (99-80%)&#34;
@@ -6861,6 +7550,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:289
+    reference_title: &#34;Ellis Van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0010306 | Short thorax | Very frequent (99-80%)&#34;
@@ -6880,6 +7570,7 @@ phenotypes:
   frequency: VERY_FREQUENT
   evidence:
   - reference: ORPHA:289
+    reference_title: &#34;Ellis Van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0001829 | Foot polydactyly | Very frequent (99-80%)&#34;
@@ -6899,6 +7590,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: ORPHA:289
+    reference_title: &#34;Ellis Van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0001241 | Capitate-hamate fusion | Frequent (79-30%)&#34;
@@ -6918,6 +7610,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: ORPHA:289
+    reference_title: &#34;Ellis Van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0006703 | Aplasia/Hypoplasia of the lungs | Frequent (79-30%)&#34;
@@ -6937,6 +7630,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: ORPHA:289
+    reference_title: &#34;Ellis Van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0000077 | Abnormality of the kidney | Frequent (79-30%)&#34;
@@ -6957,6 +7651,7 @@ phenotypes:
   frequency: FREQUENT
   evidence:
   - reference: ORPHA:289
+    reference_title: &#34;Ellis Van Creveld syndrome&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;HP:0001511 | Intrauterine growth retardation | Frequent (79-30%)&#34;
@@ -7406,7 +8101,7 @@ EvC pathogenesis centers on a ciliary signaling module—EVC/EVC2 at the EvC zon
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ellis-van Creveld Syndrome", "mondoId": "MONDO:0009162", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ellis-van_Creveld_Syndrome", "yamlRevision": "519b8a2dfbed"};
+        const OS_CONFIG = {"diseaseName": "Ellis-van Creveld Syndrome", "mondoId": "MONDO:0009162", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ellis-van_Creveld_Syndrome", "yamlRevision": "9adc011d1ef6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7825,5 +8520,73 @@ EvC pathogenesis centers on a ciliary signaling module—EVC/EVC2 at the EvC zon
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

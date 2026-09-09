@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Dermatomyositis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Dermatomyositis</h1>
             <div class="header-meta">
 
@@ -3891,27 +4038,104 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
+
+
+
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
                 <div class="tag-list">
 
-                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+
+
+
+                    <span class="tag tag-classification">IMMUNE RHEUMATOLOGIC</span>
 
                 </div>
+
             </div>
 
-
-
-
-
-
         </div>
+
 
 
         <!-- Mappings -->
@@ -3929,7 +4153,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-not-applicable">
                 <div class="item-name">
                     Not applicable
 
@@ -3956,7 +4180,9 @@
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4011,18 +4237,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Endothelial Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4050,18 +4278,20 @@ This pathophysiological event involves Endothelial Cell (CL:0000115). CL:0000115
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Complement Activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Complement Activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Complement Activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4100,7 +4330,9 @@ This pathophysiological event involves Complement Activation (GO:0006956). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38143369" target="_blank">PMID:38143369</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4120,7 +4352,9 @@ This pathophysiological event involves Complement Activation (GO:0006956). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38143369" target="_blank">PMID:38143369</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4151,18 +4385,20 @@ This pathophysiological event involves Complement Activation (GO:0006956). GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves Plasmacytoid Dendritic Cell (CL:0000784). CL:0000784 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         Plasmacytoid Dendritic Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000784" target="_blank" class="curie-chip curie-chip-cl">CL:0000784</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000784" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000784</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Plasmacytoid Dendritic Cell (CL:0000784). CL:0000784 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4190,18 +4426,20 @@ This pathophysiological event involves Plasmacytoid Dendritic Cell (CL:0000784).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Type I Interferon Response, annotated with response to type I interferon (GO:0034340). GO:0034340 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Type I Interferon Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034340" target="_blank" class="curie-chip curie-chip-go">GO:0034340</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034340" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0034340</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Type I Interferon Response, annotated with response to type I interferon (GO:0034340). GO:0034340 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4240,7 +4478,9 @@ This pathophysiological event involves Type I Interferon Response, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38143369" target="_blank">PMID:38143369</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4260,7 +4500,9 @@ This pathophysiological event involves Type I Interferon Response, annotated wit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334579" target="_blank">PMID:39334579</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4298,18 +4540,20 @@ This pathophysiological event involves Type I Interferon Response, annotated wit
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Immunoglobulin Production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Immunoglobulin Production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Immunoglobulin Production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4348,7 +4592,9 @@ This pathophysiological event involves Immunoglobulin Production (GO:0002377). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334579" target="_blank">PMID:39334579</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4379,18 +4625,20 @@ This pathophysiological event involves Immunoglobulin Production (GO:0002377). G
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves CD4+ T Cell, annotated with CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         CD4+ T Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4+ T Cell, annotated with CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4407,18 +4655,20 @@ This pathophysiological event involves CD4+ T Cell, annotated with CD4-positive,
 
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves B Cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         B Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B Cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4446,18 +4696,20 @@ This pathophysiological event involves B Cell (CL:0000236). CL:0000236 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Adaptive Immune Response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Adaptive Immune Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0002250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Adaptive Immune Response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4496,7 +4748,9 @@ This pathophysiological event involves Adaptive Immune Response (GO:0002250). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38143369" target="_blank">PMID:38143369</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4516,7 +4770,9 @@ This pathophysiological event involves Adaptive Immune Response (GO:0002250). GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38143369" target="_blank">PMID:38143369</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4624,16 +4880,20 @@ This pathophysiological event involves Adaptive Immune Response (GO:0002250). GO
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0010783</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from the Human Phenotype Ontology.">
-                        Erythema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" class="curie-chip curie-chip-hp">HP:0010783</a>
-
-
+This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4654,7 +4914,9 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4686,16 +4948,20 @@ This clinical feature is Erythema (HP:0010783). HP:0010783 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001041" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001041</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Facial erythema (HP:0001041). HP:0001041 is a phenotype from the Human Phenotype Ontology.">
-                        Facial erythema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001041" target="_blank" class="curie-chip curie-chip-hp">HP:0001041</a>
-
-
+This clinical feature is Facial erythema (HP:0001041). HP:0001041 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4716,7 +4982,9 @@ This clinical feature is Facial erythema (HP:0001041). HP:0001041 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4748,16 +5016,20 @@ This clinical feature is Facial erythema (HP:0001041). HP:0001041 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0030880</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenotype from the Human Phenotype Ontology.">
-                        Raynaud phenomenon
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank" class="curie-chip curie-chip-hp">HP:0030880</a>
-
-
+This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4778,7 +5050,9 @@ This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenot
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4798,7 +5072,9 @@ This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33599244" target="_blank">PMID:33599244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4830,16 +5106,20 @@ This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012819</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype from the Human Phenotype Ontology.">
-                        Myocarditis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012819" target="_blank" class="curie-chip curie-chip-hp">HP:0012819</a>
-
-
+This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4860,7 +5140,9 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4892,16 +5174,20 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001701</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype from the Human Phenotype Ontology.">
-                        Pericarditis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" class="curie-chip curie-chip-hp">HP:0001701</a>
-
-
+This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4922,7 +5208,9 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -4954,16 +5242,20 @@ This clinical feature is Pericarditis (HP:0001701). HP:0001701 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011675</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.">
-                        Arrhythmia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp">HP:0011675</a>
-
-
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4984,7 +5276,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5016,16 +5310,20 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002633" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002633</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from the Human Phenotype Ontology.">
-                        Vasculitis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002633" target="_blank" class="curie-chip curie-chip-hp">HP:0002633</a>
-
-
+This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5046,7 +5344,9 @@ This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5087,16 +5387,20 @@ This clinical feature is Vasculitis (HP:0002633). HP:0002633 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002015</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphagia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp">HP:0002015</a>
-
-
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5117,7 +5421,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5137,7 +5443,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24695011" target="_blank">PMID:24695011</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5157,7 +5465,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33599244" target="_blank">PMID:33599244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5198,16 +5508,20 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002205</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.">
-                        Recurrent respiratory infections
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp">HP:0002205</a>
-
-
+This clinical feature is Recurrent respiratory infections (HP:0002205). HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5228,7 +5542,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5269,16 +5585,20 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000992</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is a phenotype from the Human Phenotype Ontology.">
-                        Cutaneous photosensitivity
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp">HP:0000992</a>
-
-
+This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5299,7 +5619,9 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5331,16 +5653,20 @@ This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0200042</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.">
-                        Skin ulcer
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp">HP:0200042</a>
-
-
+This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5361,7 +5687,9 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5381,7 +5709,9 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33599244" target="_blank">PMID:33599244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5413,16 +5743,20 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.">
-                        Pruritus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp">HP:0000989</a>
-
-
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5443,7 +5777,9 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5475,16 +5811,20 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001029" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001029</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Poikiloderma (HP:0001029). HP:0001029 is a phenotype from the Human Phenotype Ontology.">
-                        Poikiloderma
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001029" target="_blank" class="curie-chip curie-chip-hp">HP:0001029</a>
-
-
+This clinical feature is Poikiloderma (HP:0001029). HP:0001029 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5505,7 +5845,9 @@ This clinical feature is Poikiloderma (HP:0001029). HP:0001029 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5537,16 +5879,20 @@ This clinical feature is Poikiloderma (HP:0001029). HP:0001029 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001063</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Acrocyanosis (HP:0001063). HP:0001063 is a phenotype from the Human Phenotype Ontology.">
-                        Acrocyanosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001063" target="_blank" class="curie-chip curie-chip-hp">HP:0001063</a>
-
-
+This clinical feature is Acrocyanosis (HP:0001063). HP:0001063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5567,7 +5913,9 @@ This clinical feature is Acrocyanosis (HP:0001063). HP:0001063 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5599,16 +5947,20 @@ This clinical feature is Acrocyanosis (HP:0001063). HP:0001063 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001597" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001597</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal nail morphology (HP:0001597). HP:0001597 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal nail morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001597" target="_blank" class="curie-chip curie-chip-hp">HP:0001597</a>
-
-
+This clinical feature is Abnormal nail morphology (HP:0001597). HP:0001597 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5629,7 +5981,9 @@ This clinical feature is Abnormal nail morphology (HP:0001597). HP:0001597 is a 
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5661,16 +6015,20 @@ This clinical feature is Abnormal nail morphology (HP:0001597). HP:0001597 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000958</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from the Human Phenotype Ontology.">
-                        Dry skin
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" class="curie-chip curie-chip-hp">HP:0000958</a>
-
-
+This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5691,7 +6049,9 @@ This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5732,16 +6092,20 @@ This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001945</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.">
-                        Fever
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp">HP:0001945</a>
-
-
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5762,7 +6126,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5794,16 +6160,22 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003236</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating creatine kinase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp">HP:0003236</a>
-
-
+This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5824,7 +6196,9 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5856,16 +6230,22 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002910</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating hepatic transaminase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp">HP:0002910</a>
-
-
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5886,7 +6266,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -5916,16 +6298,22 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating ferritin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003281</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating ferritin concentration (HP:0003281). HP:0003281 is a phenotype from the Human Phenotype Ontology.">
-                        Increased circulating ferritin concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003281" target="_blank" class="curie-chip curie-chip-hp">HP:0003281</a>
-
-
+This clinical feature is Increased circulating ferritin concentration (HP:0003281). HP:0003281 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5946,7 +6334,9 @@ This clinical feature is Increased circulating ferritin concentration (HP:000328
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38456909" target="_blank">PMID:38456909</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5989,16 +6379,20 @@ This clinical feature is Increased circulating ferritin concentration (HP:000328
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003701</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.">
-                        Proximal muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp">HP:0003701</a>
-
-
+This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6019,7 +6413,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6039,7 +6435,9 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37153943" target="_blank">PMID:37153943</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6071,16 +6469,20 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.">
-                        Hypotonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp">HP:0001252</a>
-
-
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6101,7 +6503,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6133,16 +6537,20 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002747</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory insufficiency due to muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002747" target="_blank" class="curie-chip curie-chip-hp">HP:0002747</a>
-
-
+This clinical feature is Respiratory insufficiency due to muscle weakness (HP:0002747). HP:0002747 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6163,7 +6571,9 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6177,13 +6587,15 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24695011" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24695011" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24695011" target="_blank">PMID:24695011</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6215,16 +6627,20 @@ This clinical feature is Respiratory insufficiency due to muscle weakness (HP:00
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001369</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.">
-                        Arthritis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp">HP:0001369</a>
-
-
+This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6245,7 +6661,9 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6265,7 +6683,9 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24695011" target="_blank">PMID:24695011</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6297,16 +6717,20 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0025520</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Calcinosis cutis (HP:0025520). HP:0025520 is a phenotype from the Human Phenotype Ontology.">
-                        Calcinosis cutis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025520" target="_blank" class="curie-chip curie-chip-hp">HP:0025520</a>
-
-
+This clinical feature is Calcinosis cutis (HP:0025520). HP:0025520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6329,7 +6753,9 @@ This clinical feature is Calcinosis cutis (HP:0025520). HP:0025520 is a phenotyp
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6349,7 +6775,9 @@ This clinical feature is Calcinosis cutis (HP:0025520). HP:0025520 is a phenotyp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38929957" target="_blank">PMID:38929957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6390,16 +6818,20 @@ This clinical feature is Calcinosis cutis (HP:0025520). HP:0025520 is a phenotyp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002206</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.">
-                        Pulmonary fibrosis
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp">HP:0002206</a>
-
-
+This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6420,7 +6852,9 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6440,7 +6874,9 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38456909" target="_blank">PMID:38456909</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6460,7 +6896,9 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334579" target="_blank">PMID:39334579</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6492,16 +6930,20 @@ This clinical feature is Pulmonary fibrosis (HP:0002206). HP:0002206 is a phenot
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.">
-                        Respiratory insufficiency
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp">HP:0002093</a>
-
-
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6522,7 +6964,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6554,16 +6998,20 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006530" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0006530</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal pulmonary interstitial morphology (HP:0006530). HP:0006530 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal pulmonary interstitial morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006530" target="_blank" class="curie-chip curie-chip-hp">HP:0006530</a>
-
-
+This clinical feature is Abnormal pulmonary interstitial morphology (HP:0006530). HP:0006530 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6584,7 +7032,9 @@ This clinical feature is Abnormal pulmonary interstitial morphology (HP:0006530)
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6625,16 +7075,20 @@ This clinical feature is Abnormal pulmonary interstitial morphology (HP:0006530)
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.">
-                        Myalgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp">HP:0003326</a>
-
-
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6655,7 +7109,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6675,7 +7131,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24695011" target="_blank">PMID:24695011</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6707,16 +7165,20 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.">
-                        Arthralgia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp">HP:0002829</a>
-
-
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6737,7 +7199,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6769,16 +7233,20 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.">
-                        Fatigue
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp">HP:0012378</a>
-
-
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6799,7 +7267,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6840,16 +7310,20 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6870,7 +7344,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6911,16 +7387,22 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002664</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.">
-                        Neoplasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp">HP:0002664</a>
-
-
+This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6941,7 +7423,9 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6961,7 +7445,9 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33599244" target="_blank">PMID:33599244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -6981,7 +7467,9 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33599244" target="_blank">PMID:33599244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7022,16 +7510,20 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003325</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is a phenotype from the Human Phenotype Ontology.">
-                        Limb-girdle muscle weakness
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003325" target="_blank" class="curie-chip curie-chip-hp">HP:0003325</a>
-
-
+This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7052,7 +7544,9 @@ This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7084,16 +7578,20 @@ This clinical feature is Limb-girdle muscle weakness (HP:0003325). HP:0003325 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0009071</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Inflammatory myopathy (HP:0009071). HP:0009071 is a phenotype from the Human Phenotype Ontology.">
-                        Inflammatory myopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009071" target="_blank" class="curie-chip curie-chip-hp">HP:0009071</a>
-
-
+This clinical feature is Inflammatory myopathy (HP:0009071). HP:0009071 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7114,7 +7612,9 @@ This clinical feature is Inflammatory myopathy (HP:0009071). HP:0009071 is a phe
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7146,16 +7646,20 @@ This clinical feature is Inflammatory myopathy (HP:0009071). HP:0009071 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0040324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Heliotrope rash (HP:0040324). HP:0040324 is a phenotype from the Human Phenotype Ontology.">
-                        Heliotrope rash
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040324" target="_blank" class="curie-chip curie-chip-hp">HP:0040324</a>
-
-
+This clinical feature is Heliotrope rash (HP:0040324). HP:0040324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7176,7 +7680,9 @@ This clinical feature is Heliotrope rash (HP:0040324). HP:0040324 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7196,7 +7702,9 @@ This clinical feature is Heliotrope rash (HP:0040324). HP:0040324 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37153943" target="_blank">PMID:37153943</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7228,16 +7736,20 @@ This clinical feature is Heliotrope rash (HP:0040324). HP:0040324 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0025508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gottron&#39;s papules (HP:0025508). HP:0025508 is a phenotype from the Human Phenotype Ontology.">
-                        Gottron&#39;s papules
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025508" target="_blank" class="curie-chip curie-chip-hp">HP:0025508</a>
-
-
+This clinical feature is Gottron&#39;s papules (HP:0025508). HP:0025508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7258,7 +7770,9 @@ This clinical feature is Gottron&#39;s papules (HP:0025508). HP:0025508 is a phe
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7278,7 +7792,9 @@ This clinical feature is Gottron&#39;s papules (HP:0025508). HP:0025508 is a phe
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37153943" target="_blank">PMID:37153943</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7310,16 +7826,20 @@ This clinical feature is Gottron&#39;s papules (HP:0025508). HP:0025508 is a phe
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0430033" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0430033</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Gottron sign (HP:0430033). HP:0430033 is a phenotype from the Human Phenotype Ontology.">
-                        Gottron sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0430033" target="_blank" class="curie-chip curie-chip-hp">HP:0430033</a>
-
-
+This clinical feature is Gottron sign (HP:0430033). HP:0430033 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7340,7 +7860,9 @@ This clinical feature is Gottron sign (HP:0430033). HP:0430033 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7372,16 +7894,20 @@ This clinical feature is Gottron sign (HP:0430033). HP:0430033 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100539" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0100539</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Periorbital edema (HP:0100539). HP:0100539 is a phenotype from the Human Phenotype Ontology.">
-                        Periorbital edema
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100539" target="_blank" class="curie-chip curie-chip-hp">HP:0100539</a>
-
-
+This clinical feature is Periorbital edema (HP:0100539). HP:0100539 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7402,7 +7928,9 @@ This clinical feature is Periorbital edema (HP:0100539). HP:0100539 is a phenoty
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7434,16 +7962,20 @@ This clinical feature is Periorbital edema (HP:0100539). HP:0100539 is a phenoty
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0025536</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is V-sign (HP:0025536). HP:0025536 is a phenotype from the Human Phenotype Ontology.">
-                        V-sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025536" target="_blank" class="curie-chip curie-chip-hp">HP:0025536</a>
-
-
+This clinical feature is V-sign (HP:0025536). HP:0025536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7464,7 +7996,9 @@ This clinical feature is V-sign (HP:0025536). HP:0025536 is a phenotype from the
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7496,16 +8030,20 @@ This clinical feature is V-sign (HP:0025536). HP:0025536 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0025535</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Shawl sign (HP:0025535). HP:0025535 is a phenotype from the Human Phenotype Ontology.">
-                        Shawl sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025535" target="_blank" class="curie-chip curie-chip-hp">HP:0025535</a>
-
-
+This clinical feature is Shawl sign (HP:0025535). HP:0025535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7526,7 +8064,9 @@ This clinical feature is Shawl sign (HP:0025535). HP:0025535 is a phenotype from
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7558,16 +8098,20 @@ This clinical feature is Shawl sign (HP:0025535). HP:0025535 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:6000006</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Holster sign (HP:6000006). HP:6000006 is a phenotype from the Human Phenotype Ontology.">
-                        Holster sign
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000006" target="_blank" class="curie-chip curie-chip-hp">HP:6000006</a>
-
-
+This clinical feature is Holster sign (HP:6000006). HP:6000006 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7588,7 +8132,9 @@ This clinical feature is Holster sign (HP:6000006). HP:6000006 is a phenotype fr
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7620,16 +8166,20 @@ This clinical feature is Holster sign (HP:6000006). HP:6000006 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001618</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.">
-                        Dysphonia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp">HP:0001618</a>
-
-
+This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7650,7 +8200,9 @@ This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from 
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7682,16 +8234,22 @@ This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating aldolase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012544" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0012544</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating aldolase concentration (HP:0012544). HP:0012544 is a phenotype from the Human Phenotype Ontology.">
-                        Elevated circulating aldolase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012544" target="_blank" class="curie-chip curie-chip-hp">HP:0012544</a>
-
-
+This clinical feature is Elevated circulating aldolase concentration (HP:0012544). HP:0012544 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7712,7 +8270,9 @@ This clinical feature is Elevated circulating aldolase concentration (HP:0012544
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7744,16 +8304,22 @@ This clinical feature is Elevated circulating aldolase concentration (HP:0012544
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating lactate dehydrogenase concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025435" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0025435</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating lactate dehydrogenase concentration (HP:0025435). HP:0025435 is a phenotype from the Human Phenotype Ontology.">
-                        Increased circulating lactate dehydrogenase concentration
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025435" target="_blank" class="curie-chip curie-chip-hp">HP:0025435</a>
-
-
+This clinical feature is Increased circulating lactate dehydrogenase concentration (HP:0025435). HP:0025435 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7774,7 +8340,9 @@ This clinical feature is Increased circulating lactate dehydrogenase concentrati
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7806,16 +8374,20 @@ This clinical feature is Increased circulating lactate dehydrogenase concentrati
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003457" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0003457</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is EMG abnormality (HP:0003457). HP:0003457 is a phenotype from the Human Phenotype Ontology.">
-                        EMG abnormality
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003457" target="_blank" class="curie-chip curie-chip-hp">HP:0003457</a>
-
-
+This clinical feature is EMG abnormality (HP:0003457). HP:0003457 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7836,7 +8408,9 @@ This clinical feature is EMG abnormality (HP:0003457). HP:0003457 is a phenotype
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7868,16 +8442,20 @@ This clinical feature is EMG abnormality (HP:0003457). HP:0003457 is a phenotype
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0002207</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Diffuse reticular or finely nodular infiltrations (HP:0002207). HP:0002207 is a phenotype from the Human Phenotype Ontology.">
-                        Diffuse reticular or finely nodular infiltrations
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002207" target="_blank" class="curie-chip curie-chip-hp">HP:0002207</a>
-
-
+This clinical feature is Diffuse reticular or finely nodular infiltrations (HP:0002207). HP:0002207 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7898,7 +8476,9 @@ This clinical feature is Diffuse reticular or finely nodular infiltrations (HP:0
                         <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -7989,15 +8569,17 @@ This clinical feature is Diffuse reticular or finely nodular infiltrations (HP:0
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is TRIM33 (hgnc:16290). hgnc:16290 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TRIM33
 
 
-    <a href="https://bioregistry.io/hgnc:16290" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16290</a>
+    <a href="https://bioregistry.io/hgnc:16290" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:16290</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TRIM33 (hgnc:16290). hgnc:16290 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8019,7 +8601,9 @@ This disease-associated gene is TRIM33 (hgnc:16290). hgnc:16290 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31279808" target="_blank">PMID:31279808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8054,15 +8638,17 @@ This disease-associated gene is TRIM33 (hgnc:16290). hgnc:16290 is a gene from t
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is IFIH1 (hgnc:18873). hgnc:18873 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IFIH1
 
 
-    <a href="https://bioregistry.io/hgnc:18873" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:18873</a>
+    <a href="https://bioregistry.io/hgnc:18873" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:18873</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IFIH1 (hgnc:18873). hgnc:18873 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8084,7 +8670,9 @@ This disease-associated gene is IFIH1 (hgnc:18873). hgnc:18873 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31279808" target="_blank">PMID:31279808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8119,15 +8707,17 @@ This disease-associated gene is IFIH1 (hgnc:18873). hgnc:18873 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CHD4 (hgnc:1919). hgnc:1919 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CHD4
 
 
-    <a href="https://bioregistry.io/hgnc:1919" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:1919</a>
+    <a href="https://bioregistry.io/hgnc:1919" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:1919</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHD4 (hgnc:1919). hgnc:1919 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8149,7 +8739,9 @@ This disease-associated gene is CHD4 (hgnc:1919). hgnc:1919 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31279808" target="_blank">PMID:31279808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8184,15 +8776,17 @@ This disease-associated gene is CHD4 (hgnc:1919). hgnc:1919 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MORC3 (hgnc:23572). hgnc:23572 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MORC3
 
 
-    <a href="https://bioregistry.io/hgnc:23572" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:23572</a>
+    <a href="https://bioregistry.io/hgnc:23572" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:23572</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MORC3 (hgnc:23572). hgnc:23572 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8214,7 +8808,9 @@ This disease-associated gene is MORC3 (hgnc:23572). hgnc:23572 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31279808" target="_blank">PMID:31279808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8234,7 +8830,9 @@ This disease-associated gene is MORC3 (hgnc:23572). hgnc:23572 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33599244" target="_blank">PMID:33599244</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8271,15 +8869,17 @@ This disease-associated gene is MORC3 (hgnc:23572). hgnc:23572 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is SAE1 (hgnc:30660). hgnc:30660 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SAE1
 
 
-    <a href="https://bioregistry.io/hgnc:30660" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:30660</a>
+    <a href="https://bioregistry.io/hgnc:30660" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:30660</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SAE1 (hgnc:30660). hgnc:30660 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8301,7 +8901,9 @@ This disease-associated gene is SAE1 (hgnc:30660). hgnc:30660 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31279808" target="_blank">PMID:31279808</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8329,6 +8931,9 @@ This disease-associated gene is SAE1 (hgnc:30660). hgnc:30660 is a gene from the
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8345,17 +8950,17 @@ This disease-associated gene is SAE1 (hgnc:30660). hgnc:30660 is a gene from the
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8380,21 +8985,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         prednisolone
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8378" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8378</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8378" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-62">CHEBI:8378</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8417,7 +9032,9 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670084" target="_blank">PMID:30670084</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8447,17 +9064,17 @@ This treatment uses prednisolone (CHEBI:8378). CHEBI:8378 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8482,21 +9099,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         methotrexate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-64">CHEBI:44185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8517,17 +9144,17 @@ This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic age
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8552,21 +9179,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         azathioprine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:2948</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2948" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-66">CHEBI:2948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8589,7 +9226,9 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37153943" target="_blank">PMID:37153943</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8617,17 +9256,17 @@ This treatment uses azathioprine (CHEBI:2948). CHEBI:2948 is a therapeutic agent
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8652,21 +9291,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         mycophenolate mofetil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:8764</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8764" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-68">CHEBI:8764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8689,7 +9338,9 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37153943" target="_blank">PMID:37153943</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8717,17 +9368,17 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -8752,21 +9403,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         hydroxychloroquine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:5801</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5801" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-70">CHEBI:5801</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8787,18 +9448,18 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-71">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-71">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -8816,6 +9477,14 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8840,7 +9509,9 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670084" target="_blank">PMID:30670084</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8870,18 +9541,18 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-72">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-72">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">immunotherapy</span>
+This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunotherapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.">NCIT:C15262</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15262" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15262">NCIT:C15262</a>
 
 
 
@@ -8906,21 +9577,31 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-73">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8937,13 +9618,15 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39334579" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39334579" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334579" target="_blank">PMID:39334579</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -8971,17 +9654,17 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-74">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9006,21 +9689,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         tofacitinib
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71200" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:71200</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71200" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-75">CHEBI:71200</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9043,7 +9736,9 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38576610" target="_blank">PMID:38576610</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9057,13 +9752,15 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38456909" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38456909" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38456909" target="_blank">PMID:38456909</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9077,13 +9774,15 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38456909" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38456909" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38456909" target="_blank">PMID:38456909</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                 </div>
@@ -9113,18 +9812,18 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-76">treat-to-target management strategy<span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is treat-to-target management strategy, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">treat-to-target management strategy</span>
+This treatment is treat-to-target management strategy, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is treat-to-target management strategy, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9142,6 +9841,14 @@ This treatment is treat-to-target management strategy, annotated with Supportive
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9166,7 +9873,9 @@ This treatment is treat-to-target management strategy, annotated with Supportive
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40410052" target="_blank">PMID:40410052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9188,7 +9897,9 @@ This treatment is treat-to-target management strategy, annotated with Supportive
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40410052" target="_blank">PMID:40410052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9218,18 +9929,18 @@ This treatment is treat-to-target management strategy, annotated with Supportive
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-77">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-77">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">physical therapy</span>
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.">NCIT:C15302</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15302" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15302">NCIT:C15302</a>
 
 
 
@@ -9247,6 +9958,14 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9271,7 +9990,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670084" target="_blank">PMID:30670084</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9293,7 +10014,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30670084" target="_blank">PMID:30670084</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9419,6 +10142,298 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
         </div>
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states">
+                <div class="item-name">United States</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1.1 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 per year</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34549549" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34549549" target="_blank">PMID:34549549</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The overall adjusted incidence of DM was 1.1 (95% CI 0.7-1.5) per 100,000 person-years, and prevalence was 13 (95% CI 6-19) per 100,000."</div>
+
+
+                <div class="evidence-explanation">Population-based cohort study from Olmsted County using EULAR/ACR criteria.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:221" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | United States | Annual incidence | PMID:34549549"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology data for dermatomyositis in the United States.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-norway">
+                <div class="item-name">Norway</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        8.7 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24695011" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24695011" target="_blank">PMID:24695011</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"point prevalence of PM/DM was calculated to 8.7/100 000"</div>
+
+
+                <div class="evidence-explanation">Unselected Norwegian population study identifying all PM/DM patients in southeast Norway (denominator 2.64 million).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:221" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | Norway | Point prevalence | PMID:24695011"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology data for dermatomyositis in Norway.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-sweden">
+                <div class="item-name">Sweden</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.6&ndash;1.0 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000 per year</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:221" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 1 000 000 | Sweden | Annual incidence | PMID:28160487"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology data based on Swedish nationwide population-based study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-argentina">
+                <div class="item-name">Argentina</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.1&ndash;0.9 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000 per year</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:221" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:221" target="_blank">ORPHA:221</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 1 000 000 | Argentina | Annual incidence | PMID:23965482"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology data for dermatomyositis in Argentina.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -9431,7 +10446,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse221091">
                 <div class="item-name">
                     RNA-Seq of CD19+ B-cell, CD14+ monocyte, CD4+ and CD8+ T cell populations from patients with juvenile dermatomyositis and controls
 
@@ -9474,7 +10489,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse318067">
                 <div class="item-name">
                     Analysis of peripheral blood transcript and protein expression across adult systemic lupus erythematosus (SLE) and adult dermatomyositis (DM) patients, each compared to respective healthy matched control subjects.
 
@@ -9517,7 +10532,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-geo-gse303609">
                 <div class="item-name">
                     Dermatomyositis is characterized by JAK1-mediated monocyte-driven vasculopathy and inflammation
 
@@ -9560,7 +10575,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas50000001367">
                 <div class="item-name">
                     Frequent Genetic Alterations in Myositis Autoantigen Genes in Cancer-Associated Dermatomyositis
 
@@ -9625,7 +10640,6 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Dermatomyositis
 creation_date: &#39;2025-12-19T01:12:52Z&#39;
-updated_date: &#39;2026-04-30T12:00:00Z&#39;
 category: Autoimmune
 parents:
 - Autoimmune Disease
@@ -9795,7 +10809,7 @@ prevalence:
       person-years, and prevalence was 13 (95% CI 6-19) per 100,000.
     explanation: Population-based cohort study from Olmsted County using EULAR/ACR criteria.
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;1-9 / 100 000 | United States | Annual incidence | PMID:34549549&#34;
     explanation: Orphanet epidemiology data for dermatomyositis in the United States.
@@ -9814,7 +10828,7 @@ prevalence:
       Unselected Norwegian population study identifying all PM/DM patients
       in southeast Norway (denominator 2.64 million).
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;1-9 / 100 000 | Norway | Point prevalence | PMID:24695011&#34;
     explanation: Orphanet epidemiology data for dermatomyositis in Norway.
@@ -9826,7 +10840,7 @@ prevalence:
   percentage: &#34;6-10 per 1,000,000 (annual incidence)&#34;
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;1-9 / 1 000 000 | Sweden | Annual incidence | PMID:28160487&#34;
     explanation: Orphanet epidemiology data based on Swedish nationwide population-based study.
@@ -9838,7 +10852,7 @@ prevalence:
   percentage: &#34;1-9 per 1,000,000 (annual incidence)&#34;
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;1-9 / 1 000 000 | Argentina | Annual incidence | PMID:23965482&#34;
     explanation: Orphanet epidemiology data for dermatomyositis in Argentina.
@@ -9850,7 +10864,7 @@ inheritance:
     not follow a Mendelian pattern.
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;Not applicable&#34;
     explanation: Orphanet classifies dermatomyositis inheritance as not applicable.
@@ -9869,7 +10883,7 @@ phenotypes:
       label: Proximal muscle weakness
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0003701 | Proximal muscle weakness | Very frequent (99-80%)&#34;
     explanation: Orphanet classifies proximal muscle weakness as very frequent (99-80%) in dermatomyositis.
@@ -9890,7 +10904,7 @@ phenotypes:
       label: Limb-girdle muscle weakness
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0003325 | Limb-girdle muscle weakness | Very frequent (99-80%)&#34;
     explanation: Orphanet classifies limb-girdle weakness as very frequent in dermatomyositis.
@@ -9905,7 +10919,7 @@ phenotypes:
       label: Myalgia
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0003326 | Myalgia | Very frequent (99-80%)&#34;
     explanation: Orphanet classifies myalgia as very frequent in dermatomyositis.
@@ -9926,7 +10940,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001252 | Hypotonia | Frequent (79-30%)&#34;
     explanation: Orphanet classifies hypotonia as frequent in dermatomyositis.
@@ -9940,7 +10954,7 @@ phenotypes:
       label: Inflammatory myopathy
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0009071 | Inflammatory myopathy | Very frequent (99-80%)&#34;
     explanation: Orphanet classifies inflammatory myopathy as very frequent in dermatomyositis.
@@ -9957,7 +10971,7 @@ phenotypes:
       label: Heliotrope rash
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0040324 | Heliotrope rash | Frequent (79-30%)&#34;
     explanation: Orphanet classifies heliotrope rash as frequent in dermatomyositis.
@@ -9981,7 +10995,7 @@ phenotypes:
       label: Gottron&#39;s papules
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0025508 | Gottron&#39;s papules | Frequent (79-30%)&#34;
     explanation: Orphanet classifies Gottron&#39;s papules as frequent in dermatomyositis.
@@ -10005,7 +11019,7 @@ phenotypes:
       label: Gottron sign
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0430033 | Gottron sign | Occasional (29-5%)&#34;
     explanation: Orphanet classifies Gottron sign as occasional in dermatomyositis.
@@ -10022,7 +11036,7 @@ phenotypes:
       label: Periorbital edema
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0100539 | Periorbital edema | Very frequent (99-80%)&#34;
     explanation: Orphanet classifies periorbital edema as very frequent in dermatomyositis.
@@ -10036,7 +11050,7 @@ phenotypes:
       label: Erythema
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0010783 | Erythema | Very frequent (99-80%)&#34;
     explanation: Orphanet classifies erythema as very frequent in dermatomyositis.
@@ -10050,7 +11064,7 @@ phenotypes:
       label: Facial erythema
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001041 | Facial erythema | Frequent (79-30%)&#34;
     explanation: Orphanet classifies facial erythema as frequent in dermatomyositis.
@@ -10066,7 +11080,7 @@ phenotypes:
       label: V-sign
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0025536 | V-sign | Occasional (29-5%)&#34;
     explanation: Orphanet classifies V-sign as occasional in dermatomyositis.
@@ -10083,7 +11097,7 @@ phenotypes:
       label: Shawl sign
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0025535 | Shawl sign | Frequent (79-30%)&#34;
     explanation: Orphanet classifies shawl sign as frequent in dermatomyositis.
@@ -10099,7 +11113,7 @@ phenotypes:
       label: Holster sign
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:6000006 | Holster sign | Occasional (29-5%)&#34;
     explanation: Orphanet classifies holster sign as occasional in dermatomyositis.
@@ -10113,7 +11127,7 @@ phenotypes:
       label: Cutaneous photosensitivity
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000992 | Cutaneous photosensitivity | Occasional (29-5%)&#34;
     explanation: Orphanet classifies cutaneous photosensitivity as occasional in dermatomyositis.
@@ -10129,7 +11143,7 @@ phenotypes:
       label: Skin ulcer
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0200042 | Skin ulcer | Frequent (79-30%)&#34;
     explanation: Orphanet classifies skin ulcer as frequent in dermatomyositis.
@@ -10151,7 +11165,7 @@ phenotypes:
       label: Pruritus
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000989 | Pruritus | Frequent (79-30%)&#34;
     explanation: Orphanet classifies pruritus as frequent in dermatomyositis.
@@ -10165,7 +11179,7 @@ phenotypes:
       label: Poikiloderma
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001029 | Poikiloderma | Occasional (29-5%)&#34;
     explanation: Orphanet classifies poikiloderma as occasional in dermatomyositis.
@@ -10179,7 +11193,7 @@ phenotypes:
       label: Acrocyanosis
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001063 | Acrocyanosis | Frequent (79-30%)&#34;
     explanation: Orphanet classifies acrocyanosis as frequent in dermatomyositis.
@@ -10196,7 +11210,7 @@ phenotypes:
       label: Raynaud phenomenon
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0030880 | Raynaud phenomenon | Occasional (29-5%)&#34;
     explanation: Orphanet classifies Raynaud phenomenon as occasional in dermatomyositis.
@@ -10221,7 +11235,7 @@ phenotypes:
       label: Pulmonary fibrosis
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002206 | Pulmonary fibrosis | Frequent (79-30%)&#34;
     explanation: Orphanet classifies pulmonary fibrosis as frequent in dermatomyositis.
@@ -10253,7 +11267,7 @@ phenotypes:
       label: Respiratory insufficiency
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002093 | Respiratory insufficiency | Frequent (79-30%)&#34;
     explanation: Orphanet classifies respiratory insufficiency as frequent in dermatomyositis.
@@ -10270,13 +11284,13 @@ phenotypes:
       label: Respiratory insufficiency due to muscle weakness
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002747 | Respiratory insufficiency due to muscle weakness | Frequent (79-30%)&#34;
     explanation: Orphanet classifies respiratory muscle weakness as frequent in dermatomyositis.
   - reference: PMID:24695011
     reference_title: &#34;Prevalence and clinical characteristics of adult polymyositis and dermatomyositis; data from a large and unselected Norwegian cohort.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &gt;-
       Frequent clinical features included myalgia (75%), arthritis (41%)
       dyspnoea (62%) and dysphagia (58%).
@@ -10298,7 +11312,7 @@ phenotypes:
       label: Dysphagia
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002015 | Dysphagia | Occasional (29-5%)&#34;
     explanation: &gt;-
@@ -10329,7 +11343,7 @@ phenotypes:
       label: Dysphonia
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001618 | Dysphonia | Occasional (29-5%)&#34;
     explanation: Orphanet classifies dysphonia as occasional in dermatomyositis.
@@ -10344,7 +11358,7 @@ phenotypes:
       label: Arthralgia
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002829 | Arthralgia | Frequent (79-30%)&#34;
     explanation: Orphanet classifies arthralgia as frequent in dermatomyositis.
@@ -10358,7 +11372,7 @@ phenotypes:
       label: Arthritis
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001369 | Arthritis | Frequent (79-30%)&#34;
     explanation: Orphanet classifies arthritis as frequent in dermatomyositis.
@@ -10379,7 +11393,7 @@ phenotypes:
       label: Fatigue
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0012378 | Fatigue | Frequent (79-30%)&#34;
     explanation: Orphanet classifies fatigue as frequent in dermatomyositis.
@@ -10393,7 +11407,7 @@ phenotypes:
       label: Weight loss
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001824 | Weight loss | Frequent (79-30%)&#34;
     explanation: Orphanet classifies weight loss as frequent in dermatomyositis.
@@ -10407,7 +11421,7 @@ phenotypes:
       label: Fever
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001945 | Fever | Occasional (29-5%)&#34;
     explanation: Orphanet classifies fever as occasional in dermatomyositis.
@@ -10425,7 +11439,7 @@ phenotypes:
       label: Neoplasm
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002664 | Neoplasm | Occasional (29-5%)&#34;
     explanation: Orphanet classifies neoplasm as occasional in dermatomyositis.
@@ -10458,7 +11472,7 @@ phenotypes:
       label: Myocarditis
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0012819 | Myocarditis | Occasional (29-5%)&#34;
     explanation: Orphanet classifies myocarditis as occasional in dermatomyositis.
@@ -10472,7 +11486,7 @@ phenotypes:
       label: Pericarditis
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001701 | Pericarditis | Occasional (29-5%)&#34;
     explanation: Orphanet classifies pericarditis as occasional in dermatomyositis.
@@ -10486,7 +11500,7 @@ phenotypes:
       label: Arrhythmia
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0011675 | Arrhythmia | Occasional (29-5%)&#34;
     explanation: Orphanet classifies arrhythmia as occasional in dermatomyositis.
@@ -10500,7 +11514,7 @@ phenotypes:
       label: Vasculitis
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002633 | Vasculitis | Occasional (29-5%)&#34;
     explanation: Orphanet classifies vasculitis as occasional in dermatomyositis.
@@ -10514,7 +11528,7 @@ phenotypes:
       label: Elevated circulating creatine kinase concentration
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0003236 | Elevated circulating creatine kinase concentration | Frequent (79-30%)&#34;
     explanation: Orphanet classifies elevated CK as frequent in dermatomyositis.
@@ -10534,7 +11548,7 @@ phenotypes:
       label: Elevated circulating aldolase concentration
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0012544 | Elevated circulating aldolase concentration | Frequent (79-30%)&#34;
     explanation: Orphanet classifies elevated aldolase as frequent in dermatomyositis.
@@ -10554,7 +11568,7 @@ phenotypes:
       label: Increased circulating lactate dehydrogenase concentration
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0025435 | Increased circulating lactate dehydrogenase concentration | Frequent (79-30%)&#34;
     explanation: Orphanet classifies elevated LDH as frequent in dermatomyositis.
@@ -10574,7 +11588,7 @@ phenotypes:
       label: Elevated circulating hepatic transaminase concentration
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002910 | Elevated circulating hepatic transaminase concentration | Frequent (79-30%)&#34;
     explanation: Orphanet classifies elevated transaminases as frequent in dermatomyositis.
@@ -10616,7 +11630,7 @@ phenotypes:
     cutis is the more precise term for DM-associated dystrophic calcification.
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000934 | Chondrocalcinosis | Frequent (79-30%)&#34;
     explanation: &gt;-
@@ -10645,7 +11659,7 @@ phenotypes:
       label: EMG abnormality
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0003457 | EMG abnormality | Very frequent (99-80%)&#34;
     explanation: Orphanet classifies EMG abnormality as very frequent in dermatomyositis.
@@ -10662,7 +11676,7 @@ phenotypes:
       label: Abnormal nail morphology
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001597 | Abnormality of the nail | Frequent (79-30%)&#34;
     explanation: Orphanet classifies nail abnormalities as frequent in dermatomyositis.
@@ -10676,7 +11690,7 @@ phenotypes:
       label: Recurrent respiratory infections
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002205 | Recurrent respiratory infections | Frequent (79-30%)&#34;
     explanation: Orphanet classifies recurrent respiratory infections as frequent in dermatomyositis.
@@ -10690,7 +11704,7 @@ phenotypes:
       label: Diffuse reticular or finely nodular infiltrations
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0002207 | Diffuse reticular or finely nodular infiltrations | Frequent (79-30%)&#34;
     explanation: Orphanet classifies diffuse reticular infiltrations as frequent in dermatomyositis.
@@ -10704,7 +11718,7 @@ phenotypes:
       label: Abnormal pulmonary interstitial morphology
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0006530 | Abnormal pulmonary interstitial morphology | Frequent (79-30%)&#34;
     explanation: Orphanet classifies abnormal pulmonary interstitial morphology as frequent in dermatomyositis.
@@ -10718,7 +11732,7 @@ phenotypes:
       label: Dry skin
   evidence:
   - reference: ORPHA:221
-    reference_title: &#34;Dermatomyositis (Orphanet structured-database record)&#34;
+    reference_title: &#34;Dermatomyositis&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000958 | Dry skin | Frequent (79-30%)&#34;
     explanation: Orphanet classifies dry skin as frequent in dermatomyositis.
@@ -10979,7 +11993,7 @@ treatments:
   evidence:
   - reference: PMID:39334579
     reference_title: &#34;Advances in Juvenile Dermatomyositis: Pathophysiology, Diagnosis, Treatment and Interstitial Lung Diseases-A Narrative Review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &gt;-
       Rituximab and JAKi may reduce mortality in patients with JDM-associated
       RP-ILD refractory to conventional therapy.
@@ -11013,7 +12027,7 @@ treatments:
       patients.
   - reference: PMID:38456909
     reference_title: &#34;Baricitinib for anti-melanoma differentiation-associated protein 5 antibody-positive dermatomyositis-associated interstitial lung disease: a case series and literature review on Janus kinase inhibitors for the disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &gt;-
       We treated three patients with anti-MDA5-DM-associated ILD (anti-MDA5-DM-ILD)
       using the Janus kinase (JAK) inhibitor, baricitinib, which improved lung
@@ -11023,7 +12037,7 @@ treatments:
       treating severe anti-MDA5 associated interstitial lung disease.
   - reference: PMID:38456909
     reference_title: &#34;Baricitinib for anti-melanoma differentiation-associated protein 5 antibody-positive dermatomyositis-associated interstitial lung disease: a case series and literature review on Janus kinase inhibitors for the disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &gt;-
       All patients except one were treated with tofacitinib, and the survival
       rate was 75.9%.
@@ -11033,7 +12047,7 @@ treatments:
       use in this life-threatening complication.
   - reference: PMID:38456909
     reference_title: &#34;Baricitinib for anti-melanoma differentiation-associated protein 5 antibody-positive dermatomyositis-associated interstitial lung disease: a case series and literature review on Janus kinase inhibitors for the disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Cytomegalovirus reactivation comprised a substantial percentage of all
@@ -11045,7 +12059,7 @@ treatments:
       discontinuation.
   - reference: PMID:38576610
     reference_title: &#34;Therapeutic efficacy and safety of JAK inhibitors in treating polymyositis/dermatomyositis: a single-arm systemic meta-analysis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       For safety evaluation, one patient developed Orolabial HSV, and two
@@ -11743,7 +12757,7 @@ Dermatomyositis is a systemic autoimmune microangiopathy of skin, skeletal muscl
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dermatomyositis", "mondoId": "MONDO:0016367", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatomyositis", "yamlRevision": "85c7f8878c40"};
+        const OS_CONFIG = {"diseaseName": "Dermatomyositis", "mondoId": "MONDO:0016367", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatomyositis", "yamlRevision": "a5f07fee6de5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12162,5 +13176,73 @@ Dermatomyositis is a systemic autoimmune microangiopathy of skin, skeletal muscl
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

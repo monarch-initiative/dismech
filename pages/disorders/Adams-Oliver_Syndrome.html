@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Adams-Oliver Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Adams-Oliver Syndrome</h1>
             <div class="header-meta">
 
@@ -3942,6 +4089,76 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
@@ -3951,9 +4168,25 @@
 
 
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ISDS Skeletal Nosology</div>
 
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="ISDS Nosology and Classification of Genetic Skeletal Disorders, 2019 revision (Mortier et al., PMID:31633310), Table 1 group 39 &#34;Limb hypoplasia-reduction defects group&#34;; listed as &#34;Adams-Oliver syndrome&#34;.">limb hypoplasia reduction defects</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -3968,7 +4201,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box definition-box">
+            <div class="item-box definition-box anchor-target" id="definition-clinical-acc-ttld-spectrum-definition">
                 <div class="item-name">Clinical ACC/TTLD spectrum definition</div>
 
                 <div class="item-desc">AOS denotes the clinical spectrum centered on the combination of scalp aplasia cutis congenita and terminal transverse limb defects. Marked intrafamilial variability and clinically overlapping ACC/TTLD presentations mean that this is a spectrum definition, not a sensitivity- or specificity-validated algorithm.</div>
@@ -4014,7 +4247,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19610107" target="_blank">PMID:19610107</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4036,7 +4271,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077170" target="_blank">PMID:27077170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4072,7 +4309,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4115,7 +4352,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4138,7 +4377,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -4181,7 +4420,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4254,7 +4495,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aos1">
 
                     <div class="item-name">
                         AOS1 (ARHGAP31, autosomal dominant)
@@ -4269,18 +4510,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 ARHGAP31
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29216</a>
+    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:29216</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4312,7 +4555,9 @@ This subtype is caused by variation in ARHGAP31 (hgnc:29216). hgnc:29216 is a ge
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4338,7 +4583,7 @@ This subtype is caused by variation in ARHGAP31 (hgnc:29216). hgnc:29216 is a ge
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aos2">
 
                     <div class="item-name">
                         AOS2 (DOCK6, autosomal recessive)
@@ -4353,18 +4598,20 @@ This subtype is caused by variation in ARHGAP31 (hgnc:29216). hgnc:29216 is a ge
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DOCK6
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19189</a>
+    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:19189</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4396,7 +4643,9 @@ This subtype is caused by variation in DOCK6 (hgnc:19189). hgnc:19189 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820096" target="_blank">PMID:21820096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4422,7 +4671,7 @@ This subtype is caused by variation in DOCK6 (hgnc:19189). hgnc:19189 is a gene 
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aos3">
 
                     <div class="item-name">
                         AOS3 (RBPJ, autosomal dominant)
@@ -4437,18 +4686,20 @@ This subtype is caused by variation in DOCK6 (hgnc:19189). hgnc:19189 is a gene 
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 RBPJ
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5724</a>
+    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:5724</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4480,7 +4731,9 @@ This subtype is caused by variation in RBPJ (hgnc:5724). hgnc:5724 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22883147" target="_blank">PMID:22883147</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4506,7 +4759,7 @@ This subtype is caused by variation in RBPJ (hgnc:5724). hgnc:5724 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aos4">
 
                     <div class="item-name">
                         AOS4 (EOGT, autosomal recessive)
@@ -4521,18 +4774,20 @@ This subtype is caused by variation in RBPJ (hgnc:5724). hgnc:5724 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 EOGT
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28526</a>
+    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:28526</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4564,7 +4819,9 @@ This subtype is caused by variation in EOGT (hgnc:28526). hgnc:28526 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23522784" target="_blank">PMID:23522784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4590,7 +4847,7 @@ This subtype is caused by variation in EOGT (hgnc:28526). hgnc:28526 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aos5">
 
                     <div class="item-name">
                         AOS5 (NOTCH1, autosomal dominant)
@@ -4605,18 +4862,20 @@ This subtype is caused by variation in EOGT (hgnc:28526). hgnc:28526 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 NOTCH1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:7881</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4648,7 +4907,9 @@ This subtype is caused by variation in NOTCH1 (hgnc:7881). hgnc:7881 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4674,7 +4935,7 @@ This subtype is caused by variation in NOTCH1 (hgnc:7881). hgnc:7881 is a gene f
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-aos6">
 
                     <div class="item-name">
                         AOS6 (DLL4, autosomal dominant)
@@ -4689,18 +4950,20 @@ This subtype is caused by variation in NOTCH1 (hgnc:7881). hgnc:7881 is a gene f
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DLL4
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2910</a>
+    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:2910</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4732,7 +4995,9 @@ This subtype is caused by variation in DLL4 (hgnc:2910). hgnc:2910 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26299364" target="_blank">PMID:26299364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4758,7 +5023,7 @@ This subtype is caused by variation in DLL4 (hgnc:2910). hgnc:2910 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-vcp-associated-aos">
 
                     <div class="item-name">
                         VCP-associated Adams-Oliver syndrome
@@ -4771,18 +5036,20 @@ This subtype is caused by variation in DLL4 (hgnc:2910). hgnc:2910 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 VCP
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12666</a>
+    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:12666</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4809,7 +5076,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4956,7 +5225,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41055965" target="_blank">PMID:41055965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4978,7 +5249,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25132448" target="_blank">PMID:25132448</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5154,7 +5427,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5176,7 +5451,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820096" target="_blank">PMID:21820096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5299,7 +5576,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5397,7 +5676,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25132448" target="_blank">PMID:25132448</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5419,7 +5700,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5491,7 +5774,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28395734" target="_blank">PMID:28395734</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5563,7 +5848,9 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5615,17 +5902,21 @@ This subtype is caused by variation in VCP (hgnc:12666). hgnc:12666 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:7881</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5687,7 +5978,9 @@ This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5727,17 +6020,21 @@ This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DLL4
 
 
-    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2910</a>
+    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:2910</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5807,7 +6104,9 @@ This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26299364" target="_blank">PMID:26299364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5847,17 +6146,21 @@ This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RBPJ
 
 
-    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5724</a>
+    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:5724</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5919,7 +6222,9 @@ This pathophysiological event involves RBPJ (hgnc:5724). hgnc:5724 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41055965" target="_blank">PMID:41055965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5959,17 +6264,21 @@ This pathophysiological event involves RBPJ (hgnc:5724). hgnc:5724 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         EOGT
 
 
-    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28526</a>
+    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:28526</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6031,7 +6340,9 @@ This pathophysiological event involves EOGT (hgnc:28526). hgnc:28526 is a gene f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25488668" target="_blank">PMID:25488668</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6071,17 +6382,21 @@ This pathophysiological event involves EOGT (hgnc:28526). hgnc:28526 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ARHGAP31
 
 
-    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29216</a>
+    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:29216</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6143,7 +6458,9 @@ This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a ge
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6183,17 +6500,21 @@ This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a ge
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DOCK6
 
 
-    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19189</a>
+    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:19189</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6255,7 +6576,9 @@ This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820096" target="_blank">PMID:21820096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6306,17 +6629,21 @@ This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VCP
 
 
-    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12666</a>
+    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:12666</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6443,7 +6770,9 @@ This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6483,17 +6812,21 @@ This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VCP
 
 
-    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12666</a>
+    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:12666</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6523,18 +6856,20 @@ This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene fr
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves ATP hydrolysis activity (GO:0016887). GO:0016887 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         ATP hydrolysis activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016887" target="_blank" class="curie-chip curie-chip-go">GO:0016887</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016887" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0016887</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves ATP hydrolysis activity (GO:0016887). GO:0016887 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -6572,7 +6907,9 @@ This pathophysiological event involves ATP hydrolysis activity (GO:0016887). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6612,17 +6949,21 @@ This pathophysiological event involves ATP hydrolysis activity (GO:0016887). GO:
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         VCP
 
 
-    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12666</a>
+    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:12666</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6669,7 +7010,9 @@ This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6742,7 +7085,9 @@ This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6782,17 +7127,21 @@ This pathophysiological event involves VCP (hgnc:12666). hgnc:12666 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:7881</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6817,17 +7166,21 @@ This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene f
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DLL4
 
 
-    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2910</a>
+    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:2910</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6852,17 +7205,21 @@ This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RBPJ
 
 
-    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5724</a>
+    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:5724</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6887,17 +7244,21 @@ This pathophysiological event involves RBPJ (hgnc:5724). hgnc:5724 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         EOGT
 
 
-    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28526</a>
+    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:28526</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6926,18 +7287,20 @@ This pathophysiological event involves EOGT (hgnc:28526). hgnc:28526 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:0007219 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Notch signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go">GO:0007219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0007219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:0007219 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6976,7 +7339,9 @@ This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6998,7 +7363,9 @@ This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41055965" target="_blank">PMID:41055965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7020,7 +7387,9 @@ This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22883147" target="_blank">PMID:22883147</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7071,17 +7440,21 @@ This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ARHGAP31
 
 
-    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29216</a>
+    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:29216</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7106,17 +7479,21 @@ This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a ge
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DOCK6
 
 
-    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19189</a>
+    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:19189</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7145,18 +7522,20 @@ This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Rho protein signal transduction (GO:0007266). GO:0007266 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Rho protein signal transduction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007266" target="_blank" class="curie-chip curie-chip-go">GO:0007266</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007266" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0007266</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Rho protein signal transduction (GO:0007266). GO:0007266 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7240,7 +7619,9 @@ This pathophysiological event involves Rho protein signal transduction (GO:00072
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7262,7 +7643,9 @@ This pathophysiological event involves Rho protein signal transduction (GO:00072
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820096" target="_blank">PMID:21820096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7306,18 +7689,20 @@ This pathophysiological event involves Rho protein signal transduction (GO:00072
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         blood vessel endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl">CL:0000071</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000071</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves blood vessel endothelial cell (CL:0000071). CL:0000071 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7345,18 +7730,20 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves vasculogenesis (GO:0001570). GO:0001570 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         vasculogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001570" target="_blank" class="curie-chip curie-chip-go">GO:0001570</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001570" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0001570</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves vasculogenesis (GO:0001570). GO:0001570 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7373,18 +7760,20 @@ This pathophysiological event involves vasculogenesis (GO:0001570). GO:0001570 i
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         angiogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go">GO:0001525</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0001525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7487,7 +7876,9 @@ This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25132448" target="_blank">PMID:25132448</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7509,7 +7900,9 @@ This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41055965" target="_blank">PMID:41055965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7560,17 +7953,21 @@ This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         ARHGAP31
 
 
-    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29216</a>
+    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:29216</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7595,17 +7992,21 @@ This pathophysiological event involves ARHGAP31 (hgnc:29216). hgnc:29216 is a ge
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DOCK6
 
 
-    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19189</a>
+    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:19189</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7634,18 +8035,20 @@ This pathophysiological event involves DOCK6 (hgnc:19189). hgnc:19189 is a gene 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves actin cytoskeleton organization (GO:0030036). GO:0030036 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         actin cytoskeleton organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030036" target="_blank" class="curie-chip curie-chip-go">GO:0030036</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030036" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0030036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves actin cytoskeleton organization (GO:0030036). GO:0030036 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7729,7 +8132,9 @@ This pathophysiological event involves actin cytoskeleton organization (GO:00300
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7751,7 +8156,9 @@ This pathophysiological event involves actin cytoskeleton organization (GO:00300
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820096" target="_blank">PMID:21820096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7802,17 +8209,21 @@ This pathophysiological event involves actin cytoskeleton organization (GO:00300
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RAC1 (hgnc:9801). hgnc:9801 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RAC1
 
 
-    <a href="https://bioregistry.io/hgnc:9801" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9801</a>
+    <a href="https://bioregistry.io/hgnc:9801" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:9801</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RAC1 (hgnc:9801). hgnc:9801 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7904,7 +8315,9 @@ This pathophysiological event involves RAC1 (hgnc:9801). hgnc:9801 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41126757" target="_blank">PMID:41126757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7944,17 +8357,21 @@ This pathophysiological event involves RAC1 (hgnc:9801). hgnc:9801 is a gene fro
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DLL4
 
 
-    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2910</a>
+    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:2910</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7983,18 +8400,20 @@ This pathophysiological event involves DLL4 (hgnc:2910). hgnc:2910 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:0007219 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         Notch signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go">GO:0007219</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0007219</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:0007219 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8018,18 +8437,20 @@ This pathophysiological event involves Notch signaling pathway (GO:0007219). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in secondary heart field (UBERON:0009889). UBERON:0009889 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         secondary heart field
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0009889" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0009889</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0009889" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-35">UBERON:0009889</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in secondary heart field (UBERON:0009889). UBERON:0009889 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -8067,7 +8488,9 @@ This pathophysiological event occurs in secondary heart field (UBERON:0009889). 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33899511" target="_blank">PMID:33899511</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8159,16 +8582,22 @@ This pathophysiological event occurs in secondary heart field (UBERON:0009889). 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001627</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormal heart morphology
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp">HP:0001627</a>
-
-
+This clinical feature is Congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8189,7 +8618,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8211,7 +8642,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8243,16 +8676,20 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001409</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a phenotype from the Human Phenotype Ontology.">
-                        Portal hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp">HP:0001409</a>
-
-
+This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8273,7 +8710,9 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8314,16 +8753,20 @@ This clinical feature is Portal hypertension (HP:0001409). HP:0001409 is a pheno
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0008404</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.">
-                        Nail dystrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp">HP:0008404</a>
-
-
+This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8344,7 +8787,9 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40874655" target="_blank">PMID:40874655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8385,16 +8830,22 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Aplasia cutis congenita of scalp</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0007385</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Aplasia cutis congenita of scalp (HP:0007385). HP:0007385 is a phenotype from the Human Phenotype Ontology.">
-                        Aplasia cutis congenita of scalp
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007385" target="_blank" class="curie-chip curie-chip-hp">HP:0007385</a>
-
-
+This clinical feature is Aplasia cutis congenita of scalp (HP:0007385). HP:0007385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8415,7 +8866,9 @@ This clinical feature is Aplasia cutis congenita of scalp (HP:0007385). HP:00073
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8447,16 +8900,22 @@ This clinical feature is Aplasia cutis congenita of scalp (HP:0007385). HP:00073
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Transverse terminal limb defect</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:6000818</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Terminal transverse limb defect, annotated with Transverse terminal limb defect (HP:6000818). HP:6000818 is a phenotype from the Human Phenotype Ontology.">
-                        Transverse terminal limb defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000818" target="_blank" class="curie-chip curie-chip-hp">HP:6000818</a>
-
-
+This clinical feature is Terminal transverse limb defect, annotated with Transverse terminal limb defect (HP:6000818). HP:6000818 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8477,7 +8936,9 @@ This clinical feature is Terminal transverse limb defect, annotated with Transve
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8509,16 +8970,20 @@ This clinical feature is Terminal transverse limb defect, annotated with Transve
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001362" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001362</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Calvarial skull defect (HP:0001362). HP:0001362 is a phenotype from the Human Phenotype Ontology.">
-                        Calvarial skull defect
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001362" target="_blank" class="curie-chip curie-chip-hp">HP:0001362</a>
-
-
+This clinical feature is Calvarial skull defect (HP:0001362). HP:0001362 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8539,7 +9004,9 @@ This clinical feature is Calvarial skull defect (HP:0001362). HP:0001362 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8573,16 +9040,20 @@ This clinical feature is Calvarial skull defect (HP:0001362). HP:0001362 is a ph
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025107" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0025107</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cutis marmorata telangiectatica congenita (HP:0025107). HP:0025107 is a phenotype from the Human Phenotype Ontology.">
-                        Cutis marmorata telangiectatica congenita
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0025107" target="_blank" class="curie-chip curie-chip-hp">HP:0025107</a>
-
-
+This clinical feature is Cutis marmorata telangiectatica congenita (HP:0025107). HP:0025107 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8603,7 +9074,9 @@ This clinical feature is Cutis marmorata telangiectatica congenita (HP:0025107).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8652,7 +9125,9 @@ This clinical feature is Cutis marmorata telangiectatica congenita (HP:0025107).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8674,7 +9149,9 @@ This clinical feature is Cutis marmorata telangiectatica congenita (HP:0025107).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8696,7 +9173,9 @@ This clinical feature is Cutis marmorata telangiectatica congenita (HP:0025107).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8730,16 +9209,22 @@ This clinical feature is Cutis marmorata telangiectatica congenita (HP:0025107).
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Morphological central nervous system abnormality</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002011" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002011</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is CNS structural anomaly, annotated with Morphological central nervous system abnormality (HP:0002011). HP:0002011 is a phenotype from the Human Phenotype Ontology.">
-                        Morphological central nervous system abnormality
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002011" target="_blank" class="curie-chip curie-chip-hp">HP:0002011</a>
-
-
+This clinical feature is CNS structural anomaly, annotated with Morphological central nervous system abnormality (HP:0002011). HP:0002011 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8760,7 +9245,9 @@ This clinical feature is CNS structural anomaly, annotated with Morphological ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28160419" target="_blank">PMID:28160419</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8782,7 +9269,9 @@ This clinical feature is CNS structural anomaly, annotated with Morphological ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25824905" target="_blank">PMID:25824905</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8814,16 +9303,22 @@ This clinical feature is CNS structural anomaly, annotated with Morphological ce
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the eye</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000478</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of the eye
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp">HP:0000478</a>
-
-
+This clinical feature is Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8844,7 +9339,9 @@ This clinical feature is Abnormality of the eye (HP:0000478). HP:0000478 is a ph
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25824905" target="_blank">PMID:25824905</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8922,15 +9419,17 @@ This clinical feature is Abnormality of the eye (HP:0000478). HP:0000478 is a ph
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ARHGAP31
 
 
-    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:29216</a>
+    <a href="https://bioregistry.io/hgnc:29216" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:29216</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8962,7 +9461,9 @@ This disease-associated gene is ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21565291" target="_blank">PMID:21565291</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8984,7 +9485,9 @@ This disease-associated gene is ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9021,15 +9524,17 @@ This disease-associated gene is ARHGAP31 (hgnc:29216). hgnc:29216 is a gene from
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DOCK6
 
 
-    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:19189</a>
+    <a href="https://bioregistry.io/hgnc:19189" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:19189</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DOCK6 (hgnc:19189). hgnc:19189 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9061,7 +9566,9 @@ This disease-associated gene is DOCK6 (hgnc:19189). hgnc:19189 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820096" target="_blank">PMID:21820096</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9083,7 +9590,9 @@ This disease-associated gene is DOCK6 (hgnc:19189). hgnc:19189 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9105,7 +9614,9 @@ This disease-associated gene is DOCK6 (hgnc:19189). hgnc:19189 is a gene from th
                         <a href="https://bioregistry.io/CGGV:assertion_ea64d74c-583d-4ed1-af91-6a7c6f80a1d3-2022-06-28T160000.000Z" target="_blank">CGGV:assertion_ea64d74c-583d-4ed1-af91-6a7c6f80a1d3-2022-06-28T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9142,15 +9653,17 @@ This disease-associated gene is DOCK6 (hgnc:19189). hgnc:19189 is a gene from th
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RBPJ
 
 
-    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5724</a>
+    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:5724</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9182,7 +9695,9 @@ This disease-associated gene is RBPJ (hgnc:5724). hgnc:5724 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22883147" target="_blank">PMID:22883147</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9204,7 +9719,9 @@ This disease-associated gene is RBPJ (hgnc:5724). hgnc:5724 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41055965" target="_blank">PMID:41055965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9241,15 +9758,17 @@ This disease-associated gene is RBPJ (hgnc:5724). hgnc:5724 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: EOGT
 
 
-    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28526</a>
+    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:28526</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9281,7 +9800,9 @@ This disease-associated gene is EOGT (hgnc:28526). hgnc:28526 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23522784" target="_blank">PMID:23522784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9303,7 +9824,9 @@ This disease-associated gene is EOGT (hgnc:28526). hgnc:28526 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9340,15 +9863,17 @@ This disease-associated gene is EOGT (hgnc:28526). hgnc:28526 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:7881</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9380,7 +9905,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25132448" target="_blank">PMID:25132448</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9402,7 +9929,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25963545" target="_blank">PMID:25963545</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9424,7 +9953,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9461,15 +9992,17 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DLL4
 
 
-    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2910</a>
+    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:2910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9501,7 +10034,9 @@ This disease-associated gene is DLL4 (hgnc:2910). hgnc:2910 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26299364" target="_blank">PMID:26299364</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9523,7 +10058,9 @@ This disease-associated gene is DLL4 (hgnc:2910). hgnc:2910 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9545,7 +10082,9 @@ This disease-associated gene is DLL4 (hgnc:2910). hgnc:2910 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33899511" target="_blank">PMID:33899511</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9582,15 +10121,17 @@ This disease-associated gene is DLL4 (hgnc:2910). hgnc:2910 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VCP
 
 
-    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12666</a>
+    <a href="https://bioregistry.io/hgnc:12666" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:12666</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VCP (hgnc:12666). hgnc:12666 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9614,7 +10155,9 @@ This disease-associated gene is VCP (hgnc:12666). hgnc:12666 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9636,7 +10179,9 @@ This disease-associated gene is VCP (hgnc:12666). hgnc:12666 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9666,6 +10211,9 @@ This disease-associated gene is VCP (hgnc:12666). hgnc:12666 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -9684,18 +10232,18 @@ This disease-associated gene is VCP (hgnc:12666). hgnc:12666 is a gene from the 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">supportive care</span>
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9713,6 +10261,14 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9737,7 +10293,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22670005" target="_blank">PMID:22670005</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9759,7 +10317,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077170" target="_blank">PMID:27077170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9791,18 +10351,18 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">surgical procedure</span>
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.">NCIT:C15329</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -9820,6 +10380,25 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -9844,7 +10423,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22670005" target="_blank">PMID:22670005</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9866,7 +10447,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077170" target="_blank">PMID:27077170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9898,18 +10481,18 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="tag tag-treatment">Monitoring</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">clinical assessment<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.">clinical assessment</span>
+This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Clinical Evaluation</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C124351">NCIT:C124351</a>
 
 
 
@@ -9927,6 +10510,14 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9951,7 +10542,9 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31654484" target="_blank">PMID:31654484</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9973,7 +10566,9 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40874655" target="_blank">PMID:40874655</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9989,13 +10584,15 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27077170" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27077170" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077170" target="_blank">PMID:27077170</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10027,18 +10624,18 @@ This treatment is clinical assessment, annotated with Clinical Evaluation (NCIT:
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">genetic counseling</span>
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -10056,6 +10653,14 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -10080,7 +10685,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10102,7 +10709,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077170" target="_blank">PMID:27077170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10124,7 +10733,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077170" target="_blank">PMID:27077170</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10156,6 +10767,292 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-assessment-of-the-acc-ttld-spectrum">
+                <div class="item-name">
+                    Clinical Assessment of the ACC/TTLD Spectrum
+
+                </div>
+
+                <div class="item-desc">Clinical assessment establishes whether the congenital presentation lies within the AOS spectrum centered on scalp aplasia cutis and terminal transverse limb defects, while documenting cardiac, vascular, neurologic, ocular, and skull involvement. An archived, retired GeneReviews chapter described diagnosis from both core findings, one core finding plus an affected first-degree relative, or one core finding plus molecular confirmation. Because that chapter is historical and reports no validation metrics, these routes are not presented as a sensitivity- or specificity-validated current algorithm.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A compatible congenital ACC/TTLD pattern supports a clinical AOS diagnosis and guides subtype testing.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19610107" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19610107" target="_blank">PMID:19610107</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The combination of aplasia cutis congenita (ACC) and terminal transverse limb defects (TTLD) is often referred to as the eponymous Adams-Oliver syndrome (AOS)."</div>
+
+
+                <div class="evidence-explanation">Supports the core clinical disease boundary.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27077170" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077170" target="_blank">PMID:27077170</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of AOS can be established in a proband with one of the following: Clinical findings of ACC of the scalp and TTLD. ACC or TTLD and a first-degree relative with findings consistent with AOS."</div>
+
+
+                <div class="evidence-explanation">The archived GeneReviews chapter supplies the historical diagnostic routes while its retired status and absence of validation metrics are retained explicitly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular Genetic Testing
+
+                </div>
+
+                <div class="item-desc">Sequence analysis of established AOS genes can identify an etiologic subtype. A 2018 mixed AOS/isolated-ACC/TTLD cohort received a molecular diagnosis in 30% of cases before VCP was discovered; that cohort-specific yield must not be treated as disease prevalence or as a current sensitivity estimate.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A pathogenic variant in an established AOS gene supports molecular subtype assignment; a negative result does not erase the clinical ACC/TTLD phenotype.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29924900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29924900" target="_blank">PMID:29924900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Molecular diagnostic screening of 194 AOS/ACC/TTLD probands/families was conducted using next-generation and/or capillary sequencing analyses. In total, we identified 63 (likely) pathogenic mutations, comprising 56 distinct and 22 novel mutations, providing a molecular diagnosis in 30% of patients."</div>
+
+
+                <div class="evidence-explanation">Provides the bounded historical molecular-yield estimate.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41979051" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41979051" target="_blank">PMID:41979051</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report a new genetic etiology for AOS in 6 families with PH and 1 family without it."</div>
+
+
+                <div class="evidence-explanation">Supports inclusion of VCP among current AOS testing considerations without assigning inheritance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27077170" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27077170" target="_blank">PMID:27077170</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ACC or TTLD and either a pathogenic variant in an autosomal dominant AOS-related gene (ARHGAP31, DLL4, NOTCH1, or RBPJ) or two pathogenic variants in an autosomal recessive AOS-related gene (DOCK6 or EOGT)."</div>
+
+
+                <div class="evidence-explanation">The archived GeneReviews chapter supports molecular confirmation for the six established historical gene subtypes; VCP is added separately from the 2026 primary report.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -10170,7 +11067,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-aplasia-cutis-enamel-dysplasia-syndrome">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Aplasia cutis-enamel dysplasia syndrome</span>
@@ -10220,7 +11117,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36197437" target="_blank">PMID:36197437</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10258,7 +11157,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct01630421">
                 <div class="item-name">
                     NCT01630421
 
@@ -10282,7 +11181,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="https://clinicaltrials.gov/study/NCT01630421" target="_blank">clinicaltrials:NCT01630421</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10375,17 +11276,21 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RBPJ
 
 
-    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:5724</a>
+    <a href="https://bioregistry.io/hgnc:5724" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:5724</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns RBPJ (hgnc:5724). hgnc:5724 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -10410,17 +11315,21 @@ This experimental model concerns RBPJ (hgnc:5724). hgnc:5724 is a gene from the 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:7881</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -10465,7 +11374,9 @@ This experimental model concerns NOTCH1 (hgnc:7881). hgnc:7881 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41055965" target="_blank">PMID:41055965</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10539,17 +11450,21 @@ This experimental model concerns NOTCH1 (hgnc:7881). hgnc:7881 is a gene from th
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DLL4
 
 
-    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2910</a>
+    <a href="https://bioregistry.io/hgnc:2910" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:2910</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns DLL4 (hgnc:2910). hgnc:2910 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -10594,7 +11509,9 @@ This experimental model concerns DLL4 (hgnc:2910). hgnc:2910 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33899511" target="_blank">PMID:33899511</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10668,17 +11585,21 @@ This experimental model concerns DLL4 (hgnc:2910). hgnc:2910 is a gene from the 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns RAC1 (hgnc:9801). hgnc:9801 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RAC1
 
 
-    <a href="https://bioregistry.io/hgnc:9801" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9801</a>
+    <a href="https://bioregistry.io/hgnc:9801" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:9801</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns RAC1 (hgnc:9801). hgnc:9801 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -10723,7 +11644,9 @@ This experimental model concerns RAC1 (hgnc:9801). hgnc:9801 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41126757" target="_blank">PMID:41126757</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10793,17 +11716,21 @@ This experimental model concerns RAC1 (hgnc:9801). hgnc:9801 is a gene from the 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this experimental model concerns this gene
-This experimental model concerns EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         EOGT
 
 
-    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:28526</a>
+    <a href="https://bioregistry.io/hgnc:28526" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:28526</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns EOGT (hgnc:28526). hgnc:28526 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -10848,7 +11775,9 @@ This experimental model concerns EOGT (hgnc:28526). hgnc:28526 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28395734" target="_blank">PMID:28395734</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10870,7 +11799,9 @@ This experimental model concerns EOGT (hgnc:28526). hgnc:28526 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28395734" target="_blank">PMID:28395734</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -12715,7 +13646,7 @@ treatments:
     explanation: Supports coordinated care and early genetics involvement.
   - reference: PMID:27077170
     reference_title: &#34;Adams-Oliver Syndrome – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Cardiovascular. Echocardiography annually until age three years for signs of pulmonary hypertension. Neurologic. Annual pediatric care, including neurologic examination and ongoing assessment of psychomotor development. Ocular. Annual assessment by pediatric ophthalmologist until age three years for evidence of abnormal retinal vascular development.
@@ -13763,7 +14694,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Adams-Oliver Syndrome", "mondoId": "MONDO:0007034", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adams-Oliver_Syndrome", "yamlRevision": "baf0af14f7a3"};
+        const OS_CONFIG = {"diseaseName": "Adams-Oliver Syndrome", "mondoId": "MONDO:0007034", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adams-Oliver_Syndrome", "yamlRevision": "5418b78d2873"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14182,5 +15113,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

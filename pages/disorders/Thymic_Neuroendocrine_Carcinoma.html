@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Thymic Neuroendocrine Carcinoma</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Thymic Neuroendocrine Carcinoma</h1>
             <div class="header-meta">
 
@@ -3945,36 +4092,124 @@
 
         <!-- Classifications -->
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
 
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
-                <div class="tag-list">
-
-                    <span class="tag tag-classification">ONCOLOGY_HEMATOLOGY</span>
-
-                    <span class="tag tag-classification">ENDOCRINOLOGY_METABOLISM</span>
-
-                </div>
-            </div>
 
 
 
             <div style="margin-bottom: 16px;">
                 <div class="classification-category">ICD-O Morphology</div>
+
+
+
                 <div class="tag-list">
-                    <span class="tag tag-classification">Carcinoma</span>
+
+
+
+
+
+                    <span class="tag tag-classification" title="ICD-O morphology family. The specific ICD-O-3 morphology codes used for this family are 8240/3 (typical carcinoid), 8249/3 (atypical carcinoid), 8013/3 (large cell neuroendocrine carcinoma) and 8041/3 (small cell carcinoma), each with topography C37.9 (thymus).">Carcinoma</span>
+
                 </div>
+
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
 
 
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="Primary clinical home is thoracic/endocrine oncology; thymic neuroendocrine carcinoma is a malignant epithelial neoplasm.">ONCOLOGY HEMATOLOGY</span>
+
+
+                    <span class="tag tag-classification" title="Secondary Part assignment reflecting the functional endocrine axis (ectopic ACTH/CRH-driven Cushing syndrome) and the MEN1 predisposition-syndrome context.">ENDOCRINOLOGY METABOLISM</span>
+
+                </div>
+
+            </div>
 
         </div>
+
 
 
         <!-- Mappings -->
@@ -4224,7 +4459,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-sporadic-with-an-autosomal-dominant-men1-subset">
                 <div class="item-name">
                     Sporadic with an autosomal dominant MEN1 subset
 
@@ -4269,7 +4504,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4291,7 +4528,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4352,7 +4591,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-typical-carcinoid">
 
                     <div class="item-name">
                         Thymic typical carcinoid (well-differentiated, NET G1)
@@ -4388,7 +4627,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23110006" target="_blank">PMID:23110006</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4414,7 +4655,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-atypical-carcinoid">
 
                     <div class="item-name">
                         Thymic atypical carcinoid (moderately differentiated, NET G2/G3)
@@ -4450,7 +4691,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30502716" target="_blank">PMID:30502716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4472,7 +4715,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4498,7 +4743,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-lcnec">
 
                     <div class="item-name">
                         Thymic large cell neuroendocrine carcinoma
@@ -4534,7 +4779,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23110006" target="_blank">PMID:23110006</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4556,7 +4803,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35696052" target="_blank">PMID:35696052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4582,7 +4831,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-small-cell-carcinoma">
 
                     <div class="item-name">
                         Small cell carcinoma of the thymus (neuroendocrine type)
@@ -4618,7 +4867,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29049806" target="_blank">PMID:29049806</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4723,18 +4974,19 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>A grade-stratified per-100,000 incidence that can populate the general-population prevalence record with numeric bounds.</li>
 
-
-
-    <span class="entity-ref-chip">A grade-stratified per-100,000 incidence that can populate the general-population prevalence record with numeric bounds.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4825,18 +5077,19 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>A transcriptional lineage relationship between a defined normal thymic neuroendocrine population and the tumor.</li>
 
-
-
-    <span class="entity-ref-chip">A transcriptional lineage relationship between a defined normal thymic neuroendocrine population and the tumor.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4873,35 +5126,31 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Menin loss as a sufficient initiating lesion in the thymic epithelial lineage.</li>
 
-
-
-    <span class="entity-ref-chip">Menin loss as a sufficient initiating lesion in the thymic epithelial lineage.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
 
 
     <div class="experiment-section">
-        <div class="experiment-section-title">Would refute</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Absence of thymic tumors would indicate that additional cooperating lesions (for example RB-axis loss) are required.</li>
 
-
-
-    <span class="entity-ref-chip">Absence of thymic tumors would indicate that additional cooperating lesions (for example RB-axis loss) are required.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -4927,13 +5176,15 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30502716" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30502716" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30502716" target="_blank">PMID:30502716</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5021,18 +5272,19 @@
 
 
 
+
+
+
+
+
+
     <div class="experiment-section">
-        <div class="experiment-section-title">Would support</div>
-        <div class="entity-ref-list">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
 
+            <li>Grade-specific thymus-native efficacy estimates that would replace the current extrapolated recommendations.</li>
 
-
-
-    <span class="entity-ref-chip">Grade-specific thymus-native efficacy estimates that would replace the current extrapolated recommendations.</span>
-
-
-
-        </div>
+        </ul>
     </div>
 
 
@@ -5080,18 +5332,20 @@
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves thymic epithelial cell with neuroendocrine differentiation, annotated with epithelial cell of thymus (CL:0002293). CL:0002293 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         thymic epithelial cell with neuroendocrine differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002293" target="_blank" class="curie-chip curie-chip-cl">CL:0002293</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002293" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002293</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves thymic epithelial cell with neuroendocrine differentiation, annotated with epithelial cell of thymus (CL:0002293). CL:0002293 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5119,17 +5373,21 @@ This pathophysiological event involves thymic epithelial cell with neuroendocrin
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         MEN1
 
 
-    <a href="https://bioregistry.io/hgnc:7010" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7010</a>
+    <a href="https://bioregistry.io/hgnc:7010" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7010</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5161,18 +5419,20 @@ This pathophysiological event involves MEN1 (hgnc:7010). hgnc:7010 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         thymus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0002370</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002370</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5210,7 +5470,9 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40068632" target="_blank">PMID:40068632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5232,7 +5494,9 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5272,17 +5536,21 @@ This pathophysiological event occurs in thymus (UBERON:0002370). UBERON:0002370 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         RB1
 
 
-    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9884</a>
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:9884</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5311,18 +5579,20 @@ This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal regulation of cell cycle (GO:0051726). GO:0051726 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         regulation of cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go">GO:0051726</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051726" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0051726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of cell cycle (GO:0051726). GO:0051726 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5380,7 +5650,9 @@ This pathophysiological event involves abnormal regulation of cell cycle (GO:005
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5402,7 +5674,9 @@ This pathophysiological event involves abnormal regulation of cell cycle (GO:005
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5442,17 +5716,21 @@ This pathophysiological event involves abnormal regulation of cell cycle (GO:005
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves KMT2D (hgnc:7133). hgnc:7133 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         KMT2D
 
 
-    <a href="https://bioregistry.io/hgnc:7133" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7133</a>
+    <a href="https://bioregistry.io/hgnc:7133" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7133</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KMT2D (hgnc:7133). hgnc:7133 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5477,17 +5755,21 @@ This pathophysiological event involves KMT2D (hgnc:7133). hgnc:7133 is a gene fr
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         APC
 
 
-    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:583</a>
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:583</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5516,18 +5798,20 @@ This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from t
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         chromatin organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go">GO:0006325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5553,18 +5837,20 @@ This pathophysiological event involves abnormal chromatin organization (GO:00063
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves decreased histone H3K4 methyltransferase activity (GO:0042800). GO:0042800 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         histone H3K4 methyltransferase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042800" target="_blank" class="curie-chip curie-chip-go">GO:0042800</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042800" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0042800</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased histone H3K4 methyltransferase activity (GO:0042800). GO:0042800 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5621,7 +5907,9 @@ This pathophysiological event involves decreased histone H3K4 methyltransferase 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5643,7 +5931,9 @@ This pathophysiological event involves decreased histone H3K4 methyltransferase 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5683,17 +5973,21 @@ This pathophysiological event involves decreased histone H3K4 methyltransferase 
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves TSC2 (hgnc:12363). hgnc:12363 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         TSC2
 
 
-    <a href="https://bioregistry.io/hgnc:12363" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:12363</a>
+    <a href="https://bioregistry.io/hgnc:12363" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:12363</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TSC2 (hgnc:12363). hgnc:12363 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5722,18 +6016,20 @@ This pathophysiological event involves TSC2 (hgnc:12363). hgnc:12363 is a gene f
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         TOR signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0031929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5791,7 +6087,9 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5824,18 +6122,20 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves thymic neuroendocrine tumor cell, annotated with neuroendocrine cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         thymic neuroendocrine tumor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl">CL:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves thymic neuroendocrine tumor cell, annotated with neuroendocrine cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5863,18 +6163,20 @@ This pathophysiological event involves thymic neuroendocrine tumor cell, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal neuroendocrine cell differentiation (GO:0061101). GO:0061101 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         neuroendocrine cell differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061101" target="_blank" class="curie-chip curie-chip-go">GO:0061101</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061101" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0061101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal neuroendocrine cell differentiation (GO:0061101). GO:0061101 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5895,18 +6197,20 @@ This pathophysiological event involves abnormal neuroendocrine cell differentiat
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5934,18 +6238,20 @@ This pathophysiological event involves increased cell population proliferation (
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). UBERON:0008820 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         anterior mediastinum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0008820" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0008820</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0008820" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0008820</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). UBERON:0008820 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6015,7 +6321,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6037,7 +6345,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33243039" target="_blank">PMID:33243039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6053,13 +6363,15 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33243039" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33243039" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33243039" target="_blank">PMID:33243039</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6092,18 +6404,20 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves thymic neuroendocrine tumor cell, annotated with neuroendocrine cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         thymic neuroendocrine tumor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl">CL:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves thymic neuroendocrine tumor cell, annotated with neuroendocrine cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6131,18 +6445,20 @@ This pathophysiological event involves thymic neuroendocrine tumor cell, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased corticotropin secretion (GO:0051458). GO:0051458 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         corticotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051458" target="_blank" class="curie-chip curie-chip-go">GO:0051458</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051458" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0051458</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased corticotropin secretion (GO:0051458). GO:0051458 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6163,18 +6479,20 @@ This pathophysiological event involves increased corticotropin secretion (GO:005
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves increased peptide hormone secretion (GO:0030072). GO:0030072 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         peptide hormone secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030072" target="_blank" class="curie-chip curie-chip-go">GO:0030072</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030072" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0030072</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased peptide hormone secretion (GO:0030072). GO:0030072 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6232,7 +6550,9 @@ This pathophysiological event involves increased peptide hormone secretion (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30502716" target="_blank">PMID:30502716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6254,7 +6574,9 @@ This pathophysiological event involves increased peptide hormone secretion (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30502716" target="_blank">PMID:30502716</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6276,7 +6598,9 @@ This pathophysiological event involves increased peptide hormone secretion (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37409236" target="_blank">PMID:37409236</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6365,7 +6689,9 @@ This pathophysiological event involves increased peptide hormone secretion (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6398,18 +6724,20 @@ This pathophysiological event involves increased peptide hormone secretion (GO:0
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves thymic neuroendocrine tumor cell, annotated with neuroendocrine cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         thymic neuroendocrine tumor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl">CL:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000165" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves thymic neuroendocrine tumor cell, annotated with neuroendocrine cell (CL:0000165). CL:0000165 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6437,18 +6765,20 @@ This pathophysiological event involves thymic neuroendocrine tumor cell, annotat
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves abnormal somatostatin receptor signaling pathway (GO:0038169). GO:0038169 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         somatostatin receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038169" target="_blank" class="curie-chip curie-chip-go">GO:0038169</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038169" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0038169</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal somatostatin receptor signaling pathway (GO:0038169). GO:0038169 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6491,7 +6821,9 @@ This pathophysiological event involves abnormal somatostatin receptor signaling 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35198446" target="_blank">PMID:35198446</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6513,7 +6845,9 @@ This pathophysiological event involves abnormal somatostatin receptor signaling 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6556,18 +6890,20 @@ This pathophysiological event involves abnormal somatostatin receptor signaling 
                 <div class="item-meta">
 
 
-                    <span class="tag tag-location" title="Uberon multi-species anatomy ontology (UBERON)
-Relation: this pathophysiological event occurs in this anatomical location
-This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). UBERON:0008820 is an anatomical location from the Uberon multi-species anatomy ontology.">
+
+                    <span class="tag tag-location">
                         anterior mediastinum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0008820" target="_blank" class="curie-chip curie-chip-uberon">UBERON:0008820</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0008820" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0008820</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). UBERON:0008820 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6629,7 +6965,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6651,7 +6989,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29049806" target="_blank">PMID:29049806</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6772,7 +7112,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6794,7 +7136,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27311764" target="_blank">PMID:27311764</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6816,7 +7160,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6851,7 +7197,7 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-neuroendocrine-architecture-with-neuroendocrine-marker-expression">
                 <div class="item-name">
                     Neuroendocrine architecture with neuroendocrine marker expression
 
@@ -6875,7 +7221,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6898,7 +7246,7 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-mitotic-count-and-necrosis-grading">
                 <div class="item-name">
                     Mitotic count and necrosis grading
 
@@ -6920,7 +7268,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33243039" target="_blank">PMID:33243039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6942,7 +7292,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35696052" target="_blank">PMID:35696052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6965,7 +7317,7 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
 
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-absent-pd-l1-expression">
                 <div class="item-name">
                     Absent PD-L1 expression
 
@@ -6987,7 +7339,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33243039" target="_blank">PMID:33243039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7009,7 +7363,9 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34695605" target="_blank">PMID:34695605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7106,16 +7462,20 @@ This pathophysiological event occurs in anterior mediastinum (UBERON:0008820). U
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000822</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.">
-                        Hypertension
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000822" target="_blank" class="curie-chip curie-chip-hp">HP:0000822</a>
-
-
+This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7136,7 +7496,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35690804" target="_blank">PMID:35690804</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7170,16 +7532,20 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100721</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is a phenotype from the Human Phenotype Ontology.">
-                        Mediastinal lymphadenopathy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100721" target="_blank" class="curie-chip curie-chip-hp">HP:0100721</a>
-
-
+This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7200,7 +7566,9 @@ This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7241,16 +7609,22 @@ This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm of the liver</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002896</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hepatic metastasis, annotated with Neoplasm of the liver (HP:0002896). HP:0002896 is a phenotype from the Human Phenotype Ontology.">
-                        Neoplasm of the liver
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp">HP:0002896</a>
-
-
+This clinical feature is Hepatic metastasis, annotated with Neoplasm of the liver (HP:0002896). HP:0002896 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7273,7 +7647,9 @@ This clinical feature is Hepatic metastasis, annotated with Neoplasm of the live
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23110006" target="_blank">PMID:23110006</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7314,16 +7690,20 @@ This clinical feature is Hepatic metastasis, annotated with Neoplasm of the live
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002900</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.">
-                        Hypokalemia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002900" target="_blank" class="curie-chip curie-chip-hp">HP:0002900</a>
-
-
+This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7344,7 +7724,9 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35690804" target="_blank">PMID:35690804</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7385,16 +7767,20 @@ This clinical feature is Hypokalemia (HP:0002900). HP:0002900 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.">
-                        Dyspnea
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp">HP:0002094</a>
-
-
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7415,7 +7801,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7447,16 +7835,20 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012735</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.">
-                        Cough
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp">HP:0012735</a>
-
-
+This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7471,13 +7863,15 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25294372" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25294372" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7518,16 +7912,20 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100749</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.">
-                        Chest pain
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp">HP:0100749</a>
-
-
+This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7548,7 +7946,9 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7589,16 +7989,20 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.">
-                        Weight loss
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp">HP:0001824</a>
-
-
+This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7613,13 +8017,15 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23110006" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23110006" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23110006" target="_blank">PMID:23110006</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7662,16 +8068,22 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm of the lung</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100526</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary metastasis, annotated with Neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.">
-                        Neoplasm of the lung
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp">HP:0100526</a>
-
-
+This clinical feature is Pulmonary metastasis, annotated with Neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7694,7 +8106,9 @@ This clinical feature is Pulmonary metastasis, annotated with Neoplasm of the lu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7716,7 +8130,9 @@ This clinical feature is Pulmonary metastasis, annotated with Neoplasm of the lu
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23110006" target="_blank">PMID:23110006</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7759,16 +8175,22 @@ This clinical feature is Pulmonary metastasis, annotated with Neoplasm of the lu
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm of the thymus</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100521" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0100521</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Thymic neuroendocrine neoplasm, annotated with Neoplasm of the thymus (HP:0100521). HP:0100521 is a phenotype from the Human Phenotype Ontology.">
-                        Neoplasm of the thymus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100521" target="_blank" class="curie-chip curie-chip-hp">HP:0100521</a>
-
-
+This clinical feature is Thymic neuroendocrine neoplasm, annotated with Neoplasm of the thymus (HP:0100521). HP:0100521 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7791,7 +8213,9 @@ This clinical feature is Thymic neuroendocrine neoplasm, annotated with Neoplasm
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40068632" target="_blank">PMID:40068632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7813,7 +8237,9 @@ This clinical feature is Thymic neuroendocrine neoplasm, annotated with Neoplasm
                         <a href="https://bioregistry.io/ORPHA:99869" target="_blank">ORPHA:99869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7847,16 +8273,20 @@ This clinical feature is Thymic neuroendocrine neoplasm, annotated with Neoplasm
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0033827</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anterior mediastinal mass (HP:0033827). HP:0033827 is a phenotype from the Human Phenotype Ontology.">
-                        Anterior mediastinal mass
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033827" target="_blank" class="curie-chip curie-chip-hp">HP:0033827</a>
-
-
+This clinical feature is Anterior mediastinal mass (HP:0033827). HP:0033827 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7877,7 +8307,9 @@ This clinical feature is Anterior mediastinal mass (HP:0033827). HP:0033827 is a
                         <a href="https://bioregistry.io/ORPHA:99869" target="_blank">ORPHA:99869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7893,13 +8325,15 @@ This clinical feature is Anterior mediastinal mass (HP:0033827). HP:0033827 is a
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40328381" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40328381" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7933,16 +8367,22 @@ This clinical feature is Anterior mediastinal mass (HP:0033827). HP:0033827 is a
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Secondary hypercortisolism</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0011744</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is ACTH-dependent hypercortisolism (ectopic Cushing syndrome), annotated with Secondary hypercortisolism (HP:0011744). HP:0011744 is a phenotype from the Human Phenotype Ontology.">
-                        Secondary hypercortisolism
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011744" target="_blank" class="curie-chip curie-chip-hp">HP:0011744</a>
-
-
+This clinical feature is ACTH-dependent hypercortisolism (ectopic Cushing syndrome), annotated with Secondary hypercortisolism (HP:0011744). HP:0011744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7963,7 +8403,9 @@ This clinical feature is ACTH-dependent hypercortisolism (ectopic Cushing syndro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7985,7 +8427,9 @@ This clinical feature is ACTH-dependent hypercortisolism (ectopic Cushing syndro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23110006" target="_blank">PMID:23110006</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8019,16 +8463,22 @@ This clinical feature is ACTH-dependent hypercortisolism (ectopic Cushing syndro
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm of the skeletal system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0010622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Bone metastasis, annotated with Neoplasm of the skeletal system (HP:0010622). HP:0010622 is a phenotype from the Human Phenotype Ontology.">
-                        Neoplasm of the skeletal system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010622" target="_blank" class="curie-chip curie-chip-hp">HP:0010622</a>
-
-
+This clinical feature is Bone metastasis, annotated with Neoplasm of the skeletal system (HP:0010622). HP:0010622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8051,7 +8501,9 @@ This clinical feature is Bone metastasis, annotated with Neoplasm of the skeleta
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8085,16 +8537,22 @@ This clinical feature is Bone metastasis, annotated with Neoplasm of the skeleta
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Neoplasm of the respiratory system</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100606" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0100606</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pleural metastasis, annotated with Neoplasm of the respiratory system (HP:0100606). HP:0100606 is a phenotype from the Human Phenotype Ontology.">
-                        Neoplasm of the respiratory system
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100606" target="_blank" class="curie-chip curie-chip-hp">HP:0100606</a>
-
-
+This clinical feature is Pleural metastasis, annotated with Neoplasm of the respiratory system (HP:0100606). HP:0100606 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8117,7 +8575,9 @@ This clinical feature is Pleural metastasis, annotated with Neoplasm of the resp
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8149,16 +8609,22 @@ This clinical feature is Pleural metastasis, annotated with Neoplasm of the resp
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Brain neoplasm</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030692" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0030692</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral metastasis, annotated with Brain neoplasm (HP:0030692). HP:0030692 is a phenotype from the Human Phenotype Ontology.">
-                        Brain neoplasm
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030692" target="_blank" class="curie-chip curie-chip-hp">HP:0030692</a>
-
-
+This clinical feature is Cerebral metastasis, annotated with Brain neoplasm (HP:0030692). HP:0030692 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8181,7 +8647,9 @@ This clinical feature is Cerebral metastasis, annotated with Brain neoplasm (HP:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23110006" target="_blank">PMID:23110006</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8259,15 +8727,17 @@ This clinical feature is Cerebral metastasis, annotated with Brain neoplasm (HP:
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MEN1
 
 
-    <a href="https://bioregistry.io/hgnc:7010" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7010</a>
+    <a href="https://bioregistry.io/hgnc:7010" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:7010</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8299,7 +8769,9 @@ This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27311764" target="_blank">PMID:27311764</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8321,7 +8793,9 @@ This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27311764" target="_blank">PMID:27311764</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8343,7 +8817,9 @@ This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8380,15 +8856,17 @@ This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MEN1
 
 
-    <a href="https://bioregistry.io/hgnc:7010" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7010</a>
+    <a href="https://bioregistry.io/hgnc:7010" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:7010</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8414,7 +8892,9 @@ This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8451,15 +8931,17 @@ This disease-associated gene is MEN1 (hgnc:7010). hgnc:7010 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RB1
 
 
-    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:9884</a>
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:9884</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8485,7 +8967,9 @@ This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HU
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8522,15 +9006,17 @@ This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HU
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is KMT2D (hgnc:7133). hgnc:7133 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KMT2D
 
 
-    <a href="https://bioregistry.io/hgnc:7133" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:7133</a>
+    <a href="https://bioregistry.io/hgnc:7133" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:7133</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KMT2D (hgnc:7133). hgnc:7133 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8556,7 +9042,9 @@ This disease-associated gene is KMT2D (hgnc:7133). hgnc:7133 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8593,15 +9081,17 @@ This disease-associated gene is KMT2D (hgnc:7133). hgnc:7133 is a gene from the 
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ERBB2
 
 
-    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:3430</a>
+    <a href="https://bioregistry.io/hgnc:3430" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:3430</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8627,7 +9117,9 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8657,6 +9149,9 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -8675,17 +9170,17 @@ This disease-associated gene is ERBB2 (hgnc:3430). hgnc:3430 is a gene from the 
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Thymectomy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical intervention from the NCI Thesaurus.">Thymectomy</span>
+This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29894" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical intervention from the NCI Thesaurus.">NCIT:C29894</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29894" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29894">NCIT:C29894</a>
 
 
 
@@ -8703,6 +9198,25 @@ This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -8745,7 +9259,9 @@ This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29049806" target="_blank">PMID:29049806</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8767,7 +9283,9 @@ This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40068632" target="_blank">PMID:40068632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8799,17 +9317,17 @@ This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">Radiation Therapy</span>
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.">NCIT:C15313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15313">NCIT:C15313</a>
 
 
 
@@ -8832,6 +9350,25 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Postoperative radiotherapy is used selectively for incomplete margins or locally advanced disease. The evidence is mixed and weak - in a multicentre surgical series receipt of adjuvant therapy was associated with better relapse-free survival, but a SEER analysis of 160 patients found no survival benefit for radiation delivered as part of primary therapy. Both sides of the evidence are curated here so the uncertainty is explicit.</div>
 
 
@@ -8845,13 +9382,15 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29049806" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29049806" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29049806" target="_blank">PMID:29049806</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8873,7 +9412,9 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20485130" target="_blank">PMID:20485130</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8905,17 +9446,17 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">Chemotherapy</span>
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -8940,51 +9481,76 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         cisplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         carboplatin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31355</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:31355</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses carboplatin (CHEBI:31355). CHEBI:31355 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         etoposide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -9025,7 +9591,9 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40068632" target="_blank">PMID:40068632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9047,7 +9615,9 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9079,17 +9649,17 @@ This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent fr
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9114,21 +9684,42 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses everolimus (CHEBI:68478). CHEBI:68478 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         everolimus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_68478" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:68478</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_68478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:68478</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses everolimus (CHEBI:68478). CHEBI:68478 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -9169,7 +9760,9 @@ This treatment uses everolimus (CHEBI:68478). CHEBI:68478 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40068632" target="_blank">PMID:40068632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9201,17 +9794,17 @@ This treatment uses everolimus (CHEBI:68478). CHEBI:68478 is a therapeutic agent
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">Chemotherapy</span>
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.">NCIT:C15632</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15632">NCIT:C15632</a>
 
 
 
@@ -9236,36 +9829,59 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses temozolomide (CHEBI:72564). CHEBI:72564 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         temozolomide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_72564" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:72564</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_72564" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:72564</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses temozolomide (CHEBI:72564). CHEBI:72564 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses capecitabine (CHEBI:31348). CHEBI:31348 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         capecitabine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31348" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:31348</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31348" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:31348</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses capecitabine (CHEBI:31348). CHEBI:31348 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -9288,7 +9904,9 @@ This treatment uses capecitabine (CHEBI:31348). CHEBI:31348 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40068632" target="_blank">PMID:40068632</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9320,17 +9938,17 @@ This treatment uses capecitabine (CHEBI:31348). CHEBI:31348 is a therapeutic age
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -9355,36 +9973,59 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         octreotide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7726" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:7726</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7726" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:7726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
 
-                    <span class="tag tag-treatment" title="Chemical Entities of Biological Interest (CHEBI)
-Relation: this treatment uses this therapeutic agent
-This treatment uses lanreotide (CHEBI:135901). CHEBI:135901 is a therapeutic agent from Chemical Entities of Biological Interest.">
+
+                    <span class="tag tag-treatment">
                         lanreotide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_135901" target="_blank" class="curie-chip curie-chip-chebi">CHEBI:135901</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_135901" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:135901</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lanreotide (CHEBI:135901). CHEBI:135901 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Peptide</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -9438,7 +10079,9 @@ This treatment uses lanreotide (CHEBI:135901). CHEBI:135901 is a therapeutic age
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35198446" target="_blank">PMID:35198446</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9470,17 +10113,17 @@ This treatment uses lanreotide (CHEBI:135901). CHEBI:135901 is a therapeutic age
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Peptide Receptor Radionuclide Therapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Peptide Receptor Radionuclide Therapy (NCIT:C162449). NCIT:C162449 is a clinical intervention from the NCI Thesaurus.">Peptide Receptor Radionuclide Therapy</span>
+This treatment is Peptide Receptor Radionuclide Therapy (NCIT:C162449). NCIT:C162449 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C162449" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Peptide Receptor Radionuclide Therapy (NCIT:C162449). NCIT:C162449 is a clinical intervention from the NCI Thesaurus.">NCIT:C162449</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C162449" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C162449">NCIT:C162449</a>
 
 
 
@@ -9505,21 +10148,42 @@ This treatment is Peptide Receptor Radionuclide Therapy (NCIT:C162449). NCIT:C16
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses lutetium Lu 177 dotatate (NCIT:C95020). NCIT:C95020 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         lutetium Lu 177 dotatate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C95020" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C95020</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C95020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C95020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lutetium Lu 177 dotatate (NCIT:C95020). NCIT:C95020 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
 
 
 
@@ -9560,7 +10224,9 @@ This treatment uses lutetium Lu 177 dotatate (NCIT:C95020). NCIT:C95020 is a the
                         <a href="https://clinicaltrials.gov/study/NCT06121271" target="_blank">clinicaltrials:NCT06121271</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9592,17 +10258,17 @@ This treatment uses lutetium Lu 177 dotatate (NCIT:C95020). NCIT:C95020 is a the
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -9620,6 +10286,25 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -9656,13 +10341,15 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30502716" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30502716" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30502716" target="_blank">PMID:30502716</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9684,7 +10371,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35690804" target="_blank">PMID:35690804</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9716,17 +10405,17 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">Genetic Counseling</span>
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.">NCIT:C15240</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15240" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15240">NCIT:C15240</a>
 
 
 
@@ -9744,6 +10433,25 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
 
 
 
@@ -9768,7 +10476,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35696052" target="_blank">PMID:35696052</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9790,7 +10500,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9822,17 +10534,17 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Thymectomy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical intervention from the NCI Thesaurus.">Thymectomy</span>
+This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29894" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical intervention from the NCI Thesaurus.">NCIT:C29894</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29894" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29894">NCIT:C29894</a>
 
 
 
@@ -9855,6 +10567,25 @@ This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
 
 
 
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
                 <div class="item-desc">Routine transcervical thymectomy performed at the time of parathyroidectomy has been proposed as prophylaxis against thymic carcinoid in MEN1. It is plausible and low-cost when the neck is already open, but the supporting evidence consists only of observational studies and case reports and does not establish that the procedure prevents thymic carcinoid - transcervical thymectomy often leaves residual mediastinal thymic tissue. Curated as a syndrome-specific expert strategy, not proven prevention.</div>
 
 
@@ -9868,13 +10599,15 @@ This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT05061784" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT05061784" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://clinicaltrials.gov/study/NCT05061784" target="_blank">clinicaltrials:NCT05061784</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9896,7 +10629,9 @@ This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9937,23 +10672,29 @@ This treatment is Thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
 
-                    <span class="tag tag-env" title="Environmental Conditions, Treatments and Exposures Ontology (ECTO)
-Relation: this environmental factor is this exposure
-This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.">
+
+                    <span class="tag tag-env">
                         exposure to tobacco smoking
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-61">ECTO:6000029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
 
                 </div>
+
+
+
+
 
 
 
@@ -9973,7 +10714,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9989,13 +10732,15 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27311764" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27311764" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27311764" target="_blank">PMID:27311764</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10017,7 +10762,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27311764" target="_blank">PMID:27311764</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10077,7 +10824,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10124,7 +10873,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10171,7 +10922,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33243039" target="_blank">PMID:33243039</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10214,13 +10967,15 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30502716" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30502716" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30502716" target="_blank">PMID:30502716</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10242,7 +10997,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35690804" target="_blank">PMID:35690804</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10285,13 +11042,15 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40328381" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40328381" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10313,7 +11072,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35690804" target="_blank">PMID:35690804</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10360,7 +11121,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35198446" target="_blank">PMID:35198446</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10386,6 +11149,818 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
         </div>
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-contrast-enhanced-chest-ct">
+                <div class="item-name">
+                    Contrast-enhanced chest CT
+
+                </div>
+
+                <div class="item-desc">Cross-sectional imaging of the chest is the primary anatomical study, defining the prevascular mediastinal mass, its relationship to great vessels and pericardium, and nodal involvement. MRI adds value for vascular, cardiac or spinal invasion.</div>
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-somatostatin-receptor-pet-ct-68ga-dotatate-and-18f-fdg-pet-ct">
+                <div class="item-name">
+                    Somatostatin receptor PET/CT (68Ga-DOTATATE) and 18F-FDG PET/CT
+
+                </div>
+
+                <div class="item-desc">Functional somatostatin-receptor imaging is positive in about three-quarters of advanced thymic NET and is used both for staging and to select patients for somatostatin-analogue therapy or peptide receptor radionuclide therapy. 18F-FDG PET is complementary and is positive in a higher fraction, reflecting the proliferative high-grade component.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40328381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Positive results for 18F-FDG or somatostain receptor imaging was found in 88% or 74% of cases, respectively."</div>
+
+
+                <div class="evidence-explanation">Quantifies the diagnostic yield of both functional imaging modalities in advanced thymic NET.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-histopathology-with-neuroendocrine-immunohistochemical-panel">
+                <div class="item-name">
+                    Histopathology with neuroendocrine immunohistochemical panel
+
+                </div>
+
+                <div class="item-desc">Tissue diagnosis is mandatory. The panel comprises pancytokeratin (epithelial lineage), chromogranin A and synaptophysin (neuroendocrine differentiation) and Ki-67 (proliferation); GATA-3 and TTF-1 help exclude paraganglioma and pulmonary origin respectively. Mitotic count per 2 mm2 and necrosis assign grade.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25294372" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we recommend that the workup of neuroendocrine tumors should include not only the conventional neuroendocrine markers and pancytokeratin but also other markers such as GATA-3 and TTF-1 in order to arrive at a better interpretation."</div>
+
+
+                <div class="evidence-explanation">Directly recommends the immunohistochemical panel used to diagnose thymic neuroendocrine carcinoma and exclude its mimics.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-germline-men1-testing-and-endocrine-syndrome-screening">
+                <div class="item-name">
+                    Germline MEN1 testing and endocrine syndrome screening
+
+                </div>
+
+                <div class="item-desc">Because a quarter to a third of cases are MEN1-associated, a new diagnosis of thymic neuroendocrine carcinoma should prompt germline MEN1 sequencing with deletion/duplication analysis plus biochemical screening for hyperparathyroidism and pituitary and gastroenteropancreatic tumors - especially in younger patients, those with other endocrine tumors, or those with a suggestive family history.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301710" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301710" target="_blank">PMID:20301710</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The molecular diagnosis can be established by identification of a heterozygous pathogenic variant in MEN1 on molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews basis for germline MEN1 testing. Evidence source is OTHER because GeneReviews is an expert-curated review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target">
+                <div class="item-name"></div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Behaviour is graded. Reported 5- and 10-year overall survival in surgical series is 77% and 35% (Japanese multicentre, all grades) and 53% and 18% (a mediastinal typical/atypical carcinoid biomarker series). In a modern French national cohort restricted to locally advanced or metastatic disease the 5-year overall survival was 85%, better than historically reported. Prognosis is markedly worse for the poorly differentiated grades - in one series all 3 patients with large cell neuroendocrine carcinoma died of tumor progression versus 17% of atypical carcinoid patients. MEN1-associated disease is aggressive, with 5- and 10-year survival of 62.5% and 31.3% in a Finnish cohort and 10-year overall survival of 45% at a US referral centre. Late metachronous recurrence is characteristic, so surveillance must be prolonged.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (6 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29049806" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29049806" target="_blank">PMID:29049806</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall survival was 77% after 5 years and 35% after 10 years, whereas relapse-free survival was 48% and 29%, and cancer-specific survival was 90% and 48%, respectively."</div>
+
+
+                <div class="evidence-explanation">Provides multicentre 5- and 10-year survival for resected thymic neuroendocrine tumors.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33243039" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33243039" target="_blank">PMID:33243039</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Five- and 10-year-survival rates were 53% and 18%, respectively."</div>
+
+
+                <div class="evidence-explanation">Independent survival estimate for mediastinal typical/atypical carcinoid.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40328381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The 5-year overall survival was 85%."</div>
+
+
+                <div class="evidence-explanation">Contemporary survival estimate in advanced disease, better than historical series.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 3 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-patients-with-multiple-endocrine-neoplasia-type-1-tertiary-referral-centre">
+                <div class="item-name">Patients with multiple endocrine neoplasia type 1 (tertiary referral centre)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Lifetime Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        3000.0 per 100,000
+                        (1000.0&ndash;5000.0)
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">1-5% of MEN1 patients develop a thymic carcinoid; converted to 1000-5000 per 100,000 of the MEN1 population. This is a within-syndrome risk, not a general-population rate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27311764" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27311764" target="_blank">PMID:27311764</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thymic carcinoids are rare neuroendocrine tumors that occur in 1-5 % of patients with multiple endocrine neoplasia type 1 (MEN1)"</div>
+
+
+                <div class="evidence-explanation">Source for the 1-5% within-MEN1 lifetime occurrence figure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-finnish-men1-patients-three-university-hospitals-1985-2019">
+                <div class="item-name">Finnish MEN1 patients (three university hospitals, 1985-2019)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Lifetime Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        3300.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">6 of 183 MEN1 patients (3.3%) developed a thymic neuroendocrine tumor; converted to 3300 per 100,000 of the MEN1 population. Numerically consistent with the 1-5% referral-centre estimate, but NOT an independent confirmation of it: five of the six affected patients shared one Finnish founder MEN1 variant and descended from a single pedigree, so the rate is inflated by relatedness and is not generalisable.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35696052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35696052" target="_blank">PMID:35696052</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There were six patients (3.3%) with MEN1 and TNET."</div>
+
+
+                <div class="evidence-explanation">Population-based Finnish MEN1 cohort quantifying the within-syndrome occurrence of thymic neuroendocrine tumor.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35696052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35696052" target="_blank">PMID:35696052</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Five of them had the same common gene mutation occurring in Finland. They originated from common ancestors encompassing two pairs of brothers from sequential generations."</div>
+
+
+                <div class="evidence-explanation">Establishes that five of the six cases derive from one founder pedigree, which is why this 3.3% figure must not be treated as an independent population estimate. Marked PARTIAL because it qualifies rather than supports the rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-general-population">
+                <div class="item-name">Worldwide (general population)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">No reliable general-population incidence or prevalence rate for thymic neuroendocrine carcinoma alone was identified. Registry analyses report thymic &#34;cancer&#34; incidence per 100,000 without breaking out the neuroendocrine arm, and the largest dedicated series accrue only tens to low hundreds of patients over multi-decade windows. Orphanet lists no prevalence class for ORPHA:99869. The numeric slots are therefore deliberately left empty rather than fabricated.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40068632" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40068632" target="_blank">PMID:40068632</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thymic carcinoids or neuroendocrine neoplasms (t-NEN) are a rare entity with a dismal prognosis."</div>
+
+
+                <div class="evidence-explanation">Supports the qualitative rarity band only; the review provides no numeric population rate. Evidence source is OTHER because this is a narrative review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-male-predominance">
+                <div class="item-name">Male predominance</div>
+
+                <div class="item-desc">Thymic neuroendocrine carcinoma shows a consistent and marked male predominance across independent series and registries - approximately 2.7:1 in a French national advanced-disease cohort, 25:5 in a Japanese multicentre surgical series, 15:6 in a Korean surgical series, and 20:4 in a US immunohistochemical series. The excess appears less pronounced in MEN1-associated disease, where the underlying autosomal dominant predisposition is sex-neutral.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40328381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40328381" target="_blank">PMID:40328381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Main characteristics were as follows: male over female ratio of 2.7"</div>
+
+
+                <div class="evidence-explanation">Directly quantifies the male:female ratio in a 74-patient national cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23110006" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23110006" target="_blank">PMID:23110006</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It showed male predominance (male/female ratio, 15/6) with wide age range from 20 to 72 years (mean age, 49 years)."</div>
+
+
+                <div class="evidence-explanation">Independent surgical series confirming male predominance and giving the age distribution.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20485130" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20485130" target="_blank">PMID:20485130</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"According to our results, thymic NETs afflict males and whites primarily."</div>
+
+
+                <div class="evidence-explanation">Population-based SEER analysis of 160 patients confirming male predominance.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-elevated-second-malignancy-risk">
+                <div class="item-name">Elevated second-malignancy risk</div>
+
+                <div class="item-desc">Patients with thymic neuroendocrine tumor carry a significantly increased risk of a second primary malignancy relative to the general population - an age-adjusted second-cancer incidence of 4178.46 per 100,000 persons in the SEER thymic NET cohort (19 of 263 patients from 2000-2018), higher than the corresponding figure for thymic carcinoma. Age at diagnosis is a significant risk factor, and the risk is not attributable to any particular treatment modality. This is the epidemiological basis for extending follow-up beyond recurrence surveillance to include age-appropriate second-cancer screening.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38227201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38227201" target="_blank">PMID:38227201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1130 patients with thymic carcinoma (73 patients had second malignancies) and 263 patients with thymic NET (19 patients had second malignancies) from 2000 to 2018 are included."</div>
+
+
+                <div class="evidence-explanation">Gives the SEER thymic NET denominator and the number developing a second malignancy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38227201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38227201" target="_blank">PMID:38227201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The age-adjusted cancer incidence of second malignancies in patients with thymic carcinoma is 3058.48 per 100,000 persons (4178.46 per 100,000 persons in patients with thymic NET). Age at diagnosis is a significant risk factor for the development of second malignancies."</div>
+
+
+                <div class="evidence-explanation">Quantifies the age-adjusted second-cancer incidence in thymic NET and identifies age at diagnosis as a risk factor.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38227201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38227201" target="_blank">PMID:38227201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The standardized incidence ratio (SIR) and the age-adjusted cancer incidence of the thymic carcinoma and thymic NET patients with second malignancies were retrospectively calculated by using the Surveillance, Epidemiology, and End Results (SEER) database."</div>
+
+
+                <div class="evidence-explanation">Establishes the SEER standardized-incidence-ratio methodology behind the second-malignancy risk estimate.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-adult-onset-with-a-wide-age-range">
+                <div class="item-name">Adult onset with a wide age range</div>
+
+                <div class="item-desc">Presentation is in adulthood, typically in the fourth to fifth decade, with a wide reported age range (roughly 20 to 78 years). MEN1-associated cases tend to present somewhat earlier than sporadic disease.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23110006" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23110006" target="_blank">PMID:23110006</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"wide age range from 20 to 72 years (mean age, 49 years)"</div>
+
+
+                <div class="evidence-explanation">Gives the age distribution of a thymic neuroendocrine tumor surgical series.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35696052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35696052" target="_blank">PMID:35696052</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The mean age at presentation of TNET was 44.7 ± 11.9 years."</div>
+
+
+                <div class="evidence-explanation">Gives mean age at presentation in the MEN1-associated subset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -10400,7 +11975,7 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-thymoma">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Thymoma.html">Thymoma</a>
@@ -10451,7 +12026,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34695605" target="_blank">PMID:34695605</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10476,7 +12053,7 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-thymic-carcinoma-non-neuroendocrine">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Thymic_Carcinoma.html">Thymic carcinoma (non-neuroendocrine)</a>
@@ -10525,7 +12102,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10547,7 +12126,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37749819" target="_blank">PMID:37749819</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10572,7 +12153,7 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-mediastinal-paraganglioma">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Mediastinal paraganglioma</span>
@@ -10618,7 +12199,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10643,7 +12226,7 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-metastatic-or-directly-invading-pulmonary-neuroendocrine-carcinoma">
                 <div class="item-name">
 
                     <span class="missing-disease-name" title="No DisMech page yet for this disease">Metastatic or directly invading pulmonary neuroendocrine carcinoma</span>
@@ -10685,13 +12268,15 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25294372" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25294372" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25294372" target="_blank">PMID:25294372</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10729,7 +12314,7 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct06121271">
                 <div class="item-name">
                     NCT06121271
 
@@ -10757,7 +12342,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="https://clinicaltrials.gov/study/NCT06121271" target="_blank">clinicaltrials:NCT06121271</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10780,7 +12367,7 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct05061784">
                 <div class="item-name">
                     NCT05061784
 
@@ -10808,7 +12395,9 @@ This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:60
                         <a href="https://clinicaltrials.gov/study/NCT05061784" target="_blank">clinicaltrials:NCT05061784</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11394,7 +12983,7 @@ pathophysiology:
       disease in thymic carcinoid.
   - reference: PMID:33243039
     reference_title: &#34;Typical and Atypical Carcinoid Tumors of the Mediastinum: A Biomarker Analysis of 27 Cases With Clinical Correlation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Overall ± staining did not associate with survival or grade.
@@ -11758,7 +13347,7 @@ phenotypes:
       mediastinal mass, which is why the phenotype is OBLIGATE.
   - reference: PMID:40328381
     reference_title: &#34;Characterization, Prognosis, and Treatment of Patients With Locally Advanced or Metastatic Thymic Neuroendocrine Tumor: A Retrospective Study of the French GTE, ENDOCAN RENATEN, and RYTHMIC Networks.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       A total of 64 patients (87%) had locally advanced Thy-NET and eight (11%) had
@@ -11915,7 +13504,7 @@ phenotypes:
   evidence:
   - reference: PMID:25294372
     reference_title: &#34;Thymic neuroendocrine tumors (paraganglioma and carcinoid tumors): a comparative immunohistochemical study of 46 cases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       These patients were symptomatic with chest pain, shortness of breath, and
@@ -12116,7 +13705,7 @@ phenotypes:
   evidence:
   - reference: PMID:23110006
     reference_title: &#34;Clinicopathological analysis of 21 thymic neuroendocrine tumors.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Common sites of metastasis included lung, lymph node, brain, lumbar spine,
@@ -12319,7 +13908,7 @@ biochemical:
   evidence:
   - reference: PMID:30502716
     reference_title: &#34;Carcinoid tumors of the thymus and Cushing&#39;s syndrome: Clinicopathologic features and current best evidence regarding the cell of origin of these unusual neoplasms.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Thymic NET with CS exhibited stronger immunoreactivity for ACTH and CRH than
@@ -12355,7 +13944,7 @@ biochemical:
   evidence:
   - reference: PMID:40328381
     reference_title: &#34;Characterization, Prognosis, and Treatment of Patients With Locally Advanced or Metastatic Thymic Neuroendocrine Tumor: A Retrospective Study of the French GTE, ENDOCAN RENATEN, and RYTHMIC Networks.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       11 patients (15%) with ectopic Cushing syndrome
@@ -12429,7 +14018,7 @@ environmental:
       expert-curated review.
   - reference: PMID:27311764
     reference_title: &#34;Clinical Features, Treatments, and Outcomes of Patients with Thymic Carcinoids and Multiple Endocrine Neoplasia Type 1 Syndrome at MD Anderson Cancer Center.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The few published reports associate these tumors with male sex and smoking.
@@ -12691,7 +14280,7 @@ prevalence:
       occurrence of thymic neuroendocrine tumor.
   - reference: PMID:35696052
     reference_title: &#34;Thymic neuroendocrine tumors in patients with multiple endocrine neoplasia type 1.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Five of them had the same common gene mutation occurring in Finland. They
@@ -12714,7 +14303,7 @@ prevalence:
   evidence:
   - reference: PMID:40068632
     reference_title: &#34;A Review for the Clinician: Classifications, Genetics, and Treatment for Neuroendocrine Neoplasms of the Thymus (Thymic Carcinoids).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Thymic carcinoids or neuroendocrine neoplasms (t-NEN) are a rare entity with
@@ -12768,7 +14357,7 @@ epidemiology:
       Japanese multicentre surgical series with a 5:1 male:female ratio.
   - reference: PMID:27311764
     reference_title: &#34;Clinical Features, Treatments, and Outcomes of Patients with Thymic Carcinoids and Multiple Endocrine Neoplasia Type 1 Syndrome at MD Anderson Cancer Center.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       A higher percentage of MEN1-related thymic carcinoids can occur in women and
@@ -12918,7 +14507,7 @@ progression:
       Referral-centre 10-year overall survival in MEN1-associated thymic carcinoid.
   - reference: PMID:40328381
     reference_title: &#34;Characterization, Prognosis, and Treatment of Patients With Locally Advanced or Metastatic Thymic Neuroendocrine Tumor: A Retrospective Study of the French GTE, ENDOCAN RENATEN, and RYTHMIC Networks.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Univariate analysis on overall survival reveals a trend toward worse prognosis
@@ -13123,7 +14712,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:25294372
     reference_title: &#34;Thymic neuroendocrine tumors (paraganglioma and carcinoid tumors): a comparative immunohistochemical study of 46 cases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       TTF-1 in 4 (17%) of 24 cases
@@ -13191,7 +14780,7 @@ treatments:
   evidence:
   - reference: PMID:29049806
     reference_title: &#34;Results of treatment for thymic neuroendocrine tumours: multicentre clinicopathological study.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       As for relapse-free survival patients, TNM Stage I or II (P = 0.011) and
@@ -13452,7 +15041,7 @@ treatments:
   evidence:
   - reference: PMID:30502716
     reference_title: &#34;Carcinoid tumors of the thymus and Cushing&#39;s syndrome: Clinicopathologic features and current best evidence regarding the cell of origin of these unusual neoplasms.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Four (36.4%) of the 11 patients had CS.
@@ -13526,7 +15115,7 @@ treatments:
   evidence:
   - reference: clinicaltrials:NCT05061784
     reference_title: &#34;Revisiting the Evidence for Routine Transcervical Thymectomy for the Prevention of Thymic Carcinoid Tumours in MEN-1 Patients a Case Series&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       A case series was built after review of available literature by searching four
@@ -13620,7 +15209,7 @@ discussions:
       equivalents) under central pathology review, reporting age-standardised
       incidence separately for typical carcinoid, atypical carcinoid, large cell
       neuroendocrine carcinoma and small cell carcinoma of the thymus.
-    would_support:
+    supporting_outcome:
     - &gt;-
       A grade-stratified per-100,000 incidence that can populate the
       general-population prevalence record with numeric bounds.
@@ -13650,7 +15239,7 @@ discussions:
   evidence:
   - reference: PMID:30502716
     reference_title: &#34;Carcinoid tumors of the thymus and Cushing&#39;s syndrome: Clinicopathologic features and current best evidence regarding the cell of origin of these unusual neoplasms.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The thymus contains CRH and ACTH immunoreactive cells that are probably the
@@ -13665,7 +15254,7 @@ discussions:
       Profile non-neoplastic human thymus by single-cell and spatial transcriptomics
       to define the putative neuroendocrine precursor population, and match its
       signature against thymic neuroendocrine carcinoma tumor transcriptomes.
-    would_support:
+    supporting_outcome:
     - &gt;-
       A transcriptional lineage relationship between a defined normal thymic
       neuroendocrine population and the tumor.
@@ -13675,10 +15264,10 @@ discussions:
       Conditionally inactivate Men1 in a thymic-epithelial-lineage-restricted mouse
       model to test whether menin loss alone is sufficient to generate thymic
       neuroendocrine tumors.
-    would_support:
+    supporting_outcome:
     - &gt;-
       Menin loss as a sufficient initiating lesion in the thymic epithelial lineage.
-    would_refute:
+    refuting_outcome:
     - &gt;-
       Absence of thymic tumors would indicate that additional cooperating lesions
       (for example RB-axis loss) are required.
@@ -13709,7 +15298,7 @@ discussions:
       networks reporting objective response and progression-free survival separately
       by WHO grade for platinum-etoposide, everolimus, CAPTEM, somatostatin
       analogues and PRRT.
-    would_support:
+    supporting_outcome:
     - &gt;-
       Grade-specific thymus-native efficacy estimates that would replace the current
       extrapolated recommendations.
@@ -14134,7 +15723,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Thymic Neuroendocrine Carcinoma", "mondoId": "MONDO:0020516", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thymic_Neuroendocrine_Carcinoma", "yamlRevision": "01f1d9daa90a"};
+        const OS_CONFIG = {"diseaseName": "Thymic Neuroendocrine Carcinoma", "mondoId": "MONDO:0020516", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thymic_Neuroendocrine_Carcinoma", "yamlRevision": "7839fdd54867"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14553,5 +16142,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

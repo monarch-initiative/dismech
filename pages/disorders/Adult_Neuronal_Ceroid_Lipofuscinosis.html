@@ -294,6 +294,20 @@
             color: #0369a1;
         }
 
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
         .badge-mondo a {
             color: inherit;
             text-decoration: none;
@@ -537,12 +551,69 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
         /* Ontology term pills carry a plain-language tooltip (issue #8310);
            the help cursor is the only hint that hovering is worthwhile. */
-        .tag[title],
-        .phenotype-id[title],
-        .subtype-gene-tag[title],
-        .model-detail-value[title] {
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
             cursor: help;
         }
 
@@ -773,10 +844,22 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1454,6 +1537,21 @@
             margin-bottom: 4px;
         }
 
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
+            margin-bottom: 4px;
+        }
+
         .experiment-decision {
             padding: 10px 12px;
             border: 1px solid #fde68a;
@@ -1527,6 +1625,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2791,6 +2904,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2799,7 +2926,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -3618,6 +3745,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3646,7 +3793,7 @@
             <span>Adult Neuronal Ceroid Lipofuscinosis</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Adult Neuronal Ceroid Lipofuscinosis</h1>
             <div class="header-meta">
 
@@ -3926,7 +4073,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-inheritance">
                 <div class="item-name">
                     Autosomal recessive inheritance
 
@@ -3972,7 +4119,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21549341" target="_blank">PMID:21549341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -3995,7 +4144,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297359" target="_blank">PMID:23297359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4018,7 +4169,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4064,7 +4215,9 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4122,7 +4275,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-cln6-kufs-a">
 
                     <div class="item-name">
                         CLN6-related Kufs disease Type A
@@ -4135,18 +4288,20 @@
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CLN6 (hgnc:2077). hgnc:2077 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CLN6
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2077" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2077</a>
+    <a href="https://bioregistry.io/hgnc:2077" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2077</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CLN6 (hgnc:2077). hgnc:2077 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4174,7 +4329,9 @@ This subtype is caused by variation in CLN6 (hgnc:2077). hgnc:2077 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21549341" target="_blank">PMID:21549341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4200,7 +4357,7 @@ This subtype is caused by variation in CLN6 (hgnc:2077). hgnc:2077 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ctsf-cln13">
 
                     <div class="item-name">
                         CTSF-related neuronal ceroid lipofuscinosis type 13 (CLN13)
@@ -4213,18 +4370,20 @@ This subtype is caused by variation in CLN6 (hgnc:2077). hgnc:2077 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in CTSF (hgnc:2531). hgnc:2531 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 CTSF
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:2531" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2531</a>
+    <a href="https://bioregistry.io/hgnc:2531" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2531</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CTSF (hgnc:2531). hgnc:2531 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4252,7 +4411,9 @@ This subtype is caused by variation in CTSF (hgnc:2531). hgnc:2531 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297359" target="_blank">PMID:23297359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4274,7 +4435,9 @@ This subtype is caused by variation in CTSF (hgnc:2531). hgnc:2531 is a gene fro
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39720560" target="_blank">PMID:39720560</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4300,7 +4463,7 @@ This subtype is caused by variation in CTSF (hgnc:2531). hgnc:2531 is a gene fro
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dnajc5-cln4">
 
                     <div class="item-name">
                         DNAJC5-related CLN4 (Parry disease)
@@ -4313,18 +4476,20 @@ This subtype is caused by variation in CTSF (hgnc:2531). hgnc:2531 is a gene fro
 
 
 
-                            <span class="subtype-gene-tag" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this subtype is caused by variation in this gene
-This subtype is caused by variation in DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                            <span class="subtype-gene-tag">
                                 DNAJC5
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16235</a>
+    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:16235</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4352,7 +4517,9 @@ This subtype is caused by variation in DNAJC5 (hgnc:16235). hgnc:16235 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4374,7 +4541,9 @@ This subtype is caused by variation in DNAJC5 (hgnc:16235). hgnc:16235 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23838030" target="_blank">PMID:23838030</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4437,7 +4606,7 @@ This subtype is caused by variation in DNAJC5 (hgnc:16235). hgnc:16235 is a gene
 
 
 
-    <span class="entity-ref-chip">subtype#DNAJC5 CLN4</span>
+    <a class="entity-ref-chip" href="#subtype-dnajc5-cln4">has_subtypes#DNAJC5 CLN4</a>
 
 
 
@@ -4469,7 +4638,9 @@ This subtype is caused by variation in DNAJC5 (hgnc:16235). hgnc:16235 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23838030" target="_blank">PMID:23838030</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4491,7 +4662,9 @@ This subtype is caused by variation in DNAJC5 (hgnc:16235). hgnc:16235 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4544,17 +4717,21 @@ This subtype is caused by variation in DNAJC5 (hgnc:16235). hgnc:16235 is a gene
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CLN6 (hgnc:2077). hgnc:2077 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CLN6
 
 
-    <a href="https://bioregistry.io/hgnc:2077" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2077</a>
+    <a href="https://bioregistry.io/hgnc:2077" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2077</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CLN6 (hgnc:2077). hgnc:2077 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4583,18 +4760,20 @@ This pathophysiological event involves CLN6 (hgnc:2077). hgnc:2077 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated endoplasmic reticulum to Golgi vesicle-mediated transport (GO:0006888). GO:0006888 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         endoplasmic reticulum to Golgi vesicle-mediated transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006888" target="_blank" class="curie-chip curie-chip-go">GO:0006888</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006888" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006888</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated endoplasmic reticulum to Golgi vesicle-mediated transport (GO:0006888). GO:0006888 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4615,18 +4794,20 @@ This pathophysiological event involves dysregulated endoplasmic reticulum to Gol
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated lysosome organization (GO:0007040). GO:0007040 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lysosome organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007040" target="_blank" class="curie-chip curie-chip-go">GO:0007040</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007040" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0007040</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated lysosome organization (GO:0007040). GO:0007040 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4653,48 +4834,54 @@ This pathophysiological event involves dysregulated lysosome organization (GO:00
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go">GO:0005783</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0005783</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:0005783 is a cellular component from the Gene Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         Golgi apparatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go">GO:0005794</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0005794</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 is a cellular component from the Gene Ontology.</span>
                     </span>
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4734,7 +4921,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4757,7 +4946,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32597833" target="_blank">PMID:32597833</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4780,7 +4971,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32597833" target="_blank">PMID:32597833</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4815,18 +5008,20 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4854,18 +5049,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated lysosomal transport (GO:0007041). GO:0007041 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lysosomal transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007041" target="_blank" class="curie-chip curie-chip-go">GO:0007041</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007041</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated lysosomal transport (GO:0007041). GO:0007041 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4892,18 +5089,20 @@ This pathophysiological event involves dysregulated lysosomal transport (GO:0007
                 <div class="item-meta">
 
 
-                    <span class="tag tag-component" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this cellular component
-This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.">
+
+                    <span class="tag tag-component">
                         lysosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go">GO:0005764</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0005764</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4952,7 +5151,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4975,7 +5176,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4998,7 +5201,9 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23838030" target="_blank">PMID:23838030</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5033,18 +5238,20 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5072,17 +5279,21 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DNAJC5
 
 
-    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16235</a>
+    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:16235</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5111,18 +5322,20 @@ This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated protein palmitoylation (GO:0018345). GO:0018345 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein palmitoylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0018345" target="_blank" class="curie-chip curie-chip-go">GO:0018345</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0018345" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0018345</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated protein palmitoylation (GO:0018345). GO:0018345 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5143,18 +5356,20 @@ This pathophysiological event involves dysregulated protein palmitoylation (GO:0
 
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated protein localization to membrane (GO:0072657). GO:0072657 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         protein localization to membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072657" target="_blank" class="curie-chip curie-chip-go">GO:0072657</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072657" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0072657</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated protein localization to membrane (GO:0072657). GO:0072657 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5213,7 +5428,9 @@ This pathophysiological event involves dysregulated protein localization to memb
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5236,7 +5453,9 @@ This pathophysiological event involves dysregulated protein localization to memb
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31919451" target="_blank">PMID:31919451</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5270,18 +5489,20 @@ This pathophysiological event involves dysregulated protein localization to memb
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5309,17 +5530,21 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DNAJC5
 
 
-    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16235</a>
+    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:16235</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5375,13 +5600,15 @@ This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21820099" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21820099" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5415,18 +5642,20 @@ This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5454,17 +5683,21 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         DNAJC5
 
 
-    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16235</a>
+    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:16235</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5493,18 +5726,20 @@ This pathophysiological event involves DNAJC5 (hgnc:16235). hgnc:16235 is a gene
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated microautophagy (GO:0016237). GO:0016237 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         microautophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016237" target="_blank" class="curie-chip curie-chip-go">GO:0016237</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016237" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0016237</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated microautophagy (GO:0016237). GO:0016237 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5571,7 +5806,9 @@ This pathophysiological event involves dysregulated microautophagy (GO:0016237).
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35506243" target="_blank">PMID:35506243</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5605,18 +5842,20 @@ This pathophysiological event involves dysregulated microautophagy (GO:0016237).
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5644,17 +5883,21 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <span class="tag tag-gene" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves CTSF (hgnc:2531). hgnc:2531 is a gene from the HUGO Gene Nomenclature Committee.">
+
+
+
+    <span class="tag tag-gene">
 
         CTSF
 
 
-    <a href="https://bioregistry.io/hgnc:2531" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2531</a>
+    <a href="https://bioregistry.io/hgnc:2531" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:2531</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CTSF (hgnc:2531). hgnc:2531 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5683,18 +5926,20 @@ This pathophysiological event involves CTSF (hgnc:2531). hgnc:2531 is a gene fro
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this biological process
-This pathophysiological event involves dysregulated lysosomal proteolysis, annotated with protein catabolic process in the vacuole (GO:0007039). GO:0007039 is a biological process from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         lysosomal proteolysis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007039" target="_blank" class="curie-chip curie-chip-go">GO:0007039</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007039" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0007039</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated lysosomal proteolysis, annotated with protein catabolic process in the vacuole (GO:0007039). GO:0007039 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5720,18 +5965,20 @@ This pathophysiological event involves dysregulated lysosomal proteolysis, annot
                 <div class="item-meta">
 
 
-                    <span class="tag tag-bio" title="Gene Ontology (GO)
-Relation: this pathophysiological event involves this molecular function
-This pathophysiological event involves dysregulated cysteine-type peptidase activity (GO:0008234). GO:0008234 is a molecular function from the Gene Ontology.">
+
+                    <span class="tag tag-bio">
                         cysteine-type peptidase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008234" target="_blank" class="curie-chip curie-chip-go">GO:0008234</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008234" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0008234</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves dysregulated cysteine-type peptidase activity (GO:0008234). GO:0008234 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5783,13 +6030,15 @@ This pathophysiological event involves dysregulated cysteine-type peptidase acti
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23297359" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23297359" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297359" target="_blank">PMID:23297359</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5812,7 +6061,9 @@ This pathophysiological event involves dysregulated cysteine-type peptidase acti
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297359" target="_blank">PMID:23297359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5847,18 +6098,20 @@ This pathophysiological event involves dysregulated cysteine-type peptidase acti
                 <div class="item-meta">
 
 
-                    <span class="tag tag-cell" title="Cell Ontology (CL)
-Relation: this pathophysiological event involves this cell type
-This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.">
+
+                    <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5998,7 +6251,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6021,7 +6276,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23838030" target="_blank">PMID:23838030</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6057,7 +6314,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box histopathology-box">
+            <div class="item-box histopathology-box anchor-target" id="histopathology-fingerprint-lipopigment-inclusions">
                 <div class="item-name">
                     Fingerprint Lipopigment Inclusions
 
@@ -6080,7 +6337,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6103,7 +6362,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6189,16 +6450,20 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000726</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dementia (HP:0000726), qualified as course progressive. HP:0000726 is a phenotype from the Human Phenotype Ontology.">
-                        Dementia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp">HP:0000726</a>
-
-
+This clinical feature is Dementia (HP:0000726), qualified as course progressive. HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6237,7 +6502,9 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6260,7 +6527,9 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23838030" target="_blank">PMID:23838030</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6282,7 +6551,9 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6314,16 +6585,20 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001336</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.">
-                        Myoclonus
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp">HP:0001336</a>
-
-
+This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6344,7 +6619,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6367,7 +6644,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6389,7 +6668,9 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6421,16 +6702,20 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
-                        Seizure
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
-
-
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6451,7 +6736,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6474,7 +6761,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6496,7 +6785,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6528,16 +6819,22 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Progressive cerebellar ataxia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002073</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.">
-                        Progressive cerebellar ataxia
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp">HP:0002073</a>
-
-
+This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6558,7 +6855,9 @@ This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6581,7 +6880,9 @@ This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23838030" target="_blank">PMID:23838030</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6613,16 +6914,22 @@ This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Cerebral cortical atrophy</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002120</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral cortical atrophy (HP:0002120), qualified as course progressive. HP:0002120 is a phenotype from the Human Phenotype Ontology.">
-                        Cerebral cortical atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp">HP:0002120</a>
-
-
+This clinical feature is Cerebral cortical atrophy (HP:0002120), qualified as course progressive. HP:0002120 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6661,7 +6968,9 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120), qualified as co
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6684,7 +6993,9 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120), qualified as co
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39720560" target="_blank">PMID:39720560</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6716,16 +7027,20 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120), qualified as co
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001272</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course progressive. HP:0001272 is a phenotype from the Human Phenotype Ontology.">
-                        Cerebellar atrophy
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp">HP:0001272</a>
-
-
+This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course progressive. HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6764,7 +7079,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course pr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6786,7 +7103,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course pr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39720560" target="_blank">PMID:39720560</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6818,16 +7137,20 @@ This clinical feature is Cerebellar atrophy (HP:0001272), qualified as course pr
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001337</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.">
-                        Tremor
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp">HP:0001337</a>
-
-
+This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6848,7 +7171,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6880,16 +7205,20 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.">
-                        Depression
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp">HP:0000716</a>
-
-
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6910,7 +7239,9 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6942,16 +7273,20 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000739</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.">
-                        Anxiety
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp">HP:0000739</a>
-
-
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6972,7 +7307,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7013,16 +7350,22 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">EEG with photoparoxysmal response</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010852" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0010852</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010852 is a phenotype from the Human Phenotype Ontology.">
-                        EEG with photoparoxysmal response
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010852" target="_blank" class="curie-chip curie-chip-hp">HP:0010852</a>
-
-
+This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010852 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7043,7 +7386,9 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7076,16 +7421,22 @@ This clinical feature is EEG with photoparoxysmal response (HP:0010852). HP:0010
 
 
 
-                    <span class="phenotype-id" title="Human Phenotype Ontology (HP)
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of extrapyramidal motor function</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002071</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.">
-                        Abnormality of extrapyramidal motor function
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp">HP:0002071</a>
-
-
+This clinical feature is Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7100,13 +7451,15 @@ This clinical feature is Abnormality of extrapyramidal motor function (HP:000207
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23838030" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23838030" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23838030" target="_blank">PMID:23838030</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7184,15 +7537,17 @@ This clinical feature is Abnormality of extrapyramidal motor function (HP:000207
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CLN6 (hgnc:2077). hgnc:2077 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CLN6
 
 
-    <a href="https://bioregistry.io/hgnc:2077" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2077</a>
+    <a href="https://bioregistry.io/hgnc:2077" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:2077</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CLN6 (hgnc:2077). hgnc:2077 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7214,7 +7569,9 @@ This disease-associated gene is CLN6 (hgnc:2077). hgnc:2077 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21549341" target="_blank">PMID:21549341</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7237,7 +7594,9 @@ This disease-associated gene is CLN6 (hgnc:2077). hgnc:2077 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7275,15 +7634,17 @@ This disease-associated gene is CLN6 (hgnc:2077). hgnc:2077 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is CTSF (hgnc:2531). hgnc:2531 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTSF
 
 
-    <a href="https://bioregistry.io/hgnc:2531" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:2531</a>
+    <a href="https://bioregistry.io/hgnc:2531" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:2531</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTSF (hgnc:2531). hgnc:2531 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7305,7 +7666,9 @@ This disease-associated gene is CTSF (hgnc:2531). hgnc:2531 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297359" target="_blank">PMID:23297359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7322,13 +7685,15 @@ This disease-associated gene is CTSF (hgnc:2531). hgnc:2531 is a gene from the H
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23297359" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23297359" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297359" target="_blank">PMID:23297359</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7351,7 +7716,9 @@ This disease-associated gene is CTSF (hgnc:2531). hgnc:2531 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297359" target="_blank">PMID:23297359</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7390,15 +7757,17 @@ This disease-associated gene is CTSF (hgnc:2531). hgnc:2531 is a gene from the H
 
 
 
-                    <span class="tag" style="background: #dbeafe; color: #1e40af;" title="HUGO Gene Nomenclature Committee (hgnc)
-Relation: this disease-associated gene is this gene
-This disease-associated gene is DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.">
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DNAJC5
 
 
-    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc">hgnc:16235</a>
+    <a href="https://bioregistry.io/hgnc:16235" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:16235</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DNAJC5 (hgnc:16235). hgnc:16235 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7420,7 +7789,9 @@ This disease-associated gene is DNAJC5 (hgnc:16235). hgnc:16235 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7443,7 +7814,9 @@ This disease-associated gene is DNAJC5 (hgnc:16235). hgnc:16235 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7466,7 +7839,9 @@ This disease-associated gene is DNAJC5 (hgnc:16235). hgnc:16235 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31919451" target="_blank">PMID:31919451</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7496,6 +7871,9 @@ This disease-associated gene is DNAJC5 (hgnc:16235). hgnc:16235 is a gene from t
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7512,17 +7890,17 @@ This disease-associated gene is DNAJC5 (hgnc:16235). hgnc:16235 is a gene from t
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">Supportive Care</span>
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
 
 
 
@@ -7540,6 +7918,14 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7565,7 +7951,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7596,17 +7984,17 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">Pharmacotherapy</span>
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="NCI Thesaurus (NCIT)
-Relation: this treatment is this clinical intervention
-This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.">NCIT:C15986</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
 
 
 
@@ -7631,21 +8019,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
 
-                    <span class="tag tag-treatment" title="NCI Thesaurus (NCIT)
-Relation: this treatment uses this therapeutic agent
-This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic agent from the NCI Thesaurus.">
+
+                    <span class="tag tag-treatment">
                         anticonvulsant agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit">NCIT:C264</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-43">NCIT:C264</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7658,18 +8056,20 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" title="Human Phenotype Ontology (HP)
-Relation: this treatment targets this phenotype
-This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.">
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7689,7 +8089,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7778,7 +8180,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7819,7 +8223,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7842,7 +8248,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23838030" target="_blank">PMID:23838030</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7906,13 +8314,15 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21820099" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21820099" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7961,13 +8371,15 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21820099" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21820099" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8002,13 +8414,15 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21820099" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21820099" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21820099" target="_blank">PMID:21820099</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8072,13 +8486,15 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23297359" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23297359" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297359" target="_blank">PMID:23297359</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8113,13 +8529,15 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23297359" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23297359" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23297359" target="_blank">PMID:23297359</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8189,7 +8607,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32597833" target="_blank">PMID:32597833</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8212,7 +8632,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32597833" target="_blank">PMID:32597833</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8253,7 +8675,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32597833" target="_blank">PMID:32597833</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8276,7 +8700,9 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32597833" target="_blank">PMID:32597833</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8301,6 +8727,1242 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-genetic-diagnosis">
+                <div class="item-name">
+                    Genetic diagnosis
+
+                </div>
+
+                <div class="item-desc">Diagnosis was traditionally dependent on demonstration of characteristic storage material via brain biopsy or autopsy. For the three classic adult branches modeled here, gene-first testing of CLN6, CTSF, and DNAJC5 can establish a molecular diagnosis and largely supersede invasive biopsy; broader adult-NCL presentations require an appropriately broad NCL panel.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30561534" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of Kufs remains challenging but, with the availability of genetic diagnosis, this will largely supersede the use of diagnostic biopsies, particularly as biopsies of peripheral tissues has unsatisfactory sensitivity and specificity."</div>
+
+
+                <div class="evidence-explanation">Supports genetic testing as the preferred diagnostic strategy in suspected Kufs disease.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21549341" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21549341" target="_blank">PMID:21549341</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sequencing of CLN6 will provide a simple diagnostic strategy in this disorder, in which definitive identification usually requires invasive biopsy."</div>
+
+
+                <div class="evidence-explanation">Arsov et al. propose CLN6 sequencing as a simple diagnostic strategy that can replace invasive biopsy.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-dnajc5-insertion-and-duplication-analysis">
+                <div class="item-name">
+                    DNAJC5 insertion and duplication analysis
+
+                </div>
+
+                <div class="item-desc">In unsolved autosomal dominant adult NCL, analysis should account for insertions or duplications in the DNAJC5 cysteine-string domain. A 30-bp duplication was initially missed by both standard Sanger sequencing and WES, so a negative routine result does not exclude this variant class.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31919451" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31919451" target="_blank">PMID:31919451</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It was also missed by subsequent whole-exome sequencing (WES)."</div>
+
+
+                <div class="evidence-explanation">The family study documents a clinically important false-negative limitation of routine DNAJC5 testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31919451" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31919451" target="_blank">PMID:31919451</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Independently occurring variants in the genomic sequence of DNAJC5 encoding the cysteine-string domain of CSPα suggest that this region may be more prone to DNA replication errors and that insertions or duplications within this domain should be considered in unsolved ANCL cases."</div>
+
+
+                <div class="evidence-explanation">The authors explicitly recommend considering this variant class in unsolved adult NCL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-differential-diagnosis-and-diagnostic-delay">
+                <div class="item-name">
+                    Differential diagnosis and diagnostic delay
+
+                </div>
+
+                <div class="item-desc">Adult NCL can be mistaken for acquired neurologic disorders when refractory epilepsy, cognitive decline, movement abnormalities, and progressive brain atrophy evolve over years. Early inclusion of adult NCL in the differential diagnosis may prevent ineffective immunotherapy or shunt procedures.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39470529" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39470529" target="_blank">PMID:39470529</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Initially diagnosed with autoimmune encephalitis, the patient was later diagnosed with normal-pressure hydrocephalus. A definitive diagnosis of adult-onset neuronal ceroid lipofuscinosis (ANCL) was established after 10 years of observation, utilizing biopsy and genetic testing."</div>
+
+
+                <div class="evidence-explanation">The case directly documents two misdiagnoses and a ten-year delay before definitive adult-NCL diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39470529" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39470529" target="_blank">PMID:39470529</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Improved understanding of ANCL from both clinical and radiological perspectives, coupled with early consideration of differential diagnoses, could minimize unnecessary interventions and optimize patient care."</div>
+
+
+                <div class="evidence-explanation">The authors explicitly connect earlier differential consideration with avoiding unnecessary interventions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-cerebral-atrophy-on-mri-in-cln6">
+                <div class="item-name">
+                    Cerebral Atrophy on MRI in CLN6
+
+                </div>
+
+                <div class="item-desc">Structural MRI shows progressive cerebral atrophy in CLN6 Kufs A.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+                    <span class="tag tag-subtype">CLN6 Kufs A</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Cerebral cortical atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002120</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        cerebral cortex
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-46">UBERON:0000956</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Cerebral cortical atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002120</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30561534" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI showed progressive cerebral and cerebellar atrophy."</div>
+
+
+                <div class="evidence-explanation">Directly documents the structured cerebral MRI finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-cerebral-atrophy-on-mri-in-cln13">
+                <div class="item-name">
+                    Cerebral Atrophy on MRI in CLN13
+
+                </div>
+
+                <div class="item-desc">Bilateral cortical atrophy was documented in a molecularly confirmed CLN13 index case.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+                    <span class="tag tag-subtype">CTSF CLN13</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Cerebral cortical atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002120</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        cerebral cortex
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-49">UBERON:0000956</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Cerebral cortical atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002120</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39720560" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39720560" target="_blank">PMID:39720560</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical radiologic scans revealed bilateral cortical atrophy, ventriculomegaly, a thin corpus callosum, and cerebellar vermian atrophy."</div>
+
+
+                <div class="evidence-explanation">Directly documents bilateral cortical atrophy in a molecularly confirmed CLN13 case without implying population frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-cerebellar-atrophy-on-mri-in-cln6">
+                <div class="item-name">
+                    Cerebellar Atrophy on MRI in CLN6
+
+                </div>
+
+                <div class="item-desc">Structural MRI shows progressive cerebellar atrophy in CLN6 Kufs A.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+                    <span class="tag tag-subtype">CLN6 Kufs A</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Cerebellar atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001272</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        cerebellum
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-52">UBERON:0002037</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Cerebellar atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001272</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30561534" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MRI showed progressive cerebral and cerebellar atrophy."</div>
+
+
+                <div class="evidence-explanation">Directly documents the structured cerebellar MRI finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-cerebellar-atrophy-on-mri-in-cln13">
+                <div class="item-name">
+                    Cerebellar Atrophy on MRI in CLN13
+
+                </div>
+
+                <div class="item-desc">Cerebellar vermian atrophy was documented in a molecularly confirmed CLN13 index case.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+                    <span class="tag tag-subtype">CTSF CLN13</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Cerebellar atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001272</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        cerebellum
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-55">UBERON:0002037</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Cerebellar atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001272</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39720560" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39720560" target="_blank">PMID:39720560</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical radiologic scans revealed bilateral cortical atrophy, ventriculomegaly, a thin corpus callosum, and cerebellar vermian atrophy."</div>
+
+
+                <div class="evidence-explanation">Directly documents cerebellar vermian atrophy in a molecularly confirmed CLN13 case without implying population frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-adult-onset">
+                <div class="item-name">Adult onset</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">CLN6 Kufs A</span>
+
+
+                    <span class="tag">Age: 12–51 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">CLN6-related Kufs A typically begins in the third or fourth decade of life, with a bimodal teenage/early adult onset distribution.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30561534" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mean age of onset was 28 years (range 12-51) with bimodal peaks in teenage and early adult life."</div>
+
+
+                <div class="evidence-explanation">Berkovic et al. summarize the typical age-at-onset distribution in CLN6-related Kufs disease.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-disability">
+                <div class="item-name">Progressive disability</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">CLN6 Kufs A</span>
+
+
+                    <span class="tag">Age: Adulthood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Patients with CLN6-related Kufs disease progressively lose independent ambulation and become wheelchair-bound a mean of 12 years post-onset, with median survival of 26 years.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30561534" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients became wheelchair-bound with a mean 12 years post-onset."</div>
+
+
+                <div class="evidence-explanation">Direct evidence for the progressive disability course in CLN6-related Kufs disease.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30561534" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30561534" target="_blank">PMID:30561534</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The median survival time was 26 years from disease onset."</div>
+
+
+                <div class="evidence-explanation">Supports a progressive but prolonged disease course relative to childhood NCL.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-ctsf-cln13-onset">
+                <div class="item-name">CTSF CLN13 onset</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">CTSF CLN13</span>
+
+
+                    <span class="tag">Age: Second to seventh decade</span>
+
+
+
+                </div>
+
+                <div class="item-notes">The reported CTSF/CLN13 adult-onset range is broad. Presentations span classic and nonclassic Kufs syndromes, isolated dementia, movement disorders, seizures, myoclonus, and psychiatric manifestations.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35359645" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"KD-B/CLN13 #615362 AR 11q13.2 CLN13/CTSF CTSF (soluble protein): lysosomal enzyme 2nd-7th Seizures, myoclonus, cerebellar tremor, cognitive decline, depression, anxiety"</div>
+
+
+                <div class="evidence-explanation">The adult-NCL classification table reports the CTSF/CLN13 onset range and presenting features.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39720560" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39720560" target="_blank">PMID:39720560</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A review of 20 reported CLN13 patients revealed novel clinical subtypes, including KSB type I (KSB-I), KSB type II (KSB-II), and Kufs syndrome C (KSC)."</div>
+
+
+                <div class="evidence-explanation">A systematic review of 20 reported patients establishes the breadth of the CLN13 clinical spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-dnajc5-cln4-onset">
+                <div class="item-name">DNAJC5 CLN4 onset</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">DNAJC5 CLN4</span>
+
+
+                    <span class="tag">Age: Third to fifth decade</span>
+
+
+
+                </div>
+
+                <div class="item-notes">DNAJC5-related CLN4 (Parry disease) is an adult-onset dominant branch with seizures and action myoclonus among its presenting manifestations. Retinal degeneration and visual loss are not regarded as characteristic CLN4 features; the visual-failure phrase in the cited table is not promoted to a phenotype assertion.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35359645" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35359645" target="_blank">PMID:35359645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Parry/CLN4 #162350 AD 20q13.33 CLN4/DNAJC5 CSPα (soluble protein): cytosol (vesicular membrane) 3rd-5th Seizures, action myoclonus, visual failure"</div>
+
+
+                <div class="evidence-explanation">The adult-NCL classification table reports onset in the third to fifth decades for DNAJC5/CLN4.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8627,7 +10289,7 @@ genetic:
       Kufs disease.
   - reference: PMID:23297359
     reference_title: &#34;Cathepsin F mutations cause Type B Kufs disease, an adult-onset neuronal ceroid lipofuscinosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CTSF encodes cathepsin F, a lysosomal cysteine protease, dysfunction of which is a highly plausible candidate mechanism for a storage disorder like ceroid lipofuscinosis.&#34;
     explanation: &gt;
@@ -8760,7 +10422,7 @@ pathophysiology:
     evidence:
     - reference: PMID:32597833
       reference_title: &#34;A CLN6-CLN8 complex recruits lysosomal enzymes at the ER for Golgi transfer.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;In vitro and in vivo studies showed that CLN6 deficiency results in inefficient ER export of lysosomal enzymes and diminished levels of the enzymes at the lysosome.&#34;
       explanation: &gt;
@@ -8768,7 +10430,7 @@ pathophysiology:
         defect, not the downstream transition to ceroid storage.
     - reference: PMID:32597833
       reference_title: &#34;A CLN6-CLN8 complex recruits lysosomal enzymes at the ER for Golgi transfer.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;In vitro and in vivo studies showed that CLN6 deficiency results in inefficient ER export of lysosomal enzymes and diminished levels of the enzymes at the lysosome.&#34;
       explanation: &gt;
@@ -8849,7 +10511,7 @@ pathophysiology:
     evidence:
     - reference: PMID:21820099
       reference_title: &#34;Mutations in DNAJC5, encoding cysteine-string protein alpha, cause autosomal-dominant adult-onset neuronal ceroid lipofuscinosis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Autosomal-dominant adult-onset neuronal ceroid lipofuscinosis (ANCL) is characterized by accumulation of autofluorescent storage material in neural tissues and neurodegeneration&#34;
       explanation: &gt;
@@ -8912,13 +10574,13 @@ pathophysiology:
     evidence:
     - reference: PMID:31919451
       reference_title: &#34;Autosomal-dominant adult neuronal ceroid lipofuscinosis caused by duplication in DNAJC5 initially missed by Sanger and whole-exome sequencing.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;This variant leads to a duplication of the central core motif of the cysteine-string domain of CSPα and affects palmitoylation-dependent CSPα sorting in cultured neuronal cells similarly to two previously described CSPα variants, p.(Leu115Arg) and p.(Leu116del).&#34;
       explanation: Supports the upstream sorting defect in CLN4-associated variants.
     - reference: PMID:35506243
       reference_title: &#34;Abnormal triaging of misfolded proteins by adult neuronal ceroid lipofuscinosis-associated DNAJC5/CSPα mutants causes lipofuscin accumulation.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;Importantly, uncoupling these two processes, as seen in cells lacking SLC3A2 or expressing ANCL-associated DNAJC5 mutants, generates DNAJC5-containing AFSMs resembling NCL patient-derived lipofuscin and induces neurodegeneration in a Drosophila ANCL model.&#34;
       explanation: Supports the downstream imbalance in CLN4-associated mutants without proving that abnormal sorting is its direct cause.
@@ -8945,7 +10607,7 @@ pathophysiology:
   evidence:
   - reference: PMID:21820099
     reference_title: &#34;Mutations in DNAJC5, encoding cysteine-string protein alpha, cause autosomal-dominant adult-onset neuronal ceroid lipofuscinosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;The resulting depletion of functional CSPα might cause in parallel the presynaptic dysfunction and the progressive neurodegeneration observed in affected individuals&#34;
     explanation: The authors propose, rather than directly demonstrate, the presynaptic arm of the CLN4 mechanism.
@@ -8956,7 +10618,7 @@ pathophysiology:
     evidence:
     - reference: PMID:21820099
       reference_title: &#34;Mutations in DNAJC5, encoding cysteine-string protein alpha, cause autosomal-dominant adult-onset neuronal ceroid lipofuscinosis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;The resulting depletion of functional CSPα might cause in parallel the presynaptic dysfunction and the progressive neurodegeneration observed in affected individuals&#34;
       explanation: The hedged mechanistic proposal supports an indirect partial edge, not a demonstrated causal transition.
@@ -9054,7 +10716,7 @@ pathophysiology:
   evidence:
   - reference: PMID:23297359
     reference_title: &#34;Cathepsin F mutations cause Type B Kufs disease, an adult-onset neuronal ceroid lipofuscinosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CTSF encodes cathepsin F, a lysosomal cysteine protease, dysfunction of which is a highly plausible candidate mechanism for a storage disorder like ceroid lipofuscinosis.&#34;
     explanation: &gt;
@@ -9077,7 +10739,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23297359
       reference_title: &#34;Cathepsin F mutations cause Type B Kufs disease, an adult-onset neuronal ceroid lipofuscinosis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;CTSF encodes cathepsin F, a lysosomal cysteine protease, dysfunction of which is a highly plausible candidate mechanism for a storage disorder like ceroid lipofuscinosis.&#34;
       explanation: &gt;
@@ -9218,7 +10880,7 @@ pathophysiology:
     evidence:
     - reference: PMID:23838030
       reference_title: &#34;Classification and natural history of the neuronal ceroid lipofuscinoses.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Type B is characterized by dementia with cerebellar and/or extrapyramidal motor symptoms.&#34;
       explanation: The review supports the Type B association but does not establish the intervening causal mechanism or CTSF specificity.
@@ -9228,7 +10890,7 @@ pathophysiology:
     evidence:
     - reference: PMID:35359645
       reference_title: &#34;Neuronal Ceroid Lipofuscinosis: The Multifaceted Approach to the Clinical Issues, an Overview.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;2nd-7th Seizures, myoclonus, cerebellar tremor, cognitive decline, depression, anxiety&#34;
       explanation: The review table supports tremor as a CTSF/CLN13 feature but not a direct causal edge.
@@ -9238,7 +10900,7 @@ pathophysiology:
     evidence:
     - reference: PMID:35359645
       reference_title: &#34;Neuronal Ceroid Lipofuscinosis: The Multifaceted Approach to the Clinical Issues, an Overview.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;2nd-7th Seizures, myoclonus, cerebellar tremor, cognitive decline, depression, anxiety&#34;
       explanation: The review table supports depression as a CTSF/CLN13 feature but not a direct causal edge.
@@ -9248,7 +10910,7 @@ pathophysiology:
     evidence:
     - reference: PMID:35359645
       reference_title: &#34;Neuronal Ceroid Lipofuscinosis: The Multifaceted Approach to the Clinical Issues, an Overview.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;2nd-7th Seizures, myoclonus, cerebellar tremor, cognitive decline, depression, anxiety&#34;
       explanation: The review table supports anxiety as a CTSF/CLN13 feature but not a direct causal edge.
@@ -9498,7 +11160,7 @@ phenotypes:
   evidence:
   - reference: PMID:23838030
     reference_title: &#34;Classification and natural history of the neuronal ceroid lipofuscinoses.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Type B is characterized by dementia with cerebellar and/or extrapyramidal motor symptoms.&#34;
     explanation: Supports the legacy Type B phenotype; CTSF-specific penetrance is not established by this review.
@@ -9724,7 +11386,7 @@ biochemical:
     evidence:
     - reference: PMID:21820099
       reference_title: &#34;Mutations in DNAJC5, encoding cysteine-string protein alpha, cause autosomal-dominant adult-onset neuronal ceroid lipofuscinosis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;lysosomal accumulation of misfolded and proteolysis-resistant proteins in the form of characteristic ceroid deposits in neurons.&#34;
       explanation: &gt;
@@ -9739,7 +11401,7 @@ biochemical:
     evidence:
     - reference: PMID:21820099
       reference_title: &#34;Mutations in DNAJC5, encoding cysteine-string protein alpha, cause autosomal-dominant adult-onset neuronal ceroid lipofuscinosis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;lysosomal accumulation of misfolded and proteolysis-resistant proteins in the form of characteristic ceroid deposits in neurons.&#34;
       explanation: &gt;
@@ -9748,7 +11410,7 @@ biochemical:
   evidence:
   - reference: PMID:21820099
     reference_title: &#34;Mutations in DNAJC5, encoding cysteine-string protein alpha, cause autosomal-dominant adult-onset neuronal ceroid lipofuscinosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;lysosomal accumulation of misfolded and proteolysis-resistant proteins in the form of characteristic ceroid deposits in neurons.&#34;
     explanation: &gt;
@@ -9772,7 +11434,7 @@ biochemical:
     evidence:
     - reference: PMID:23297359
       reference_title: &#34;Cathepsin F mutations cause Type B Kufs disease, an adult-onset neuronal ceroid lipofuscinosis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;CTSF encodes cathepsin F, a lysosomal cysteine protease, dysfunction of which is a highly plausible candidate mechanism for a storage disorder like ceroid lipofuscinosis.&#34;
       explanation: &gt;
@@ -9781,7 +11443,7 @@ biochemical:
   evidence:
   - reference: PMID:23297359
     reference_title: &#34;Cathepsin F mutations cause Type B Kufs disease, an adult-onset neuronal ceroid lipofuscinosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CTSF encodes cathepsin F, a lysosomal cysteine protease, dysfunction of which is a highly plausible candidate mechanism for a storage disorder like ceroid lipofuscinosis.&#34;
     explanation: &gt;
@@ -9981,7 +11643,7 @@ discussions:
   kind: CONTROVERSY
   status: RESOLVED
   attaches_to:
-  - subtype#DNAJC5 CLN4
+  - has_subtypes#DNAJC5 CLN4
   rationale: &gt;
     A 2013 clinical classification review states that visual loss is absent in
     CLN4, whereas a 2022 overview table lists visual failure. Recording both
@@ -10415,7 +12077,7 @@ of retinopathy that distinguishes adult NCL from childhood NCL subtypes.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Adult Neuronal Ceroid Lipofuscinosis", "mondoId": "MONDO:0019260", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adult_Neuronal_Ceroid_Lipofuscinosis", "yamlRevision": "51b7a3670591"};
+        const OS_CONFIG = {"diseaseName": "Adult Neuronal Ceroid Lipofuscinosis", "mondoId": "MONDO:0019260", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adult_Neuronal_Ceroid_Lipofuscinosis", "yamlRevision": "9f472c0493f2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10834,5 +12496,73 @@ of retinopathy that distinguishes adult NCL from childhood NCL subtypes.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
