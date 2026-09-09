@@ -2930,7 +2930,9 @@ Two consequences worth keeping straight:
   4,526 in the `app/data.js` written by the same step, which is why `render` was
   dropping most phenotypes into the "Other" group. Adding the path fixes it; the
   first page build after it carries the catch-up diff, and the two counts should
-  track each other from then on.
+  track each other from then on. A term the exporter could not resolve is
+  **never** written back as an empty category list — that would bake the gap in
+  permanently — it is left out and counted, and the exporter says so.
 
   **Do not date this file from `git log` in a CI checkout.** Both the review of
   #11462 and the reply correcting it named the wrong commit, independently and
@@ -2938,9 +2940,7 @@ Two consequences worth keeping straight:
   `git log --diff-filter=A` reports the *shallow boundary* commit as the one
   that added a file. Two different truncation depths, two different wrong
   answers, both confident. Ask the API (`list_commits` with a `path`), or
-  `git fetch --unshallow` first. A term the exporter could not
-  resolve is **never** written back as an empty category list — that would bake
-  the gap in permanently — it is left out and counted, and the exporter says so.
+  `git fetch --unshallow` first.
 - **A grouping's exact-match roots survive the outage.** They come from the
   grouping's own YAML, not from MONDO, so the unavailable branch keeps them in
   scope and the coverage figure stays computable; only the descendant rows go.
