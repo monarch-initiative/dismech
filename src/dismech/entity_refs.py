@@ -386,7 +386,7 @@ def _is_known_kind(kind: str) -> bool:
 
     `SECTION_KEYS` holds the singular aliases as keys in their own right, so
     there is nothing to normalise here -- `canonical_kind` is what
-    `test_entity_ref_prefixes_are_schema_slot_names` uses to insist on the
+    `check_entity_ref_prefixes_are_schema_slot_names` uses to insist on the
     canonical *spelling*, which is a different question from whether the
     section is one we know at all.
     """
@@ -397,7 +397,7 @@ def entity_ref_errors(data: dict) -> list[str]:
     """Every entity-reference problem in one loaded entry.
 
     The single implementation of the rules, so the pytest sweep
-    (``test_entity_ref_foreign_keys``) and the ungated CI check
+    (``check_entity_ref_foreign_keys``) and the ungated CI check
     (``scripts/check_entity_refs.py``) cannot drift apart -- two copies of a
     rule eventually disagree, which is the argument this module was created
     on (#9193).
