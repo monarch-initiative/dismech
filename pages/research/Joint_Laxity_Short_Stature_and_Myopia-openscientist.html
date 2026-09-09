@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joint Laxity, Short Stature, and Myopia · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Joint Laxity, Short Stature, and Myopia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Joint Laxity, Short Stature, and Myopia</h1>
+                
+                <p class="report-subtitle">Joint Laxity, Short Stature, and Myopia (GZF1-Related Phenotype): Comprehensive Disease Report</p>
+                
+                
+                <div class="report-date">2026-09-06</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0060556" target="_blank" rel="noopener noreferrer">MONDO:0060556</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">8 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Joint Laxity, Short Stature, and Myopia (GZF1-Related Phenotype): Comprehensive Disease Report</h1>
+<p><em>OMIM #617662 · Autosomal recessive · Mendelian connective-tissue disorder</em></p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Joint Laxity, Short Stature, and Myopia</strong> (OMIM #617662), also referred to as the <strong>GZF1-related phenotype (GZF1RP)</strong> or <strong>autosomal-recessive Larsen-like syndrome</strong>, is an ultra-rare Mendelian connective-tissue disorder caused by <strong>biallelic loss-of-function variants in the <em>GZF1</em> gene</strong> (GDNF-inducible zinc finger protein 1; chromosome 20p11.21). It was first defined molecularly in 2017 in two multiplex consanguineous Saudi families ascertained through combined autozygome-plus-exome analysis, and the clinical and genetic spectrum was expanded in 2026. As of 2026, only ~13 patients from ~6 families have been reported worldwide, all carrying biallelic <em>GZF1</em> variants — establishing autosomal recessive inheritance with apparently high penetrance in biallelic carriers.</p>
+<p>The disorder is characterized by a recognizable triad of <strong>severe/high myopia</strong> (with retinal detachment and congenital glaucoma), <strong>short stature</strong>, and <strong>joint hypermobility with recurrent large-joint dislocation</strong>, accompanied by facial dysmorphism, scoliosis, thoracic deformity, progressive sensorineural/mixed hearing loss, umbilical hernia, and hypodontia. The severe ocular involvement distinguishes GZF1RP from classic <em>FLNB</em>-related Larsen syndrome. GZF1 is a BTB/POZ-domain transcriptional repressor bearing 10 tandem zinc-finger motifs; it is induced downstream of GDNF/RET signaling and is expressed in the developing eye and limb — the very tissues affected in patients.</p>
+<p>The proposed pathomechanism runs from <strong>GZF1 loss of function → dysregulation of extracellular-matrix/collagen genes → most notably <em>P3H2</em> (LEPREL1)-mediated collagen under-3-hydroxylation → structurally defective scleral and ocular collagen → axial elongation and high myopia</strong>, with parallel connective-tissue laxity producing joint and skeletal manifestations. Because <em>P3H2/LEPREL1</em> biallelic loss is an independently established cause of non-syndromic high myopia, it provides a strong mechanistic anchor connecting GZF1 dysregulation to the ocular phenotype. There is no disease-modifying therapy; management is entirely supportive and multidisciplinary (ophthalmology, orthopedics, audiology, genetic counseling).</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Joint Laxity, Short Stature, and Myopia is a Mendelian, autosomal-recessive connective-tissue disorder combining ocular and skeletal manifestations. The disease was delineated as a distinct entity when biallelic <em>GZF1</em> variants were identified as its cause, situating it within — yet distinct from — the Larsen syndrome spectrum.</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM (phenotype)</td>
+<td><strong>#617662</strong> (Joint laxity, short stature, and myopia)</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><strong><em>GZF1</em></strong> (GDNF-inducible zinc finger protein 1)</td>
+</tr>
+<tr>
+<td>Cytoband</td>
+<td>20p11.21</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td>Corresponds to the GZF1-related phenotype (MONDO ID not asserted in outline; map to <a href="https://bioregistry.io/OMIM:617662" target="_blank" rel="noopener noreferrer">OMIM:617662</a>)</td>
+</tr>
+<tr>
+<td>Category</td>
+<td>Mendelian, autosomal recessive</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> GZF1-related phenotype (GZF1RP); GZF1-related ocular and skeletal disorder; autosomal-recessive Larsen-like syndrome; "a specific ocular and skeletal disorder distinguishable from Larsen syndrome" [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].</p>
+<p><strong>Source of information.</strong> Information is derived from <strong>individual patient reports and small case series</strong> (aggregated at the disease level through OMIM), not from large EHR or population registries — reflecting the ultra-rare status of the condition.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> The disorder is caused by <strong>biallelic (homozygous or compound heterozygous) loss-of-function variants in <em>GZF1</em></strong>. The first families were consanguineous, and the causal homozygous truncating variant was identified via combined autozygome and exome analysis: <em>"In a multiplex consanguineous Saudi family affected by severe and recurrent large joint dislocation and severe myopia, we identified a homozygous truncating variant in GZF1 through a combined autozygome and exome approach"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>].</p>
+<p><strong>Genetic risk factors.</strong>
+- <strong>Causal variants:</strong> biallelic truncating/frameshift <em>GZF1</em> variants (see Section 4).
+- <strong>Consanguinity:</strong> a major risk/ascertainment factor, given the recessive inheritance and multiplex consanguineous pedigrees.
+- <strong>Recurrent alleles:</strong> the c.1440del (p.His481IlefsTer26) variant was seen in homozygosity in two sisters and in compound heterozygosity in a third patient, suggesting possible recurrent/founder alleles [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].</p>
+<p><strong>Environmental risk factors.</strong> None identified. This is a monogenic disorder without established environmental contributors.</p>
+<p><strong>Protective factors.</strong> None described. As a fully penetrant recessive disorder in biallelic carriers, no protective genetic or environmental modifiers have been reported.</p>
+<p><strong>Gene–environment interactions.</strong> None reported; the phenotype appears determined by genotype.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Across all reported patients, the recurrent <strong>core triad</strong> is short stature, large-joint dislocation/joint hypermobility, and severe/high myopia [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>]. The 2026 series defined a recognizable GZF1RP: <em>"The comparison allows us to define a recognizable GZF1RP that includes severe ocular defects, short stature, facial dysmorphism, joint hypermobility/dislocations, scoliosis, thoracic deformity, progressive hearing loss, umbilical hernia, and hypodontia"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Progression</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High/severe myopia</td>
+<td>Physical/ophthalmologic</td>
+<td>Congenital/early childhood</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" rel="noopener noreferrer">HP:0011003</a> (High myopia)</td>
+</tr>
+<tr>
+<td>Retinal detachment</td>
+<td>Clinical sign</td>
+<td>Childhood</td>
+<td>Episodic/progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" rel="noopener noreferrer">HP:0000541</a></td>
+</tr>
+<tr>
+<td>Congenital glaucoma</td>
+<td>Clinical sign</td>
+<td>Congenital</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001087" target="_blank" rel="noopener noreferrer">HP:0001087</a></td>
+</tr>
+<tr>
+<td>Abnormal iris morphology</td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Stable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000525" target="_blank" rel="noopener noreferrer">HP:0000525</a></td>
+</tr>
+<tr>
+<td>Short stature</td>
+<td>Physical</td>
+<td>Childhood</td>
+<td>Stable/progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+</tr>
+<tr>
+<td>Joint hypermobility</td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Stable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" rel="noopener noreferrer">HP:0001382</a></td>
+</tr>
+<tr>
+<td>Large-joint dislocation (recurrent)</td>
+<td>Clinical sign</td>
+<td>Congenital/infancy</td>
+<td>Recurrent/episodic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002828" target="_blank" rel="noopener noreferrer">HP:0002828</a> (Joint dislocation)</td>
+</tr>
+<tr>
+<td>Scoliosis</td>
+<td>Physical</td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a></td>
+</tr>
+<tr>
+<td>Thoracic deformity</td>
+<td>Physical</td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000765" target="_blank" rel="noopener noreferrer">HP:0000765</a></td>
+</tr>
+<tr>
+<td>Sensorineural/mixed hearing loss</td>
+<td>Sensory</td>
+<td>Childhood</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a> / <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" rel="noopener noreferrer">HP:0000405</a></td>
+</tr>
+<tr>
+<td>Facial dysmorphism</td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Stable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" rel="noopener noreferrer">HP:0001999</a></td>
+</tr>
+<tr>
+<td>Umbilical hernia</td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>Stable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001537" target="_blank" rel="noopener noreferrer">HP:0001537</a></td>
+</tr>
+<tr>
+<td>Hypodontia</td>
+<td>Physical</td>
+<td>Childhood</td>
+<td>Stable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" rel="noopener noreferrer">HP:0000668</a></td>
+</tr>
+<tr>
+<td>Congenital heart disease (rarer)</td>
+<td>Clinical sign</td>
+<td>Congenital</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a></td>
+</tr>
+<tr>
+<td>Cervical segmentation defects, carpal shortening, lumbar sacralization</td>
+<td>Radiological</td>
+<td>Congenital</td>
+<td>Stable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000925" target="_blank" rel="noopener noreferrer">HP:0000925</a> / <a href="http://purl.obolibrary.org/obo/HP_0001180" target="_blank" rel="noopener noreferrer">HP:0001180</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity and frequency.</strong> Ocular features are severe and distinguishing (high myopia, retinal detachment, congenital glaucoma) [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>]. Hearing loss and scoliosis are described as <strong>progressive</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>]. Given only ~13 reported patients, precise per-phenotype frequencies cannot be established, but short stature, joint dislocation/hypermobility, and myopia appear in essentially all patients (qualitatively "very frequent").</p>
+<p><strong>Quality-of-life impact.</strong> Not formally measured with standardized instruments (EQ-5D/SF-36). Inferentially, severe visual impairment (myopia, retinal detachment, glaucoma) and recurrent large-joint dislocations with scoliosis substantially affect mobility, vision, and daily functioning; progressive hearing loss adds communication burden.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong><em>GZF1</em></strong> (GDNF-inducible zinc finger protein 1), 20p11.21. GZF1 encodes <em>"a novel GDNF-inducible gene (named GZF1) with a BTB/POZ (broad complex, tramtrack, and bric-a-brac)/(poxvirus and zinc finger) domain and 10 tandemly repeated zinc finger motifs"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/14522971/" target="_blank" rel="noopener noreferrer">PMID: 14522971</a>] — i.e., a sequence-specific transcriptional repressor.</p>
+<p><strong>Pathogenic variants (all loss-of-function).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (cDNA)</th>
+<th>Protein</th>
+<th>Type</th>
+<th>Zygosity / cohort</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Homozygous truncating variant</td>
+<td>Truncation</td>
+<td>Nonsense/frameshift</td>
+<td>Homozygous, Saudi families</td>
+<td>28475863</td>
+</tr>
+<tr>
+<td>c.397_400del</td>
+<td>p.Leu133fs</td>
+<td>Frameshift</td>
+<td>Compound het (Chinese)</td>
+<td>33009817</td>
+</tr>
+<tr>
+<td>c.1474del</td>
+<td>p.Met492fs</td>
+<td>Frameshift</td>
+<td>Compound het (Chinese)</td>
+<td>33009817</td>
+</tr>
+<tr>
+<td>c.1440del</td>
+<td>p.His481IlefsTer26</td>
+<td>Frameshift</td>
+<td>Homozygous (2 sisters) / compound het</td>
+<td>42170786</td>
+</tr>
+<tr>
+<td>c.1451_1452del</td>
+<td>p.Cys484fs</td>
+<td>Frameshift</td>
+<td>Compound het (3rd patient)</td>
+<td>42170786</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Variant classification.</strong> All reported variants are <strong>truncating/frameshift</strong> and classified as pathogenic under ACMG/AMP criteria (predicted loss of function + functional evidence + segregation).</p>
+<p><strong>Functional consequences — loss of function.</strong> Functional assays showed mutant GZF1 protein is undetectable or cytoplasmically mislocalized with reduced mRNA/protein: <em>"no HA-conjugated mutant protein was detected by western blotting, which was also confirmed by immunofluorescence staining"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>], and the authors concluded <em>"these results suggested that the two variants could lead to loss of function of GZF1"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>]. The mechanism is therefore <strong>loss of function</strong>, not gain of function or dominant negative.</p>
+<p><strong>Downstream transcriptional dysregulation.</strong> <em>"Global transcriptional profiling of cells from affected individuals revealed a shared pattern of gene dysregulation and significant enrichment of genes encoding matrix proteins, including P3H2, which hints at a potential disease mechanism"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>].</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No modifier genes, epigenetic marks, or large-scale chromosomal abnormalities have been reported for this disorder. Diagnosis is at the single-nucleotide/indel level.</p>
+<p><strong>Allele frequency.</strong> Reported variants are private/ultra-rare and not established in gnomAD at appreciable frequency; the recurrence of c.1440del across families suggests a possible recurrent/founder allele [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> None identified. Monogenic Mendelian disorder.</li>
+<li><strong>Lifestyle factors:</strong> None implicated in causation. (General myopia-management behavioral advice is not disease-specific.)</li>
+<li><strong>Infectious agents:</strong> Not applicable.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Biallelic loss-of-function variant in <em>GZF1</em></strong> (truncating/frameshift) <strong>results in</strong> absent or mislocalized GZF1 protein [<a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>].</li>
+<li>Loss of the GZF1 BTB/POZ + 10-zinc-finger transcriptional repressor <strong>leads to</strong> dysregulated transcription of its target genes in developing eye and limb tissues (where GZF1 is normally expressed) [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/14522971/" target="_blank" rel="noopener noreferrer">PMID: 14522971</a>].</li>
+<li>This dysregulation <strong>results in</strong> significant enrichment of aberrantly expressed <strong>extracellular-matrix/collagen genes, most notably <em>P3H2</em> (LEPREL1)</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>] <em>(demonstrated as transcriptomic enrichment; the precise direction of P3H2 change and its sufficiency are inferred).</em></li>
+<li>Altered P3H2 (prolyl 3-hydroxylase 2) activity <strong>leads to</strong> collagen under-3-hydroxylation. In the P3h2-null model, <em>"almost every known site of prolyl 3-hydroxylation in types I and IV collagen from P3h2(n/n) mouse eye tissues was significantly under-hydroxylated"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/25645914/" target="_blank" rel="noopener noreferrer">PMID: 25645914</a>] <em>(inferred as the operative lesion in GZF1RP by analogy).</em></li>
+<li>Structurally defective scleral (type I) and lens-capsule (type IV) collagen <strong>results in</strong> biomechanically weak, elongating sclera → <strong>axial high myopia</strong>, with associated vitreoretinal degeneration, retinal detachment, cataract and glaucoma [<a href="https://pubmed.ncbi.nlm.nih.gov/25645914/" target="_blank" rel="noopener noreferrer">PMID: 25645914</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21885030/" target="_blank" rel="noopener noreferrer">PMID: 21885030</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24172257/" target="_blank" rel="noopener noreferrer">PMID: 24172257</a>].</li>
+<li><strong>In parallel (branch):</strong> generalized connective-tissue/ECM collagen dysfunction <strong>leads to</strong> ligamentous/capsular laxity → <strong>joint hypermobility, recurrent large-joint dislocation, scoliosis, thoracic deformity, umbilical hernia</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].</li>
+<li><strong>In parallel (branch):</strong> GZF1's role in cell proliferation and development (GZF1 supports proliferation; <em>"knockdown of GZF1 and nucleolin expression markedly impaired cell proliferation"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/17674968/" target="_blank" rel="noopener noreferrer">PMID: 17674968</a>]) <strong>contributes to short stature</strong> <em>(inferred).</em></li>
+</ol>
+<pre><code> GZF1 biallelic LoF
+│
+▼
+ Loss of transcriptional repressor (BTB/POZ + 10 ZnF)
+│
+▼
+ Dysregulation of ECM / collagen genes  ──►  P3H2 (LEPREL1)
+│                                         │
+│                                         ▼
+│                             Collagen under-3-hydroxylation
+│                                (types I &amp; IV, eye)
+│                                         │
+├───────────────┐                         ▼
+▼               ▼                 Weak/elongating sclera
+ Connective-tissue   Impaired cell            │
+ laxity              proliferation            ▼
+│               │              HIGH MYOPIA, retinal
+▼               ▼              detachment, glaucoma
+ Joint dislocation   Short stature
+ scoliosis, hernia
+</code></pre>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> GDNF/RET signaling (GZF1 is GDNF-inducible and required downstream of GDNF/RET for renal branching morphogenesis) [<a href="https://pubmed.ncbi.nlm.nih.gov/14522971/" target="_blank" rel="noopener noreferrer">PMID: 14522971</a>]; transcriptional repression; collagen prolyl-3-hydroxylation (2-oxoglutarate–dependent dioxygenase pathway) [<a href="https://pubmed.ncbi.nlm.nih.gov/21885030/" target="_blank" rel="noopener noreferrer">PMID: 21885030</a>].</li>
+<li><strong>Cellular processes:</strong> transcriptional regulation, cell proliferation [<a href="https://pubmed.ncbi.nlm.nih.gov/17674968/" target="_blank" rel="noopener noreferrer">PMID: 17674968</a>], extracellular-matrix assembly/collagen post-translational modification.</li>
+<li><strong>Protein dysfunction:</strong> GZF1 — loss of function via truncation/mislocalization [<a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>]. P3H2 — reduced enzymatic 3-hydroxylation of collagen prolines [<a href="https://pubmed.ncbi.nlm.nih.gov/25645914/" target="_blank" rel="noopener noreferrer">PMID: 25645914</a>].</li>
+<li><strong>Biochemical abnormality:</strong> deficient collagen prolyl 3-hydroxylation (a 2-oxoglutarate–dependent dioxygenase reaction) [<a href="https://pubmed.ncbi.nlm.nih.gov/21885030/" target="_blank" rel="noopener noreferrer">PMID: 21885030</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25645914/" target="_blank" rel="noopener noreferrer">PMID: 25645914</a>].</li>
+<li><strong>Tissue-damage mechanism:</strong> biomechanical failure of collagen-rich sclera and joint capsules/ligaments → axial elongation and laxity.</li>
+<li><strong>Immune/metabolic involvement:</strong> none reported.</li>
+</ul>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" rel="noopener noreferrer">GO:0006355</a> (regulation of transcription, DNA-templated); <a href="http://purl.obolibrary.org/obo/GO_0019511" target="_blank" rel="noopener noreferrer">GO:0019511</a> (peptidyl-proline hydroxylation); <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" rel="noopener noreferrer">GO:0030199</a> (collagen fibril organization); <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" rel="noopener noreferrer">GO:0008283</a> (cell population proliferation); <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (extracellular matrix organization).
+<strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast); scleral/ocular fibroblast (approximate); <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a> (osteoblast); <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a> (chondrocyte).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ/system level.</strong>
+- <strong>Primary:</strong> Eye (sclera, retina, lens, iris, anterior-chamber angle) — <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>; skeletal/musculoskeletal system (large joints, spine, thorax) — <a href="http://purl.obolibrary.org/obo/UBERON_0002204" target="_blank" rel="noopener noreferrer">UBERON:0002204</a>.
+- <strong>Secondary:</strong> Ear/auditory system (progressive hearing loss) — <a href="http://purl.obolibrary.org/obo/UBERON_0001690" target="_blank" rel="noopener noreferrer">UBERON:0001690</a>; teeth (hypodontia); abdominal wall (umbilical hernia); heart (rarer congenital heart disease) — <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>.
+- <strong>Body systems:</strong> ocular/visual, musculoskeletal/connective tissue, auditory, occasionally cardiovascular.</p>
+<p><strong>Tissue/cell level.</strong> Connective tissue (collagen-rich ECM); scleral/ocular fibroblasts; joint-capsule and ligamentous fibroblasts; growth-plate chondrocytes/osteoblasts (short stature). GZF1 is <em>"expressed in the eyes and limbs of developing mice"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>].</p>
+<p><strong>Subcellular level.</strong> Nucleus (GZF1 transcriptional repressor; note pathogenic cytoplasmic mislocalization — <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>); nucleolus (nucleolin interaction, <a href="http://purl.obolibrary.org/obo/GO_0005730" target="_blank" rel="noopener noreferrer">GO:0005730</a>) [<a href="https://pubmed.ncbi.nlm.nih.gov/17674968/" target="_blank" rel="noopener noreferrer">PMID: 17674968</a>]; endoplasmic reticulum/extracellular region (collagen synthesis and modification, <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a> / <a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a>).</p>
+<p><strong>Localization / laterality.</strong> Bilateral ocular and skeletal involvement; joint dislocations affect large joints (hips, knees) and can be recurrent.</p>
+<p><strong>Suggested UBERON terms:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001801" target="_blank" rel="noopener noreferrer">UBERON:0001801</a> (sclera), <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> (retina), <a href="http://purl.obolibrary.org/obo/UBERON_0000965" target="_blank" rel="noopener noreferrer">UBERON:0000965</a> (lens), <a href="http://purl.obolibrary.org/obo/UBERON_0001769" target="_blank" rel="noopener noreferrer">UBERON:0001769</a> (iris), <a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" rel="noopener noreferrer">UBERON:0002481</a> (bone tissue), <a href="http://purl.obolibrary.org/obo/UBERON_0002217" target="_blank" rel="noopener noreferrer">UBERON:0002217</a> (joint), <a href="http://purl.obolibrary.org/obo/UBERON_0001130" target="_blank" rel="noopener noreferrer">UBERON:0001130</a> (vertebral column).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Congenital/early. Recurrent large-joint dislocations, congenital glaucoma, and high myopia present from infancy/early childhood [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].</li>
+<li><strong>Onset pattern:</strong> Chronic/congenital (structural developmental disorder).</li>
+<li><strong>Progression:</strong> Myopia is progressive; <strong>hearing loss and scoliosis are explicitly described as progressive</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>]; retinal detachment can present episodically.</li>
+<li><strong>Course:</strong> Chronic, lifelong. No remission.</li>
+<li><strong>Critical periods:</strong> Early childhood is the key window for ophthalmologic surveillance (glaucoma, retinal detachment) and orthopedic management of dislocations and scoliosis.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Ultra-rare: <em>"Only ten patients from five families have been reported, all of whom carry biallelic variants of GZF1"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>], plus three new patients in 2026 (~13 patients from ~6 families total). No prevalence or incidence figures are established. No sex-ratio bias reported (sample too small).</p>
+<p><strong>Inheritance.</strong> <strong>Autosomal recessive</strong>, with biallelic <em>GZF1</em> variants in all cases [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>]. Original families were multiplex and consanguineous (Saudi), ascertained by autozygome/homozygosity mapping [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>].</p>
+<p><strong>Penetrance / expressivity.</strong> Apparently high penetrance in biallelic carriers; expressivity is broadly consistent for the core triad with variable additional features (e.g., congenital heart disease is rarer).</p>
+<p><strong>Zygosity states observed:</strong> homozygous (c.1440del in two sisters) and compound heterozygous (c.1440del + c.1451_1452del; and c.397_400del + c.1474del in Chinese patients) [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>].</p>
+<p><strong>Founder/recurrent effects.</strong> Recurrence of c.1440del across families suggests a possible recurrent/founder allele [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].</p>
+<p><strong>Consanguinity.</strong> A significant contributing factor in reported pedigrees [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>].</p>
+<p><strong>Population demographics.</strong> Reported in Saudi (consanguineous) and Chinese patients. No formal geographic prevalence data. Carrier frequency not established.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Molecular diagnosis is definitive.</strong> The gene was identified and diagnoses confirmed by <strong>whole-exome sequencing / autozygosity (homozygosity) mapping</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>] and by WES in subsequent patients [<a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>].</p>
+<p><strong>Recommended genetic testing approach:</strong>
+- <strong>WES/WGS</strong> with autozygosity mapping (high yield in consanguineous families).
+- <strong>Targeted <em>GZF1</em> sequencing / connective-tissue or Larsen-syndrome gene panels</strong> (should include <em>GZF1</em>, <em>FLNB</em>, <em>CHST3</em>, <em>B4GALT7</em>).
+- <strong>Functional confirmation</strong> of novel variants: mRNA/protein expression and immunofluorescence in HEK293T cells demonstrated absent mutant protein [<a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>].</p>
+<p><strong>Supportive clinical workup (documented in patients):</strong>
+- <strong>Ophthalmologic examination:</strong> high myopia, retinal detachment, congenital glaucoma, abnormal iris [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].
+- <strong>Skeletal radiography:</strong> joint dislocations, scoliosis, thoracic deformity, and newly reported <em>"cervical segmentation defects, carpal shortening, and lower lumbar sacralization"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].
+- <strong>Audiology:</strong> progressive hearing loss.
+- <strong>Cardiac evaluation:</strong> congenital heart disease reported [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].</p>
+<p><strong>Differential diagnosis.</strong> Larsen syndrome and Larsen-like disorders. GZF1RP is distinguished by <strong>severe ocular involvement</strong> (high myopia, retinal detachment, congenital glaucoma) not typical of classic <em>FLNB</em>-Larsen syndrome: <em>"GZF1 mutations cause a phenotype of severe myopia and significant articular involvement not previously described in Larsen syndrome"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>]. Other differentials: recessive Larsen-like <em>CHST3</em>/<em>B4GALT7</em> disorders; other connective-tissue/high-myopia syndromes (e.g., Stickler, Marfan, Ehlers-Danlos, and non-syndromic <em>LEPREL1</em> high myopia).</p>
+<p><strong>Screening.</strong> In known families, <strong>cascade genetic/carrier testing</strong> and prenatal/preimplantation genetic testing are appropriate. No population newborn-screening program exists (ultra-rare).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Survival/mortality.</strong> No excess mortality data reported; the disorder is not described as inherently life-limiting, though rarer congenital heart disease could affect individual prognosis. No survival statistics exist given tiny cohorts.</p>
+<p><strong>Morbidity/function.</strong> Significant morbidity from <strong>visual impairment</strong> (high myopia, retinal detachment, congenital glaucoma — risk of blindness if untreated), <strong>musculoskeletal disability</strong> (recurrent large-joint dislocations, scoliosis, thoracic deformity), and <strong>progressive hearing loss</strong>. Short stature and facial dysmorphism add to the phenotype.</p>
+<p><strong>Disease course.</strong> Chronic, lifelong, with progressive ocular, spinal, and auditory features. Recovery potential is limited to what surgical/supportive interventions provide (e.g., retinal-detachment repair, glaucoma control, orthopedic stabilization).</p>
+<p><strong>Prognostic factors.</strong> Not formally studied; severity of ocular complications and spinal deformity likely drive functional prognosis. No molecular prognostic biomarkers established.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No disease-modifying or pharmacological therapy exists</strong>, and <strong>no clinical trials are registered</strong> for this ultra-rare disorder. Management is <strong>supportive and multidisciplinary</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Intervention</th>
+<th>Suggested NCIT concept</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ophthalmologic</td>
+<td>Corrective lenses for high myopia; monitoring/surgery for retinal detachment; congenital glaucoma management (medical/surgical IOP control)</td>
+<td>NCIT:C15277 (Ophthalmologic procedure)</td>
+</tr>
+<tr>
+<td>Orthopedic/surgical</td>
+<td>Reduction/stabilization of large-joint dislocations; scoliosis management (bracing/surgery); thoracic deformity care</td>
+<td>NCIT:C15329 (Orthopedic surgery)</td>
+</tr>
+<tr>
+<td>Audiologic</td>
+<td>Hearing aids / audiologic rehabilitation for progressive hearing loss</td>
+<td>NCIT:C15194 (Hearing aid)</td>
+</tr>
+<tr>
+<td>Dental</td>
+<td>Management of hypodontia</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Surgical</td>
+<td>Umbilical hernia repair; cardiac evaluation/repair if congenital heart disease present</td>
+<td>NCIT:C51826 (Herniorrhaphy)</td>
+</tr>
+<tr>
+<td>Rehabilitative</td>
+<td>Physical/occupational therapy for joint stability and mobility</td>
+<td>NCIT:C15516 (Physical therapy)</td>
+</tr>
+<tr>
+<td>Genetic</td>
+<td>Genetic counseling for families</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pharmacogenomics, gene/cell/RNA therapy, targeted/immunotherapy:</strong> none applicable or available at present.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible for a monogenic recessive disorder beyond reproductive counseling. <strong>Genetic counseling</strong> for consanguineous families and known carriers is central.</li>
+<li><strong>Secondary prevention:</strong> Early ophthalmologic surveillance (glaucoma, retinal detachment) and orthopedic monitoring to prevent complications; audiologic monitoring.</li>
+<li><strong>Tertiary prevention:</strong> Management of established complications (vision preservation, joint stabilization, scoliosis control, hearing support).</li>
+<li><strong>Genetic screening:</strong> <strong>Cascade/carrier testing</strong> in affected families; prenatal diagnosis and preimplantation genetic testing available where the familial variant is known.</li>
+<li><strong>Counseling:</strong> 25% recurrence risk per pregnancy for carrier couples (autosomal recessive); recurrence and recurrent/founder-allele considerations in specific populations.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> <em>Homo sapiens</em> (NCBI:txid9606). A relevant mouse model exists for the downstream mechanism (<em>Mus musculus</em>, NCBI:txid10090).</li>
+<li><strong>Orthologous genes:</strong> <em>Gzf1</em> (mouse ortholog); <em>P3h2/Leprel1</em> (mouse ortholog used in the P3h2-null model).</li>
+<li><strong>Natural disease in other species:</strong> No naturally occurring GZF1RP counterpart reported in companion animals or wildlife (OMIA entry not established in outline).</li>
+<li><strong>Comparative biology:</strong> GZF1 developmental function is conserved (expressed in developing mouse eye and limb) [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>]; the collagen prolyl-3-hydroxylation defect is conserved and modeled in mouse [<a href="https://pubmed.ncbi.nlm.nih.gov/25645914/" target="_blank" rel="noopener noreferrer">PMID: 25645914</a>].</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse — <em>P3h2</em>-null (downstream mechanism model):</strong> <em>"Post-translationally abnormal collagens of prolyl 3-hydroxylase-2 null mice offer a pathobiological mechanism for the high myopia linked to human LEPREL1 mutations"</em> — the null mice show under-3-hydroxylated types I and IV collagen in eye tissue, recapitulating the ocular collagen defect [<a href="https://pubmed.ncbi.nlm.nih.gov/25645914/" target="_blank" rel="noopener noreferrer">PMID: 25645914</a>]. This models the myopia arm of the pathway (not GZF1 itself).</li>
+<li><strong>Developmental expression model:</strong> GZF1 shown expressed in eyes and limbs of developing mice [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>].</li>
+<li><strong>Renal organ-culture model:</strong> antisense knockdown of GZF1 impaired ureteric-bud branching morphogenesis, establishing its developmental role downstream of GDNF/RET [<a href="https://pubmed.ncbi.nlm.nih.gov/14522971/" target="_blank" rel="noopener noreferrer">PMID: 14522971</a>].</li>
+<li><strong>In vitro cellular models:</strong> patient-derived cells for transcriptional profiling [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>]; HEK293T over-expression assays for variant functional characterization [<a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>]; nucleolin-interaction/proliferation assays [<a href="https://pubmed.ncbi.nlm.nih.gov/17674968/" target="_blank" rel="noopener noreferrer">PMID: 17674968</a>].</li>
+<li><strong>Model limitations:</strong> No published <em>Gzf1</em>-knockout mouse recapitulating the full human ocular-skeletal syndrome is described; the P3h2-null mouse captures only the myopia/collagen arm. A dedicated <em>Gzf1</em> animal model recapitulating joint laxity and short stature is a key gap.</li>
+</ul>
+<hr />
+<h2>Key Findings (Expanded)</h2>
+<h3>Finding 1 — Disease identity: GZF1-related phenotype (OMIM #617662), autosomal recessive</h3>
+<p>Two independent multiplex consanguineous Saudi families with severe recurrent large-joint dislocation and severe myopia each carried homozygous truncating <em>GZF1</em> variants, identified via combined autozygome + exome analysis [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>]. As of 2026, ~10 patients from 5 families (plus 3 new patients) all carry biallelic <em>GZF1</em> variants, confirming recessive inheritance [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>]. This firmly establishes <em>GZF1</em> as the single causal gene and the disorder as autosomal recessive.</p>
+<h3>Finding 2 — Causal mechanism: biallelic GZF1 LoF dysregulates ECM genes (P3H2)</h3>
+<p>GZF1 is a BTB/POZ-domain transcriptional repressor with 10 tandem zinc fingers [<a href="https://pubmed.ncbi.nlm.nih.gov/14522971/" target="_blank" rel="noopener noreferrer">PMID: 14522971</a>]. Disease variants are truncating/frameshift and functionally loss-of-function, with mutant protein undetectable or mislocalized [<a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>]. Patient-cell transcriptomics showed enrichment of dysregulated matrix-protein genes including <em>P3H2</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>], defining the mechanistic hypothesis.</p>
+<h3>Finding 3 — Clinical phenotype spectrum distinct from FLNB-Larsen</h3>
+<p>Recurrent core features (short stature, large-joint dislocation/hypermobility, severe myopia) plus severe ocular defects, facial dysmorphism, scoliosis, thoracic deformity, progressive hearing loss, umbilical hernia, hypodontia, and newly reported skeletal radiological findings define a <strong>recognizable GZF1RP</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>], distinguished from classic Larsen by severe ocular involvement [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>].</p>
+<h3>Finding 4 — Mechanistic anchor: P3H2/LEPREL1 collagen under-hydroxylation causes high myopia</h3>
+<p>Independent recessive kindreds with biallelic <em>LEPREL1</em> loss-of-function cause non-syndromic high axial myopia with early cataract, vitreoretinal degeneration, and retinal detachment [<a href="https://pubmed.ncbi.nlm.nih.gov/21885030/" target="_blank" rel="noopener noreferrer">PMID: 21885030</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24172257/" target="_blank" rel="noopener noreferrer">PMID: 24172257</a>]. P3h2-null mice show under-3-hydroxylated eye collagen, providing a scleral-collagen pathomechanism [<a href="https://pubmed.ncbi.nlm.nih.gov/25645914/" target="_blank" rel="noopener noreferrer">PMID: 25645914</a>]. This links GZF1-driven P3H2 dysregulation to the ocular phenotype.</p>
+<h3>Finding 5 — GZF1 normal biology and model systems</h3>
+<p>GZF1 is a GDNF/RET-inducible transcriptional repressor required for renal branching morphogenesis [<a href="https://pubmed.ncbi.nlm.nih.gov/14522971/" target="_blank" rel="noopener noreferrer">PMID: 14522971</a>], modulated by nucleolin and supporting cell proliferation [<a href="https://pubmed.ncbi.nlm.nih.gov/17674968/" target="_blank" rel="noopener noreferrer">PMID: 17674968</a>], and expressed in developing eye and limb — the affected tissues [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>].</p>
+<h3>Finding 6 — Differential diagnosis and genetic heterogeneity of the Larsen spectrum</h3>
+<p>Larsen syndrome is genetically heterogeneous: dominant <em>FLNB</em> accounts for the majority; recessive forms arise from biallelic <em>CHST3</em> and <em>B4GALT7</em>; and biallelic <em>GZF1</em> defines a further recessive form [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>]. GZF1RP is a distinct, recognizable entity distinguishable from Larsen [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>].</p>
+<h3>Finding 7 — Epidemiology, inheritance mechanics, natural history</h3>
+<p>Ultra-rare (~13 patients / ~6 families), fully recessive with biallelic variants, consanguinity-associated, with recurrent alleles (c.1440del) and both homozygous and compound-heterozygous states; congenital/early onset with progressive hearing loss and scoliosis [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>].</p>
+<h3>Finding 8 — Diagnostics and management framework</h3>
+<p>Diagnosis is molecular (WES/autozygosity mapping) with supportive ophthalmologic, skeletal-radiographic, audiologic, and cardiac workup; variant pathogenicity confirmed functionally in HEK293T cells [<a href="https://pubmed.ncbi.nlm.nih.gov/42170786/" target="_blank" rel="noopener noreferrer">PMID: 42170786</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33009817/" target="_blank" rel="noopener noreferrer">PMID: 33009817</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>]. Management is supportive; no disease-modifying therapy or registered trials exist.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The coherent narrative is a <strong>transcription-factor → extracellular-matrix → connective-tissue-biomechanics</strong> cascade. Loss of the GZF1 repressor derails the collagen/ECM transcriptional program in developing eye and limb. The best-supported downstream node is <strong>P3H2 (LEPREL1)</strong>: because independent human and mouse evidence shows that P3H2 loss under-hydroxylates ocular type I/IV collagen and causes high axial myopia, the GZF1→P3H2 link plausibly explains the severe ocular phenotype. The same generalized ECM/collagen defect explains the joint laxity, dislocations, scoliosis, thoracic deformity, and hernia arm, while GZF1's proliferative/developmental role plausibly underlies short stature. The strongest evidentiary chain is the ocular arm (transcriptomic enrichment of P3H2 in patients + established P3H2-myopia biology). The skeletal and growth arms are more inferential and warrant a dedicated <em>Gzf1</em> animal model.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Mechanistic arm</th>
+<th>Strength of evidence</th>
+<th>Basis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ocular (GZF1→P3H2→collagen→myopia)</td>
+<td><strong>Strong (partly inferred)</strong></td>
+<td>Patient transcriptomics [28475863] + independent P3H2/LEPREL1 human &amp; mouse data [21885030; 24172257; 25645914]</td>
+</tr>
+<tr>
+<td>Joint laxity / skeletal</td>
+<td>Moderate</td>
+<td>ECM dysregulation [28475863]; clinical spectrum [42170786]</td>
+</tr>
+<tr>
+<td>Short stature</td>
+<td>Weak/inferred</td>
+<td>GZF1 proliferation role [17674968]; developmental expression [28475863]</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28475863/">28475863</a></td>
+<td><em>GZF1 Mutations Expand the Genetic Heterogeneity of Larsen Syndrome</em></td>
+<td>Landmark: gene discovery, recessive inheritance, P3H2 mechanism, developmental expression, differential Dx</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42170786/">42170786</a></td>
+<td><em>Expanding the Genetic and Clinical Spectrum of GZF1-Related Phenotype</em></td>
+<td>Defines recognizable GZF1RP, epidemiology, recurrent alleles, new radiological findings</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33009817/">33009817</a></td>
+<td><em>Novel GZF1 pathogenic variants in two Chinese patients with Larsen syndrome</em></td>
+<td>Functional LoF evidence; compound-het variants; broadens population</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14522971/">14522971</a></td>
+<td><em>GDNF-inducible gene required for renal branching morphogenesis</em></td>
+<td>GZF1 normal biology: structure, GDNF/RET induction, developmental role</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17674968/">17674968</a></td>
+<td><em>Nucleolin modulates GZF1 localization/transcription/proliferation</em></td>
+<td>GZF1 in cell proliferation; subcellular regulation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21885030/">21885030</a></td>
+<td><em>High myopia caused by a mutation in LEPREL1 (P3H2)</em></td>
+<td>Establishes P3H2/LEPREL1 LoF → high myopia (mechanistic anchor)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24172257/">24172257</a></td>
+<td><em>Homozygous LoF LEPREL1 causes high myopia with early cataract</em></td>
+<td>Confirms collagen-modification disruption → high myopia + cataract</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25645914/">25645914</a></td>
+<td><em>Abnormal collagens of P3h2-null mice / high myopia mechanism</em></td>
+<td>Mouse model: eye-tissue collagen under-3-hydroxylation</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>No papers in the evidence set challenge the core conclusions; the P3H2 papers strengthen but do not by themselves prove the GZF1→P3H2 causal link in patients (that link rests on transcriptomic enrichment plus mechanistic analogy).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Very small evidence base</strong> (~13 patients / ~6 families) — precludes reliable prevalence, penetrance, sex-ratio, and per-phenotype frequency estimates.</li>
+<li><strong>GZF1→P3H2 causal link is partly inferred</strong> — supported by transcriptomic enrichment in patient cells [<a href="https://pubmed.ncbi.nlm.nih.gov/28475863/" target="_blank" rel="noopener noreferrer">PMID: 28475863</a>] plus independent P3H2 biology, but not yet proven by direct rescue/functional epistasis in a GZF1-deficient system.</li>
+<li><strong>No published <em>Gzf1</em> animal model</strong> recapitulating the full ocular-skeletal syndrome; the P3h2-null mouse models only the myopia arm.</li>
+<li><strong>Mechanism of short stature is unestablished</strong> (inferred from GZF1's proliferative role).</li>
+<li><strong>No natural-history or QoL instrument data</strong>, no prognostic biomarkers, no therapeutic trials.</li>
+<li><strong>Full target-gene set of GZF1</strong> beyond P3H2 not characterized; other dysregulated ECM genes may contribute.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a <em>Gzf1</em> loss-of-function mouse</strong> (constitutive and conditional in eye/limb/growth plate) and phenotype for myopia, joint laxity, and skeletal growth to test the full causal chain.</li>
+<li><strong>Directly test the GZF1→P3H2 axis:</strong> ChIP/CUT&amp;RUN for GZF1 occupancy at the <em>P3H2</em> locus; quantify P3H2 mRNA/protein and collagen 3-hydroxylation in patient-derived fibroblasts/iPSC-derived scleral cells; attempt P3H2 rescue.</li>
+<li><strong>Expand the patient registry</strong> via GeneMatcher/consortia to refine phenotype frequencies, penetrance, genotype–phenotype correlations, and possible founder alleles (e.g., c.1440del).</li>
+<li><strong>Deep-phenotype the ECM transcriptome/proteome</strong> of patient cells to enumerate additional dysregulated collagen/ECM genes contributing to the skeletal and growth phenotypes.</li>
+<li><strong>Establish natural-history and QoL data</strong> (visual, orthopedic, audiologic outcomes) to inform surveillance guidelines and care standards.</li>
+<li><strong>Assess carrier/allele frequencies</strong> in relevant populations (e.g., Saudi, Chinese) to guide targeted carrier screening.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 8 confirmed findings and 8 primary papers over a 5-iteration investigation. Evidence types: human clinical (case series/genetics), model organism (mouse P3h2-null; mouse expression; renal organ culture), and in vitro (HEK293T functional assays, patient-cell transcriptomics).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Joint_Laxity_Short_Stature_and_Myopia-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Joint_Laxity_Short_Stature_and_Myopia-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>8</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:42170786</code> <em>(abstract only)</em>: "a specific ocular and skeletal disorder distinguishable from Larsen syndrome"</li>
+<li>closest text in source: "GZF1-related phenotype (GZF1RP) has been referred to by different names, including autosomal recessive Larsen syndrome (LRS) and "joint laxity, short stature, and myopia""</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0000541</code> (1 mention) - the report calls it "Episodic/progressive"; HP calls it <strong>Retinal detachment</strong></li>
+<li><code>HP:0001087</code> (1 mention) - the report calls it "Progressive"; HP calls it <strong>Developmental glaucoma</strong></li>
+<li><code>HP:0000525</code> (1 mention) - the report calls it "Stable"; HP calls it <strong>Abnormality iris morphology</strong></li>
+<li><code>HP:0004322</code> (1 mention) - the report calls it "Stable/progressive"; HP calls it <strong>Short stature</strong></li>
+<li><code>HP:0001382</code> (1 mention) - the report calls it "Stable"; HP calls it <strong>Joint hypermobility</strong></li>
+<li><code>HP:0002828</code> (1 mention) - the report calls it "Joint dislocation"; HP calls it <strong>Multiple joint contractures</strong></li>
+<li><code>HP:0002650</code> (1 mention) - the report calls it "Progressive"; HP calls it <strong>Scoliosis</strong></li>
+<li><code>HP:0000765</code> (1 mention) - the report calls it "Progressive"; HP calls it <strong>Abnormal thorax morphology</strong></li>
+<li><code>HP:0001999</code> (1 mention) - the report calls it "Stable"; HP calls it <strong>Abnormal facial shape</strong></li>
+<li><code>HP:0001537</code> (1 mention) - the report calls it "Stable"; HP calls it <strong>Umbilical hernia</strong></li>
+<li><code>HP:0000668</code> (1 mention) - the report calls it "Stable"; HP calls it <strong>Hypodontia</strong></li>
+<li><code>HP:0001627</code> (1 mention) - the report calls it "Variable"; HP calls it <strong>Abnormal heart morphology</strong></li>
+<li><code>UBERON:0001801</code> (1 mention) - the report calls it "sclera"; UBERON calls it <strong>anterior segment of eyeball</strong></li>
+<li><code>NCIT:C15277</code> (1 mention) - the report calls it "Ophthalmologic procedure"; NCIT calls it <strong>Mastectomy</strong></li>
+<li><code>NCIT:C15194</code> (1 mention) - the report calls it "Hearing aid"; NCIT calls it <strong>Bone Marrow Transplantation</strong></li>
+<li><code>NCIT:C51826</code> (1 mention) - the report calls it "Herniorrhaphy"; NCIT calls it <strong>Grant Principal Investigator</strong></li>
+<li><code>NCIT:C15516</code> (1 mention) - the report calls it "Physical therapy"; NCIT calls it <strong>Fertility Assessment and Management</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0001180</code> (obsolete Hand oligodactyly) (1 mention) - replaced by <code>HP:0009380</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>UBERON:0002217</code> (1 mention) - the report calls it "joint"; UBERON calls it <strong>synovial joint</strong></li>
+<li><code>NCIT:C15329</code> (1 mention) - the report calls it "Orthopedic surgery"; NCIT calls it <strong>Surgical Procedure</strong>, and lists "Type of Surgery" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>OMIM</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Jeune_Asphyxiating_Thoracic_Dystrophy-falcon.html">← Jeune Asphyxiating Thoracic Dystrophy (Falcon)</a>
+                
+                
+                <a href="Joubert_syndrome-falcon.html">Joubert syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Joint_Laxity,_Short_Stature,_and_Myopia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Joint_Laxity_Short_Stature_and_Myopia-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
