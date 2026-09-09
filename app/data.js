@@ -18539,6 +18539,119 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Amyotrophic Lateral Sclerosis Type 1",
+    "disease_id": "MONDO:0007103",
+    "category": "Mendelian",
+    "parents": [
+      "Amyotrophic Lateral Sclerosis",
+      "Motor Neuron Disease",
+      "Neurodegenerative Disease"
+    ],
+    "creation_date": "2026-09-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "A4V",
+      "D90A homozygous"
+    ],
+    "description": "Amyotrophic lateral sclerosis type 1 (ALS1) is the SOD1-associated form of motor neuron disease and was the first genetically defined form of ALS, identified in 1993 when missense variants in SOD1 \u2014 encoding the homodimeric cytosolic Cu/Zn superoxide dismutase \u2014 were found to segregate with autosomal dominant familial ALS. Over 200 variants are now known, and SOD1 accounts for a substantial minority of familial ALS. Reported estimates span a wide range rather than converging: 12-23% and 1-23% of familial ALS in two recent sources, alongside single-cohort figures of 20% and 24.2%, plus roughly 1-7% of apparently sporadic disease. The spread is real and population-dependent, so this entry does not name a central value. The defining mechanistic claim of this entry is that ALS1 is a gain of toxic function rather than a loss of dismutase activity: SOD1-null mice have structurally and functionally normal motor neurons, the slowly progressive Asp90Ala allele leaves erythrocyte dismutase activity essentially normal, and a transgene encoding a variant with little effect on enzyme activity is sufficient to paralyse mice. Destabilised SOD1 misfolds and acquires toxicity through several partly independent routes \u2014 cytoplasmic aggregation, sequestration of the ERAD component Derlin-1 with downstream ASK1 activation, and prion-like templated propagation of the misfolded conformer \u2014 and disease is then propagated non-cell-autonomously, with mutant protein in motor neurons setting onset while mutant protein in microglia and astrocytes governs the later rate of progression. ALS1 is kept separate from the broad `Amyotrophic Lateral Sclerosis` entry for a specific pathological reason and not merely a genetic one: SOD1-mutant cases carry ubiquitin-positive but TDP-43-negative inclusions, so they fall outside the TDP-43 proteinopathy that defines the great majority of ALS. ALS1 is also the first ALS subtype with a mechanism-directed therapy, the SOD1-lowering antisense oligonucleotide tofersen.",
+    "pathophysiology": [
+      "SOD1 Missense Variant",
+      "Misfolded SOD1 Gain of Toxic Function",
+      "Prion-Like Templated Propagation of Misfolded SOD1",
+      "Cytoplasmic SOD1 Aggregate Formation",
+      "Derlin-1 Sequestration and ASK1-Dependent ER Stress",
+      "Non-Cell-Autonomous Glial Toxicity",
+      "Extra-Motor CNS Degeneration",
+      "Disease-Associated Motor Neuron State",
+      "Motor Neuron Degeneration",
+      "Progressive Muscle Denervation"
+    ],
+    "cell_types": [
+      "spinal cord motor neuron",
+      "microglial cell",
+      "astrocyte",
+      "alpha motor neuron",
+      "Betz upper motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011001",
+      "CL:0000129",
+      "CL:0000127",
+      "CL:0008038",
+      "CL:4023052"
+    ],
+    "biological_processes": [
+      "protein quality control for misfolded or incompletely synthesized proteins",
+      "response to endoplasmic reticulum stress",
+      "ERAD pathway",
+      "neuron apoptotic process"
+    ],
+    "phenotypes": [
+      "Progressive Muscle Weakness",
+      "Lower Limb Muscle Weakness",
+      "Skeletal Muscle Atrophy",
+      "Fasciculations",
+      "Spasticity",
+      "Hyperreflexia",
+      "Dysarthria",
+      "Dysphagia",
+      "Respiratory Insufficiency",
+      "Somatic Sensory Dysfunction",
+      "Functional Abnormality of the Bladder",
+      "Gait Ataxia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Respiratory",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003323",
+      "HP:0007340",
+      "HP:0003202",
+      "HP:0002380",
+      "HP:0001257",
+      "HP:0001347",
+      "HP:0001260",
+      "HP:0002015",
+      "HP:0002093",
+      "HP:0003474",
+      "HP:0000009",
+      "HP:0002066"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SOD1"
+    ],
+    "treatments": [
+      "Tofersen",
+      "Riluzole",
+      "Edaravone",
+      "Multidisciplinary Supportive Care",
+      "Genetic Counseling and Predictive Testing"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Neurofilament light chain"
+    ],
+    "source_file": "Amyotrophic_Lateral_Sclerosis_Type_1.yaml",
+    "page_url": "../pages/disorders/Amyotrophic_Lateral_Sclerosis_Type_1.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Anal Canal Adenocarcinoma",
     "disease_id": "MONDO:0002735",
     "category": "",
@@ -228649,6 +228762,115 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Primary Central Nervous System Lymphoma",
+    "disease_id": "MONDO:0002571",
+    "category": "Complex",
+    "parents": [
+      "Non-Hodgkin Lymphoma",
+      "Central Nervous System Neoplasm"
+    ],
+    "creation_date": "2026-09-09T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Primary central nervous system lymphoma is an aggressive diffuse large B-cell lymphoma whose defining feature is where it is not: the brain, spinal cord, leptomeninges and eyes are its exclusive sites at diagnosis, and demonstrable disease outside the central nervous system excludes the diagnosis. That restriction is the entity, and it is why staging deliberately looks for systemic disease it hopes not to find.\nThe tumour arises from a B cell that has acquired a small, stereotyped set of somatic lesions \u2014 MYD88 L265P and CD79B together in the majority of cases \u2014 which switch on Toll-like-receptor and B-cell-receptor signalling without any ligand and drive canonical NF-kB constitutively. Clonal evolution studies of paired primary and relapse samples place those mutations, with TBL1XR1 and BCL6 rearrangement, in a common progenitor cell held in a memory B-cell state, and place the immune-escape lesions much later. The late group is the characteristic one: loss of the HLA locus at 6p21, B2M mutation, and gain or rearrangement of the PD-L1/PD-L2 locus at 9p24.1 all remove the tumour from T-cell view inside a compartment that was already immunologically sheltered. WHO's 2022 classification groups PCNSL with primary testicular and vitreoretinal large B-cell lymphoma on exactly this basis, as lymphomas of immune-privileged sites.\nClinically it is a subacute mass lesion with a deceptive imaging signature \u2014 homogeneous enhancement and restricted diffusion rather than the ring enhancement of glioblastoma or abscess \u2014 and a notorious sensitivity to corticosteroids, which can make the tumour vanish radiographically and render a subsequent biopsy uninterpretable. Treatment is high-dose methotrexate-based induction followed by consolidation, and the consolidation choice is the one that matters most for what survivors are left with: autologous transplant preserves cognition where whole-brain radiotherapy erodes it.",
+    "pathophysiology": [
+      "Acquisition of MYD88 and CD79B Driver Mutations",
+      "Ligand-Independent BCR and Toll-Like Receptor Signaling",
+      "Constitutive Canonical NF-kB Activation",
+      "Aberrant Somatic Hypermutation and CDKN2A Loss",
+      "Acquisition of Immune-Escape Lesions",
+      "Escape from T-Cell Immunosurveillance",
+      "Unchecked Clonal B-Cell Proliferation",
+      "Perivascular Infiltration of CNS Parenchyma",
+      "Mass Effect and Blood-Brain Barrier Disruption",
+      "Vitreoretinal Dissemination",
+      "Loss of EBV-Specific T-Cell Surveillance"
+    ],
+    "cell_types": [
+      "memory-state common progenitor B cell",
+      "CD8-positive, alpha-beta T cell",
+      "microglial cell",
+      "neoplastic B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000787",
+      "CL:0000625",
+      "CL:0000129",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "B cell receptor signaling pathway",
+      "toll-like receptor signaling pathway",
+      "canonical NF-kappaB signal transduction"
+    ],
+    "phenotypes": [
+      "Neoplasm of the nervous system",
+      "Hemiparesis",
+      "Aphasia",
+      "Atypical behavior",
+      "Memory impairment",
+      "Seizure",
+      "Headache",
+      "Papilledema",
+      "Ataxia",
+      "Blurred vision",
+      "Increased CSF protein concentration"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004375",
+      "HP:0001269",
+      "HP:0002381",
+      "HP:0000708",
+      "HP:0002354",
+      "HP:0001250",
+      "HP:0002315",
+      "HP:0001085",
+      "HP:0001251",
+      "HP:0000622",
+      "HP:0002922"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MYD88",
+      "CD79B",
+      "CDKN2A",
+      "PIM1",
+      "B2M",
+      "CD274",
+      "CARD11"
+    ],
+    "treatments": [
+      "High-Dose Methotrexate-Based Induction Chemotherapy",
+      "Autologous Haematopoietic Stem Cell Transplantation Consolidation",
+      "Whole-Brain Radiotherapy Consolidation",
+      "Bruton Tyrosine Kinase Inhibition"
+    ],
+    "environmental": [
+      "Prolonged iatrogenic immunosuppression"
+    ],
+    "biochemical": [
+      "Cerebrospinal fluid interleukin-10"
+    ],
+    "source_file": "Primary_Central_Nervous_System_Lymphoma.yaml",
+    "page_url": "../pages/disorders/Primary_Central_Nervous_System_Lymphoma.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 11,
+    "num_genes": 7,
+    "num_treatments": 4,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Primary_Ciliary_Dyskinesia",
     "disease_id": "MONDO:0016575",
     "category": "Genetic",
@@ -292346,17 +292568,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2828,
-  "total_subtypes": 3695,
-  "total_disorders_and_subtypes": 6523,
-  "total_unique_evidence_sources": 39875,
-  "total_unique_publications": 37562,
+  "total_disorder_pages": 2830,
+  "total_subtypes": 3697,
+  "total_disorders_and_subtypes": 6527,
+  "total_unique_evidence_sources": 39920,
+  "total_unique_publications": 37604,
   "total_unique_disease_categories": 57,
   "total_unique_phenotype_categories": 279,
-  "total_pathographs": 2823,
-  "total_unique_pathological_events": 16914,
+  "total_pathographs": 2825,
+  "total_unique_pathological_events": 16934,
   "total_modules": 173,
-  "total_research_reports": 2957,
+  "total_research_reports": 2959,
   "total_classifications": 19,
   "total_comorbidities": 26,
   "total_groupings": 102
