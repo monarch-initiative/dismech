@@ -664,6 +664,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../cancer-cell-of-origin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cancer Cell of Origin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../psychiatric-curation-sop/" class="md-nav__link">
         
   
@@ -2319,6 +2347,34 @@
     
   
     Pathograph Review: Non-Mendelian Cardiac Disease (2026-09-02)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reports/spatially-resolved-in-vitro-models-2026-09-02/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spatially resolved in vitro tissue models: a curation pass and a schema gap (2026-09-02)
   
 
     
@@ -24404,6 +24460,83 @@ with no device framing at all: rule 1 "define context clearly" is the link, rule
 <code>divergences</code> — typed rather than prose being the only change. All four references are
 carried in the schema itself as <code>see_also</code> on <code>ModelMechanismLink</code>, <code>ModelDivergence</code>,
 <code>ModelDivergenceTypeEnum</code> and <code>ModelDivergenceMaterialityEnum</code>.</p>
+<h3 id="3d-cell-of-origin-is-derived-from-the-pathograph-not-stored-in-a-slot-2026-09-02">3d. Cell of origin is derived from the pathograph, not stored in a slot (2026-09-02)</h3>
+<p><strong>Decision.</strong> A neoplasm entry's <strong>cell of origin is derived</strong>, by finding the
+pathophysiology node where the transforming lesion occurred and reading that node's
+<code>cell_types</code>. dismech adds <strong>no <code>cell_of_origin:</code> slot</strong>, on <code>Disease</code> or on <code>Subtype</code>.</p>
+<p>The origin node is identified by two rules, <strong>both reading a structured claim</strong> rather
+than a naming convention, with the rule that fired reported alongside the answer:</p>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Marker</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SOMATIC_LESION</code></td>
+<td><code>pathophysiology[].genetic_context.variant_origin: SOMATIC</code> (or <code>GERMLINE_AND_SOMATIC</code>) — the transforming lesion. Not restricted to root nodes: a second-hit or transformation lesion is still a somatic event. <code>allelic_hit_role: FIRST_HIT</code> narrows it further</td>
+</tr>
+<tr>
+<td><code>ENVIRONMENTAL_TRIGGER</code></td>
+<td>an <code>environmental[].influences_mechanisms</code> link marking the node <code>environmental_effect: TRIGGERS</code> — non-mutational initiation (HPV, H. pylori, asbestos, UV), where there is no host lesion to mark. The same value the KGX exporter and compliance scoring already treat as causal</td>
+</tr>
+</tbody>
+</table>
+<p>The exposure rule applies <strong>only when no lesion is recorded</strong>, which is a statement about
+meaning and not confidence: the cell of origin is the cell the transforming event occurred
+in, so once the entry records that event the exposure is upstream context.</p>
+<p><strong>Rejected: fallback rules for unmarked entries.</strong> The first implementation also read an
+initiating-sounding free-text <code>role</code> on a root node, and chained fallbacks so a stronger
+rule could not discard a weaker rule's answer. Both existed to cover entries that had not
+recorded their origin, and both mis-fired — the role rule derived macrophage and pancreatic
+stellate cell as the cell of origin of pancreatic ductal adenocarcinoma, from a
+chronic-inflammation node. A <code>CONTEXT_NODE_MARKED</code> finding was added to catch that, and
+then false-positived on cancers that really are inflammation-initiated. The correct fix was
+to mark the records (<code>scripts/backfill_cancer_origin.py</code>, 105 entries) and delete the
+heuristics; an entry that does not say where it starts is now reported as not saying it
+(@cmungall, 2026-09-02).</p>
+<p><strong>Rationale.</strong> A dedicated slot would restate what the pathograph already says, and the
+two would drift. It would also sit at the disease level, unable to distinguish a
+subtype's origin from its parent's, and it would invite filling in from the disease name
+rather than from the mechanism. Deriving it keeps the claim attached to the node holding
+its evidence, and makes an unmarked entry visible <em>as unmarked</em> rather than as an empty
+field. This was raised as a possible <code>cell_of_origin:</code> slot and rejected in favour of the
+marker on the node (@cmungall, 2026-09-02 session).</p>
+<p><strong>Consequence — the multi-origin finding is the lump/split signal.</strong> Deriving more than
+one cell of origin is reported and <strong>never gated</strong>, because it means one of three
+different things and only a curator can say which: (a) a pool wearing a Disease entry's
+clothes (<code>Non-Small_Cell_Lung_Cancer</code> derives alveolar type 2 <em>and</em> bronchial epithelial
+cell, which is exactly what NSCLC is) — remedy a <code>Grouping</code> or a split per §3a; (b) one
+disease with genuine cell-of-origin <strong>subtypes</strong> (B-lymphoblastic leukemia across its 19
+subtypes; <code>GPR101-related_pituitary_adenoma_2</code>'s somatotroph and mammotroph) — remedy
+<code>has_subtypes</code>; (c) an origin the literature has not settled
+(<code>Melanoma_in_Congenital_Melanocytic_Nevus</code> names melanocyte and neural crest cell) —
+remedy a note. Seven entries currently report it, which is short enough to work through.
+A <strong>viral</strong> mechanism is never marked under rule 1 — HPV E6/E7 and HTLV-1 Tax leave no
+host variant for <code>variant_origin</code> to describe — and a spurious mark there is doubly
+harmful, since a recorded lesion suppresses the exposure rule that should answer for it
+(caught in review of PR #10629).</p>
+<p><strong>NCIT is a cross-check, not a binding target.</strong> NCIT asserts cell of origin per disease
+inside its <code>owl:equivalentClass</code> definitions — <code>NCIT:R104</code> Disease_Has_Normal_Cell_Origin,
+<code>NCIT:R112</code> (weak form), and <code>NCIT:R105</code> Disease_Has_Abnormal_Cell into the Abnormal Cell
+branch (<code>NCIT:C12913</code>); DLBCL is <em>Mature B-Lymphocyte</em> → <em>Neoplastic Large B-Lymphocyte</em>.
+All three are ingested by the manifest-driven <code>OntologyEdgeSource</code> as quotable
+<code>references_cache/NCIT_*.md</code> rows. <code>CellTypeTerm</code> stays <code>reachable_from: CL:0000000</code>
+alone, so <code>cell_types</code> remains CL-only and an NCIT code there fails term validation. There
+is no NCIT-to-CL mapping in the repo, so agreement between our derived CL term and NCIT's
+class is a curator's judgement, not a computed match.</p>
+<p><strong>Enacted.</strong> <code>scripts/check_cancer_origin.py</code> (<code>just check-cancer-origin</code>, advisory,
+inside <code>just qc</code>), <code>scripts/backfill_cancer_origin.py</code>, <code>tests/test_cancer_origin.py</code>, and
+105 entries marked. 124 of 252 assessed neoplasm entries now derive a cell of origin, and
+<code>ORIGIN_WITHOUT_CELL</code> is at zero — every entry that marks an origin binds a cell there,
+which makes that class ready to become a hard gate. <strong>Still open:</strong> the remaining 128
+unmarked entries, whose pathographs name no genetic lesion, or name one with no cell type
+anywhere in the entry — both need a curator rather than a script; and whether CL should
+gain lineage-specific transformed-cell terms, or <code>CellTypeTerm</code> gain <code>NCIT:C12913</code> as a
+second source node, so an entry needing "H3 K27M-mutant glioma cell" stops binding the
+generic <code>CL:0001063</code>. See <a href="../../cancer-cell-of-origin/">cancer-cell-of-origin.md</a>.</p>
 <h2 id="4-ontology-constraints">4. Ontology constraints</h2>
 <p><strong>Decision.</strong> Term validation is restricted to an explicit, curated set of ontologies.</p>
 <p>The canonical list is
@@ -25239,6 +25372,11 @@ browsing session, plus the non-dismissible footer line).</p>
 <td>Structural <code>knowledge_gaps:</code> schema slot</td>
 <td>Deferred; knowledge gaps currently modeled via <code>discussions</code> (<code>kind: KNOWLEDGE_GAP</code>)</td>
 <td>schema follow-up</td>
+</tr>
+<tr>
+<td>Measurement context on <code>ExperimentalReadout</code> (spatial position, sampling rate, named comparator)</td>
+<td><strong>Open; narrower than first recorded.</strong> <code>model_scale</code> and <code>divergences</code> now cover the <em>scale</em> and <em>shortfall</em> axes on <code>ModelMechanismLink</code>, and a NAM curation pass populated both across eight links. What they do not cover is positive metadata about how a measurement was made: an <strong>internal spatial comparator</strong> (organoid interior vs. edge in the same construct — <code>STRUCTURAL_IDEALIZATION</code> is the wrong shape, since the spatial structure is the model's strength), a <strong>sampling rate</strong> (20 ms light-sheet calcium imaging, currently in free-text <code>culture_system</code>; <code>TEMPORAL_SCOPE</code> types a mismatch, not a rate), and the <strong>comparator arm</strong> that <code>ModelReadoutDirectionEnum</code> is explicitly defined against but which no slot names — a readout reading <code>DECREASED</code> against epicardium-free tissue rather than untreated tissue is nearly meaningless without its prose. The comparator is the narrowest and most tractable piece and every readout in the KB inherits it. Weigh against sparse population of the slots that already exist. <code>assays</code> is populated on several hundred readouts but is <strong>never ontology-bound</strong>: every entry carries a bare <code>preferred_term</code> and not one carries a <code>term:</code>, because <code>OBI</code> is absent from <code>conf/oak_config.yaml</code> and has no <code>cache/enums/</code> membership cache, so a curator who tried could not validate it. Scale is near-universally <code>UNDETERMINED</code>. Both counts move with every curation pass and are deliberately not pinned in this register — read them from <code>just model-scale-audit</code> and from a <code>term:</code>-under-<code>assays:</code> scan of <code>kb/</code>. (An earlier revision of this row said <code>assays</code> was used on 0 of 289 readouts; the slot is used, it is the ontology binding that is at zero.)</td>
+<td><a href="../../reports/spatially-resolved-in-vitro-models-2026-09-02/">Spatially resolved in vitro models</a></td>
 </tr>
 <tr>
 <td><code>would_support</code> / <code>would_refute</code> range</td>
