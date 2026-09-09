@@ -1,8 +1,3 @@
-> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
-> The report and solution files below describe the previous input only.
-> No result is asserted for the current `kb.yaml`; rerun the solver.
-> [Input hashes and previous index values](../../icd10/updates.json)
-
 # Musculocontractural Ehlers-Danlos Syndrome
 
 Boomer grounding analysis for [`kb/disorders/Musculocontractural_Ehlers-Danlos_Syndrome.yaml`](../../../../kb/disorders/Musculocontractural_Ehlers-Danlos_Syndrome.yaml).
@@ -20,25 +15,20 @@ Boomer grounding analysis for [`kb/disorders/Musculocontractural_Ehlers-Danlos_S
 
 ## What boomer did
 
-Boomer could **not** accept every mapping at once and retracted the following
-identity claim(s) to restore consistency:
+**Status: `TIMED_OUT`**
 
-- `MONDO:0014236` ≡ `DOID:0080737`
+The full joint search reached its time limit. Any assignment and posterior
+below are provisional; this is not a completed consistency verdict.
 
-A retraction means these assertions are jointly unsatisfiable, not that the
-retracted mapping is necessarily the wrong one. Which assertion to give up is a
-curation decision.
+High-prior rejections in the provisional candidate:
 
-## Verdict meanings
-
-- **`AGREES`** - MONDO has this subtype's term as a descendant of the entry's term.
+- `MONDO:0014236` ≡ `DOID:0080735`
 
 ## Files
 
-| File | What |
-|---|---|
-| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60 -C 6`. |
-| [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |
-| [`solution.md`](solution.md) | Boomer output, rendered. |
+- [`kb.yaml`](kb.yaml): unchanged input.
+- [`solution.yaml`](solution.yaml): current machine-readable solver output.
+- [`solution.md`](solution.md): rendered solver output.
+- [`solve.json`](solve.json): input hash, configuration, and run status.
 
-Regenerate with [`../../scripts/build_analyses.py`](../../scripts/build_analyses.py).
+The search used the entire KB, with no hypothesis-dropping clique limit.

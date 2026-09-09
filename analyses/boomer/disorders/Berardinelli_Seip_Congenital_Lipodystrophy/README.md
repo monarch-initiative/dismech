@@ -12,13 +12,17 @@ subtype assertion, and agreement does not validate a subtype hierarchy.
 
 ## What boomer did
 
-The solver has **not been run** for this input. No mapping acceptance,
-retraction, posterior probability or global-consistency result is asserted.
+**Status: `RETRACTED`**
+
+Boomer rejected the following high-prior mapping hypotheses:
+
+- `MONDO:0018883` ≡ `icd11f:1628738474`
 
 ## Files
 
-| File | What |
-|---|---|
-| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60`. |
+- [`kb.yaml`](kb.yaml): unchanged input.
+- [`solution.yaml`](solution.yaml): current machine-readable solver output.
+- [`solution.md`](solution.md): rendered solver output.
+- [`solve.json`](solve.json): input hash, configuration, and run status.
 
-Regenerate with [`../../scripts/build_analyses.py`](../../scripts/build_analyses.py).
+The search used the entire KB, with no hypothesis-dropping clique limit.

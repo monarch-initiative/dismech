@@ -1,5 +1,10 @@
 # Directional ICD enrichment
 
+> The [subsequent Boomer batch](../../runs/pending/README.md) has now attempted
+> every new and stale input. The preservation and `STALE_INPUT` counts below
+> describe the import stage; all 177 stale inputs subsequently timed out in
+> full joint searches and now have explicitly provisional current outputs.
+
 The first Mendelian import on 2026-09-08 enriched **1,000 inputs** with **1,271
 mapping hypotheses**. Only entries with `category: Mendelian` were changed.
 The [initial audit](../README.md) remains available as a historical snapshot.
@@ -89,8 +94,9 @@ any changes. It leaves existing assertions, labels, and probabilities unchanged.
 The initial 1,000 YAML diffs contain **only additions**, with no removed lines.
 Repeated migration against unchanged sources produces identical bytes.
 
-All 371 saved solutions remain byte-identical. Of these, **177 now have changed
-inputs**: their index status is `STALE_INPUT`, `n_retracted` is `NA`, and their
+At the import stage, all 371 saved solutions remained byte-identical. Of these,
+**177 had changed inputs**: their index status was `STALE_INPUT`, `n_retracted`
+was `NA`, and their
 README starts with a warning that the retained result applies to the old input.
 [updates.json](../updates.json) records before/after input hashes, previous index
 values, and preserved solution hashes. The other 823 changed inputs remain

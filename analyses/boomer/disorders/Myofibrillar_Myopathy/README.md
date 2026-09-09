@@ -1,8 +1,3 @@
-> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
-> The report and solution files below describe the previous input only.
-> No result is asserted for the current `kb.yaml`; rerun the solver.
-> [Input hashes and previous index values](../../icd10/updates.json)
-
 # Myofibrillar Myopathy
 
 Boomer grounding analysis for [`kb/disorders/Myofibrillar_Myopathy.yaml`](../../../../kb/disorders/Myofibrillar_Myopathy.yaml).
@@ -36,33 +31,22 @@ That makes them evidenced MONDO gaps rather than open questions:
 
 ## What boomer did
 
-Boomer could **not** accept every mapping at once and retracted the following
-identity claim(s) to restore consistency:
+**Status: `TIMED_OUT`**
 
+The full joint search reached its time limit. Any assignment and posterior
+below are provisional; this is not a completed consistency verdict.
+
+High-prior rejections in the provisional candidate:
+
+- `MONDO:0012215` ≡ `MESH:C000598645`
 - `MONDO:0012215` ≡ `MESH:C535906`
-- `MONDO:0012215` ≡ `MESH:C563775`
-- `MONDO:0012215` ≡ `ORDO:98911`
-
-A retraction means these assertions are jointly unsatisfiable, not that the
-retracted mapping is necessarily the wrong one. Which assertion to give up is a
-curation decision.
-
-1 subtype(s) are `SILENT`: MONDO asserts no path between the
-terms in either direction. That is consistent (nothing is violated) but
-uncorroborated, and generally indicates a missing `is_a` edge in MONDO rather
-than a dismech error. These are candidate MONDO enrichment proposals.
-
-## Verdict meanings
-
-- **`AGREES`** - MONDO has this subtype's term as a descendant of the entry's term.
-- **`SILENT`** - MONDO relates the two terms in neither direction - usually a missing MONDO `is_a` edge.
+- `MONDO:0012215` ≡ `ORDO:268129`
 
 ## Files
 
-| File | What |
-|---|---|
-| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60 -C 6`. |
-| [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |
-| [`solution.md`](solution.md) | Boomer output, rendered. |
+- [`kb.yaml`](kb.yaml): unchanged input.
+- [`solution.yaml`](solution.yaml): current machine-readable solver output.
+- [`solution.md`](solution.md): rendered solver output.
+- [`solve.json`](solve.json): input hash, configuration, and run status.
 
-Regenerate with [`../../scripts/build_analyses.py`](../../scripts/build_analyses.py).
+The search used the entire KB, with no hypothesis-dropping clique limit.

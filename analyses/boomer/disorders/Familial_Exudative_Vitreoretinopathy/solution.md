@@ -1,0 +1,16 @@
+
+ ## dismech-Familial_Exudative_Vitreoretinopathy
+ * 145 combinations
+ * 144 satisfiable combinations
+ * 1.0 proportion of combinations explored
+ * 0.5 confidence
+ * 0.626484769875 prior probability
+ * 0.186624317419 posterior probability
+Grounding:
+ * True dismech:Familial_Exudative_Vitreoretinopathy (Familial Exudative Vitreoretinopathy (dismech entry)) ≡ MONDO:0019516 (exudative vitreoretinopathy) :: prior: 0.9 posterior: 0.967419636394
+ * False dismech:Familial_Exudative_Vitreoretinopathy (Familial Exudative Vitreoretinopathy (dismech entry)) ⊂ MONDO:0019516 (exudative vitreoretinopathy) :: prior: 0.07 posterior: 0.004045362876
+ * False MONDO:0019516 (exudative vitreoretinopathy) ⊂ dismech:Familial_Exudative_Vitreoretinopathy (Familial Exudative Vitreoretinopathy (dismech entry)) :: prior: 0.03 posterior: 0.001662233052
+ * True MONDO:0019516 (exudative vitreoretinopathy) ≡ DOID:0050535 (exudative vitreoretinopathy) :: prior: 0.95 posterior: 0.95
+ * True MONDO:0019516 (exudative vitreoretinopathy) ≡ MESH:C580083 (Familial Exudative Vitreoretinopathy) :: prior: 0.95 posterior: 0.95
+ * True MONDO:0019516 (exudative vitreoretinopathy) ≡ ORDO:891 (Familial exudative vitreoretinopathy) :: prior: 0.95 posterior: 0.95
+ * True ORDO:891 (Familial exudative vitreoretinopathy) ⊂ ICD10:H35.0 (Background retinopathy and retinal vascular changes) :: prior: 0.9 posterior: 0.9

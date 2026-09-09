@@ -15,22 +15,15 @@ Boomer grounding analysis for [`kb/disorders/Developmental_And_Epileptic_Encepha
 
 ## What boomer did
 
-The solver has **not been run** for this input. No mapping acceptance,
-retraction, posterior probability or global-consistency result is asserted.
+**Status: `ALL_MAPPINGS_CONSISTENT`**
 
-1 subtype(s) are `SILENT`: MONDO asserts no path between the
-terms in either direction. That is consistent (nothing is violated) but
-uncorroborated, and generally indicates a missing `is_a` edge in MONDO rather
-than a dismech error. These are candidate MONDO enrichment proposals.
-
-## Verdict meanings
-
-- **`SILENT`** - MONDO relates the two terms in neither direction - usually a missing MONDO `is_a` edge.
+The completed search accepted all high-prior mapping hypotheses together.
 
 ## Files
 
-| File | What |
-|---|---|
-| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60`. |
+- [`kb.yaml`](kb.yaml): unchanged input.
+- [`solution.yaml`](solution.yaml): current machine-readable solver output.
+- [`solution.md`](solution.md): rendered solver output.
+- [`solve.json`](solve.json): input hash, configuration, and run status.
 
-Regenerate with [`../../scripts/build_analyses.py`](../../scripts/build_analyses.py).
+The search used the entire KB, with no hypothesis-dropping clique limit.

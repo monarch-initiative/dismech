@@ -1,8 +1,3 @@
-> **STALE INPUT:** ICD mapping hypotheses were added after the saved solve.
-> The report and solution files below describe the previous input only.
-> No result is asserted for the current `kb.yaml`; rerun the solver.
-> [Input hashes and previous index values](../../icd10/updates.json)
-
 # Alpha-mannosidosis
 
 Boomer grounding analysis for [`kb/disorders/Alpha_Mannosidosis.yaml`](../../../../kb/disorders/Alpha_Mannosidosis.yaml).
@@ -20,19 +15,16 @@ Boomer grounding analysis for [`kb/disorders/Alpha_Mannosidosis.yaml`](../../../
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+**Status: `TIMED_OUT`**
 
-## Verdict meanings
-
-- **`AGREES`** - MONDO has this subtype's term as a descendant of the entry's term.
+The full joint search reached its time limit. Any assignment and posterior
+below are provisional; this is not a completed consistency verdict.
 
 ## Files
 
-| File | What |
-|---|---|
-| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60 -C 6`. |
-| [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |
-| [`solution.md`](solution.md) | Boomer output, rendered. |
+- [`kb.yaml`](kb.yaml): unchanged input.
+- [`solution.yaml`](solution.yaml): current machine-readable solver output.
+- [`solution.md`](solution.md): rendered solver output.
+- [`solve.json`](solve.json): input hash, configuration, and run status.
 
-Regenerate with [`../../scripts/build_analyses.py`](../../scripts/build_analyses.py).
+The search used the entire KB, with no hypothesis-dropping clique limit.

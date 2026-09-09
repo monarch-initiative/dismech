@@ -1,0 +1,18 @@
+
+ ## dismech-46_XY_DSD_Due_to_5_Alpha_Reductase_2_Deficiency
+ * 577 combinations
+ * 576 satisfiable combinations
+ * 1.0 proportion of combinations explored
+ * 0.5 confidence
+ * 0.59681375508 prior probability
+ * 0.171366971868 posterior probability
+Grounding:
+ * True dismech:46_XY_DSD_Due_to_5_Alpha_Reductase_2_Deficiency (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency (dismech entry)) ≡ MONDO:0009923 (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency) :: prior: 0.95 posterior: 0.984297944247
+ * False dismech:46_XY_DSD_Due_to_5_Alpha_Reductase_2_Deficiency (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency (dismech entry)) ⊂ MONDO:0009923 (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency) :: prior: 0.07 posterior: 0.001949656369
+ * False MONDO:0009923 (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency) ⊂ dismech:46_XY_DSD_Due_to_5_Alpha_Reductase_2_Deficiency (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency (dismech entry)) :: prior: 0.03 posterior: 0.000801110644
+ * True MONDO:0009923 (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency) ≡ MESH:C535830 (Pseudovaginal Perineoscrotal Hypospadias) :: prior: 0.95 posterior: 0.95
+ * True MONDO:0009923 (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency) ≡ NCIT:C98699 (5 Alpha Steroid Reductase 2 Deficiency) :: prior: 0.95 posterior: 0.95
+ * True MONDO:0009923 (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency) ≡ OMIM:264600 (pseudovaginal perineoscrotal hypospadias) :: prior: 0.95 posterior: 0.95
+ * True MONDO:0009923 (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency) ≡ ORDO:753 (46,XY difference of sex development due to 5-alpha-reductase 2 deficiency) :: prior: 0.95 posterior: 0.95
+ * True MONDO:0009923 (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency) ≡ icd11f:1028755501 (46,XY disorder of sex development due to 5-alpha-reductase 2 deficiency) :: prior: 0.95 posterior: 0.95
+ * True ORDO:753 (46,XY difference of sex development due to 5-alpha-reductase 2 deficiency) ⊂ ICD10:E29.1 (Testicular hypofunction) :: prior: 0.9 posterior: 0.9

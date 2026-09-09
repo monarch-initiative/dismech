@@ -41,10 +41,11 @@ they do not assert or validate a subtype hierarchy.
 
 The [ICD enrichment](icd10/current/README.md) adds directional ORDO→WHO ICD-10
 and reviewed direct ICD10CM hypotheses to Mendelian inputs. **1,005 of 1,550
-Mendelian inputs now contain an ICD term (64.8%)**. The 177 previously solved
-inputs that changed are marked `STALE_INPUT` in the index and their reports;
-their saved solutions describe the previous inputs only. The original results
-below are historical. WHO ICD-10 and ICD10CM remain separate vocabularies.
+Mendelian inputs now contain an ICD term (64.8%)**. WHO ICD-10 and ICD10CM remain
+separate vocabularies. The [subsequent solver batch](runs/pending/README.md)
+attempted all 1,357 new and 177 changed inputs: **1,181 consistent, 32 retracted,
+321 timed out**. No `NOT_RUN` or `STALE_INPUT` entries remain. Timeout outputs
+are provisional, not completed verdicts. The original results below are historical.
 
 ## Mendelian selection
 
